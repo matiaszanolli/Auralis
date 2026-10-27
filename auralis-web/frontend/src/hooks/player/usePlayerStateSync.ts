@@ -98,7 +98,7 @@ export function usePlayerStateSync() {
 
     const unsubscribe = subscribe('player_state', (message) => {
       try {
-        const state = (message as { data: Partial<RawPlayerStateData> }).data;
+        const state: Partial<RawPlayerStateData> | undefined = message.data;
         if (!state || typeof state !== 'object') return;
 
         if (typeof state.seq === 'number') {
@@ -121,7 +121,7 @@ export function usePlayerStateSync() {
     // re-broadcasting the full player_state; without this subscriber
     // redux.player.currentTime was frozen between state-change events.
     const unsubscribePosition = subscribe('position_changed', (message) => {
-      const data = (message as { data?: { position?: number; seq?: number } }).data;
+      const data = message.data;
       if (!data || typeof data.position !== 'number' || !Number.isFinite(data.position)) {
         return;
       }
@@ -153,8 +153,8 @@ export function usePlayerStateSync() {
     // pause/stop/skip/volume reflect in Redux without waiting up to ~1s for the
     // next snapshot. Previously the command hooks claimed these messages
     // "update the Redux player slice" but no subscriber existed.
-    const shouldApplyTransportEvent = (message: unknown): boolean => {
-      const data = (message as { data?: { seq?: number } }).data;
+    const shouldApplyTransportEvent = (message: { data?: { seq?: number } }): boolean => {
+      const data = message.data;
       if (typeof data?.seq !== 'number') return true;
       if (data.seq < lastSeenTransportEventSeqRef.current) return false;
       lastSeenTransportEventSeqRef.current = data.seq;
@@ -181,7 +181,7 @@ export function usePlayerStateSync() {
     const unsubscribeVolume = subscribe('volume_changed', (message) => {
       // 0-100 integer scale — matches playerSlice.setVolume and the scale the
       // player_state snapshot uses.
-      const data = (message as { data?: { volume?: number; seq?: number } }).data;
+      const data = message.data;
       if (data && typeof data.volume === 'number' && Number.isFinite(data.volume)) {
         if (typeof data.seq === 'number') {
           if (data.seq < lastSeenVolumeEventSeqRef.current) return;
@@ -195,7 +195,7 @@ export function usePlayerStateSync() {
     // all include track_index now; resolve the track from the already-synced
     // queue rather than replicating backend shuffle/repeat ordering client-side.
     const unsubscribeTrackChanged = subscribe('track_changed', (message) => {
-      const data = (message as { data?: { action?: string; track_index?: number; seq?: number } }).data;
+      const data = message.data;
       if (!data || typeof data.track_index !== 'number' || !Number.isInteger(data.track_index)) {
         // No index in payload — let the next player_state snapshot reconcile.
         return;

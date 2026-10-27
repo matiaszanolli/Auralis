@@ -76,6 +76,9 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
     total_samples?: number;
     duration?: number;
     stream_type?: 'enhanced' | 'normal';
+    /** Owning stream epoch (#5861) — a late end from a superseded stream is
+     *  dropped by the subscriber. See AudioChunkMessage.stream_epoch. */
+    stream_epoch?: number;
     /** Why the stream ended (#4659, #4790).
      *
      * `'completed'` — the chunk loop delivered the whole track.
@@ -170,6 +173,9 @@ export interface AudioStreamErrorMessage extends WebSocketMessage {
     error: string;
     code?: string;
     stream_type?: 'enhanced' | 'normal';
+    /** Owning stream epoch (#5861) — a late error from a superseded stream must
+     *  not tear down the live one. See AudioChunkMessage.stream_epoch. */
+    stream_epoch?: number;
     /** When the backend can suggest where to resume (e.g. start of the
      *  failed chunk or the user's seek target), it sets this seconds-offset
      *  so the client can offer a 'retry from here' (#3547 / BE-NEW-89,

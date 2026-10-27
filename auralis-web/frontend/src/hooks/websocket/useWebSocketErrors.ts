@@ -10,17 +10,12 @@
 
 import { useWebSocketMessages } from './useWebSocketMessages';
 import { useToast } from '@/components/shared/Toast';
-import type { WebSocketMessage } from '@/types/websocket';
-import { isWebSocketErrorMessage } from '@/types/websocket';
 
 export function useWebSocketErrors(): void {
   const { warning } = useToast();
 
-  useWebSocketMessages(['error'], (message: WebSocketMessage) => {
-    if (isWebSocketErrorMessage(message)) {
-      warning(message.message || 'An error occurred');
-    } else {
-      warning('An error occurred');
-    }
+  // `message` is narrowed to WebSocketErrorMessage by the subscribed type (#5636).
+  useWebSocketMessages(['error'], (message) => {
+    warning(message.message || 'An error occurred');
   });
 }

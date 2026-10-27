@@ -18,15 +18,8 @@
  */
 
 import { useEffect, useSyncExternalStore } from 'react';
-import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import type {
-  ScanProgressMessage,
-  ScanCompleteMessage,
-  ScanPhase,
-  AnyWebSocketMessage,
-  WebSocketMessage,
-  WebSocketMessageType,
-} from '@/types/websocket';
+import { useWebSocketContext, type MessageOf } from '@/contexts/WebSocketContext';
+import type { ScanPhase, WebSocketMessageType } from '@/types/websocket';
 import type { ScanFailure } from '@/types/ws/library';
 import { isLibraryTracksRemovedMessage } from '@/types/ws/guards';
 import { get } from '@/utils/apiRequest';
@@ -111,9 +104,11 @@ function setSharedState(update: (prev: ScanStatus) => ScanStatus): void {
   }
 }
 
-// AnyWebSocketMessage (MessageHandler's union), not the narrower
-// WebSocketMessage — the shared subscription delivers any dispatched type.
-function handleScanMessage(raw: AnyWebSocketMessage | WebSocketMessage): void {
+// Typed over the scan types it is subscribed to (#5636), so each branch below
+// narrows `raw` by its `type` literal without a cast.
+type ScanMessageType = (typeof SCAN_MESSAGE_TYPES)[number];
+
+function handleScanMessage(raw: MessageOf<ScanMessageType>): void {
   // Any scan frame is newer than a resync request still in flight (#6101).
   scanFrameEpoch += 1;
   if (raw.type === 'library_scan_started') {
@@ -124,7 +119,7 @@ function handleScanMessage(raw: AnyWebSocketMessage | WebSocketMessage): void {
       isScanning: true,
     }));
   } else if (raw.type === 'scan_progress') {
-    const msg = raw as ScanProgressMessage;
+    const msg = raw;
     setSharedState((prev) => ({
       ...prev,
       isScanning: true,
@@ -135,7 +130,7 @@ function handleScanMessage(raw: AnyWebSocketMessage | WebSocketMessage): void {
       phase: msg.data.phase ?? 'processing',
     }));
   } else if (raw.type === 'scan_complete') {
-    const msg = raw as ScanCompleteMessage;
+    const msg = raw;
     const hadRemovals = removedReceivedInScan;
     setSharedState((prev) => ({
       ...INITIAL_STATE,
@@ -165,13 +160,13 @@ function handleScanMessage(raw: AnyWebSocketMessage | WebSocketMessage): void {
   }
 }
 
-const SCAN_MESSAGE_TYPES: WebSocketMessageType[] = [
+const SCAN_MESSAGE_TYPES = [
   'library_scan_started',
   'scan_progress',
   'scan_complete',
   'library_tracks_removed',
   'library_scan_error',
-];
+] as const satisfies readonly WebSocketMessageType[];
 
 // ----- Single refcounted WS subscription (the useArtworkRevision pattern) -----
 
@@ -241,10 +236,7 @@ export function useScanProgress(): ScanStatus {
   useEffect(() => {
     globalRefCount += 1;
     if (globalRefCount === 1) {
-      // handleScanMessage only narrows the message types it reads; the
-      // context's handler union is wider by design.
-      const handler = handleScanMessage as Parameters<typeof subscribe>[1];
-      const unsubscribes = SCAN_MESSAGE_TYPES.map((type) => subscribe(type, handler));
+      const unsubscribes = SCAN_MESSAGE_TYPES.map((type) => subscribe(type, handleScanMessage));
       detachGlobalSubscription = () => {
         for (const unsubscribe of unsubscribes) unsubscribe();
       };

@@ -1,9 +1,6 @@
 import { useEffect } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import type {
-  PlaylistUpdatedMessage,
-  PlaylistDeletedMessage,
-} from '@/types/websocket';
+import type { PlaylistUpdatedMessage } from '@/types/websocket';
 
 interface UsePlaylistWebSocketProps {
   onPlaylistCreated: () => void;
@@ -47,7 +44,7 @@ export const usePlaylistWebSocket = ({
 
     const unsubscribeUpdated = subscribe('playlist_updated', (message) => {
       try {
-        const msg = message as PlaylistUpdatedMessage;
+        const msg = message;
         const { playlist_id, action } = msg.data;
         if (action === 'renamed') {
           onPlaylistUpdated(playlist_id, { action });
@@ -66,7 +63,7 @@ export const usePlaylistWebSocket = ({
 
     const unsubscribeDeleted = subscribe('playlist_deleted', (message) => {
       try {
-        const msg = message as PlaylistDeletedMessage;
+        const msg = message;
         onPlaylistDeleted(msg.data.playlist_id);
       } catch (err) {
         console.error('Error handling playlist_deleted:', err);

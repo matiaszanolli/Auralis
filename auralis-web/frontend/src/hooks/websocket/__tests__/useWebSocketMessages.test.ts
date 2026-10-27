@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useMessageSubscriptions, useWebSocketMessages } from '../useWebSocketMessages';
-import type { WebSocketMessage } from '@/types/websocket';
+import type { WebSocketErrorMessage, WebSocketMessage } from '@/types/websocket';
 
 vi.mock('@/contexts/WebSocketContext');
 
@@ -38,21 +38,21 @@ describe('useWebSocketMessages', () => {
   });
 
   it('routes delivered messages to the latest callback', () => {
-    const received: WebSocketMessage[] = [];
+    const received: WebSocketErrorMessage[] = [];
     const { rerender } = renderHook(
       ({ cb }) => useWebSocketMessages(['error'], cb),
-      { initialProps: { cb: (m: WebSocketMessage) => received.push(m) } }
+      { initialProps: { cb: (m: WebSocketErrorMessage) => received.push(m) } }
     );
 
-    const handler = subscribe.mock.calls[0][1] as (m: WebSocketMessage) => void;
-    const msg = { type: 'error', data: {} } as unknown as WebSocketMessage;
+    const handler = subscribe.mock.calls[0][1] as (m: WebSocketErrorMessage) => void;
+    const msg: WebSocketErrorMessage = { type: 'error', error: 'rate_limit_exceeded', message: 'slow down' };
     handler(msg);
     expect(received).toEqual([msg]);
 
     // Swapping the callback without changing types must NOT resubscribe, and
     // the new callback must receive subsequent messages (ref-stable delegation).
-    const received2: WebSocketMessage[] = [];
-    rerender({ cb: (m: WebSocketMessage) => received2.push(m) });
+    const received2: WebSocketErrorMessage[] = [];
+    rerender({ cb: (m: WebSocketErrorMessage) => received2.push(m) });
     handler(msg);
     expect(subscribe).toHaveBeenCalledTimes(1);
     expect(received2).toEqual([msg]);

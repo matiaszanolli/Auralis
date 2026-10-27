@@ -11,7 +11,6 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
-import type { EnhancementSettingsChangedMessage } from '@/types/websocket';
 import { isExternalChange, oncePerMessage } from './enhancementBroadcastReissue';
 import type { EnhancementState } from './enhancementState';
 
@@ -63,7 +62,7 @@ export function useEnhancementStatusSync(
   useWebSocketMessages(
     ['enhancement_settings_changed'],
     (message) => {
-      const enhancementMsg = message as EnhancementSettingsChangedMessage;
+      const enhancementMsg = message; // narrowed to EnhancementSettingsChangedMessage (#5636)
 
       // #5864: an externally-originated enabled flip (Settings save) must
       // re-issue the active stream — the running loop stops itself when it

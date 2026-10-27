@@ -31,7 +31,7 @@ export function useServerRestartNotice(): void {
   const hadSessionRef = useRef(false);
 
   useWebSocketMessages(['player_state'], (message) => {
-    const state = (message as { data?: Partial<RawPlayerStateData> }).data;
+    const state: Partial<RawPlayerStateData> | undefined = message.data;
     const instanceId = state?.server_instance_id;
     if (!state || typeof instanceId !== 'string' || !instanceId) return;
 

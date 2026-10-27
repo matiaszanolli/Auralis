@@ -29,11 +29,6 @@ import { mapTrackInfoToTrack } from './trackInfoMapper';
 import { reconcileQueueIndex } from './queueIndexReconciliation';
 import type { AppDispatch } from '@/store';
 
-type QueueWSMessage =
-  | QueueChangedMessage
-  | QueueShuffledMessage
-  | RepeatModeChangedMessage;
-
 /**
  * Subscribe to `queue_changed` / `queue_shuffled` / `repeat_mode_changed`
  * WebSocket events and dispatch them to Redux so all consumers see the same
@@ -50,7 +45,7 @@ export function useQueueSubscription(): void {
   useWebSocketMessages(
     ['queue_changed', 'queue_shuffled', 'repeat_mode_changed'],
     (message) => {
-      const msg = message as QueueWSMessage;
+      const msg = message;
 
       switch (msg.type) {
         case 'queue_changed': {

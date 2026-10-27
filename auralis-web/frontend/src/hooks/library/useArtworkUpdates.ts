@@ -65,11 +65,10 @@ function subscribeToAlbum(albumId: number, listener: () => void): () => void {
 let globalRefCount = 0;
 let unsubscribeFromManager: (() => void) | null = null;
 
-function handleArtworkMessage(message: unknown): void {
-  // The shared WS context fans out by message type, so we still match
-  // before bumping — defensive against future cross-type dispatches.
-  const msg = message as Partial<ArtworkUpdatedMessage>;
-  if (msg && msg.type === 'artwork_updated' && msg.data && typeof msg.data.album_id === 'number') {
+function handleArtworkMessage(msg: ArtworkUpdatedMessage): void {
+  // Routed by message type, so `msg` is an artwork_updated frame; the payload
+  // check guards a malformed frame off the wire.
+  if (msg.data && typeof msg.data.album_id === 'number') {
     bumpRevision(msg.data.album_id);
   }
 }

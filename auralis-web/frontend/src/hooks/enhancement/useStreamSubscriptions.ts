@@ -88,7 +88,7 @@ export function useStreamSubscriptions(deps: StreamSubscriptionDeps) {
   useMessageSubscriptions(wsContext.subscribe, {
     audio_stream_start: (m) => {
       clearStreamStartWatchdog();
-      const start = m as unknown as AudioStreamStartMessage;
+      const start = m;
       // Record the epoch here rather than in the callers' handleStreamStart
       // (#4563): this wrapper is the one choke point every stream type passes
       // through, so enhanced, normal, seek and reconnect-resume are all
@@ -121,18 +121,18 @@ export function useStreamSubscriptions(deps: StreamSubscriptionDeps) {
       // detected superseded content.
       bufferEpochRef.current = incomingEpoch ?? null;
     },
-    audio_chunk: (m) => { clearStreamStartWatchdog(); handleChunk(m as unknown as AudioChunkMessage); },
+    audio_chunk: (m) => { clearStreamStartWatchdog(); handleChunk(m); },
     audio_stream_end: (m) => {
       // #5861: end/error now carry stream_epoch; a late frame from the
       // superseded stream must not finalize (or kill) the live one.
-      if (isSupersededEpoch((m as { data?: { stream_epoch?: number } }).data?.stream_epoch)) return;
+      if (isSupersededEpoch(m.data?.stream_epoch)) return;
       clearStreamStartWatchdog();
-      handleStreamEnd(m as unknown as AudioStreamEndMessage);
+      handleStreamEnd(m);
     },
     audio_stream_error: (m) => {
-      if (isSupersededEpoch((m as { data?: { stream_epoch?: number } }).data?.stream_epoch)) return;
+      if (isSupersededEpoch(m.data?.stream_epoch)) return;
       clearStreamStartWatchdog();
-      handleStreamError(m as unknown as AudioStreamErrorMessage);
+      handleStreamError(m);
     },
   });
 

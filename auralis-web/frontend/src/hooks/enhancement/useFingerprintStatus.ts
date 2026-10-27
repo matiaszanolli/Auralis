@@ -116,7 +116,7 @@ export function useFingerprintStatus(
   // subscription hook (which depends on it alone) does not resubscribe on a
   // connect/disconnect/error flicker (#4668).
   useMessageSubscriptions(wsContext.subscribe, {
-    fingerprint_progress: (m) => handleFingerprintProgress(m as unknown as FingerprintProgressMessage),
+    fingerprint_progress: handleFingerprintProgress,
   });
 
   // Cancel a pending auto-clear timer on unmount (#2353).

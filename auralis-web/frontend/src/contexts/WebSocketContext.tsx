@@ -53,6 +53,18 @@ export type {
 
 export type MessageHandler = (message: AnyWebSocketMessage | WebSocketMessage) => void;
 
+/** The message interface carried by a given `type` literal (e.g. 'position_changed' → PositionChangedMessage). */
+export type MessageOf<K extends WebSocketMessageType> = Extract<AnyWebSocketMessage, { type: K }>;
+
+/**
+ * A handler for ONE message type (#5636). `subscribe('position_changed', m => …)`
+ * narrows `m` to PositionChangedMessage, so a payload rename in `types/ws/*`
+ * fails to compile at every consumer instead of hiding behind a hand-written
+ * cast. (`MessageHandler` above stays wide: `subscribeAll` and dispatch really
+ * do see every frame, including types outside the union.)
+ */
+export type TypedMessageHandler<K extends WebSocketMessageType> = (message: MessageOf<K>) => void;
+
 // ============================================================================
 // WebSocket Context Interface
 // ============================================================================
@@ -63,7 +75,10 @@ interface WebSocketContextValue {
   connectionStatus: ConnectionStatus;
 
   // Subscription management
-  subscribe: (messageType: WebSocketMessageType, handler: MessageHandler) => () => void;
+  subscribe: <K extends WebSocketMessageType>(
+    messageType: K,
+    handler: TypedMessageHandler<K>
+  ) => () => void;
   subscribeAll: (handler: MessageHandler) => () => void;
 
   // Send messages
@@ -198,7 +213,14 @@ export const WebSocketProvider = ({
   /**
    * Subscribe to specific message type
    */
-  const subscribe = useCallback((messageType: WebSocketMessageType, handler: MessageHandler) => {
+  const subscribe = useCallback(<K extends WebSocketMessageType>(
+    messageType: K,
+    typedHandler: TypedMessageHandler<K>
+  ) => {
+    // The single place a typed handler is widened for storage: dispatchMessage
+    // only ever calls the handlers registered under `message.type` with a
+    // message of that type, so the narrower parameter is always satisfied.
+    const handler = typedHandler as unknown as MessageHandler;
     if (!subscriptionsRef.current.has(messageType)) {
       subscriptionsRef.current.set(messageType, new Set());
     }

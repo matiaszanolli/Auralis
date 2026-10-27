@@ -21,16 +21,20 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useWebSocketContext, type MessageHandler } from '@/contexts/WebSocketContext';
-import type { WebSocketMessage, WebSocketMessageType } from '@/types/websocket';
+import {
+  useWebSocketContext,
+  type MessageHandler,
+  type TypedMessageHandler,
+} from '@/contexts/WebSocketContext';
+import type { WebSocketMessageType } from '@/types/websocket';
 
 /** The `subscribe` function of a WebSocketContext value. */
 export type SubscribeFn = ReturnType<typeof useWebSocketContext>['subscribe'];
 
-/** One handler per message type. */
-export type MessageHandlers = Partial<
-  Record<WebSocketMessageType, (message: WebSocketMessage) => void>
->;
+/** One handler per message type, each narrowed to that type's message (#5636). */
+export type MessageHandlers = {
+  [K in WebSocketMessageType]?: TypedMessageHandler<K>;
+};
 
 /**
  * The single implementation of the subscription lifecycle: ref-held handlers,
@@ -62,8 +66,11 @@ export function useMessageSubscriptions(subscribe: SubscribeFn, handlers: Messag
       .split('\x00')
       .filter(Boolean)
       .map((type) => {
+        // `type` is recovered from a string key, so the per-type handler can
+        // only be called through the wide dispatch signature. dispatchMessage
+        // delivers a message of exactly this type to this subscription.
         const stable: MessageHandler = (message) =>
-          handlersRef.current[type as WebSocketMessageType]?.(message as WebSocketMessage);
+          (handlersRef.current[type as WebSocketMessageType] as MessageHandler | undefined)?.(message);
         return subscribe(type as WebSocketMessageType, stable);
       });
 
@@ -73,9 +80,9 @@ export function useMessageSubscriptions(subscribe: SubscribeFn, handlers: Messag
   }, [messageTypesKey, subscribe]);
 }
 
-export function useWebSocketMessages(
-  messageTypes: WebSocketMessageType[],
-  callback: (message: WebSocketMessage) => void
+export function useWebSocketMessages<K extends WebSocketMessageType>(
+  messageTypes: K[],
+  callback: TypedMessageHandler<K>
 ): void {
   const { subscribe } = useWebSocketContext();
   useMessageSubscriptions(
