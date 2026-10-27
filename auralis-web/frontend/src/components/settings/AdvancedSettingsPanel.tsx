@@ -185,7 +185,7 @@ export const AdvancedSettingsPanel = ({
         style={{
           marginTop: tokens.spacing.xl,
           padding: tokens.spacing.lg,
-          borderRadius: '8px',
+          borderRadius: tokens.borderRadius.sm,
           border: `1px solid ${tokens.colors.semantic.error}`,
           background: tokens.colors.utility.errorBg,
         }}

@@ -21,7 +21,7 @@ export const ToolbarContainer = styled(Paper)(({ theme: _theme }) => ({
   background: `linear-gradient(135deg, ${tokens.colors.opacityScale.accent.veryStrong} 0%, ${withOpacity(tokens.colors.audioSemantic.harmonic, 0.95)} 100%)`,
   backdropFilter: 'blur(20px)',
   border: `1px solid ${tokens.colors.opacityScale.accent.light}`,
-  borderRadius: '16px',
+  borderRadius: tokens.borderRadius.lg,
   padding: spacingPresets.buttons.compact,
   display: 'flex',
   alignItems: 'center',

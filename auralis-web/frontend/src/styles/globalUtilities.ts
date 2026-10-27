@@ -66,7 +66,7 @@ export const utilityStyles = css`
   }
 
   .pulse-effect {
-    animation: pulse 2s ease-in-out infinite;
+    animation: pulse ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration};
   }
 
   /* Loading skeleton */

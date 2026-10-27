@@ -1,6 +1,7 @@
 
 import { Box } from '@mui/material';
 import { SkeletonBox } from '@/components/library/Styles/Skeleton.styles';
+import { tokens } from '@/design-system';
 
 /**
  * AlbumCardSkeleton - Loading skeleton for album card
@@ -17,7 +18,7 @@ export const AlbumCardSkeleton = () => {
         sx={{
           width: '100%',
           paddingTop: '100%', // 1:1 aspect ratio
-          borderRadius: '8px',
+          borderRadius: tokens.borderRadius.sm,
         }}
       />
       <SkeletonBox

@@ -144,3 +144,70 @@ describe('no doubled px after a px-valued token (#5644)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * Literals that EQUAL a token must use it (#5648).
+ *
+ * After #5379/#5384/#4663 a residual set of sites still spelled out values the
+ * scales already hold: `'8px'`/`'12px'`/`'16px'` radii (sm/md/lg), a 1.5
+ * line-height (`typography.lineHeight.normal`), and `pulse 2s ease-in-out
+ * infinite` (`animations.pulse`). Only EXACT matches are guarded here.
+ *
+ * Deliberate literals, recorded rather than tokenised (no visual change, no new
+ * public scale step — decided in #5648):
+ *  - 2/3/4/6px radii: the radius scale starts at 8px (sm). Those are skeleton
+ *    bars, progress tracks and chips that are meant to be tighter than any
+ *    component radius, so they stay literal.
+ *  - 1.1 / 1.4 / 1.6 line-heights: between the 1.2 / 1.5 / 1.75 steps by design
+ *    (a tight heading, dense row text, long-form description).
+ *  - spin / rotate / shimmer / breathe / playbackShimmer durations: no animation
+ *    token exists for them (only pulse, fadeIn, slideUp do).
+ *  - numeric `borderRadius: n` inside MUI `sx`: that is a THEME-SPACING MULTIPLE,
+ *    not pixels, so it is not interchangeable with `tokens.borderRadius.*`.
+ */
+describe('values equal to a token use the token (#5648)', () => {
+  const sources = (): Array<[string, string]> => {
+    const modules = import.meta.glob('/src/**/*.{ts,tsx}', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>;
+    return Object.entries(modules).filter(
+      ([path]) =>
+        !path.includes('__tests__') &&
+        !/\.test\.tsx?$/.test(path) &&
+        !path.startsWith('/src/design-system/')
+    );
+  };
+
+  const offenders = (pattern: RegExp) =>
+    sources()
+      .filter(([, source]) => pattern.test(source))
+      .map(([path]) => path.replace(/^\/src\//, ''));
+
+  it('no literal borderRadius equals tokens.borderRadius.sm / md / lg', () => {
+    expect(offenders(/borderRadius:\s*['"](?:8|12|16)px['"]/)).toEqual([]);
+  });
+
+  it('no literal lineHeight equals a typography.lineHeight step', () => {
+    expect(offenders(/lineHeight:\s*(?:1\.2|1\.5|1\.75)\s*[,}\n]/)).toEqual([]);
+  });
+
+  it('no `pulse 2s ease-in-out infinite` shorthand duplicates animations.pulse', () => {
+    expect(offenders(/pulse\s+2s\s+(?:ease-in-out|cubic-bezier\(0\.4, 0, 0\.6, 1\))\s+infinite/)).toEqual([]);
+  });
+
+  it('the tokens those sites now read still hold the values they replaced', () => {
+    expect([tokens.borderRadius.sm, tokens.borderRadius.md, tokens.borderRadius.lg]).toEqual([
+      '8px',
+      '12px',
+      '16px',
+    ]);
+    expect(tokens.typography.lineHeight.normal).toBe(1.5);
+    expect(tokens.animations.pulse.duration).toBe('2s');
+    expect(tokens.animations.pulse.timing).toBe('ease-in-out');
+    expect(tokens.animations.pulse.iteration).toBe('infinite');
+    expect(tokens.transitions.base).toBe('450ms');
+    expect(tokens.transitions.easeInOut).toBe('cubic-bezier(0.4, 0, 0.6, 1)');
+  });
+});

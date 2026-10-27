@@ -12,7 +12,7 @@ export const DialogContentBox = styled(Box)({
 export const TrackCountBox = styled(Box)({
   p: 2,
   background: tokens.colors.opacityScale.accent.veryLight,
-  borderRadius: '8px',
+  borderRadius: tokens.borderRadius.sm,
   border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
 });
 

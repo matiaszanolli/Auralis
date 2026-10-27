@@ -45,7 +45,7 @@ export const BatchActionsMoreMenu = ({
             // dark ink unreadable on it in light mode.
             background: themeVars.menuSurface,
             border: `1px solid ${tokens.colors.opacityScale.accent.standard}`,
-            borderRadius: '12px',
+            borderRadius: tokens.borderRadius.md,
             mt: 1,
           },
         },

@@ -52,7 +52,7 @@ export const TrackCardInfo = ({
           sx={{
             color: themeVars.textSecondary,
             fontWeight: tokens.typography.fontWeight.normal, // Reduced from default (less weight variance)
-            lineHeight: 1.5, // Increased for secondary text breathing room
+            lineHeight: tokens.typography.lineHeight.normal, // Increased for secondary text breathing room
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -69,7 +69,7 @@ export const TrackCardInfo = ({
           sx={{
             color: themeVars.textMuted, // Changed from disabled to tertiary (better hierarchy)
             fontWeight: tokens.typography.fontWeight.normal,
-            lineHeight: 1.5,
+            lineHeight: tokens.typography.lineHeight.normal,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',

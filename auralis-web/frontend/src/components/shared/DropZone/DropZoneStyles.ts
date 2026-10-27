@@ -56,7 +56,7 @@ export const DropZonePaper = styled(Paper, {
         inset: 0,
         background: tokens.gradients.aurora,
         opacity: 0.05,
-        animation: 'pulse 2s ease-in-out infinite',
+        animation: `pulse ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}`,
       },
     }),
 

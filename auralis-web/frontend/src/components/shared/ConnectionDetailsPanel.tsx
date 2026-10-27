@@ -41,7 +41,7 @@ export function ConnectionDetailsPanel({
         padding: tokens.spacing.lg,
         background: themeVars.surfacePrimary,
         border: `1px solid ${tokens.colors.border.medium}`,
-        borderRadius: '8px',
+        borderRadius: tokens.borderRadius.sm,
         minWidth: '280px',
         boxShadow: `0 4px 20px ${tokens.colors.opacityScale.dark.veryStrong}`,
       }}

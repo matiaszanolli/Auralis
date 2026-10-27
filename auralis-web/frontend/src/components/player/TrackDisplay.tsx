@@ -99,7 +99,7 @@ const TrackDisplayComponent = ({
   const skeletonStyle = {
     backgroundColor: themeVars.surfaceRaised,
     borderRadius: '4px',
-    animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+    animation: `pulse ${tokens.animations.pulse.duration} ${tokens.transitions.easeInOut} ${tokens.animations.pulse.iteration}`,
   } as const;
 
   return (

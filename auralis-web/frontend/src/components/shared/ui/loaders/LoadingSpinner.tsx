@@ -15,7 +15,7 @@ interface LoadingSpinnerProps {
 const SpinnerContainer = styled(Box)({
   display: 'inline-flex',
   position: 'relative',
-  animation: `${pulse} 2s ease-in-out infinite`,
+  animation: `${pulse} ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}`,
 });
 
 const GradientSVG = styled('svg')({
@@ -88,7 +88,7 @@ const LoadingText = styled(Box)(({ theme: _theme }) => ({
   fontSize: tokens.typography.fontSize.base,
   color: themeVars.textSecondary,
   fontWeight: tokens.typography.fontWeight.medium,
-  animation: `${pulse} 2s ease-in-out infinite`,
+  animation: `${pulse} ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}`,
 }));
 
 export const CenteredLoading = ({

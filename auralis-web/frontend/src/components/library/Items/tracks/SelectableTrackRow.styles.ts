@@ -12,7 +12,7 @@ export const SelectableContainer = styled(Box, {
   alignItems: 'center',
   gap: tokens.spacing.cluster,
   padding: `${tokens.spacing.xs} ${tokens.spacing.cluster}`,
-  borderRadius: '8px',
+  borderRadius: tokens.borderRadius.sm,
   backgroundColor: isSelected ? tokens.colors.opacityScale.accent.lighter : 'transparent',
   border: isSelected ? `1px solid ${tokens.colors.opacityScale.accent.strong}` : '1px solid transparent',
   transition: tokens.transitions.hover_out,

@@ -41,7 +41,7 @@ export const SkeletonBox = styled(Box)({
  * Features: fades in/out smoothly over 2 seconds
  */
 export const PulsingBox = styled(Box)({
-  animation: `${pulse} 2s ease-in-out infinite`,
+  animation: `${pulse} ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}`,
 });
 
 /**

@@ -80,7 +80,7 @@ export function TierCard({ tier, stats }: { tier: 'tier1' | 'tier2'; stats: Cach
       style={{
         padding: tokens.spacing.lg,
         background: themeVars.surfaceSecondary,
-        borderRadius: '8px',
+        borderRadius: tokens.borderRadius.sm,
         border: `1px solid ${tokens.colors.border.light}`,
       }}
     >

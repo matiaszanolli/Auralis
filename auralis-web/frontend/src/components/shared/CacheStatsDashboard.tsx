@@ -56,7 +56,7 @@ export function CacheStatsDashboard({
         style={{
           padding: tokens.spacing.lg,
           background: tokens.colors.utility.errorBg,
-          borderRadius: '8px',
+          borderRadius: tokens.borderRadius.sm,
           color: tokens.colors.semantic.error,
           fontSize: tokens.typography.fontSize.sm,
         }}
@@ -83,7 +83,7 @@ export function CacheStatsDashboard({
         style={{
           padding: tokens.spacing.lg,
           background: themeVars.surfacePrimary,
-          borderRadius: '8px',
+          borderRadius: tokens.borderRadius.sm,
           border: `1px solid ${tokens.colors.border.accent}`,
         }}
       >
@@ -178,7 +178,7 @@ export function CacheStatsDashboard({
           style={{
             padding: tokens.spacing.lg,
             background: themeVars.surfaceSecondary,
-            borderRadius: '8px',
+            borderRadius: tokens.borderRadius.sm,
             border: `1px solid ${tokens.colors.border.light}`,
           }}
         >
