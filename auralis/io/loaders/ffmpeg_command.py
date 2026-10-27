@@ -14,6 +14,17 @@ from ...utils.logging import Code, ModuleError, debug, warning
 from .ffmpeg_probe import _PROTOCOL_WHITELIST_ARGS
 
 
+def decoded_channel_count(source_channels: int) -> int:
+    """Channels an FFmpeg decode of a *source_channels* file yields (#5709).
+
+    The one rule behind the ``-ac 2`` downmix in :func:`build_ffmpeg_cmd`: mono
+    and stereo keep their count, anything wider is folded to stereo. Probes that
+    advertise a channel count for a file that will be decoded this way must use
+    it, not the container's native count.
+    """
+    return 2 if source_channels > 2 else source_channels
+
+
 def build_ffmpeg_cmd(
     file_path_str: str,
     temp_wav: Path,
@@ -37,7 +48,7 @@ def build_ffmpeg_cmd(
     # dimensionality depended on file extension rather than audio content.
     # Gating here matches `soundfile_loader`, which downmixes only when
     # `shape[1] > 2`.
-    needs_downmix = source_channels > 2
+    needs_downmix = decoded_channel_count(source_channels) != source_channels
     ffmpeg_cmd = ['ffmpeg', *_PROTOCOL_WHITELIST_ARGS]
     # -ss BEFORE -i is input seeking: ffmpeg jumps to the offset instead of
     # decoding and discarding everything ahead of it (#5110).

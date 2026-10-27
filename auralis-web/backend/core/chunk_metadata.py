@@ -22,8 +22,11 @@ import logging
 from dataclasses import dataclass
 
 from core.chunk_boundaries import content_chunk_count
+from core.seekable_source import can_seek_natively
 from auralis.io import loader as _io_loader
-from auralis.io.unified_loader import get_audio_info, load_audio
+from auralis.io.loaders.ffmpeg_command import decoded_channel_count
+from auralis.io.audio_probe import get_audio_info
+from auralis.io.unified_loader import load_audio
 
 logger = logging.getLogger("core.chunked_processor")
 
@@ -84,6 +87,11 @@ def load_audio_metadata(filepath: str) -> AudioMetadata:
             raise RuntimeError(meta.get('error', 'incomplete audio metadata'))
         sample_rate = int(meta['sample_rate'])
         channels = int(meta['channels'])
+        # A file libsndfile cannot open is decoded through FFmpeg, which folds
+        # >2 channels to stereo: advertise what the chunks actually carry, not
+        # the container's native count (#5709). Native files stream as-is.
+        if not can_seek_natively(filepath):
+            channels = decoded_channel_count(channels)
         total_duration = float(meta['duration_seconds'])
         # Count only content-carrying chunks under the overlap model
         # (#4124) — see core.chunk_boundaries.content_chunk_count.
