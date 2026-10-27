@@ -22,12 +22,20 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+from unittest.mock import MagicMock
+
 import pytest
 
 
 @pytest.fixture
 def player(enhanced_player):
-    """The enhanced_player fixture from conftest.py — fully constructed."""
+    """The enhanced_player fixture from conftest.py — fully constructed.
+
+    The loader thread these tests observe is only spawned when the processor has
+    an auto-master stage (#5708); the fixture's config leaves it off.
+    """
+    if enhanced_player.processor.auto_master is None:
+        enhanced_player.processor.auto_master = MagicMock()
     return enhanced_player
 
 

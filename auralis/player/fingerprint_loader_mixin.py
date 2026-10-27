@@ -59,6 +59,14 @@ class PlayerFingerprintLoaderMixin:
             self._track_generation += 1
             generation = self._track_generation
 
+        if self.processor.auto_master is None:
+            # #5708: set_fingerprint() is a no-op without auto-mastering (the
+            # shipped backend builds the player with enable_auto_mastering=False)
+            # and nothing else reads the result, so the thread would only decode
+            # and analyse the file a second time next to the backend's own
+            # fingerprint queue -- once per load, uncapped under rapid skipping.
+            return
+
         threading.Thread(
             target=self._load_fingerprint_for_file,
             args=(file_path, generation),
