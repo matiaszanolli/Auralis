@@ -2,11 +2,11 @@
  * useEnhancedPlayCommand Hook
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Owns the `playEnhanced` command: it tears down any prior stream, loads the
- * track metadata (so currentTrack is set before backend confirmation), records
+ * Owns the `playEnhanced` command: it tears down any prior stream, records
  * the track params for later seeks, sets the buffering state for instant UI
  * feedback, sends the `play_enhanced` message, and arms the first-stream
- * watchdog. Subscriptions are set up elsewhere (on mount), so this only prepares
+ * watchdog. Track metadata loads in the background and never gates playback
+ * (#5649). Subscriptions are set up elsewhere (on mount), so this only prepares
  * state and sends the request.
  *
  * Extracted from usePlayEnhanced (#4077).
@@ -20,7 +20,6 @@ import { useCallback } from 'react';
 import type { MutableRefObject } from 'react';
 import type { AppDispatch } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { getApiUrl } from '@/config/api';
 import {
   startStreaming,
   setStreamingError,
@@ -28,6 +27,9 @@ import {
 } from '@/store/slices/playerSlice';
 import { setCurrentTrackAndSyncQueue } from '@/store/slices/playerQueueSync';
 import { transformTrack } from '@/api/transformers';
+import type { TrackApiResponse } from '@/api/transformers/types';
+import { get } from '@/utils/apiRequest';
+import { isAbortError } from '@/utils/errorGuards';
 import type { EnhancementPreset } from '@/types/domain';
 import type { StreamingCoreReturn } from './useAudioStreamingCore';
 import type { CurrentTrackInfo } from './useEnhancedStreamStart';
@@ -54,6 +56,43 @@ export type StartPlayback = (
   intensity: number,
   wireType?: PlaybackWireType
 ) => Promise<void>;
+
+/**
+ * Load the track row so `currentTrack` is set ahead of the backend's own
+ * `track_changed` confirmation (#2258).
+ *
+ * Fire-and-forget by design (#5649): it used to be awaited BEFORE the WS play
+ * command, so a slow REST path delayed playback indefinitely with no buffering
+ * state. It now rides the shared transport (30 s timeout, backend `detail`
+ * extraction) and a failure is explicit: it is logged and `currentTrack` is
+ * left to the `player_state` / `track_changed` frames, which carry the same
+ * track once the stream starts. A superseded invocation aborts this request.
+ */
+async function loadCurrentTrack(
+  trackId: number,
+  dispatch: AppDispatch,
+  signal: AbortSignal
+): Promise<void> {
+  try {
+    // #5606: the REST body is the snake_case TrackResponse — transformTrack is
+    // the API-boundary mapper every other REST consumer uses.
+    const track = transformTrack(
+      await get<TrackApiResponse>(`/api/library/tracks/${trackId}`, { signal })
+    );
+    if (signal.aborted) return;
+    // #3587: keep queue.currentIndex aligned with player.currentTrack for the
+    // duration before backend WS confirmation arrives.
+    dispatch(setCurrentTrackAndSyncQueue(track));
+    DEBUG && console.log('[usePlayEnhanced] Set current track:', track.title);
+  } catch (err) {
+    if (signal.aborted || isAbortError(err)) return;
+    console.warn(
+      `[usePlayEnhanced] Track ${trackId} metadata unavailable; ` +
+        'currentTrack will follow the backend track_changed frame:',
+      err
+    );
+  }
+}
 
 export function useEnhancedPlayCommand({
   wsContext,
@@ -92,31 +131,11 @@ export function useEnhancedPlayCommand({
           throw new Error('WebSocket not connected. Please wait for connection and try again.');
         }
 
-        // Load track data from backend so we can set currentTrack (fixes #2258)
-        // AbortController cancels fetch on unmount/re-invocation (#2780)
+        // AbortController cancels a still-running metadata load when this
+        // invocation is superseded or the component unmounts (#2780).
         core.abortRef.current?.abort();
-        core.abortRef.current = new AbortController();
-        try {
-          const response = await fetch(getApiUrl(`/api/library/tracks/${trackId}`), {
-            signal: core.abortRef.current.signal,
-          });
-          if (response.ok) {
-            // #5606: the REST body is the snake_case TrackResponse (artists:
-            // string[], album: string | null, duration possibly null) — the
-            // compiler stayed silent only because response.json() is any.
-            // transformTrack is the API-boundary mapper every other REST
-            // consumer uses (#5009 covered the WS shapes; this site slipped).
-            const track = transformTrack(await response.json());
-            // #3587: keep queue.currentIndex aligned with player.currentTrack
-            // for the duration before backend WS confirmation arrives.
-            dispatch(setCurrentTrackAndSyncQueue(track));
-            DEBUG && console.log('[usePlayEnhanced] Set current track:', track.title);
-          }
-        } catch (err) {
-          if (err instanceof DOMException && err.name === 'AbortError') return;
-          DEBUG && console.warn('[usePlayEnhanced] Failed to load track data:', err);
-          // Continue anyway - playback will still work
-        }
+        const metadataController = new AbortController();
+        core.abortRef.current = metadataController;
 
         // Store the track this stream is for, so seekTo can restart it.
         // Deliberately trackId-only (#5604): preset/intensity used to be
@@ -157,6 +176,9 @@ export function useEnhancedPlayCommand({
         // stream message surfaces an error instead of leaving the UI stuck in
         // 'buffering' (#4433). Cleared by the core on the first stream message.
         core.armStreamStartWatchdog();
+
+        // Background: playback above has already been dispatched (#5649).
+        void loadCurrentTrack(trackId, dispatch, metadataController.signal);
 
         DEBUG && console.log('[usePlayEnhanced] Playback requested (buffering...):', {
           trackId,

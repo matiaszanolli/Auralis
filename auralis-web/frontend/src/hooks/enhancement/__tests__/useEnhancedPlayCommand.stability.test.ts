@@ -16,8 +16,8 @@
  * during playback, so the memo would invalidate just as often.
  */
 
-import { renderHook } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useEnhancedPlayCommand } from '../useEnhancedPlayCommand';
 
 vi.mock('@/contexts/WebSocketContext', () => ({
@@ -143,5 +143,96 @@ describe('useEnhancedPlayCommand identity stability (#4608)', () => {
     rerender();
 
     expect(result.current).not.toBe(before);
+  });
+});
+
+describe('useEnhancedPlayCommand metadata load is non-blocking (#5649)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function setup() {
+    const refs = makeStableRefs();
+    const send = vi.fn();
+    const dispatch = vi.fn() as any;
+    const core = {
+      ...refs,
+      pauseHoldRef: { current: false },
+      armStreamStartWatchdog: vi.fn(),
+    } as any;
+    const wsContext = { isConnected: true, send } as any;
+    const { result } = renderHook(() =>
+      useEnhancedPlayCommand({
+        wsContext,
+        dispatch,
+        core,
+        currentTrackInfoRef: { current: null } as any,
+        resetFingerprint: vi.fn(),
+      })
+    );
+    return { result, send, dispatch, core };
+  }
+
+  it('sends the play command and starts buffering while the metadata GET never resolves', async () => {
+    // A REST path that never answers must not hold playback hostage.
+    global.fetch = vi.fn().mockImplementation(() => new Promise<Response>(() => {}));
+    const { result, send, dispatch, core } = setup();
+
+    await act(async () => {
+      await result.current(7, 'adaptive' as any, 1);
+    });
+
+    expect(send).toHaveBeenCalledWith({
+      type: 'play_enhanced',
+      data: { track_id: 7, preset: 'adaptive', intensity: 1 },
+    });
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: expect.stringContaining('startStreaming') })
+    );
+    expect(core.armStreamStartWatchdog).toHaveBeenCalled();
+  });
+
+  it('a failed metadata GET is logged and does not stop playback or raise a streaming error', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      headers: new Headers(),
+      json: () => Promise.resolve({ detail: 'boom' }),
+      text: () => Promise.resolve('{"detail":"boom"}'),
+    });
+    const { result, send, dispatch } = setup();
+
+    await act(async () => {
+      await result.current(7, 'adaptive' as any, 1);
+    });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(warn).toHaveBeenCalled());
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: expect.stringContaining('setStreamingError') })
+    );
+  });
+
+  it('aborts the previous invocation\'s metadata request when a new play starts', async () => {
+    const signals: AbortSignal[] = [];
+    global.fetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      if (init?.signal) signals.push(init.signal);
+      return new Promise<Response>(() => {});
+    });
+    const { result } = setup();
+
+    await act(async () => {
+      await result.current(1, 'adaptive' as any, 1);
+    });
+    await waitFor(() => expect(signals).toHaveLength(1));
+    await act(async () => {
+      await result.current(2, 'adaptive' as any, 1);
+    });
+    await waitFor(() => expect(signals).toHaveLength(2));
+
+    expect(signals[0].aborted).toBe(true);
+    expect(signals[1].aborted).toBe(false);
   });
 });

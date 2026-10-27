@@ -8,6 +8,13 @@
 
 import { APIRequestError } from '@/utils/apiRequest';
 import { toError } from '@/utils/errorGuards';
+import type { HttpStatusError } from '@/utils/httpError';
+
+/** The HTTP-status half of the retry rule (see isRetryableError). */
+function isRetryableStatus(status: number): boolean {
+  if (status === 0 || status === 408 || status === 429) return true;
+  return status >= 500 && status !== 501;
+}
 
 /**
  * Determine if an error is retryable.
@@ -31,9 +38,14 @@ import { toError } from '@/utils/errorGuards';
  */
 export function isRetryableError(error: Error): boolean {
   if (error instanceof APIRequestError) {
-    const status = error.statusCode;
-    if (status === 0 || status === 408 || status === 429) return true;
-    return status >= 500 && status !== 501;
+    return isRetryableStatus(error.statusCode);
+  }
+  // #5649: an error built by httpErrorFromResponse carries the real status too.
+  // It used to fall through to the wording heuristic below, so a 503 was never
+  // retried while a 4xx whose `detail` said "connection" was.
+  const status = (error as Partial<HttpStatusError>).status;
+  if (typeof status === 'number') {
+    return isRetryableStatus(status);
   }
 
   const message = error.message.toLowerCase();

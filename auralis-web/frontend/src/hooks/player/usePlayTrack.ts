@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
-import { getApiUrl } from '@/config/api';
+import { ENDPOINTS } from '@/config/api';
+import { post } from '@/utils/apiRequest';
 import type { Track } from '@/types/domain';
 import { isAbortError } from '@/utils/errorGuards';
-import { httpErrorFromResponse } from '@/utils/httpError';
 
 /**
  * Minimal track shape usePlayTrack needs. `Track` / `LibraryTrack` /
@@ -46,22 +46,16 @@ export const usePlayTrack = () => {
       const controller = new AbortController();
       abortRef.current = controller;
       try {
-        // 1. Set queue via REST (#3641: getApiUrl centralizes URL construction).
-        const queueResponse = await fetch(getApiUrl('/api/player/queue'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tracks: [track.id], start_index: 0 }),
-          signal: controller.signal,
-        });
-
-        // #3953: only stream if the queue POST succeeded.
-        // #5121: surface the backend's HTTPException `detail` rather than a
-        // bare status line — set_queue raises actionable text ("Track 123 not
-        // found") that the hardcoded message discarded. Same fix #4831 applied
-        // to useRestAPI.ts.
-        if (!queueResponse.ok) {
-          throw await httpErrorFromResponse(queueResponse);
-        }
+        // 1. Set queue via REST. The shared transport bounds the request at
+        // DEFAULT_TIMEOUT_MS (#5649: the bare fetch could hang forever, leaving
+        // the click looking dead) and surfaces the backend's HTTPException
+        // `detail` ("Track 123 not found", #5121) with the status attached.
+        // #3953: only stream if the queue POST succeeded — it throws otherwise.
+        await post(
+          ENDPOINTS.QUEUE,
+          { tracks: [track.id], start_index: 0 },
+          { signal: controller.signal }
+        );
 
         // Skip the stream if the component unmounted while the POST was in flight.
         if (controller.signal.aborted || !isMountedRef.current) return;

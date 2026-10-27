@@ -226,3 +226,26 @@ describe('analyseRemaining', () => {
     expect(result.current.enqueueing).toBe(false);
   });
 });
+
+describe('cancellation (#5649)', () => {
+  it('aborts the in-flight status read when the hook unmounts', async () => {
+    let captured: AbortSignal | null | undefined;
+    global.fetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      captured = init?.signal;
+      return new Promise<Response>((_resolve, reject) => {
+        captured?.addEventListener('abort', () =>
+          reject(new DOMException('Aborted', 'AbortError'))
+        );
+      });
+    });
+
+    const { unmount } = renderHook(() => useFingerprintCoverage());
+
+    await waitFor(() => expect(captured).toBeDefined());
+    expect(captured!.aborted).toBe(false);
+
+    unmount();
+
+    await waitFor(() => expect(captured!.aborted).toBe(true));
+  });
+});

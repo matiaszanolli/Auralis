@@ -15,21 +15,23 @@
  *   - unmount mid-POST: no start
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePlayTrack } from '../usePlayTrack';
 import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { useToast } from '@/components/shared/Toast';
+import { post } from '@/utils/apiRequest';
 
-// Mock collaborators. getApiUrl is mocked to identity so the fetch URL is
-// asserted as the bare path regardless of the configured API base.
+// Mock collaborators. The queue POST goes through the shared transport
+// (#5649), so it is mocked at that boundary; status/detail parsing and the
+// 30 s timeout are the transport's own contract (apiRequest tests).
 vi.mock('@/contexts/PlaybackSessionContext', () => ({ usePlaybackControls: vi.fn() }));
 vi.mock('@/components/shared/Toast', () => ({ useToast: vi.fn() }));
-vi.mock('@/config/api', () => ({ getApiUrl: (path: string) => path }));
+vi.mock('@/utils/apiRequest', () => ({ post: vi.fn() }));
 
 const mockStartTrack = vi.fn().mockResolvedValue(undefined);
 const mockError = vi.fn();
-let mockFetch: ReturnType<typeof vi.fn>;
+const mockPost = vi.mocked(post);
 
 const track = { id: 42, title: 'Test Song' };
 
@@ -37,36 +39,27 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(usePlaybackControls).mockReturnValue({ startTrack: mockStartTrack } as any);
   vi.mocked(useToast).mockReturnValue({ error: mockError } as any);
-  mockFetch = vi.fn();
-  vi.stubGlobal('fetch', mockFetch);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
+  mockPost.mockResolvedValue(undefined);
 });
 
 describe('usePlayTrack', () => {
   it('on success: POSTs the queue, then starts through the shared session', async () => {
-    mockFetch.mockResolvedValue({ ok: true, status: 200 });
-
     const { result } = renderHook(() => usePlayTrack());
     await act(async () => {
       await result.current.playTrack(track);
     });
 
-    expect(mockFetch).toHaveBeenCalledWith(
+    expect(mockPost).toHaveBeenCalledWith(
       '/api/player/queue',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ tracks: [42], start_index: 0 }),
-      })
+      { tracks: [42], start_index: 0 },
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
     expect(mockStartTrack).toHaveBeenCalledWith(42);
     expect(mockError).not.toHaveBeenCalled();
   });
 
   it('does NOT start and shows an error toast when the queue POST fails (ghost-stream guard)', async () => {
-    mockFetch.mockResolvedValue({ ok: false, status: 500, statusText: 'Internal Server Error' });
+    mockPost.mockRejectedValue(new Error('HTTP 500: Internal Server Error'));
 
     const { result } = renderHook(() => usePlayTrack());
     await act(async () => {
@@ -78,17 +71,10 @@ describe('usePlayTrack', () => {
     expect(mockError).toHaveBeenCalledWith(expect.stringContaining('500'));
   });
 
-  // #5121: the failure branch used to throw a hardcoded
-  // `Failed to set queue: {status} {statusText}`, discarding the backend's
-  // HTTPException detail. Routed through httpErrorFromResponse (the same fix
-  // #4831 applied to useRestAPI.ts) so the toast names the real cause.
-  it("surfaces the backend's error detail rather than a bare status line (#5121)", async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 422,
-      statusText: 'Unprocessable Entity',
-      json: async () => ({ detail: 'Track 42 not found' }),
-    });
+  // #5121: the toast names the backend's HTTPException `detail`; the shared
+  // transport extracts it into the thrown error's message.
+  it("surfaces the transport error's message (the backend detail) in the toast (#5121)", async () => {
+    mockPost.mockRejectedValue(new Error('Track 42 not found'));
 
     const { result } = renderHook(() => usePlayTrack());
     await act(async () => {
@@ -99,27 +85,7 @@ describe('usePlayTrack', () => {
     expect(mockError).toHaveBeenCalledWith('Track 42 not found');
   });
 
-  it('falls back to the status line when the body carries no detail (#5121)', async () => {
-    mockFetch.mockResolvedValue({
-      ok: false,
-      status: 503,
-      statusText: 'Service Unavailable',
-      json: async () => {
-        throw new Error('not json');
-      },
-    });
-
-    const { result } = renderHook(() => usePlayTrack());
-    await act(async () => {
-      await result.current.playTrack(track);
-    });
-
-    expect(mockError).toHaveBeenCalledWith(expect.stringContaining('503'));
-  });
-
   it('delegates the selected track id to PlaybackSession', async () => {
-    mockFetch.mockResolvedValue({ ok: true, status: 200 });
-
     const { result } = renderHook(() => usePlayTrack());
     await act(async () => {
       await result.current.playTrack({ id: 7 });
@@ -129,7 +95,7 @@ describe('usePlayTrack', () => {
   });
 
   it('shows an error toast and does not send on a network rejection', async () => {
-    mockFetch.mockRejectedValue(new Error('network down'));
+    mockPost.mockRejectedValue(new Error('network down'));
 
     const { result } = renderHook(() => usePlayTrack());
     await act(async () => {
@@ -143,7 +109,7 @@ describe('usePlayTrack', () => {
   it('stays silent on AbortError (no error toast, no send)', async () => {
     const abortErr = new Error('aborted');
     abortErr.name = 'AbortError';
-    mockFetch.mockRejectedValue(abortErr);
+    mockPost.mockRejectedValue(abortErr);
 
     const { result } = renderHook(() => usePlayTrack());
     await act(async () => {
@@ -155,10 +121,10 @@ describe('usePlayTrack', () => {
   });
 
   it('does not send or toast if unmounted while the POST is in flight (#4161)', async () => {
-    let resolveFetch!: (value: { ok: boolean; status: number }) => void;
-    mockFetch.mockReturnValue(
+    let resolvePost!: (value: undefined) => void;
+    mockPost.mockReturnValue(
       new Promise((resolve) => {
-        resolveFetch = resolve;
+        resolvePost = resolve;
       })
     );
 
@@ -171,7 +137,7 @@ describe('usePlayTrack', () => {
     // Navigate away mid-POST, then let the POST resolve.
     unmount();
     await act(async () => {
-      resolveFetch({ ok: true, status: 200 });
+      resolvePost(undefined);
       await pending;
     });
 
@@ -188,24 +154,24 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
   const trackA = { id: 1, title: 'Track A' };
   const trackB = { id: 2, title: 'Track B' };
 
-  /** A fetch whose resolution is controlled by the test, capturing each signal. */
-  const deferredFetch = () => {
+  /** A POST whose resolution is controlled by the test, capturing each signal. */
+  const deferredPost = () => {
     const signals: AbortSignal[] = [];
-    const resolvers: ((v: unknown) => void)[] = [];
-    mockFetch.mockImplementation((_url: string, init: RequestInit) => {
-      signals.push(init.signal as AbortSignal);
+    const resolvers: ((v: undefined) => void)[] = [];
+    mockPost.mockImplementation((async (_url: string, _body: unknown, options?: { signal?: AbortSignal }) => {
+      signals.push(options?.signal as AbortSignal);
       return new Promise((resolve, reject) => {
-        resolvers.push(resolve);
-        init.signal?.addEventListener('abort', () => {
+        resolvers.push(resolve as (v: undefined) => void);
+        options?.signal?.addEventListener('abort', () => {
           reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
         });
       });
-    });
+    }) as any);
     return { signals, resolvers };
   };
 
   it("aborts the first call's controller when a second call starts", async () => {
-    const { signals } = deferredFetch();
+    const { signals } = deferredPost();
     const { result } = renderHook(() => usePlayTrack());
 
     act(() => {
@@ -224,7 +190,7 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
   });
 
   it('starts only the second track when both POSTs resolve', async () => {
-    const { signals, resolvers } = deferredFetch();
+    const { signals, resolvers } = deferredPost();
     const { result } = renderHook(() => usePlayTrack());
 
     await act(async () => {
@@ -237,8 +203,8 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
     // Resolve B first, then A — the losing call resolving LAST is exactly the
     // ordering that used to revert playback to the older track.
     await act(async () => {
-      resolvers[1]({ ok: true, status: 200, statusText: 'OK' });
-      resolvers[0]({ ok: true, status: 200, statusText: 'OK' });
+      resolvers[1](undefined);
+      resolvers[0](undefined);
       await Promise.resolve();
     });
 
@@ -247,7 +213,7 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
   });
 
   it('does not surface an abort as a user-facing failure', async () => {
-    const { resolvers } = deferredFetch();
+    const { resolvers } = deferredPost();
     const { result } = renderHook(() => usePlayTrack());
 
     await act(async () => {
@@ -258,8 +224,8 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
     });
 
     await act(async () => {
-      resolvers[1]({ ok: true, status: 200, statusText: 'OK' });
-      resolvers[0]({ ok: true, status: 200, statusText: 'OK' });
+      resolvers[1](undefined);
+      resolvers[0](undefined);
       await Promise.resolve();
     });
 
@@ -268,7 +234,6 @@ describe('usePlayTrack — rapid switches abort the previous request (#4426)', (
   });
 
   it('leaves a single call unaffected', async () => {
-    mockFetch.mockResolvedValue({ ok: true, status: 200, statusText: 'OK' });
     const { result } = renderHook(() => usePlayTrack());
 
     await act(async () => {

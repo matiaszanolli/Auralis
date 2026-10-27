@@ -51,3 +51,28 @@ describe('isRetryableError (#4467)', () => {
     expect(isRetryableError(new Error('validation failed'))).toBe(false);
   });
 });
+
+describe('isRetryableError reads HttpStatusError.status (#5649)', () => {
+  // httpErrorFromResponse builds a plain Error carrying `status`, not an
+  // APIRequestError, so it used to fall through to the wording heuristic.
+  const httpError = (status: number, message: string): Error =>
+    Object.assign(new Error(message), { status });
+
+  it.each([500, 503, 504, 408, 429])('retries a %i HttpStatusError even with unhelpful text', (status) => {
+    expect(isRetryableError(httpError(status, 'Nope'))).toBe(true);
+  });
+
+  it('does NOT retry a 400 whose detail mentions "connection"', () => {
+    expect(isRetryableError(httpError(400, 'connection string is invalid'))).toBe(false);
+  });
+
+  it('does not retry 501 or a 404', () => {
+    expect(isRetryableError(httpError(501, 'Not Implemented'))).toBe(false);
+    expect(isRetryableError(httpError(404, 'Track not found'))).toBe(false);
+  });
+
+  it('still falls back to transport wording for an error with no status', () => {
+    expect(isRetryableError(new Error('Failed to fetch'))).toBe(true);
+    expect(isRetryableError(new Error('Something else'))).toBe(false);
+  });
+});

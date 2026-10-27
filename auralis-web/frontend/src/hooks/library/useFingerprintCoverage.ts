@@ -13,8 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { httpErrorFromResponse } from '@/utils/httpError';
-import { getApiUrl } from '@/config/api';
+import { get, post } from '@/utils/apiRequest';
 
 /** Matches `FingerprintingStatusResponse` in `routers/fingerprint_status.py`. */
 export interface FingerprintCoverage {
@@ -72,21 +71,25 @@ export function useFingerprintCoverage(enabled = true): UseFingerprintCoverageRe
   // Guards every setState after an await: the settings dialog is unmounted the
   // moment it closes, which is routinely mid-poll.
   const mountedRef = useRef(true);
+  // Aborts any in-flight read/enqueue on unmount, so a hung request cannot sit
+  // behind the 10 s poll and stack more behind it (#5649/#5650).
+  const abortRef = useRef(new AbortController());
   useEffect(() => {
     mountedRef.current = true;
+    if (abortRef.current.signal.aborted) abortRef.current = new AbortController();
     return () => {
       mountedRef.current = false;
+      abortRef.current.abort();
     };
   }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(getApiUrl('/api/library/fingerprints/status'));
-      if (!response.ok) {
-        throw await httpErrorFromResponse(response);
-      }
-      const raw = (await response.json()) as RawCoverage;
+      // Shared transport: DEFAULT_TIMEOUT_MS, backend `detail`, status on the error.
+      const raw = await get<RawCoverage>('/api/library/fingerprints/status', {
+        signal: abortRef.current.signal,
+      });
       if (!mountedRef.current) return;
       setCoverage(toCoverage(raw));
       setError(null);
@@ -101,13 +104,9 @@ export function useFingerprintCoverage(enabled = true): UseFingerprintCoverageRe
   const analyseRemaining = useCallback(async () => {
     setEnqueueing(true);
     try {
-      const response = await fetch(getApiUrl('/api/similarity/fingerprint-queue/enqueue-all'), {
-        method: 'POST',
+      await post('/api/similarity/fingerprint-queue/enqueue-all', undefined, {
+        signal: abortRef.current.signal,
       });
-      if (!response.ok) {
-        throw await httpErrorFromResponse(response);
-      }
-      await response.json();
       if (!mountedRef.current) return;
       setError(null);
     } catch (err) {
