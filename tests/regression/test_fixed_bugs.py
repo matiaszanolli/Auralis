@@ -107,16 +107,20 @@ class TestChunkProcessingBugs:
         audio, _ = load_audio(test_audio_file)
         result = processor.process(audio)
 
-        # REGRESSION: Should not have state-related artifacts
-        # Check for discontinuities that indicate state loss
+        # REGRESSION: Should not have state-related artifacts. State loss shows
+        # up as a gain discontinuity, so compare the level of consecutive 100 ms
+        # blocks. (The fixture is white noise, whose sample-to-sample jumps are
+        # large by nature and scale with loudness -- a raw max-jump bound only
+        # held while the per-chunk loudness scale bug #5700 attenuated it.)
         if len(result) > 44100:  # At least 1 second
-            # Check for sudden volume jumps (state loss symptom)
-            diff = np.abs(np.diff(result[:, 0]))
-            max_jump = np.max(diff)
+            block = 4410
+            n = len(result) // block
+            blocks = result[:n * block, 0].reshape(n, block)
+            rms_db = 20 * np.log10(np.sqrt(np.mean(blocks.astype(np.float64) ** 2, axis=1)) + 1e-12)
+            max_step = float(np.max(np.abs(np.diff(rms_db))))
 
-            # Should not have jumps > 0.5 (normalized audio)
-            assert max_jump < 0.5, \
-                f"State loss detected: max jump {max_jump:.3f}"
+            assert max_step < 3.0, \
+                f"State loss detected: block level jumps {max_step:.2f} dB"
 
         print("✓ Continuous mode state preservation working")
 
