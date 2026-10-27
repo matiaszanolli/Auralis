@@ -62,7 +62,7 @@ async def test_streaming_blocks_when_flow_paused():
         await asyncio.wait_for(flow_event.wait(), timeout=0.1)
         reached = True
 
-    with pytest.raises(asyncio.TimeoutError):
+    with pytest.raises(TimeoutError):
         await simulate_streaming()
 
     assert not reached, "Streaming should not proceed while flow event is cleared"

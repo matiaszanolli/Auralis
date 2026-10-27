@@ -81,7 +81,7 @@ class TestBoundedWait:
             time.sleep(0.5)
 
         with patch.object(executor, "shutdown", side_effect=_slow_shutdown):
-            # Should NOT raise asyncio.TimeoutError despite the bound being
+            # Should NOT raise TimeoutError despite the bound being
             # far shorter than the (fake) slow shutdown call.
             await fg.shutdown_fingerprint_executor_bounded(timeout=0.05)
 

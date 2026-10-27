@@ -15,7 +15,7 @@ operations correctly under load:
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import numpy as np
 import pytest
@@ -61,7 +61,7 @@ class TestConcurrentStreamCapacity:
         assert acquired == MAX_CONCURRENT_STREAMS
 
         # Next acquire should block (not return immediately)
-        with pytest.raises(asyncio.TimeoutError):
+        with pytest.raises(TimeoutError):
             await asyncio.wait_for(
                 controller._stream_semaphore.acquire(), timeout=0.1
             )

@@ -16,7 +16,6 @@ import time
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 # ============================================================================
 # FastAPI Async Pattern Tests (10 tests)
@@ -169,7 +168,7 @@ class TestFastAPIAsyncPatterns:
             return "completed"
 
         # Should timeout
-        with pytest.raises(asyncio.TimeoutError):
+        with pytest.raises(TimeoutError):
             await asyncio.wait_for(slow_task(), timeout=0.5)
 
         # Should succeed

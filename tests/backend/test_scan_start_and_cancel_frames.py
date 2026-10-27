@@ -272,7 +272,7 @@ class TestCancellationEmitsTerminalFrame:
 
     def test_timeout_path_unaffected(self) -> None:
         """TimeoutError is an Exception subclass and keeps its own handler."""
-        assert issubclass(asyncio.TimeoutError, Exception)
+        assert issubclass(TimeoutError, Exception)
         assert not issubclass(asyncio.CancelledError, Exception)
 
 

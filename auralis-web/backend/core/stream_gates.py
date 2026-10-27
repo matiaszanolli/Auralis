@@ -61,7 +61,7 @@ async def wait_for_stream_gates(websocket: WebSocket) -> None:
             return
         try:
             await asyncio.wait_for(flow_evt.wait(), timeout=FLOW_GATE_TIMEOUT_S)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 f"Stream flow gate for {key} did not clear within "
                 f"{FLOW_GATE_TIMEOUT_S}s (lost buffer_ready?); resuming delivery (#5863)"

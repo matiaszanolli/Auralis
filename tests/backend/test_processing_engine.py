@@ -584,7 +584,7 @@ class TestQueueBackpressure:
         assert engine.get_queue_status()["processing"] == 2
 
         # The (max+1)th attempt must block — time out to prove it
-        with pytest.raises(asyncio.TimeoutError):
+        with pytest.raises(TimeoutError):
             await asyncio.wait_for(engine._concurrency_semaphore.acquire(), timeout=0.05)
 
         # After freeing a slot the next acquire should succeed immediately
