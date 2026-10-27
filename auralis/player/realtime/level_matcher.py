@@ -116,7 +116,7 @@ class RealtimeLevelMatcher:
             smooth_gain = smooth_gain[:, np.newaxis]
 
         # Apply gain with soft limiting to prevent clipping
-        processed = audio * smooth_gain
+        processed: np.ndarray = audio * smooth_gain
 
         # Soft limiter to prevent harsh clipping
         max_val = np.max(np.abs(processed))
