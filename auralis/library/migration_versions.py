@@ -12,11 +12,15 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from auralis.library.models import SchemaVersion
 
 logger = logging.getLogger(__name__)
+
+# SQLite's message when the table has never been created.
+_MISSING_VERSION_TABLE = "no such table: schema_version"
 
 
 class SchemaVersionStoreMixin:
@@ -42,7 +46,15 @@ class SchemaVersionStoreMixin:
         Get current database schema version.
 
         Returns:
-            Current schema version number, or 0 if no version table exists
+            Current schema version number, or 0 for a database with no
+            ``schema_version`` table or no row in it (a fresh database).
+
+        Raises:
+            sqlalchemy.exc.DatabaseError: any other read failure (a lock that
+                outlasts the busy timeout, corruption, an I/O error). Reporting
+                0 for those made ``migrate_to_latest()`` treat an existing,
+                older database as fresh and stamp it with the latest version
+                without running a migration or taking a backup (#5597).
         """
         try:
             with self._get_session() as session:
@@ -55,7 +67,10 @@ class SchemaVersionStoreMixin:
                 else:
                     # Table exists but is empty - this is a fresh database
                     return 0
-        except Exception as e:
+        except OperationalError as e:
+            if _MISSING_VERSION_TABLE not in str(e.orig):
+                logger.error(f"Could not read the schema version: {e}")
+                raise
             logger.debug(f"Schema version table not found: {e}")
             return 0
 
