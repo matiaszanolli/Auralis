@@ -16,12 +16,13 @@ processor state and must stay individually callable, which several regression
 tests (#4104, #4237, #4503, #5108) do directly.
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
+from auralis.dsp.utils.conversion import amplitude_to_db
 from typing import Any
 
 import numpy as np
 
 from ...dsp.basic import amplify, rms
+from ...dsp.dynamics.brick_wall_limiter import create_brick_wall_limiter
 from ...dsp.utils.adaptive import (
     MAX_NORMALIZATION_GAIN_DB,
     SILENCE_FLOOR_LUFS,
@@ -39,6 +40,10 @@ from .base import (
     StereoWidthProcessor,
 )
 from .cross_dimensional_guard import smooth_gate
+
+
+# -0.3 dBFS ceiling preserves headroom for inter-sample peaks.
+SAFE_CEILING_DB = -0.3
 
 
 class ContinuousDSPOpsMixin:
@@ -238,26 +243,23 @@ class ContinuousDSPOpsMixin:
         else:
             audio = self._normalize_chunk_loudness(audio, target_lufs)
 
-        # Step 2: Peak normalization (DISABLED - use LUFS normalization instead)
-        # Peak normalization can cause excessive gain when EQ processing has
-        # changed the peak-to-RMS relationship. LUFS normalization is more
-        # perceptually meaningful and is already applied in step 1.
-        # Only apply peak limiting if absolutely necessary to prevent clipping.
-        current_peak_db = amplitude_to_db(np.max(np.abs(audio)))
-
-        # -0.3 dBFS ceiling preserves headroom for inter-sample peaks
-        SAFE_CEILING_DB = -0.3
-
-        if current_peak_db > SAFE_CEILING_DB:
-            # Audio exceeds safe ceiling - apply peak limiting
-            peak_adjustment = min(SAFE_CEILING_DB - current_peak_db, 0.0)
-            audio = amplify(audio, peak_adjustment)
-            debug(f"[Peak Limiting] {current_peak_db:.2f} → {SAFE_CEILING_DB:.2f} dB (emergency limiting)")
+        # Step 2: peak ceiling at -0.3 dBFS (headroom for inter-sample peaks).
+        # #5701: this used to be ONE gain for the whole buffer
+        # (`amplify(audio, ceiling - max_peak)`), so a transient present in one
+        # rendering of an overlapped region and absent from the other rescaled
+        # the entire window: the two renderings differed by up to ~4 dB RMS and,
+        # tiled without a crossfade, stepped at the seam. A sample-local
+        # look-ahead limiter touches only the neighbourhood of the peak, so
+        # both renderings of the shared audio agree away from it. The constant
+        # track-level gain of Step 1 (#5552) is left intact.
+        final_peak_pre = amplitude_to_db(np.max(np.abs(audio)))
+        if final_peak_pre > SAFE_CEILING_DB:
+            audio = create_brick_wall_limiter(
+                self.config.internal_sample_rate, threshold_db=SAFE_CEILING_DB
+            ).process(audio)
+            debug(f"[Peak Limiting] {final_peak_pre:.2f} → {SAFE_CEILING_DB:.2f} dB (sample-local limiter)")
         else:
-            debug(f"[Peak Normalization] SKIPPED - audio peak at {current_peak_db:.2f} dB is safe")
-
-        # Peak control is the Step 2 whole-buffer gain above, which clamps the
-        # peak to -0.3 dBFS; no later limiter stage is needed.
+            debug(f"[Peak Limiting] SKIPPED - audio peak at {final_peak_pre:.2f} dB is safe")
 
         # Final measurements
         final_peak = np.max(np.abs(audio))
