@@ -38,38 +38,61 @@ class StageSnapshot:
     phase_correlation: float | None
 
 
+# The guards used to measure the first 2 s of channel 0, which for a backend
+# chunk past the first is leading context that is rendered and then discarded
+# (chunk_boundaries.emitted_chunk_start), so the tilt and phase decisions that
+# are applied to the whole buffer were made on audio nobody hears (#5723). They
+# now measure 8 windows of 0.25 s spread evenly over the whole buffer: the same
+# 2 s budget, but representative of it.
+_ANALYSIS_WINDOW_S = 0.25
+_ANALYSIS_WINDOWS = 8
+
+
+def _analysis_windows(audio: np.ndarray, sample_rate: int) -> list[np.ndarray]:
+    """Evenly spaced windows over the whole buffer, <= 2 s of audio in total.
+
+    A buffer that already fits the budget is returned whole. Windows are kept
+    separate (not concatenated) so a spectral measurement never sees the join.
+    """
+    window = int(sample_rate * _ANALYSIS_WINDOW_S)
+    if len(audio) <= window * _ANALYSIS_WINDOWS:
+        return [audio]
+    starts = np.linspace(0, len(audio) - window, _ANALYSIS_WINDOWS).astype(int)
+    return [audio[start:start + window] for start in starts]
+
+
 def _compute_3band_energy(audio: np.ndarray, sample_rate: int) -> tuple[float, float, float]:
-    """Fast 3-band energy split using a single FFT on the first channel."""
-    # Use first channel (or mono) for spectral analysis
-    signal = audio[:, 0] if audio.ndim == 2 else audio
-    # Limit to 2 seconds for speed on long chunks
-    max_samples = min(len(signal), sample_rate * 2)
-    signal = signal[:max_samples]
+    """3-band energy split (bass/mid/high) from FFTs of windows spread over the buffer.
 
-    spectrum = np.abs(rfft(signal))
-    freqs = rfftfreq(len(signal), d=1.0 / sample_rate)
+    Measures the mid (L+R)/2 of stereo input, so a channel-0-only quirk cannot
+    steer the tilt guard. Power is summed across windows before taking ratios.
+    """
+    bass = mid = high = 0.0
+    for chunk in _analysis_windows(audio, sample_rate):
+        signal = chunk.mean(axis=1) if chunk.ndim == 2 else chunk
+        power = np.abs(rfft(signal * np.hanning(len(signal)))) ** 2
+        freqs = rfftfreq(len(signal), d=1.0 / sample_rate)
+        bass += power[freqs < 250].sum()
+        mid += power[(freqs >= 250) & (freqs < 4000)].sum()
+        high += power[freqs >= 4000].sum()
 
-    power = spectrum ** 2
-    total = power.sum()
+    total = bass + mid + high
     if total < 1e-12:
         return 0.33, 0.34, 0.33  # silence — equal distribution
-
-    bass = power[freqs < 250].sum() / total
-    mid = power[(freqs >= 250) & (freqs < 4000)].sum() / total
-    high = power[freqs >= 4000].sum() / total
-    return float(bass), float(mid), float(high)
+    return float(bass / total), float(mid / total), float(high / total)
 
 
 def _compute_phase_correlation(audio: np.ndarray, sample_rate: int) -> float | None:
-    """Fast phase correlation between L/R channels (truncated to 2s for speed).
+    """Phase correlation between L/R over windows spread across the buffer.
 
-    sample_rate is required (#4622) — it sets the 2s truncation window, so a
-    missing/wrong value silently truncates the wrong amount of audio.
+    sample_rate is required (#4622) — it sets the window size and spacing, so a
+    missing/wrong value silently measures the wrong amount of audio.
     """
     if not StereoWidthProcessor.validate_stereo(audio):
         return None
-    max_samples = min(len(audio), sample_rate * 2)
-    left, right = audio[:max_samples, 0], audio[:max_samples, 1]
+    windows = _analysis_windows(audio, sample_rate)
+    left = np.concatenate([w[:, 0] for w in windows])
+    right = np.concatenate([w[:, 1] for w in windows])
     # #6230: the same named threshold dsp/utils/stereo.py's guard uses.
     if np.std(left) < SILENCE_STD_THRESHOLD or np.std(right) < SILENCE_STD_THRESHOLD:
         return 1.0  # mono/silence → perfect correlation
