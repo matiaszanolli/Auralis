@@ -68,26 +68,9 @@ def apply_final_normalization(mode: "AdaptiveMode", audio: np.ndarray, spectrum_
     # Intensity from spectrum params (if available), otherwise 1.0
     intensity = getattr(spectrum_params, 'intensity', 1.0)
 
-    # Extract bass and transient info from content profile for bass-aware gain reduction
-    # This prevents kick/bass harmonic overlap in bass-heavy material
-    bass_pct = float(
-        mode.last_content_profile.get('bass_energy_pct', 0.0)
-        if mode.last_content_profile else 0.0
-    )
-    transient_density = float(
-        mode.last_content_profile.get('transient_density', 0.0)
-        if mode.last_content_profile else 0.0
-    )
-
     makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
-        source_lufs, intensity, crest_factor_db, bass_pct, transient_density
+        source_lufs, intensity, crest_factor_db
     )
-
-    if mode.last_content_profile:
-        debug(
-            f"[Bass-Aware Gain] Bass: {bass_pct:.1%}, "
-            f"Transients: {transient_density:.2f} - {gain_reasoning}"
-        )
 
     # Only apply makeup gain if not in expansion mode AND gain is > 0.5 dB
     should_apply_gain = (

@@ -130,16 +130,12 @@ class AutoMasterProcessor:
         fp = FingerprintUnpacker.from_dict(fingerprint)
         lufs = fp.lufs
         crest_db = fp.crest_db
-        bass_pct = fp.bass_pct
-        transient_density = fp.transient_density
 
         # Calculate adaptive makeup gain using centralized logic
         makeup_gain_db, reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
             source_lufs=lufs,
             intensity=1.0,
             crest_factor_db=crest_db,
-            bass_pct=bass_pct,
-            transient_density=transient_density
         )
 
         # Calculate adaptive compression ratio based on dynamic range

@@ -32,117 +32,81 @@ class AdaptiveLoudnessControl:
     VERY_LOUD_THRESHOLD = -12.0  # Already very loud
     MODERATELY_LOUD_THRESHOLD = -14.0  # Moderately loud
 
+    # Width (LU / dB) of the smoothstep knee centred on each threshold, so the
+    # makeup gain eases between regimes instead of stepping (#5704).
+    LOUDNESS_KNEE_LU = 0.5
+    CREST_KNEE_DB = 1.0
+
+    # Crest-factor ceilings on the makeup gain: transient-heavy material gets
+    # less so its impact survives. Centred at 12 dB (6 -> 5 dB) and 15 dB (-> 4 dB).
+    MAX_GAIN_DB = 6.0
+    CREST_STEPS = ((12.0, 1.0), (15.0, 1.0))  # (crest centre dB, max-gain reduction dB)
+
     @staticmethod
     def calculate_adaptive_gain(
         source_lufs: float,
         intensity: float = 1.0,
         crest_factor_db: float | None = None,
-        bass_pct: float | None = None,
-        transient_density: float | None = None,
         peak_db: float | None = None
     ) -> tuple[float, str]:
         """
-        Calculate adaptive makeup gain based on source LUFS, dynamic range, bass content, transients, and peak.
+        Calculate adaptive makeup gain from source LUFS, dynamic range and peak.
+
+        Continuous in ``source_lufs``, ``crest_factor_db`` and ``peak_db`` (#5704):
+        the share of the gap to ``TARGET_LUFS`` that becomes gain is 0 for
+        sources above ``VERY_LOUD_THRESHOLD``, 0.5 through the moderately-loud
+        band and ``intensity`` below ``MODERATELY_LOUD_THRESHOLD``, with a
+        smoothstep knee at each threshold; the crest ceiling steps down the same
+        way. (A bass/transient reduction used to follow, but it sat behind a
+        test that was always true for the only branch that reached it, so it never
+        changed a result and has been removed.)
 
         Args:
             source_lufs: Source loudness in LUFS
             intensity: Processing intensity (0.0-1.0)
             crest_factor_db: Peak-to-RMS ratio in dB (optional, for transient preservation)
-            bass_pct: Bass energy percentage 0.0-1.0 (optional, for bass-heavy material)
-            transient_density: Transient density 0.0-1.0 (optional, for bass-transient interaction)
             peak_db: Peak level in dB (optional, for headroom-aware gain limiting)
 
         Returns:
             Tuple of (makeup_gain_db, reasoning_note)
         """
-        if source_lufs > AdaptiveLoudnessControl.VERY_LOUD_THRESHOLD:
-            # Already very loud - no makeup gain
-            return (
-                0.0,
-                f"Already loud ({source_lufs:.1f} LUFS): no makeup gain"
-            )
+        # Deferred: core.processing imports this package.
+        from ...core.processing.cross_dimensional_guard import smooth_gate
 
-        elif source_lufs > AdaptiveLoudnessControl.MODERATELY_LOUD_THRESHOLD:
-            # Moderately loud - gentle boost (50% of target difference)
-            gain = (AdaptiveLoudnessControl.TARGET_LUFS - source_lufs) * 0.5
-            return (
-                gain,
-                f"Moderately loud: gentle {gain:.1f} dB boost"
-            )
+        cls = AdaptiveLoudnessControl
+        half = cls.LOUDNESS_KNEE_LU / 2
+        quietness = -source_lufs
+        to_moderate = smooth_gate(quietness, -cls.VERY_LOUD_THRESHOLD - half, -cls.VERY_LOUD_THRESHOLD + half)
+        to_quiet = smooth_gate(
+            quietness, -cls.MODERATELY_LOUD_THRESHOLD - half, -cls.MODERATELY_LOUD_THRESHOLD + half
+        )
+        share = 0.5 * to_moderate + (intensity - 0.5) * to_quiet
+        gain = (cls.TARGET_LUFS - source_lufs) * share
 
-        else:
-            # Quiet source - full boost to target
-            gain = (AdaptiveLoudnessControl.TARGET_LUFS - source_lufs) * intensity
+        max_gain = cls.MAX_GAIN_DB
+        suffix = ""
+        if crest_factor_db is not None:
+            for centre, reduction in cls.CREST_STEPS:
+                max_gain -= reduction * smooth_gate(
+                    crest_factor_db, centre - cls.CREST_KNEE_DB / 2, centre + cls.CREST_KNEE_DB / 2
+                )
+            if max_gain < cls.MAX_GAIN_DB:
+                suffix = f" (crest {crest_factor_db:.1f} dB: max {max_gain:.1f} dB)"
+        gain = max(0.0, min(gain, max_gain))
 
-            # Adaptive max gain clamp based on dynamic range
-            # High crest factor = transient-heavy material needs more headroom
-            if crest_factor_db is not None and crest_factor_db > 15.0:
-                # Very dynamic material (e.g., 1980s recordings with powerful drums)
-                # Reduce max gain to preserve transient impact
-                max_gain = 4.0  # Conservative for high-dynamic-range material
-                reasoning_suffix = f" (crest {crest_factor_db:.1f} dB: transient preservation)"
-            elif crest_factor_db is not None and crest_factor_db > 12.0:
-                # Moderately dynamic material
-                max_gain = 5.0
-                reasoning_suffix = f" (crest {crest_factor_db:.1f} dB: moderate preservation)"
-            else:
-                # Low dynamic range or no crest info - standard clamp
-                max_gain = 6.0
-                reasoning_suffix = ""
+        # Peak-aware limiting: never boost past the headroom to the -1.5 dB soft
+        # clipper ceiling (material that is quiet by LUFS but already near 0 dBFS).
+        if peak_db is not None:
+            available_headroom = -1.5 - peak_db
+            if available_headroom < gain:
+                old_gain, gain = gain, max(0.0, available_headroom)
+                suffix += f" (peak {peak_db:.1f} dB: limited from {old_gain:.1f} to {gain:.1f} dB)"
 
-            # Clamp to adaptive range
-            gain = max(0.0, min(gain, max_gain))
-
-            # CRITICAL: Peak-aware gain limiting
-            # If source is already near 0 dBFS, limit gain to available headroom
-            # This prevents overdriving material that's already mastered (low LUFS but high peak)
-            if peak_db is not None:
-                # Calculate available headroom (how much gain before clipping)
-                # Use -1.5 dB as target ceiling for soft clipper headroom
-                target_ceiling_db = -1.5
-                available_headroom = target_ceiling_db - peak_db
-
-                if available_headroom < gain:
-                    old_gain = gain
-                    gain = max(0.0, available_headroom)
-                    reasoning_suffix += f" (peak {peak_db:.1f} dB: limited from {old_gain:.1f} to {gain:.1f} dB)"
-
-            # Bass-transient interaction reduction to prevent bass-kick overdrive
-            # CRITICAL: Only reduce gain for loud/moderate material
-            # Quiet material needs maximum gain, not reduction
-            if source_lufs < -13.0:  # Quiet material - needs boost, not reduction
-                # Skip bass reduction for quiet material
-                pass
-            elif bass_pct is not None and transient_density is not None:
-                if bass_pct > 0.15 and transient_density > 0.35:  # Lowered thresholds
-                    # Bass-transient interaction: multiplicative reduction
-                    # High bass + high transients = aggressive reduction
-                    # But reduce the factor by 30% for quieter material
-                    loudness_factor = max(0.5, min(1.0, (source_lufs + 12) / 6))  # 0.5-1.0 scaling
-                    interaction_factor = bass_pct * transient_density * 6.0 * loudness_factor
-                    bass_reduction = interaction_factor
-                    gain = max(0.0, gain - bass_reduction)
-                    reasoning_suffix += f" (bass {bass_pct:.1%} × transients {transient_density:.2f}: -{bass_reduction:.1f} dB)"
-                elif bass_pct > 0.25:  # Only reduce for heavy bass
-                    # Bass-only reduction (low transients) - but gentler for quiet material
-                    base_reduction = (bass_pct - 0.25) * 1.5  # Reduced from 2.84 to 1.5
-                    loudness_factor = max(0.0, min(1.0, (source_lufs + 12) / 6))
-                    bass_reduction = base_reduction * loudness_factor
-                    gain = max(0.0, gain - bass_reduction)
-                    reasoning_suffix += f" (bass {bass_pct:.1%}: -{bass_reduction:.1f} dB)"
-            elif bass_pct is not None and bass_pct > 0.25:
-                # Fallback: bass-only reduction if no transient data - only for non-quiet
-                if source_lufs >= -13.0:
-                    base_reduction = (bass_pct - 0.25) * 1.5
-                    loudness_factor = max(0.0, min(1.0, (source_lufs + 12) / 6))
-                    bass_reduction = base_reduction * loudness_factor
-                    gain = max(0.0, gain - bass_reduction)
-                    reasoning_suffix += f" (bass {bass_pct:.1%}: -{bass_reduction:.1f} dB)"
-
-            return (
-                gain,
-                f"Quiet source: {gain:.1f} dB boost to target{reasoning_suffix}"
-            )
+        if source_lufs > cls.VERY_LOUD_THRESHOLD:
+            return gain, f"Already loud ({source_lufs:.1f} LUFS): {gain:.1f} dB makeup gain{suffix}"
+        if source_lufs > cls.MODERATELY_LOUD_THRESHOLD:
+            return gain, f"Moderately loud: gentle {gain:.1f} dB boost{suffix}"
+        return gain, f"Quiet source: {gain:.1f} dB boost to target{suffix}"
 
     @staticmethod
     def calculate_adaptive_peak_target(source_lufs: float) -> tuple[float, float]:

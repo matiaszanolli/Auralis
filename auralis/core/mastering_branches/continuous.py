@@ -101,8 +101,7 @@ class ContinuousMasteringBranch:
 
         # Calculate adaptive makeup gain
         makeup_gain, _ = AdaptiveLoudnessControl.calculate_adaptive_gain(
-            unpacker.lufs, effective_intensity, unpacker.crest_db,
-            unpacker.bass_pct, unpacker.transient_density, peak_db
+            unpacker.lufs, effective_intensity, unpacker.crest_db, peak_db
         )
 
         # Apply makeup gain with modest safety margin for headroom
