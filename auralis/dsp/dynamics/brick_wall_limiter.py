@@ -17,6 +17,8 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.ndimage import maximum_filter1d
 
+from .limiter_ramp import ramp_gain_reduction
+
 
 @dataclass
 class BrickWallLimiterSettings:
@@ -36,7 +38,8 @@ class BrickWallLimiter:
 
     Key features:
     - Look-ahead peak detection (eliminates overshoot)
-    - Smooth gain reduction envelope (no clicks/pops)
+    - Gain reduction ramps linearly over the look-ahead and reaches its target
+      on the peak sample, so the attack is not a one-sample step (#5699)
     - Preserves overall loudness (only reduces peaks)
     - Transparent limiting (minimal audible artifacts)
 
@@ -44,8 +47,9 @@ class BrickWallLimiter:
     1. Buffer audio with look-ahead delay
     2. Detect peaks in look-ahead window
     3. Calculate required gain reduction
-    4. Apply smooth envelope to gain curve
-    5. Multiply delayed audio by gain curve
+    4. Ramp that reduction in over the look-ahead (trailing moving average)
+    5. Apply the exponential release to the ramped curve
+    6. Multiply audio by the gain curve
     """
 
     def __init__(self, settings: BrickWallLimiterSettings):
@@ -125,20 +129,10 @@ class BrickWallLimiter:
         # Collapse channels: take the per-sample maximum across all channels.
         per_sample_max = abs_padded.max(axis=1)  # shape: (num_samples + lookahead,)
 
-        # maximum_filter1d origin convention (#5562): the output at index i is
-        # the max over the window centred at i + origin. POSITIVE origin
-        # shifts the window toward EARLIER samples — the old
-        # (lookahead - 1) // 2 produced a post-peak HOLD (max over
-        # [i - lookahead + 1, i]), so the gain dropped AT the peak in one
-        # sample instead of ramping before it (verified empirically: a spike
-        # at 20 with size 8 smeared nonzero over 20..27). A NEGATIVE origin
-        # shifts toward FUTURE samples: origin = -(lookahead // 2) makes the
-        # window end at i, i.e. max over [i - lookahead/2 ... wait —
-        # empirically the nonzero region ENDS at the spike, i.e. the gain
-        # starts reducing (lookahead // 2) samples BEFORE it: a true
-        # look-ahead ramp. (The #3308 flip to the current positive sign did
-        # not fix the direction — scipy's convention is the opposite of what
-        # both that issue and this comment assumed.)
+        # maximum_filter1d origin convention (#5562): a POSITIVE origin shifts
+        # the window toward EARLIER samples (a post-peak hold), a NEGATIVE one
+        # toward FUTURE samples. origin = -(lookahead // 2) makes the output at
+        # i the max over [i, i + lookahead), i.e. a true look-ahead.
         lookahead = self.lookahead_samples
         peak_envelope = maximum_filter1d(
             per_sample_max,
@@ -157,11 +151,18 @@ class BrickWallLimiter:
             1.0,
         )
 
-        # Build the instant-attack / exponential-release gain envelope.
+        # Ramp the reduction in over the look-ahead (#5699), then build the
+        # exponential-release gain envelope.
+        target_gains = ramp_gain_reduction(
+            target_gains,
+            per_sample_max[:num_samples],
+            self.lookahead_samples,
+            self.threshold_linear,
+        )
         gain_curve = self._release_envelope(target_gains, audio.dtype)
 
         # Apply gain curve to audio
-        output = audio * gain_curve.reshape(-1, 1)
+        output: np.ndarray = audio * gain_curve.reshape(-1, 1)
 
         # Return in same format as input
         if is_mono:
@@ -173,11 +174,12 @@ class BrickWallLimiter:
         self, target_gains: np.ndarray, dtype: np.dtype
     ) -> np.ndarray:
         """
-        Build the instant-attack / exponential-release gain curve (fixes #3751).
+        Build the follow-down / exponential-release gain curve (fixes #3751).
 
-        The recurrence is sequential and nonlinear, so it has no exact
+        ``target_gains`` is already ramped by ``_ramp_attack`` (#5699), so
+        "following down" is not a step. The recurrence is sequential and nonlinear, so it has no exact
         closed-form vectorization:
-            attack  (tg <  prev_gain): gain jumps instantly to tg
+            attack  (tg <  prev_gain): gain follows tg down
             release (tg >= prev_gain): gain = rc*prev_gain + (1-rc)*tg
 
         However, ``target_gains`` is *exactly* 1.0 wherever no limiting is
@@ -232,7 +234,7 @@ class BrickWallLimiter:
                 for i in range(start, end):
                     tg = target_gains[i]
                     if tg < prev_gain:
-                        prev_gain = tg  # attack: instant
+                        prev_gain = tg  # attack: follow the ramped target
                     else:
                         prev_gain = prev_gain * rc + tg * (1.0 - rc)  # release
                     gain_curve[i] = prev_gain
