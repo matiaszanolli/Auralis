@@ -169,15 +169,27 @@ class FingerprintQueryMixin(BaseRepository):
                 fingerprints.append(fp)
             return fingerprints
 
-    def get_count(self) -> int:
+    def get_count(self, current_only: bool = False) -> int:
         """
-        Get total count of fingerprints
+        Get the number of fingerprint rows
+
+        Args:
+            current_only: ``False`` (default) counts every row, including claim
+                placeholders and stale-algorithm-version rows -- the table's
+                physical size. ``True`` counts only the rows ``get_all`` and
+                ``get_batch_after_id`` actually return (#4822), which is what
+                anything that sizes a sample from those reads must use: right
+                after an algorithm bump the table is mostly stale, so the two
+                counts differ by orders of magnitude (#5716).
 
         Returns:
-            Total number of fingerprints
+            Number of fingerprint rows
         """
+        stmt = select(func.count()).select_from(TrackFingerprint)
+        if current_only:
+            stmt = stmt.where(_current_fingerprint_clause())
         with self._session_scope() as session:
-            return session.execute(select(func.count()).select_from(TrackFingerprint)).scalar_one()
+            return session.execute(stmt).scalar_one()
 
     def exists(self, track_id: int) -> bool:
         """

@@ -44,7 +44,7 @@ class _FakeFingerprintRepository:
         self.get_all_calls = []
         self.batch_calls = []
 
-    def get_count(self):
+    def get_count(self, current_only=False):
         return len(self._fps)
 
     def get_all(self, limit=None, offset=0):

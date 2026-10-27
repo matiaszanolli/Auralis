@@ -97,8 +97,8 @@ class FingerprintNormalizer(NormalizerPersistenceMixin):
         Returns:
             True if successful, False if insufficient data or stopped early
         """
-        # Cheap count first so we can short-circuit without reading any rows.
-        total = fingerprint_repository.get_count()
+        # Cheap count first, over the rows the reads below return -- not the table (#5716).
+        total = fingerprint_repository.get_count(current_only=True)
         if total < min_samples:
             error(f"Insufficient fingerprints for normalization: {total} < {min_samples}")
             return False

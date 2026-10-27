@@ -37,9 +37,13 @@ logger = logging.getLogger(__name__)
 # least every OTHER shutdown step still runs.
 _STOP_TIMEOUT_SECONDS = 10.0
 
+# How often the worker re-checks whether an unfitted system can fit yet, or a
+# fitted one has outgrown its sample (SimilarityAutoFitWorker._run, #5716).
+_CHECK_INTERVAL_SECONDS = 300.0
+
 
 class SimilarityAutoFitWorker:
-    """Owns the one-shot similarity auto-fit pass as a stoppable worker."""
+    """Owns the similarity auto-fit pass (initial fit plus periodic refit check) as a stoppable worker."""
 
     def __init__(
         self,
@@ -47,11 +51,13 @@ class SimilarityAutoFitWorker:
         lib_mgr: Any,
         globals_dict: dict[str, Any],
         builder_cls: Any,
+        check_interval: float = _CHECK_INTERVAL_SECONDS,
     ) -> None:
         self._sim_system = sim_system
         self._lib_mgr = lib_mgr
         self._globals_dict = globals_dict
         self._builder_cls = builder_cls
+        self._check_interval = check_interval
         self._stop_event = threading.Event()
         self._task: 'asyncio.Task[None] | None' = None
 
@@ -80,19 +86,35 @@ class SimilarityAutoFitWorker:
             logger.warning(f"Similarity auto-fit task raised during stop(): {exc}")
 
     def _run(self) -> None:
-        """Runs in a worker thread via asyncio.to_thread (started by start())."""
+        """Runs in a worker thread via asyncio.to_thread (started by start()).
+
+        Fits once, then re-checks every ``check_interval`` seconds until
+        stop() is signalled. The re-check is what retries a library that was
+        below ``min_samples`` at startup and refits one whose fit rests on a
+        small sample (#5716); ``fit()`` is a single COUNT when nothing has
+        changed.
+        """
+        self._fit_once(first=True)
+        while not self._stop_event.wait(self._check_interval):
+            self._fit_once(first=False)
+
+    def _fit_once(self, first: bool) -> None:
         try:
             if self._sim_system.fit(stop_event=self._stop_event):
                 # get_component reads globals fresh per request, so this
-                # late assignment is picked up.
-                self._globals_dict['graph_builder'] = self._builder_cls(
-                    similarity_system=self._sim_system,
-                    session_factory=self._lib_mgr.SessionLocal,
-                )
-                logger.info("✅ Similarity auto-fitted; K-NN Graph Builder ready")
+                # late assignment is picked up. The builder shares the
+                # similarity system (and so its normalizer), so a refit
+                # reaches it without rebuilding the builder; an already
+                # persisted K-NN graph keeps its old edges until rebuilt.
+                if self._globals_dict.get('graph_builder') is None:
+                    self._globals_dict['graph_builder'] = self._builder_cls(
+                        similarity_system=self._sim_system,
+                        session_factory=self._lib_mgr.SessionLocal,
+                    )
+                    logger.info("✅ Similarity auto-fitted; K-NN Graph Builder ready")
             elif self._stop_event.is_set():
                 logger.info("ℹ️  Similarity auto-fit stopped before completing")
-            else:
+            elif first:
                 logger.info("ℹ️  Similarity auto-fit skipped (not enough fingerprints yet)")
         except Exception as fit_e:
             logger.warning(f"⚠️  Similarity auto-fit failed: {fit_e}")

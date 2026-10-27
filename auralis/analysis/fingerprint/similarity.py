@@ -19,6 +19,10 @@ from .distance import FingerprintDistance
 from .similarity_explanation import get_prefiltered_candidates, get_similarity_explanation
 from .normalizer import FingerprintNormalizer
 
+# A fitted system refits once the current-version fingerprint count reaches
+# this multiple of the sample its statistics came from (#5716).
+REFIT_GROWTH_FACTOR = 1.5
+
 
 class SimilarityResult:
     """Result of similarity search"""
@@ -84,6 +88,22 @@ class FingerprintSimilarity:
         self.fitted = False
         self._fit_lock = threading.Lock()
 
+    def needs_refit(self) -> bool:
+        """
+        True once the library has outgrown the statistics it was fitted on
+
+        Compares the current-version fingerprint count with the number of
+        vectors the normalizer was fitted from. A fit made while the library
+        was young, or right after an algorithm bump when most rows are stale,
+        rests on a small sample; without this the ``fitted`` flag froze those
+        ranges for the life of the process (#5716).
+        """
+        fitted_from = max((st.count for st in self.normalizer.stats.values()), default=0)
+        if not self.fitted or fitted_from <= 0:  # no known sample to outgrow
+            return False
+        current = self.fingerprint_repo.get_count(current_only=True)
+        return bool(current >= fitted_from * REFIT_GROWTH_FACTOR)
+
     def fit(self, min_samples: int = 10, stop_event: threading.Event | None = None) -> bool:
         """
         Calculate normalization statistics from library
@@ -92,6 +112,10 @@ class FingerprintSimilarity:
             min_samples: Minimum fingerprints required
             stop_event: Forwarded to FingerprintNormalizer.fit() (#4682) for
                 cooperative early exit from a background caller.
+
+        Re-runs when the library has grown past ``REFIT_GROWTH_FACTOR`` times
+        the fitted sample (``needs_refit``); a failed or stopped refit keeps
+        the previous statistics in force.
 
         Returns:
             True if successful, False otherwise
@@ -105,7 +129,7 @@ class FingerprintSimilarity:
                 info("Similarity fit stopped before starting")
                 return False
 
-            if self.fitted:
+            if self.fitted and not self.needs_refit():
                 info("Similarity system already fitted")
                 return True
 

@@ -18,6 +18,7 @@ that half) since an in-flight batch read can't be forcibly cancelled.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import asyncio
 import sys
 import threading
 import time
@@ -154,3 +155,111 @@ class TestStop:
         await worker.stop()
 
         assert call_count["n"] == 1
+
+
+class TestPeriodicRecheck:
+    """#5716: the worker re-checks on an interval, retrying an unfitted system and
+    refitting one that has outgrown its sample, until stop()."""
+
+    async def test_worker_calls_fit_again_each_interval(self):
+        calls = {"n": 0}
+        enough = threading.Event()
+
+        def _fit(stop_event=None, **kw):
+            calls["n"] += 1
+            if calls["n"] >= 3:
+                enough.set()
+            return True
+
+        sim_system = MagicMock()
+        sim_system.fit.side_effect = _fit
+        worker = SimilarityAutoFitWorker(
+            sim_system=sim_system, lib_mgr=MagicMock(), globals_dict={},
+            builder_cls=MagicMock(), check_interval=0.01,
+        )
+
+        await worker.start()
+        try:
+            assert await asyncio.to_thread(enough.wait, 5)
+        finally:
+            await worker.stop()
+
+        assert calls["n"] >= 3
+
+    async def test_unfitted_at_startup_is_retried_and_builder_created_once_fit_succeeds(self):
+        results = iter([False, False, True])
+        done = threading.Event()
+
+        def _fit(stop_event=None, **kw):
+            ok = next(results, True)
+            if ok:
+                done.set()
+            return ok
+
+        sim_system = MagicMock()
+        sim_system.fit.side_effect = _fit
+        globals_dict: dict = {}
+        builder_cls = MagicMock()
+        worker = SimilarityAutoFitWorker(
+            sim_system=sim_system, lib_mgr=MagicMock(), globals_dict=globals_dict,
+            builder_cls=builder_cls, check_interval=0.01,
+        )
+
+        await worker.start()
+        try:
+            assert await asyncio.to_thread(done.wait, 5)
+        finally:
+            await worker.stop()
+
+        assert globals_dict["graph_builder"] is builder_cls.return_value
+
+    async def test_refit_does_not_rebuild_the_graph_builder(self):
+        enough = threading.Event()
+        n = {"calls": 0}
+
+        def _fit(stop_event=None, **kw):
+            n["calls"] += 1
+            if n["calls"] >= 3:
+                enough.set()
+            return True
+
+        sim_system = MagicMock()
+        sim_system.fit.side_effect = _fit
+        builder_cls = MagicMock()
+        worker = SimilarityAutoFitWorker(
+            sim_system=sim_system, lib_mgr=MagicMock(), globals_dict={},
+            builder_cls=builder_cls, check_interval=0.01,
+        )
+
+        await worker.start()
+        try:
+            assert await asyncio.to_thread(enough.wait, 5)
+        finally:
+            await worker.stop()
+
+        builder_cls.assert_called_once()
+
+    async def test_exception_in_one_pass_does_not_end_the_recheck_loop(self):
+        n = {"calls": 0}
+        enough = threading.Event()
+
+        def _fit(stop_event=None, **kw):
+            n["calls"] += 1
+            if n["calls"] >= 3:
+                enough.set()
+            if n["calls"] == 1:
+                raise RuntimeError("transient")
+            return True
+
+        sim_system = MagicMock()
+        sim_system.fit.side_effect = _fit
+        worker = SimilarityAutoFitWorker(
+            sim_system=sim_system, lib_mgr=MagicMock(), globals_dict={},
+            builder_cls=MagicMock(), check_interval=0.01,
+        )
+
+        await worker.start()
+        try:
+            assert await asyncio.to_thread(enough.wait, 5)
+        finally:
+            await worker.stop()

@@ -102,17 +102,19 @@ async def fit_similarity_system(
     repos = dependencies.require_repository_factory(get_repository_factory)
     similarity = require_similarity_system(get_similarity_system)
 
-    # Check if already fitted
-    if await asyncio.to_thread(similarity.is_fitted):
-        count = await asyncio.to_thread(repos.fingerprints.get_count)
+    # Check if already fitted (and the library has not outgrown that fit, #5716)
+    if await asyncio.to_thread(similarity.is_fitted) and not await asyncio.to_thread(
+        similarity.needs_refit
+    ):
+        count = await asyncio.to_thread(repos.fingerprints.get_count, True)
         return {
             "fitted": True,
             "total_fingerprints": count,
             "message": f"Similarity system already fitted with {count} tracks"
         }
 
-    # Get fingerprint count
-    fingerprint_count = await asyncio.to_thread(repos.fingerprints.get_count)
+    # Count what the fit will read: current-version, non-claim rows (#5716)
+    fingerprint_count = await asyncio.to_thread(repos.fingerprints.get_count, True)
 
     if fingerprint_count < min_samples:
         raise BadRequestError(f"Insufficient fingerprints: {fingerprint_count} < {min_samples}")

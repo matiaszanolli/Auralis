@@ -138,3 +138,50 @@ async def test_fit_similarity_system_callable_with_bare_stub_getters():
     assert result["fitted"] is True
     assert result["total_fingerprints"] == 100
     similarity.fit.assert_called_once()
+
+
+async def test_fit_endpoint_refits_when_library_outgrew_the_fit():
+    """#5716: POST /fit on an already-fitted system still refits once
+    needs_refit() says the library has outgrown the fitted sample."""
+    similarity = MagicMock()
+    similarity.is_fitted.return_value = True
+    similarity.needs_refit.return_value = True
+
+    result = await fit_similarity_system(
+        min_samples=10,
+        get_repository_factory=lambda: _repos(),
+        get_similarity_system=lambda: similarity,
+    )
+
+    similarity.fit.assert_called_once_with()
+    assert result["fitted"] is True
+
+
+async def test_fit_endpoint_is_a_no_op_when_fit_is_current():
+    similarity = MagicMock()
+    similarity.is_fitted.return_value = True
+    similarity.needs_refit.return_value = False
+
+    result = await fit_similarity_system(
+        min_samples=10,
+        get_repository_factory=lambda: _repos(),
+        get_similarity_system=lambda: similarity,
+    )
+
+    similarity.fit.assert_not_called()
+    assert "already fitted" in result["message"]
+
+
+async def test_fit_endpoint_counts_current_rows_only():
+    """The min_samples gate uses the same current-only count as the fit."""
+    repos = _repos()
+    similarity = MagicMock()
+    similarity.is_fitted.return_value = False
+
+    await fit_similarity_system(
+        min_samples=10,
+        get_repository_factory=lambda: repos,
+        get_similarity_system=lambda: similarity,
+    )
+
+    repos.fingerprints.get_count.assert_called_with(True)
