@@ -3,7 +3,7 @@ import { getArtistContextActions } from '@/components/shared/ContextMenu';
 import { useToast } from '@/components/shared/Toast';
 import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { getArtistTracks } from '@/services/libraryService';
-import { addTrackToQueue, setQueue } from '@/services/queueService';
+import { addTracksToQueue, setQueue } from '@/services/queueService';
 import type { Artist } from '@/types/domain';
 
 interface UseContextMenuActionsProps {
@@ -70,18 +70,19 @@ export const useContextMenuActions = ({
         return;
       }
 
-      // One at a time, so the artist's tracks keep album order in the queue.
-      // A failure part-way reports how far it got instead of a false success.
-      const total = response.tracks.length;
-      let added = 0;
+      // One batch request (#5651): the backend appends under one lock in
+      // `trackIds` order, so the artist's tracks keep album order, and one
+      // `queue_changed` goes out instead of N whole-queue broadcasts. A
+      // partial result is reported instead of a false success.
+      let result: Awaited<ReturnType<typeof addTracksToQueue>>;
       try {
-        for (const track of response.tracks) {
-          await addTrackToQueue(track.id);
-          added += 1;
-        }
+        result = await addTracksToQueue(response.tracks.map((track) => track.id));
       } catch (err) {
-        const reason = err instanceof Error ? err.message : 'Failed to add artist tracks to queue';
-        showError(added > 0 ? `Added ${added} of ${total} tracks to queue: ${reason}` : reason);
+        showError(err instanceof Error ? err.message : 'Failed to add artist tracks to queue');
+        return;
+      }
+      if (result.added_count < result.requested_count) {
+        showError(`Added ${result.added_count} of ${result.requested_count} tracks to queue`);
         return;
       }
 

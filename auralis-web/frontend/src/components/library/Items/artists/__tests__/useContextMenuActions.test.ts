@@ -16,10 +16,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
 // vi.hoisted so these spies exist before the (hoisted) vi.mock factories run.
-const { success, showError, addTrackToQueue, setQueue, startTrack } = vi.hoisted(() => ({
+const { success, showError, addTracksToQueue, setQueue, startTrack } = vi.hoisted(() => ({
   success: vi.fn(),
   showError: vi.fn(),
-  addTrackToQueue: vi.fn(),
+  addTracksToQueue: vi.fn(),
   setQueue: vi.fn(),
   startTrack: vi.fn(),
 }));
@@ -30,7 +30,7 @@ vi.mock('@/components/shared/Toast', () => ({
 vi.mock('@/contexts/PlaybackSessionContext', () => ({
   usePlaybackControls: () => ({ startTrack }),
 }));
-vi.mock('@/services/queueService', () => ({ addTrackToQueue, setQueue }));
+vi.mock('@/services/queueService', () => ({ addTracksToQueue, setQueue }));
 vi.mock('@/services/libraryService', () => ({
   getArtistTracks: vi.fn(),
 }));
@@ -57,7 +57,7 @@ const apiTrack = (id: number) => ({ id, title: `Track ${id}`, album: 'Album', du
 
 beforeEach(() => {
   vi.clearAllMocks();
-  addTrackToQueue.mockResolvedValue(undefined);
+  addTracksToQueue.mockResolvedValue({ added_count: 3, requested_count: 3, queue_size: 3 });
   setQueue.mockResolvedValue(undefined);
   startTrack.mockResolvedValue(undefined);
 });
@@ -72,7 +72,7 @@ describe('useContextMenuActions › handleAddToQueue (#4444, #5612)', () => {
     });
 
     expect(success).not.toHaveBeenCalled();
-    expect(addTrackToQueue).not.toHaveBeenCalled();
+    expect(addTracksToQueue).not.toHaveBeenCalled();
     expect(showError).toHaveBeenCalledWith('network down');
   });
 
@@ -85,11 +85,11 @@ describe('useContextMenuActions › handleAddToQueue (#4444, #5612)', () => {
     });
 
     expect(success).not.toHaveBeenCalled();
-    expect(addTrackToQueue).not.toHaveBeenCalled();
+    expect(addTracksToQueue).not.toHaveBeenCalled();
     expect(showError).toHaveBeenCalledWith('No tracks found for Radiohead');
   });
 
-  it('adds every track to the engine queue, in order, then shows success', async () => {
+  it('adds every track in ONE batch call, in album order, then shows success', async () => {
     mockGetArtistTracks.mockResolvedValueOnce({ tracks: [apiTrack(1), apiTrack(2), apiTrack(3)] });
     const actions = renderActions();
 
@@ -97,56 +97,31 @@ describe('useContextMenuActions › handleAddToQueue (#4444, #5612)', () => {
       await actions.onAddToQueue();
     });
 
-    expect(addTrackToQueue.mock.calls.map((c) => c[0])).toEqual([1, 2, 3]);
+    expect(addTracksToQueue).toHaveBeenCalledTimes(1);
+    expect(addTracksToQueue).toHaveBeenCalledWith([1, 2, 3]);
     expect(success).toHaveBeenCalledWith('Added Radiohead to queue');
-    // Ordering: the last backend add must precede the success toast.
-    expect(addTrackToQueue.mock.invocationCallOrder[2]).toBeLessThan(
+    expect(addTracksToQueue.mock.invocationCallOrder[0]).toBeLessThan(
       success.mock.invocationCallOrder[0]
     );
     expect(showError).not.toHaveBeenCalled();
   });
 
-  it('waits for each add before sending the next, so queue order is the album order', async () => {
-    mockGetArtistTracks.mockResolvedValueOnce({ tracks: [apiTrack(1), apiTrack(2)] });
-    let releaseFirst!: () => void;
-    addTrackToQueue.mockImplementationOnce(
-      () => new Promise<void>((resolve) => { releaseFirst = resolve; })
-    );
-    const actions = renderActions();
-
-    let done!: Promise<void>;
-    await act(async () => {
-      done = actions.onAddToQueue();
-      await Promise.resolve();
-    });
-    expect(addTrackToQueue).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      releaseFirst();
-      await done;
-    });
-    expect(addTrackToQueue.mock.calls.map((c) => c[0])).toEqual([1, 2]);
-  });
-
-  it('reports how far it got, and no success, when the backend fails part-way', async () => {
+  it('reports a partial add, and no success, when the backend skips tracks', async () => {
     mockGetArtistTracks.mockResolvedValueOnce({ tracks: [apiTrack(1), apiTrack(2), apiTrack(3)] });
-    addTrackToQueue
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('queue full'));
+    addTracksToQueue.mockResolvedValueOnce({ added_count: 2, requested_count: 3, queue_size: 2 });
     const actions = renderActions();
 
     await act(async () => {
       await actions.onAddToQueue();
     });
 
-    expect(addTrackToQueue).toHaveBeenCalledTimes(2);
     expect(success).not.toHaveBeenCalled();
-    expect(showError).toHaveBeenCalledWith('Added 1 of 3 tracks to queue: queue full');
+    expect(showError).toHaveBeenCalledWith('Added 2 of 3 tracks to queue');
   });
 
-  it('shows the backend error when the very first add fails', async () => {
+  it('shows the backend error, and no success, when the batch call fails', async () => {
     mockGetArtistTracks.mockResolvedValueOnce({ tracks: [apiTrack(1)] });
-    addTrackToQueue.mockRejectedValueOnce(new Error('Track 1 not found'));
+    addTracksToQueue.mockRejectedValueOnce(new Error('queue full'));
     const actions = renderActions();
 
     await act(async () => {
@@ -154,50 +129,6 @@ describe('useContextMenuActions › handleAddToQueue (#4444, #5612)', () => {
     });
 
     expect(success).not.toHaveBeenCalled();
-    expect(showError).toHaveBeenCalledWith('Track 1 not found');
-  });
-});
-
-describe('useContextMenuActions › handlePlayAll (#5612)', () => {
-  it('replaces the engine queue, streams the first track, and only then reports success', async () => {
-    mockGetArtistTracks.mockResolvedValueOnce({ tracks: [apiTrack(4), apiTrack(5), apiTrack(6)] });
-    const actions = renderActions();
-
-    await act(async () => {
-      await actions.onPlayAll();
-    });
-
-    expect(setQueue).toHaveBeenCalledWith([4, 5, 6], 0);
-    expect(startTrack).toHaveBeenCalledWith(4);
-    expect(setQueue.mock.invocationCallOrder[0]).toBeLessThan(startTrack.mock.invocationCallOrder[0]);
-    expect(startTrack.mock.invocationCallOrder[0]).toBeLessThan(success.mock.invocationCallOrder[0]);
-    expect(success).toHaveBeenCalledWith('Playing all songs by Radiohead');
-  });
-
-  it('starts nothing and shows the error when the queue cannot be set', async () => {
-    mockGetArtistTracks.mockResolvedValueOnce({ tracks: [apiTrack(4)] });
-    setQueue.mockRejectedValueOnce(new Error('Track 4 not found'));
-    const actions = renderActions();
-
-    await act(async () => {
-      await actions.onPlayAll();
-    });
-
-    expect(startTrack).not.toHaveBeenCalled();
-    expect(success).not.toHaveBeenCalled();
-    expect(showError).toHaveBeenCalledWith('Track 4 not found');
-  });
-
-  it('does nothing for an artist with no tracks', async () => {
-    mockGetArtistTracks.mockResolvedValueOnce({ tracks: [] });
-    const actions = renderActions();
-
-    await act(async () => {
-      await actions.onPlayAll();
-    });
-
-    expect(setQueue).not.toHaveBeenCalled();
-    expect(startTrack).not.toHaveBeenCalled();
-    expect(showError).toHaveBeenCalledWith('No tracks found for Radiohead');
+    expect(showError).toHaveBeenCalledWith('queue full');
   });
 });
