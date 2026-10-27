@@ -192,11 +192,11 @@ def test_a_v19_library_gains_the_table_on_upgrade(db_path: Path) -> None:
             "VALUES (19, 'test', 'test')"
         )
         connection.commit()
-    assert __db_schema_version__ == 20
+    assert __db_schema_version__ >= 20  # the table arrives with v20; later versions still carry it
 
     LibraryDatabase(database_path=str(db_path))
 
     assert _rows(db_path) == {}
     with closing(sqlite3.connect(db_path)) as connection:
         versions = [v for (v,) in connection.execute("SELECT version FROM schema_version")]
-    assert max(versions) == 20
+    assert max(versions) == __db_schema_version__

@@ -9,7 +9,7 @@ Format: `migration_vXXX_to_vYYY.sql`
 Examples:
 - `migration_v000_to_v001_initial_schema.sql` - Initial schema (the only file with a description suffix)
 - `migration_v001_to_v002.sql` - Adds lyrics column to tracks and artwork_path to albums
-- `migration_v022_to_v023.sql` - Current schema version
+- `migration_v028_to_v029.sql` - Current schema version (adds track_fingerprints.fingerprint_blob)
 
 ## How Migrations Work
 
