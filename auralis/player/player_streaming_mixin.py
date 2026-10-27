@@ -127,19 +127,7 @@ class PlayerStreamingMixin:
                     reached_end_without_advance = True
 
         if reached_end_without_advance:
-            # #5584: end-of-queue half of #5114. Without this the state
-            # machine stayed PLAYING at EOF forever, returning silence with
-            # the position pinned at total_samples, and no consumer polling
-            # state/is_playing could learn the queue finished. stop() makes
-            # the early is_playing() return above swallow every subsequent
-            # call, so the stop and the notification fire exactly once.
-            self.playback.stop()
-            self.integration._notify_callbacks({
-                'action': 'playback_finished',
-                # The pre-materialised current-track dict is the documented
-                # read path (integration_manager #4552).
-                'track': self.integration._current_track_dict,
-            })
+            self._finish_playback()
 
         # Apply advanced real-time processing (outside the lock — pure CPU
         # work on the captured chunk, no shared state touched). The file
@@ -152,6 +140,26 @@ class PlayerStreamingMixin:
         processed_chunk = self.processor.process_chunk(chunk, self.file_manager.sample_rate)
 
         return processed_chunk
+
+    def _finish_playback(self) -> None:
+        """Stop and announce ``playback_finished`` once. Call outside ``_audio_lock``.
+
+        #5584: end-of-queue half of #5114. Without this the state machine stayed
+        PLAYING at EOF forever, returning silence with the position pinned at
+        total_samples, and no consumer polling state/is_playing could learn the
+        queue finished. stop() makes the early is_playing() return in
+        get_audio_chunk() swallow every subsequent call, so the stop and the
+        notification fire exactly once. stop() must not run under _audio_lock
+        (same lock-order rule PlayerFileLoadingMixin/seek() document). #5706
+        reuses it when the successor cannot be loaded.
+        """
+        self.playback.stop()
+        self.integration._notify_callbacks({
+            'action': 'playback_finished',
+            # The pre-materialised current-track dict is the documented
+            # read path (integration_manager #4552).
+            'track': self.integration._current_track_dict,
+        })
 
     def _auto_advance_next(self, generation: int) -> None:
         """Auto-advance to next track (background thread, runs at most once)"""
@@ -168,8 +176,14 @@ class PlayerStreamingMixin:
             # cleanup()" hold deterministically.
             if self._cleanup_in_progress.is_set():
                 return
-            if self.playback.is_playing():
-                self.next_track()
+            if self.playback.is_playing() and not self.next_track():
+                # #5706: next_track() returns False -- successor missing,
+                # undecodable or without a path key -- without moving the queue.
+                # Ignoring that re-armed the spawn in the finally block, so every
+                # get_audio_chunk() call retried (thousands of attempts a second).
+                # Finish once, unless the user's stop() is what made it False.
+                if not self._stop_requested.is_set():
+                    self._finish_playback()
         except Exception:
             # next_track() failed (e.g. queue race before lock fix, file error).
             # Stop playback so the audio callback's early-return guard fires and
