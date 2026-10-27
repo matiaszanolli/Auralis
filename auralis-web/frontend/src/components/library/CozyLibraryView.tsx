@@ -5,9 +5,12 @@
  * - useLibraryWithStats hook for data fetching and statistics
  * - LibraryViewRouter for albums/artists navigation
  * - TrackListView for track rendering
- * - LibraryEmptyState for empty states
+ * - LibraryEmptyContent for empty states
  * - useLibraryKeyboardShortcuts for keyboard handling
- * - LibrarySearchControls for search/filter UI
+ * - BatchActionsToolbar for multi-select actions
+ *
+ * The search query arrives from the top bar as a prop; this view has no
+ * search UI of its own.
  *
  * Responsibilities:
  * - Search/filter orchestration
