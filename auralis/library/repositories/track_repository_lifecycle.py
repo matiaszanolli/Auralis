@@ -112,12 +112,17 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
     def _get_or_create_album(
         self, session: Session, album_title: str, year: Any, artist_id: int | None
     ) -> Album | None:
-        """Resolve or create an album for the given artist (same concurrent-insert handling as artists, fixes #3365)."""
-        album_filter = Album.title == album_title
-        if artist_id is not None:
-            album_filter = and_(album_filter, Album.artist_id == artist_id)
-        if artist_id is None:
-            return session.execute(select(Album).where(album_filter)).scalars().first()
+        """Resolve or create an album owned by ``artist_id`` (same concurrent-insert handling as artists, fixes #3365).
+
+        ``artist_id=None`` means an artist-less track: it gets the ownerless
+        album of that title, created if missing, never another artist's album
+        that merely shares the title. ``add()`` and the update paths resolve
+        through here, so a first scan and a rescan agree (#5595). The partial
+        unique indexes on ``albums`` (schema v30) are what make the
+        ON CONFLICT DO NOTHING in ``_get_or_create`` collapse a race to one row.
+        """
+        owner = Album.artist_id == artist_id if artist_id is not None else Album.artist_id.is_(None)
+        album_filter = and_(Album.title == album_title, owner)
         try:
             return _get_or_create(
                 session, Album, album_filter, required=False,

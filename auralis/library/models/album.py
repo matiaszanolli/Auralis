@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from .artist import Artist
     from .track import Track
 
-from sqlalchemy import Float, ForeignKey, Index, Integer, String, collate
+from sqlalchemy import Float, ForeignKey, Index, Integer, String, collate, text
 from sqlalchemy.orm import Mapped, mapped_column, query_expression, relationship
 
 from ._helpers import _safe_collection, _safe_scalar
@@ -35,10 +35,25 @@ class Album(Base, TimestampMixin):
     # migration_v024_to_v025.sql (#6103): albums.artist_id had no index, so
     # correlated artist album counts and Artist.albums selectin loads
     # scanned the whole table.
+    #
+    # The two unique indexes (migration_v029_to_v030.sql, #5595) are what let
+    # concurrent scans insert the same new album with ON CONFLICT DO NOTHING
+    # and still end up with one row. They are partial because SQLite treats
+    # NULLs as distinct in a unique index: an artist-less album is unique by
+    # title alone. Titles compare exactly, as the lookup in
+    # ``_get_or_create_album`` does.
     __table_args__ = (
         Index('idx_albums_title', collate(title, 'NOCASE')),
         Index('idx_albums_year', year),
         Index('idx_albums_artist_id', artist_id),
+        Index(
+            'uq_albums_title_artist', title, artist_id, unique=True,
+            sqlite_where=text('artist_id IS NOT NULL'),
+        ),
+        Index(
+            'uq_albums_title_ownerless', title, unique=True,
+            sqlite_where=text('artist_id IS NULL'),
+        ),
     )
 
     total_tracks: Mapped[int | None] = mapped_column(Integer)

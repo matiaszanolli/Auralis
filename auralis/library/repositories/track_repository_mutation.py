@@ -30,6 +30,23 @@ def _apply_metadata_fields(track: Track, track_id: int, fields: dict[str, Any]) 
             setattr(track, key, value)
 
 
+def _reload_detached(session: Session, where: Any) -> Track:
+    """Re-query the track matching *where* with eager loading and detach it.
+
+    #5247: ``refresh()`` expires an instance without re-applying query options,
+    so album/artists/genres stayed unloaded and raised DetachedInstanceError
+    once expunged. Raises ``LookupError`` if the row vanished between the
+    commit and the re-query (the caller's ``_guarded`` reports it).
+    """
+    track = session.execute(
+        select(Track).options(*_track_eager_options()).where(where)
+    ).scalars().unique().first()
+    if track is None:
+        raise LookupError("Track disappeared before it could be reloaded")
+    session.expunge(track)
+    return track
+
+
 class TrackRepositoryMutationMixin(BaseRepository):
     """Update an existing track's fields, relationships, or metadata."""
 
@@ -55,15 +72,11 @@ class TrackRepositoryMutationMixin(BaseRepository):
         the track's first artist, exactly as ``add()`` does. Call after any
         artist update so that artist is the new one.
 
-        A track with no artist still gets an album (created without an owner,
-        serialized as 'Unknown Artist') rather than losing the tag.
+        A track with no artist still gets an album, the ownerless one of that
+        title (#5595), rather than losing the tag.
         """
         artist_id = track.artists[0].id if track.artists else None
-        album = self._get_or_create_album(session, album_title, year, artist_id)
-        if album is None:
-            album = Album(title=album_title, year=year)
-            session.add(album)
-        track.album = album
+        track.album = self._get_or_create_album(session, album_title, year, artist_id)
 
     def _update_genres(self, session: Session, track: Track, genre_names: list[str]) -> None:
         """Update track genres"""
@@ -108,14 +121,8 @@ class TrackRepositoryMutationMixin(BaseRepository):
                 self._assign_album(session, track, track_info['album'], track_info.get('year'))
 
             session.commit()
-            # Re-query with eager loading before detaching from session
-            track = session.execute(
-                select(Track)
-                .options(*_track_eager_options())
-                .where(Track.filepath_key == make_filepath_key(filepath))
-            ).scalars().unique().first()
+            track = _reload_detached(session, Track.filepath_key == make_filepath_key(filepath))
             info(f"Updated track: {track.title}")
-            session.expunge(track)
             return track
         return None
 
@@ -157,14 +164,8 @@ class TrackRepositoryMutationMixin(BaseRepository):
                 self._assign_album(session, track, track_info['album'], track_info.get('year'))
 
             session.commit()
-            # Re-query with eager loading before detaching from session
-            track = session.execute(
-                select(Track)
-                .options(*_track_eager_options())
-                .where(Track.id == track_id)
-            ).scalars().unique().first()
+            track = _reload_detached(session, Track.id == track_id)
             debug(f"Updated track: {track.title}")
-            session.expunge(track)
             return track
         return None
 
@@ -193,18 +194,8 @@ class TrackRepositoryMutationMixin(BaseRepository):
                 _apply_metadata_fields(track, track_id, fields)
 
                 session.commit()
-                # Re-query with eager loading before detaching from session
-                # (#5247: refresh() expires the instance without re-applying
-                # query options, so album/artists/genres stayed unloaded and
-                # then raised DetachedInstanceError once expunged — matches
-                # update()/update_by_filepath() above in the same file).
-                track = session.execute(
-                    select(Track)
-                    .options(*_track_eager_options())
-                    .where(Track.id == track_id)
-                ).scalars().unique().first()
+                track = _reload_detached(session, Track.id == track_id)
                 debug(f"Updated track metadata: {track.title}")
-                session.expunge(track)
                 return track
             except Exception as e:
                 session.rollback()
