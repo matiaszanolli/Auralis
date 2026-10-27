@@ -162,42 +162,42 @@ class SimpleMasteringPipeline(StageDelegatesMixin):
         # the original file path, not the transient temp WAV).
         from ..io.formats import FFMPEG_FORMATS
         _tmp_dir: _tempfile.TemporaryDirectory[str] | None = None
-        if orig_path.suffix.lower() in FFMPEG_FORMATS:
-            from ..io.loaders import load_with_ffmpeg
+        # Temp dirs are created inside this try so its finally removes them on every failure (#5710).
+        try:
             from ..io.saver import save as save_audio
-            _tmp_dir = _tempfile.TemporaryDirectory()
-            _tmp_wav = Path(_tmp_dir.name) / (orig_path.stem + "_dec.wav")
-            _raw, _raw_sr = load_with_ffmpeg(orig_path, _tmp_dir.name)
-            # Through saver.save, not a bare sf.write (#5532): load_with_ffmpeg
-            # has no finiteness/range guard, and once quantized to PCM_24 a NaN
-            # stops being NaN — the downstream fail-fast finite check could
-            # never catch the garbage libsndfile substituted. saver.save()
-            # repairs non-finite samples to silence and clips to [-1, 1].
-            save_audio(str(_tmp_wav), _raw, _raw_sr, subtype="PCM_24")
-            resolved_input_path = _tmp_wav
-        else:
             resolved_input_path = orig_path
-            # #5569: libsndfile-native multichannel sources (5.1/7.1 WAV,
-            # FLAC, AIFF) must be downmixed BEFORE prepare_file's
-            # measurements and the chunk loop — the loop would otherwise
-            # truncate to L+R, silently dropping Center/LFE/surround (the
-            # defect class #3743 removed from the loaders). AudioFileInfo
-            # already knows the channel count, so the check is free;
-            # load_with_soundfile applies the BS.775 downmix for canonical
-            # layouts and routes non-canonical ones through FFmpeg (#5242).
-            try:
+            if orig_path.suffix.lower() in FFMPEG_FORMATS:
+                from ..io.loaders import load_with_ffmpeg
+                _tmp_dir = _tempfile.TemporaryDirectory()
+                _tmp_wav = Path(_tmp_dir.name) / (orig_path.stem + "_dec.wav")
+                _raw, _raw_sr = load_with_ffmpeg(orig_path, _tmp_dir.name)
+                # Through saver.save, not a bare sf.write (#5532): load_with_ffmpeg
+                # has no finiteness/range guard, and once quantized to PCM_24 a NaN
+                # stops being NaN — the downstream fail-fast finite check could
+                # never catch the garbage libsndfile substituted. saver.save()
+                # repairs non-finite samples to silence and clips to [-1, 1].
+                save_audio(str(_tmp_wav), _raw, _raw_sr, subtype="PCM_24")
+                resolved_input_path = _tmp_wav
+            else:
+                # #5569: libsndfile-native multichannel sources (5.1/7.1 WAV,
+                # FLAC, AIFF) must be downmixed BEFORE prepare_file's
+                # measurements and the chunk loop — the loop would otherwise
+                # truncate to L+R, silently dropping Center/LFE/surround (the
+                # defect class #3743 removed from the loaders).
+                # load_with_soundfile applies the BS.775 downmix for canonical
+                # layouts and routes non-canonical ones through FFmpeg (#5242).
                 import soundfile as _sf
-                if _sf.info(str(orig_path)).channels > 2:
+                try:
+                    native_channels = _sf.info(str(orig_path)).channels
+                except _sf.LibsndfileError:
+                    native_channels = 0  # not libsndfile-readable: the chunk loop reports it
+                if native_channels > 2:
                     from ..io.loaders import load_with_soundfile
-                    from ..io.saver import save as save_audio
                     _tmp_dir = _tempfile.TemporaryDirectory()
                     _tmp_wav = Path(_tmp_dir.name) / (orig_path.stem + "_stereo.wav")
                     _raw, _raw_sr = load_with_soundfile(orig_path)
                     save_audio(str(_tmp_wav), _raw, _raw_sr, subtype="PCM_24")
                     resolved_input_path = _tmp_wav
-            except _sf.error:
-                pass  # not a libsndfile-readable file — the chunk loop will report it
-        try:
             prep = mastering_prepare.prepare_file(
                 self, orig_path, resolved_input_path, output_path, verbose
             )
