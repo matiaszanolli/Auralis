@@ -20,6 +20,7 @@ from .windows import (
     FINGERPRINT_PROBE_POSITIONS,
     FINGERPRINT_PROBE_WINDOW_S,
     FINGERPRINT_SAMPLE_RATE,
+    stereo_window,
     window_offset_s,
 )
 
@@ -131,16 +132,14 @@ def load_librosa_windows(audio_path: Path) -> WindowSet:
     import librosa
 
     body_s, probe_s = FINGERPRINT_BODY_WINDOW_S, FINGERPRINT_PROBE_WINDOW_S
-    # Get total duration without loading audio
-    try:
+    try:  # total duration without loading audio
         import soundfile as _sf
         with _sf.SoundFile(str(audio_path)) as _f:
             total_s: float | None = _f.frames / _f.samplerate
     except Exception:
         total_s = None
 
-    # Body window: centred on 50 % of track duration
-    if total_s is not None:
+    if total_s is not None:  # body window: centred on 50 % of track duration
         body_offset = window_offset_s(FINGERPRINT_BODY_POSITION, total_s, body_s)
     else:
         body_offset = 0.0
@@ -149,17 +148,19 @@ def load_librosa_windows(audio_path: Path) -> WindowSet:
         str(audio_path), sr=FINGERPRINT_SAMPLE_RATE, mono=False,
         offset=body_offset, duration=body_s,
     )
-    # Lightweight probes: mono is sufficient for LUFS/crest estimation
+    audio = stereo_window(audio)
+    # Probes decode multichannel and share the body's downmix (librosa's
+    # mono=True mean would include the LFE, #5711); the caller folds to mono.
     probes: list[np.ndarray] = []
     if total_s is not None:
         for frac in FINGERPRINT_PROBE_POSITIONS:
             poff = window_offset_s(frac, total_s, probe_s)
             try:
                 pa, _ = librosa.load(
-                    str(audio_path), sr=FINGERPRINT_SAMPLE_RATE, mono=True,
+                    str(audio_path), sr=FINGERPRINT_SAMPLE_RATE, mono=False,
                     offset=poff, duration=probe_s,
                 )
-                probes.append(pa)
+                probes.append(stereo_window(pa))
             except Exception:
                 pass
     return audio, int(loaded_sr), probes
@@ -184,17 +185,15 @@ def crop_preloaded_windows(raw_audio: np.ndarray, orig_sr: int) -> WindowSet:
         start-crop-only code avoided."""
         start = int(orig_sr * offset_s)
         end = start + int(orig_sr * dur_s)
-        cropped = raw_audio[..., start:end]
+        cropped = stereo_window(raw_audio[..., start:end])
         if orig_sr == FINGERPRINT_SAMPLE_RATE:
             return cropped
         return _resample_channels(cropped, orig_sr, FINGERPRINT_SAMPLE_RATE)
 
     # Body window: centred on 50 % of duration, same as fresh-load.
     audio = _crop_and_resample(window_offset_s(FINGERPRINT_BODY_POSITION, total_s, body_s), body_s)
-    # Rounding safety at the target rate (works for 1-D and 2-D).
+    # Rounding safety at the target rate (works for 1-D and 2-D); probes at 25 % / 75 %.
     audio = audio[..., :int(FINGERPRINT_SAMPLE_RATE * body_s)]
-    # Lightweight LUFS/crest probes at 25 % / 75 %, cropped from the same
-    # pre-loaded buffer.
     probes = [
         _crop_and_resample(window_offset_s(frac, total_s, probe_s), probe_s)
         for frac in FINGERPRINT_PROBE_POSITIONS

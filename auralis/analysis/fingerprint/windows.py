@@ -14,6 +14,8 @@ library fingerprint and the mastering fingerprint must keep using the same one.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import numpy as np
+
 #: Every input is normalised to this rate before analysis, so the same file yields
 #: the same fingerprint however it was loaded (#3657). librosa's native analysis
 #: rate; halves the data for 44.1 kHz files.
@@ -39,3 +41,24 @@ def window_offset_s(fraction: float, total_s: float, window_s: float) -> float:
     """Start time of a *window_s*-long window placed at *fraction* of *total_s*,
     pulled back so the window never runs past the end of the track."""
     return min(fraction * total_s, max(0.0, total_s - window_s))
+
+
+def stereo_window(window: np.ndarray) -> np.ndarray:
+    """Fold a (channels, samples) window to at most two channels (#5711).
+
+    Every window -- body and probes, whichever loader produced it -- goes
+    through this, so the body's spectral analysis and the probes' LUFS/crest
+    see the same signal and a 5.1 FLAC fingerprints like the same mix as M4A
+    (whose FFmpeg decode already applies ``-ac 2``). Canonical 5.1/7.1 uses the
+    BS.775 matrix (Center and surrounds included, LFE dropped). A count that
+    does not identify its layout (quad, 5.0, ...) keeps its first two channels,
+    as the analyzer always did, rather than guessing a matrix. Mono, stereo and
+    1-D input pass through unchanged.
+    """
+    if window.ndim != 2 or window.shape[0] <= 2:
+        return window
+    from auralis.io.processing import downmix_to_stereo, requires_layout_aware_downmix
+
+    if requires_layout_aware_downmix(window.shape[0]):
+        return window[:2]
+    return np.ascontiguousarray(downmix_to_stereo(window.T).T)

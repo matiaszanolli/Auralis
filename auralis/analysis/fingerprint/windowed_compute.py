@@ -157,16 +157,6 @@ def compute_windowed_fingerprint(
         # Ensure float64 for PyO3 compatibility
         audio = audio.astype(np.float64)
 
-        # Downmix >2-channel audio to stereo before fingerprinting.
-        # librosa.load(mono=False) returns (channels, samples) for any channel count.
-        # The fingerprint analyzer only handles mono/stereo -- its shape-detection
-        # heuristic (shape[0] <= 2 -> channels-first) misclassifies a 6-ch array
-        # as having 6 samples, causing a false "too short" rejection.
-        # Taking the first two channels (L+R) is sufficient for timbral analysis;
-        # the C/Ls/Rs channels are correlated with L+R in well-mixed surround content.
-        if audio.ndim == 2 and audio.shape[0] > 2:
-            audio = audio[:2, :]
-
         # Compute fingerprint from the body window
         fingerprint = analyzer.analyze(audio, sr)
 
