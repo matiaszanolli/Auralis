@@ -11,9 +11,10 @@ adding or deleting a track row itself.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
+from typing import Any, TypeVar
 
 from sqlalchemy import and_, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -29,6 +30,32 @@ from ..utils.artist_normalizer import normalize_artist_name
 from .base import BaseRepository
 from .track_deletion import delete_tracks_by_ids
 from .track_repository import _track_eager_options
+
+
+_M = TypeVar("_M", Artist, Genre, Album)
+
+
+def _get_or_create(
+    session: Session, model: type[_M], where: Any, required: bool = True, **values: Any
+) -> _M:
+    """Select the row matching ``where``, inserting ``values`` first if it is missing.
+
+    The insert is ``INSERT ... ON CONFLICT DO NOTHING`` followed by a re-select,
+    not a SAVEPOINT: pysqlite's legacy transaction mode lets a SAVEPOINT open
+    the SQLite transaction itself, so its outermost RELEASE *commits* — the new
+    artist/genre/album then survived a rollback of the surrounding session and
+    a failed ``add()`` left orphans (#5717). A plain INSERT begins the
+    session's own transaction, so rollback takes it back. A concurrent loser's
+    conflicting INSERT is ignored and the re-select finds the winner's row
+    (#2594). ``required`` re-raises ``NoResultFound`` if no row exists even
+    after the insert.
+    """
+    row = session.execute(select(model).where(where)).scalars().first()
+    if row is None:
+        session.execute(sqlite_insert(model).values(**values).on_conflict_do_nothing())
+        found = session.execute(select(model).where(where)).scalars()
+        row = found.one() if required else found.first()
+    return row  # type: ignore[return-value]
 
 
 class TrackRepositoryLifecycleMixin(BaseRepository):
@@ -58,62 +85,38 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
         """Resolve or create artists by normalized name matching.
 
         Handles concurrent scans where two sessions try to insert the same
-        artist simultaneously — the loser's INSERT raises IntegrityError on
-        the UNIQUE constraint, and we fall back to querying (fixes #2594).
+        artist simultaneously — the loser's INSERT is ignored and we fall back
+        to querying (fixes #2594).
         """
         artists = []
-        for artist_name in artist_names:
-            normalized = normalize_artist_name(artist_name)
-            # Match by normalized name to prevent duplicates (AC/DC vs ACDC)
-            artist = session.execute(
-                select(Artist).where(Artist.normalized_name == normalized)
-            ).scalars().first()
-            if not artist:
-                try:
-                    with session.begin_nested():  # savepoint so rollback is scoped
-                        artist = Artist(name=artist_name, normalized_name=normalized)
-                        session.add(artist)
-                        session.flush()
-                except IntegrityError:
-                    artist = session.execute(
-                        select(Artist).where(Artist.normalized_name == normalized)
-                    ).scalars().one()
-            artists.append(artist)
+        for name in artist_names:
+            normalized = normalize_artist_name(name)
+            artists.append(_get_or_create(
+                session, Artist, Artist.normalized_name == normalized,
+                name=name, normalized_name=normalized,
+            ))
         return artists
 
     def _get_or_create_genres(self, session: Session, genre_names: list[str]) -> list[Genre]:
-        """Resolve or create genres by name (same IntegrityError handling as artists, fixes #2594)."""
-        genres = []
-        for genre_name in genre_names:
-            genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().first()
-            if not genre:
-                try:
-                    with session.begin_nested():  # savepoint so rollback is scoped
-                        genre = Genre(name=genre_name)
-                        session.add(genre)
-                        session.flush()
-                except IntegrityError:
-                    genre = session.execute(select(Genre).where(Genre.name == genre_name)).scalars().one()
-            genres.append(genre)
-        return genres
+        """Resolve or create genres by name (same concurrent-insert handling as artists, fixes #2594)."""
+        return [_get_or_create(session, Genre, Genre.name == name, name=name) for name in genre_names]
 
     def _get_or_create_album(
         self, session: Session, album_title: str, year: Any, artist_id: int | None
     ) -> Album | None:
-        """Resolve or create an album for the given artist (same IntegrityError guard as artists, fixes #3365)."""
+        """Resolve or create an album for the given artist (same concurrent-insert handling as artists, fixes #3365)."""
         album_filter = Album.title == album_title
         if artist_id is not None:
             album_filter = and_(album_filter, Album.artist_id == artist_id)
-        album = session.execute(select(Album).where(album_filter)).scalars().first()
-        if not album and artist_id is not None:
-            try:
-                with session.begin_nested():
-                    album = Album(title=album_title, artist_id=artist_id, year=year)
-                    session.add(album)
-                    session.flush()
-            except IntegrityError:
-                album = session.execute(select(Album).where(album_filter)).scalars().first()
-        return album
+        if artist_id is None:
+            return session.execute(select(Album).where(album_filter)).scalars().first()
+        try:
+            return _get_or_create(
+                session, Album, album_filter, required=False,
+                title=album_title, artist_id=artist_id, year=year,
+            )
+        except IntegrityError:  # e.g. the artist row vanished (FK); no album
+            return session.execute(select(Album).where(album_filter)).scalars().first()
 
     def add(self, track_info: dict[str, Any]) -> Track | None:
         """
