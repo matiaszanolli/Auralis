@@ -113,11 +113,12 @@ export const useContextMenuActions = ({
       actions: getArtistContextActions({
         onPlayAll: handlePlayAll,
         onAddToQueue: handleAddToQueue,
-        onShowAlbums: () => {
-          if (onArtistClick) {
-            onArtistClick(artist.id, artist.name);
-          }
-        },
+        // Absent without a navigation callback: the item would do nothing (#5614).
+        onShowAlbums: onArtistClick
+          ? () => {
+              onArtistClick(artist.id, artist.name);
+            }
+          : undefined,
         onShowInfo: () => {
           setInfoModalOpen(true);
         },

@@ -126,7 +126,6 @@ export const useTrackContextMenu = ({
           onPlay(track.id);
         },
         onAddToQueue: handleAddToQueue,
-        onAddToPlaylist: handleCloseContextMenu,
         onToggleLove: onToggleFavorite
           ? () => {
               onToggleFavorite(track.id);
@@ -186,7 +185,6 @@ export const useTrackContextMenu = ({
       onDelete,
       info,
       success,
-      handleCloseContextMenu,
       handleAddToQueue,
     ]
   );
