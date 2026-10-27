@@ -16,6 +16,7 @@ done with those parameters lives alongside it (#4254) --
 the guard knees, and ``fixed_target_params.py`` the fixed-targets conversion.
 """
 
+import time
 from typing import Any
 
 import numpy as np
@@ -28,6 +29,10 @@ from .continuous_space_types import PreferenceVector, ProcessingParameters
 from .continuous_stages import ContinuousStagesMixin
 from .fixed_target_params import convert_targets_to_parameters
 from .parameter_generator import ContinuousParameterGenerator
+
+
+# How long a loaded, non-empty reference cloud is trusted before it is re-read.
+_REFERENCE_CLOUD_TTL_S = 60.0
 
 
 class ContinuousMode(ContinuousStagesMixin):
@@ -65,8 +70,10 @@ class ContinuousMode(ContinuousStagesMixin):
         self.fingerprint_repository = fingerprint_repository
 
         # Reference-cloud caches (lazy-loaded on first process() call so we
-        # don't hit the DB during construction). Invalidate by setting to None.
+        # don't hit the DB during construction). None = not loaded / empty;
+        # see _reference_context for the refresh rules.
         self._reference_cloud: list[Any] | None = None
+        self._reference_cloud_loaded_at = 0.0
         self._distance_stats: Any | None = None
 
         # Album-consistency override (#3481). When set, every process() call
@@ -97,7 +104,7 @@ class ContinuousMode(ContinuousStagesMixin):
 
         Returns None when no repository is wired or the cloud is empty —
         the parameter generator then falls back to legacy deficit-based math.
-        Cached across process() calls so we only hit the DB once per session.
+        The cloud is cached between calls (see ``_reference_context``).
         """
         context = self._reference_context()
         if context is None:
@@ -117,30 +124,46 @@ class ContinuousMode(ContinuousStagesMixin):
     def _reference_context(self) -> tuple[list[Any], Any] | None:
         """Lazy-load the reference cloud and its z-score stats.
 
-        Cached across process() calls so we only hit the DB once per session.
-        Returns None when no repository is wired or the cloud is empty — every
-        caller then falls back to legacy deficit-based math.
+        A non-empty cloud is trusted for ``_REFERENCE_CLOUD_TTL_S`` seconds and
+        then re-read, so a processor that outlives a refresh (they live in an
+        LRU of 32) picks the new cloud up instead of keeping the one it first
+        saw. An empty cloud or a failed read is never cached: the next call
+        asks again, so a processor created before the first refresh starts
+        using the reference-cloud EQ as soon as one exists (#5722). Returns
+        None when no repository is wired or the cloud is empty -- every caller
+        then falls back to legacy deficit-based math.
         """
         if self.fingerprint_repository is None:
             return None
 
-        # Lazy load on first call (and only once)
-        if self._reference_cloud is None:
-            try:
-                self._reference_cloud = self.fingerprint_repository.get_reference_cloud()
-            except Exception as e:
-                debug(f"[Mastering] Failed to load reference cloud: {e}")
-                self._reference_cloud = []
+        now = time.monotonic()
+        if self._reference_cloud is None or now - self._reference_cloud_loaded_at >= _REFERENCE_CLOUD_TTL_S:
+            self._reload_reference_cloud(now)
 
         if not self._reference_cloud:
             return None
 
-        # Fit z-score stats once per cached cloud
+        # Fit z-score stats once per loaded cloud
         if self._distance_stats is None:
             from .target_derivation import DistanceStats
             self._distance_stats = DistanceStats.from_references(self._reference_cloud)
 
         return self._reference_cloud, self._distance_stats
+
+    def _reload_reference_cloud(self, now: float) -> None:
+        """Re-read the cloud; keep the previous one if the read fails."""
+        repository = self.fingerprint_repository
+        if repository is None:
+            return
+        try:
+            cloud = repository.get_reference_cloud()
+        except Exception as e:
+            debug(f"[Mastering] Failed to load reference cloud: {e}")
+            return
+        # `or None` so an empty cloud is re-read on the next call, never cached.
+        self._reference_cloud = cloud or None
+        self._reference_cloud_loaded_at = now
+        self._distance_stats = None  # stats belong to the cloud they were fitted on
 
     def reset_run_state(self) -> None:
         """Clear the last run's fingerprint, coordinates and parameters (#6088)."""
