@@ -20,7 +20,6 @@ sys.path.insert(0, os.path.abspath('../..'))
 from auralis.dsp.eq import (
     CriticalBand,
     EQSettings,
-    MaskingThresholdCalculator,
     PsychoacousticEQ,
     create_critical_bands,
     generate_genre_eq_curve,
@@ -74,7 +73,6 @@ class TestEQCurrentAPI:
             sample_rate=48000,
             fft_size=8192,
             smoothing_factor=0.2,
-            masking_threshold_db=-50.0,
             adaptation_speed=0.3
         )
         assert custom_settings.sample_rate == 48000
@@ -142,7 +140,6 @@ class TestEQCurrentAPI:
         assert eq.settings == self.settings
         assert eq.sample_rate == self.sample_rate
         assert hasattr(eq, 'critical_bands')
-        assert hasattr(eq, 'masking_calculator')
         assert hasattr(eq, 'current_gains')
         assert len(eq.current_gains) == len(eq.critical_bands)
 
@@ -168,33 +165,6 @@ class TestEQCurrentAPI:
 
         self.tearDown()
 
-    def test_masking_threshold_calculator(self):
-        """Test MaskingThresholdCalculator"""
-        self.setUp()
-
-        calculator = MaskingThresholdCalculator()
-        assert calculator is not None
-
-        # Create test spectrum
-        fft_size = 2048
-        magnitude_spectrum = np.abs(np.fft.rfft(self.test_chunk[:fft_size]))
-
-        # Calculate masking thresholds
-        bands = create_critical_bands()
-        thresholds = calculator.calculate_masking(
-            magnitude_spectrum,
-            bands,
-            self.sample_rate
-        )
-
-        assert len(thresholds) == len(bands)
-        assert np.all(np.isfinite(thresholds))
-        # Thresholds should be in reasonable range (can be positive or negative dB)
-        assert np.all(thresholds >= -100.0)  # Not extremely negative
-        assert np.all(thresholds <= 50.0)  # Not extremely positive
-
-        self.tearDown()
-
     def test_spectrum_analysis(self):
         """Test analyze_spectrum method"""
         self.setUp()
@@ -207,18 +177,15 @@ class TestEQCurrentAPI:
         # Verify analysis structure
         assert isinstance(analysis, dict)
         assert 'band_energies' in analysis
-        assert 'masking_thresholds' in analysis
         assert 'spectrum' in analysis
 
         # Verify data shapes
         num_bands = len(eq.critical_bands)
         assert len(analysis['band_energies']) == num_bands
-        assert len(analysis['masking_thresholds']) == num_bands
         assert len(analysis['spectrum']) > 0
 
         # Verify values are finite
         assert np.all(np.isfinite(analysis['band_energies']))
-        assert np.all(np.isfinite(analysis['masking_thresholds']))
 
         self.tearDown()
 

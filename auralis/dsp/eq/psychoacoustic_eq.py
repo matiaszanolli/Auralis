@@ -22,7 +22,6 @@ from .critical_bands import (
     create_frequency_mapping,
 )
 from .filters import apply_eq_gains
-from .masking import MaskingThresholdCalculator
 from .spectrum_gains import SpectrumGainsMixin
 
 # Use vectorized EQ processor for 1.7x speedup
@@ -43,7 +42,6 @@ class EQSettings:
     # (hybrid_setup); a bare construction can no longer disagree with it.
     fft_size: int = DEFAULT_FFT_SIZE
     smoothing_factor: float = 0.1
-    masking_threshold_db: float = -60.0
     adaptation_speed: float = 0.2
 
     def __post_init__(self) -> None:
@@ -66,8 +64,7 @@ class PsychoacousticEQ(SpectrumGainsMixin):
     Advanced EQ system using psychoacoustic principles
 
     Based on 2024 research in adaptive filter topologies and perceptual models.
-    Provides content-aware equalization using critical band analysis and
-    psychoacoustic masking models.
+    Provides content-aware equalization using critical band analysis.
     """
 
     def __init__(self, settings: EQSettings):
@@ -95,7 +92,7 @@ class PsychoacousticEQ(SpectrumGainsMixin):
         # #4101: Hann window for the *analysis* FFT only (apply_eq_gains stays
         # un-windowed, #3663). Suppresses the rectangular window's -13 dB first
         # sidelobe, which leaks bass energy into adjacent critical bands and
-        # biases the masking calculator. Cached because analyze_spectrum runs on
+        # biases the band energies. Cached because analyze_spectrum runs on
         # the realtime path. `_analysis_window_gain` is the coherent gain
         # (mean of the window, ~0.5 for Hann); dividing the windowed frame by it
         # keeps the absolute magnitude scale equal to the un-windowed path, so
@@ -106,9 +103,6 @@ class PsychoacousticEQ(SpectrumGainsMixin):
 
         # Initialize critical bands (26 bands based on Bark scale)
         self.critical_bands = create_critical_bands()
-
-        # Initialize psychoacoustic models
-        self.masking_calculator = MaskingThresholdCalculator()
 
         # Processing state (0.0 dB = flat/unity gain)
         self.current_gains = np.zeros(len(self.critical_bands))

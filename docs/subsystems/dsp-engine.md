@@ -165,7 +165,7 @@ In `QuietBranch`, the loudness maximizer is the load-bearing tuning surface. Con
 | Module | Provides |
 |--------|----------|
 | [`basic.py`](../../auralis/dsp/basic.py) | `rms`, `normalize` (dtype-preserving), `amplify` (always `.copy()` first), `mid_side_encode` / `mid_side_decode` |
-| [`eq/psychoacoustic_eq.py`](../../auralis/dsp/eq/psychoacoustic_eq.py) | `PsychoacousticEQ` — 26 Bark-scale critical bands, masking model, adaptive gains clipped ±12 dB |
+| [`eq/psychoacoustic_eq.py`](../../auralis/dsp/eq/psychoacoustic_eq.py) | `PsychoacousticEQ` — 26 Bark-scale critical bands, adaptive gains clipped ±12 dB |
 
 ### The WOLA / COLA constraint (read before touching the EQ)
 

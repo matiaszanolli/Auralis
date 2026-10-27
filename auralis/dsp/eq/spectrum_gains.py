@@ -1,7 +1,7 @@
 """
 Spectrum analysis and adaptive gain calculation for PsychoacousticEQ (split
-from psychoacoustic_eq.py, #5838): FFT magnitude and band energies, masking-
-aware target gains, and the smoothing that carries gains across chunks.
+from psychoacoustic_eq.py, #5838): FFT magnitude and band energies, target
+gains, and the smoothing that carries gains across chunks.
 """
 
 import threading
@@ -23,7 +23,6 @@ class SpectrumGainsMixin:
     settings: Any
     critical_bands: Any
     freq_to_band_map: Any
-    masking_calculator: Any
     current_gains: np.ndarray
     _analysis_window: np.ndarray
     _analysis_window_gain: float
@@ -40,7 +39,6 @@ class SpectrumGainsMixin:
             Dictionary with spectrum analysis results containing:
                 - magnitude_db: Magnitude spectrum in dB
                 - band_energies: Energy per critical band
-                - masking_thresholds: Masking thresholds per band
                 - spectrum: Complex spectrum
         """
         audio_mono = to_mono(audio_chunk)
@@ -54,14 +52,12 @@ class SpectrumGainsMixin:
 
         # #4101: window the ANALYSIS FFT (only) with a Hann window plus
         # coherent-gain compensation. #3663 dropped the window so the analysis
-        # spectrum matched the un-windowed apply_eq_gains frame, but the analysis
-        # band energies feed the masking calculator, where the rectangular
-        # window's -13 dB first sidelobe leaks bass energy into adjacent critical
-        # bands and biases the masking decision (over-cutting bass-adjacent
-        # bands). The window suppresses that leakage. Dividing by the coherent
-        # gain (mean of the window) keeps the absolute magnitude scale equal to
-        # the un-windowed path, so band *ratios* are corrected for masking
-        # WITHOUT re-introducing the global +6.02 dB magnitude offset that #3428
+        # spectrum matched the un-windowed apply_eq_gains frame, but with a
+        # rectangular window the -13 dB first sidelobe leaks bass energy into
+        # adjacent critical bands and biases the band energies. The window
+        # suppresses that leakage. Dividing by the coherent gain (mean of the
+        # window) keeps the absolute magnitude scale equal to the un-windowed
+        # path, so band *ratios* are corrected WITHOUT re-introducing the global +6.02 dB magnitude offset that #3428
         # reverted (which skewed adaptive gains and fingerprint LUFS/crest).
         # apply_eq_gains stays un-windowed (filters.py) — it must match the
         # signal frame it processes.
@@ -77,15 +73,9 @@ class SpectrumGainsMixin:
         # Calculate energy in each critical band
         band_energies = self._calculate_band_energies(magnitude_db)
 
-        # Calculate masking thresholds
-        masking_thresholds = self.masking_calculator.calculate_masking(
-            magnitude, self.critical_bands, self.sample_rate
-        )
-
         return {
             'magnitude_db': magnitude_db,
             'band_energies': band_energies,
-            'masking_thresholds': masking_thresholds,
             'spectrum': spectrum
         }
 
@@ -113,15 +103,8 @@ class SpectrumGainsMixin:
         Returns:
             Array of gain values in dB for each critical band
         """
-        band_energies = spectrum_analysis['band_energies']
-        masking_thresholds = spectrum_analysis['masking_thresholds']
-
         # Calculate initial gains based on target curve
-        target_gains = self._calculate_target_gains(
-            band_energies,
-            masking_thresholds,
-            target_curve
-        )
+        target_gains = self._calculate_target_gains(target_curve)
 
         # Content-aware adaptation
         if content_profile:
@@ -136,10 +119,7 @@ class SpectrumGainsMixin:
 
         return adaptive_gains
 
-    def _calculate_target_gains(self,
-                               band_energies: np.ndarray,
-                               masking_thresholds: np.ndarray,
-                               target_curve: np.ndarray) -> np.ndarray:
+    def _calculate_target_gains(self, target_curve: np.ndarray) -> np.ndarray:
         """Calculate target gains for each band.
 
         ``target_curve`` contains *relative* dB gains (boost/cut) per band,
@@ -148,25 +128,17 @@ class SpectrumGainsMixin:
         producing nonsensical gains (e.g. 3 - 40 = -37) that were silently
         clipped to -12 dB, causing a systematic ~3 dB excess cut (#3428).
 
-        Now: ``required_gain = target_level`` directly, with masking-aware
-        attenuation applied only when the band energy is below the masking
-        threshold (i.e. boosting a masked band is wasteful).
+        The gain is the curve times the band's perceptual weight, independent
+        of the frame's content. A former "masking" test halved it whenever a
+        band's mean level sat below its own peak minus 20 dB — that measures
+        tonality, not masking, and flipped the EQ amount frame to frame on
+        mixed material (#5703).
         """
         target_gains = np.zeros(len(self.critical_bands))
-
-        # Guard against NaN/Inf from silent audio or log10(0) (fixes #2513)
-        band_energies = np.where(np.isfinite(band_energies), band_energies, 0.0)
-        masking_thresholds = np.where(np.isfinite(masking_thresholds), masking_thresholds, 0.0)
 
         for i, band in enumerate(self.critical_bands):
             # target_curve values are relative dB gains (boost/cut)
             required_gain = target_curve[i] if i < len(target_curve) else 0.0
-
-            # Apply masking-aware adjustment: reduce boost for masked bands
-            current_level = band_energies[i]
-            masking_threshold = masking_thresholds[i]
-            if current_level < masking_threshold:
-                required_gain *= 0.5
 
             # Apply perceptual weighting
             weighted_gain = required_gain * band.weight
