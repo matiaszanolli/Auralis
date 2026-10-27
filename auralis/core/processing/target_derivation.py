@@ -21,7 +21,11 @@ How it works (one process() call):
   3. Compute soft weights via softmax(-d/τ) where τ is the mean of those
      k distances. This is scale-free — works on any library.
 
-  4. Return a weighted average of the references' spectral fields as the
+  4. Re-admit a few references just past rank k, starting from the k-th
+     neighbour's own weight and capped at 10% of the total, so participation
+     decays across the rank-k boundary instead of stepping to zero.
+
+  5. Return a weighted average of the references' spectral fields as the
      target. Each band is a continuous interpolation across the manifold.
 
 No genre labels. No bucketing. A track in the middle of two clusters gets
@@ -33,11 +37,19 @@ an interpolated target in the middle of those clusters' shapes.
 
 import logging
 import math
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from ...analysis.fingerprint.schema import BAND_PCT_KEYS
+from .target_weights import (
+    EPSILON,
+    apply_reference_weights,
+    cap_tail_mass,
+    safe_get,
+    soft_tail,
+    softmax_weights,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,12 +108,12 @@ class DistanceStats:
         stds: dict[str, float] = {}
         n = float(len(references))
         for feat in DISTANCE_FEATURES:
-            values = [_safe_get(ref, feat, 0.0) for ref in references]
+            values = [safe_get(ref, feat, 0.0) for ref in references]
             m = sum(values) / n
             var = sum((v - m) ** 2 for v in values) / n
             std = math.sqrt(var)
             means[feat] = m
-            stds[feat] = max(std, _EPSILON)
+            stds[feat] = max(std, EPSILON)
         return cls(means=means, stds=stds)
 
 
@@ -152,38 +164,28 @@ def derive_target(
     distances = [(_z_distance(source, ref, stats), ref) for ref in references]
     distances.sort(key=lambda t: t[0])
     nearest = distances[:k] if k < len(distances) else distances
+    n_in_k = len(nearest)
 
-    weights = _softmax_weights(d for d, _ in nearest)
-    if use_reference_weights:
-        weights = _apply_reference_weights(weights, nearest)
+    weights = softmax_weights(d for d, _ in nearest)
 
     # #5113: soften the hard rank cutoff. A reference just past rank k is
     # architecturally as near as the k-th one, yet the slice dropped it to
-    # exactly zero. Re-admit the beyond-k tail with weights tapered by a
-    # smooth gate over (rank - k), so participation decays continuously
-    # instead of stepping. τ_tail = k/4 ranks keeps the tail contribution
-    # small (a boundary reference starts at ~50% of its softmax weight and
-    # decays over ~k/4 ranks) without changing the in-k distribution.
-    tail = distances[len(nearest):]
-    if tail and nearest:
-        kth_distance = nearest[-1][0]
-        for tail_rank, (d, ref) in enumerate(tail, start=1):
-            taper = _smooth_taper(tail_rank, k / 4.0)
-            if taper <= 0.0:
-                break
-            base = _softmax_weights([d, kth_distance])[0] if kth_distance > 0 else 0.0
-            weights.append(base * taper)
-            nearest.append((d, ref))
-
-    # Renormalize so the (possibly re-admitted) weights still sum to 1.0.
-    total = sum(weights)
-    if total > 0:
-        weights = [w / total for w in weights]
+    # exactly zero. Re-admit a few beyond-k references starting from the k-th
+    # neighbour's own softmax weight (#5702), then weight tail and in-k
+    # members together so reference_weight suppresses both alike.
+    tail_members, tail_weights = soft_tail(
+        distances[n_in_k:], k, [d for d, _ in nearest], weights
+    )
+    nearest = nearest + tail_members
+    weights = weights + tail_weights
+    if use_reference_weights:
+        weights = apply_reference_weights(weights, nearest)
+    weights = cap_tail_mass(weights, n_in_k)
 
     target: dict[str, float] = {}
     for feat in TARGET_FEATURES:
         target[feat] = sum(
-            w * _safe_get(ref, feat, 0.0)
+            w * safe_get(ref, feat, 0.0)
             for w, (_, ref) in zip(weights, nearest)
         )
 
@@ -191,7 +193,7 @@ def derive_target(
         target=target,
         n_matched=len(nearest),
         weights=tuple(weights),
-        top_ref_ids=tuple(int(_safe_get(ref, 'track_id', -1)) for _, ref in nearest),
+        top_ref_ids=tuple(int(safe_get(ref, 'track_id', -1)) for _, ref in nearest),
     )
 
 
@@ -199,79 +201,16 @@ def derive_target(
 # Internals
 # ---------------------------------------------------------------------------
 
-_EPSILON = 1e-6
-
-
-def _safe_get(obj: Any, key: str, default: float = 0.0) -> float:
-    """Read a feature from a dict or ORM row."""
-    if hasattr(obj, '__table__'):                # ORM row
-        return float(getattr(obj, key, default))
-    if hasattr(obj, 'get'):                      # dict
-        v = obj.get(key, default)
-        return float(v if v is not None else default)
-    return float(getattr(obj, key, default))
-
-
 def _z_distance(a: Any, b: Any, stats: DistanceStats) -> float:
     """Z-score-normalized Euclidean distance over DISTANCE_FEATURES."""
     acc = 0.0
     for feat in DISTANCE_FEATURES:
         std = stats.stds[feat]
         mean = stats.means[feat]
-        za = (_safe_get(a, feat, mean) - mean) / std
-        zb = (_safe_get(b, feat, mean) - mean) / std
+        za = (safe_get(a, feat, mean) - mean) / std
+        zb = (safe_get(b, feat, mean) - mean) / std
         acc += (za - zb) ** 2
     return math.sqrt(acc)
-
-
-def _smooth_taper(rank_past_k: int, tau_ranks: float) -> float:
-    """Exponential decay for a reference `rank_past_k` positions beyond the
-    soft cutoff: exp(-rank / tau_ranks), floor at zero. #5113."""
-    if tau_ranks <= 0:
-        return 0.0
-    return math.exp(-rank_past_k / tau_ranks)
-
-
-def _softmax_weights(distances: Iterable[float]) -> list[float]:
-    """softmax(-d / τ) with adaptive τ = mean(distances) + EPSILON.
-
-    Adaptive τ makes the weighting scale-free: a tight cluster of nearby
-    references and a loose scatter both produce well-distributed weights.
-    Returns weights summing to 1.0.
-    """
-    dist_list = list(distances)
-    if not dist_list:
-        return []
-    tau = sum(dist_list) / len(dist_list) + _EPSILON
-    # Subtract max for numerical stability before exp.
-    neg_scaled = [-d / tau for d in dist_list]
-    mx = max(neg_scaled)
-    exps = [math.exp(x - mx) for x in neg_scaled]
-    total = sum(exps)
-    return [e / total for e in exps]
-
-
-def _apply_reference_weights(
-    weights: list[float],
-    nearest: list[tuple[float, Any]],
-) -> list[float]:
-    """Scale softmax weights by each reference's `reference_weight`, then
-    renormalize back to summing to 1.0 (#3480 Layer 1).
-
-    Falls back to the original (unscaled) softmax weights if every matched
-    reference has reference_weight <= 0 — either genuinely unweighted (a
-    reference the seeder hasn't run listening-behavior scoring on yet, e.g.
-    freshly migrated rows default to 0.0) or nothing matched. Treating "no
-    behavioral signal" as "suppress this reference" would collapse the
-    target to zero instead of degrading gracefully to pure quality-based
-    distance weighting.
-    """
-    ref_weights = [max(_safe_get(ref, 'reference_weight', 0.0), 0.0) for _, ref in nearest]
-    combined = [w * rw for w, rw in zip(weights, ref_weights)]
-    total = sum(combined)
-    if total <= _EPSILON:
-        return weights
-    return [c / total for c in combined]
 
 
 __all__ = [
