@@ -145,17 +145,22 @@ export type PageFetchResult =
  * out of `extractItemsFromResponse`, not from here.
  */
 export async function fetchLibraryPage(deps: {
-  get: <R>(url: string, init?: { validate?: (v: unknown) => v is R }) => Promise<R | null>;
+  get: <R>(
+    url: string,
+    init?: { validate?: (v: unknown) => v is R; signal?: AbortSignal }
+  ) => Promise<R | null>;
   url: string;
   validate: (v: unknown) => v is LibraryQueryResponse;
   isStale: () => boolean;
   errorCode: 'QUERY_ERROR' | 'FETCH_MORE_ERROR';
   requireResponse: boolean;
+  /** Aborts the HTTP request when a newer query supersedes this one (#5650). */
+  signal?: AbortSignal;
 }): Promise<PageFetchResult> {
-  const { get, url, validate, isStale, errorCode, requireResponse } = deps;
+  const { get, url, validate, isStale, errorCode, requireResponse, signal } = deps;
 
   try {
-    const response = await get<LibraryQueryResponse>(url, { validate });
+    const response = await get<LibraryQueryResponse>(url, { validate, signal });
 
     if (isStale()) {
       // A newer query has taken over — abandon this response entirely rather

@@ -114,12 +114,15 @@ const FINGERPRINT_BATCH_CONCURRENCY = 10;
 let fingerprintSlotsInUse = 0;
 const fingerprintSlotWaiters: Array<() => void> = [];
 
-async function withFingerprintSlot<T>(fn: () => Promise<T>): Promise<T> {
+async function withFingerprintSlot<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
   while (fingerprintSlotsInUse >= FINGERPRINT_BATCH_CONCURRENCY) {
     await new Promise<void>((release) => fingerprintSlotWaiters.push(release));
   }
   fingerprintSlotsInUse++;
   try {
+    // #5650: a query cancelled (unmount, key change, scrolled away) while it
+    // waited for a slot must not then issue its request.
+    signal?.throwIfAborted();
     return await fn();
   } finally {
     fingerprintSlotsInUse--;
@@ -140,7 +143,7 @@ export function useAlbumFingerprints(albumIds: number[]) {
     queries: albumIds.map((albumId) => ({
       queryKey: ['album-fingerprint', albumId],
       queryFn: ({ signal }: { signal?: AbortSignal }) =>
-        withFingerprintSlot(() => fetchAlbumFingerprint(albumId, signal)),
+        withFingerprintSlot(() => fetchAlbumFingerprint(albumId, signal), signal),
       staleTime: QUERY_STALE_TIME_MS,
       gcTime: QUERY_GC_TIME_MS,
       // Same settled decision as the single-album hook: album art is

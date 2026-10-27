@@ -35,12 +35,15 @@ interface TrackFingerprintResponse {
  * broken" used to be indistinguishable, both driving refetchInterval's
  * indefinite 5s poll and leaving `query.error` permanently empty.
  */
-const fetchTrackFingerprint = (trackId: number): Promise<TrackFingerprintResponse | null> =>
+const fetchTrackFingerprint = (
+  trackId: number,
+  signal?: AbortSignal
+): Promise<TrackFingerprintResponse | null> =>
   // #5019: shared transport, which bounds the request at DEFAULT_TIMEOUT_MS.
   // The bare fetch() this replaces had no signal and no timeout, so a stalled
   // backend left the query loading forever with `refetchInterval` unable to
   // reach a terminal state.
-  getOrNullOn404<TrackFingerprintResponse>(`/api/tracks/${trackId}/fingerprint`);
+  getOrNullOn404<TrackFingerprintResponse>(`/api/tracks/${trackId}/fingerprint`, { signal });
 
 /**
  * Hook to fetch track fingerprint with caching
@@ -73,7 +76,8 @@ export function useTrackFingerprint(
 
   const query = useQuery({
     queryKey: ['track-fingerprint', trackId],
-    queryFn: () => trackId ? fetchTrackFingerprint(trackId) : null,
+    // { signal } forwarded so unmount / key change aborts the in-flight request (#5650).
+    queryFn: ({ signal }) => trackId ? fetchTrackFingerprint(trackId, signal) : null,
     staleTime: QUERY_STALE_TIME_MS, // fingerprints don't change
     gcTime: QUERY_GC_TIME_MS,   // 30 minutes cache retention
     enabled,

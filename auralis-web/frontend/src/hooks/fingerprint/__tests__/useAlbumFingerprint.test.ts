@@ -398,3 +398,33 @@ describe('useAlbumFingerprint signal forwarding (#6221)', () => {
     await waitFor(() => expect(captured!.aborted).toBe(true));
   });
 });
+
+describe('useAlbumFingerprints cancellation (#5650)', () => {
+  it('issues no request for queries cancelled while they waited for a slot', async () => {
+    // 14 albums against a 10-request gate: 10 requests start and hang until
+    // aborted, 4 queries wait for a slot. Unmounting cancels all of them; the
+    // waiting ones must wake, see the abort, and never reach fetch.
+    const signals: AbortSignal[] = [];
+    global.fetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      const signal = init?.signal;
+      if (signal) signals.push(signal);
+      return new Promise<Response>((_resolve, reject) => {
+        signal?.addEventListener('abort', () =>
+          reject(new DOMException('Aborted', 'AbortError'))
+        );
+      });
+    });
+
+    const ids = Array.from({ length: 14 }, (_, i) => 1000 + i);
+    const { unmount } = renderHook(() => useAlbumFingerprints(ids), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(10));
+
+    unmount();
+    await waitFor(() => expect(signals.every((s) => s.aborted)).toBe(true));
+    // Let the released slots wake the waiters.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(global.fetch).toHaveBeenCalledTimes(10);
+  });
+});

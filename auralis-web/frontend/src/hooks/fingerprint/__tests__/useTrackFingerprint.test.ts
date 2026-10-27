@@ -239,3 +239,26 @@ describe('request timeout (#5019)', () => {
     }
   });
 });
+
+describe('useTrackFingerprint cancellation (#5650)', () => {
+  it('aborts the in-flight request when the hook unmounts', async () => {
+    let captured: AbortSignal | null | undefined;
+    global.fetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      captured = init?.signal;
+      return new Promise<Response>((_resolve, reject) => {
+        captured?.addEventListener('abort', () =>
+          reject(new DOMException('Aborted', 'AbortError'))
+        );
+      });
+    });
+
+    const { unmount } = renderHook(() => useTrackFingerprint(7), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(captured).toBeDefined());
+    expect(captured!.aborted).toBe(false);
+
+    unmount();
+
+    await waitFor(() => expect(captured!.aborted).toBe(true));
+  });
+});

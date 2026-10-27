@@ -215,3 +215,24 @@ describe('cache telemetry polling (#4486)', () => {
     expect(hits.count).toBe(atUnmount);
   });
 });
+
+describe('cache query cancellation (#5650)', () => {
+  it('aborts the in-flight cache-stats request when the hook unmounts', async () => {
+    let aborted = false;
+    let started = false;
+    server.use(
+      http.get('*/api/cache/stats', ({ request }) => {
+        started = true;
+        request.signal.addEventListener('abort', () => { aborted = true; });
+        return new Promise<never>(() => {}); // never answers
+      })
+    );
+
+    const { unmount } = renderHook(() => useCacheStats(), { wrapper: AllProviders });
+    await waitFor(() => expect(started).toBe(true));
+
+    unmount();
+
+    await waitFor(() => expect(aborted).toBe(true));
+  });
+});

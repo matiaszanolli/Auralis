@@ -1216,7 +1216,7 @@ describe('useLibraryQuery', () => {
       renderHook(() => useLibraryQuery(queryType));
       await waitFor(() => expect(mockGet).toHaveBeenCalled());
 
-      expect(mockGet.mock.calls[0][1]).toEqual({ validate: guard });
+      expect(mockGet.mock.calls[0][1]).toEqual({ validate: guard, signal: expect.any(AbortSignal) });
     });
 
     it('rejects a malformed albums response the same way a real fetch would', async () => {
@@ -1242,7 +1242,40 @@ describe('useLibraryQuery', () => {
       });
 
       const fetchMoreCall = mockGet.mock.calls[1];
-      expect(fetchMoreCall[1]).toEqual({ validate: isArtistsListShape });
+      expect(fetchMoreCall[1]).toEqual({
+        validate: isArtistsListShape,
+        signal: expect.any(AbortSignal),
+      });
+    });
+  });
+
+  // #5650: a superseded query must be CANCELLED, not merely have its result
+  // discarded by isStale() while the HTTP request runs to completion.
+  describe('request cancellation (#5650)', () => {
+    it('aborts the in-flight request when a newer query supersedes it', async () => {
+      const signals: AbortSignal[] = [];
+      const mockGet = vi.fn().mockImplementation(
+        (_url: string, opts?: { signal?: AbortSignal }) => {
+          if (opts?.signal) signals.push(opts.signal);
+          return new Promise(() => {}); // never settles: stays in flight
+        }
+      );
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+
+      const { rerender } = renderHook(
+        ({ search }: { search: string }) => useLibraryQuery('tracks', { search }),
+        { initialProps: { search: 'a' } }
+      );
+      await waitFor(() => expect(signals).toHaveLength(1));
+      expect(signals[0].aborted).toBe(false);
+
+      rerender({ search: 'ab' });
+      await waitFor(() => expect(signals).toHaveLength(2));
+
+      expect(signals[0].aborted).toBe(true);
+      expect(signals[1].aborted).toBe(false);
     });
   });
 

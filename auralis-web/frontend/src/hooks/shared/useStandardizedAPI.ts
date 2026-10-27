@@ -95,7 +95,7 @@ export function useCacheStats(): APIRequestState<CacheStats> & {
 } {
   const query = useQuery<CacheStats | null>({
     queryKey: ['cache', 'stats'],
-    queryFn: () => get<CacheStats>('/api/cache/stats', { validate: isCacheStatsShape }),
+    queryFn: ({ signal }) => get<CacheStats>('/api/cache/stats', { validate: isCacheStatsShape, signal }),
     refetchInterval: CACHE_STATS_REFRESH_INTERVAL_MS,
   });
 
@@ -123,7 +123,7 @@ export function useCacheHealth(refreshInterval: number = 10000): APIRequestState
 } {
   const query = useQuery<CacheHealth | null>({
     queryKey: ['cache', 'health'],
-    queryFn: () => get<CacheHealth>('/api/cache/health', { validate: isCacheHealthShape }),
+    queryFn: ({ signal }) => get<CacheHealth>('/api/cache/health', { validate: isCacheHealthShape, signal }),
     refetchInterval: refreshInterval,
   });
 

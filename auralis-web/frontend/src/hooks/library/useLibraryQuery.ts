@@ -20,6 +20,7 @@
 import { LIBRARY_PAGE_LIMIT } from '@/config/api';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
+import { useSupersedingAbort } from './useSupersedingAbort';
 import type { ApiError } from '@/types/api';
 import {
   buildEndpoint as buildQueryEndpoint,
@@ -79,23 +80,20 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
   const [hasMore, setHasMore] = useState(false);
 
   // Refs for tracking ongoing requests and query stability
-  // Note: request cancellation is handled by useRestAPI's own AbortController.
   const queryKeyRef = useRef<string>('');
   const isFetchingRef = useRef<boolean>(false);
   const isFetchingMoreRef = useRef<boolean>(false);
   /**
    * Monotonic request id guarding against out-of-order responses (#4609).
    *
-   * The in-flight dedup above keys on the endpoint URL, which differs for every
-   * distinct search term, so it never fires across a fast sequence of different
-   * searches. Without this, request A ("be") resolving after request B ("bea")
-   * overwrote B's results while the input still read "bea".
-   *
-   * A ref rather than an effect-scoped `isActive` flag (the #3925 pattern used
-   * in useQueueFetch) because executeQuery is also driven directly by
-   * fetchMore/refetch, which an effect cleanup would not cover.
+   * The in-flight dedup keys on the endpoint URL, which differs per search
+   * term, so it never fires across a fast sequence of searches. Without this,
+   * request A ("be") resolving after B ("bea") overwrote B's results. A ref,
+   * not an effect-scoped `isActive` flag (#3925), because fetchMore/refetch
+   * drive executeQuery directly and an effect cleanup would not cover them.
    */
   const requestIdRef = useRef<number>(0);
+  const claimRequest = useSupersedingAbort(); // aborts the superseded HTTP request (#5650)
 
   // Constants
   const limit = options.limit || LIBRARY_PAGE_LIMIT;
@@ -138,6 +136,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
       // setter below is gated on still being the newest (#4609).
       const myRequestId = ++requestIdRef.current;
       const isStale = () => requestIdRef.current !== myRequestId;
+      const signal = claimRequest();
 
       setIsLoading(true);
       setError(null);
@@ -150,6 +149,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
           isStale,
           errorCode: 'QUERY_ERROR',
           requireResponse: true,
+          signal,
         });
 
         if (result.kind === 'error') {
@@ -183,7 +183,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
         }
       }
     },
-    [get, queryType, endpointOptions]
+    [get, queryType, endpointOptions, claimRequest]
   );
 
   /**
@@ -208,6 +208,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
     // executeQuery means that supersession is detected here too.
     const myRequestId = ++requestIdRef.current;
     const isStale = () => requestIdRef.current !== myRequestId;
+    const signal = claimRequest();
 
     const nextOffset = offset + limit;
 
@@ -219,6 +220,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
         isStale,
         errorCode: 'FETCH_MORE_ERROR',
         requireResponse: false,
+        signal,
       });
 
       if (result.kind === 'error') {
@@ -247,7 +249,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
       isFetchingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [get, offset, limit, hasMore, queryType, endpointOptions]);
+  }, [get, offset, limit, hasMore, queryType, endpointOptions, claimRequest]);
 
   /**
    * Refetch - Reset and fetch from beginning
@@ -273,11 +275,9 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
 
     executeQuery(0, false);
 
-    // No cleanup needed here. useRestAPI aborts in-flight requests on UNMOUNT;
-    // supersession while still mounted (a newer search term superseding an
-    // older one) is handled by requestIdRef inside executeQuery. The previous
-    // comment claimed the unmount abort covered both, which is what made this
-    // gap look deliberate (#4609).
+    // No cleanup needed: useRestAPI aborts on UNMOUNT, and executeQuery aborts
+    // the superseded request while mounted (claimRequest, #5650; requestIdRef
+    // discards its response, #4609).
   }, [queryType, skip, options.search, options.orderBy, options.limit, options.endpoint, executeQuery]);
 
   return {
