@@ -19,7 +19,6 @@ from auralis.library.models import SchemaVersion
 
 logger = logging.getLogger(__name__)
 
-# SQLite's message when the table has never been created.
 _MISSING_VERSION_TABLE = "no such table: schema_version"
 
 
@@ -42,36 +41,21 @@ class SchemaVersionStoreMixin:
             session.close()
 
     def get_current_version(self) -> int:
-        """
-        Get current database schema version.
+        """Current schema version; 0 if there is no version table or row (fresh database).
 
-        Returns:
-            Current schema version number, or 0 for a database with no
-            ``schema_version`` table or no row in it (a fresh database).
-
-        Raises:
-            sqlalchemy.exc.DatabaseError: any other read failure (a lock that
-                outlasts the busy timeout, corruption, an I/O error). Reporting
-                0 for those made ``migrate_to_latest()`` treat an existing,
-                older database as fresh and stamp it with the latest version
-                without running a migration or taking a backup (#5597).
+        Any other read failure raises: reading it as 0 made ``migrate_to_latest()``
+        stamp an older database with the latest version, unmigrated and
+        unbacked-up (#5597).
         """
         try:
             with self._get_session() as session:
                 result = session.execute(
                     select(SchemaVersion).order_by(SchemaVersion.version.desc())
                 ).scalars().first()
-
-                if result:
-                    return int(result.version)
-                else:
-                    # Table exists but is empty - this is a fresh database
-                    return 0
+                return int(result.version) if result else 0  # no row: fresh database
         except OperationalError as e:
             if _MISSING_VERSION_TABLE not in str(e.orig):
-                logger.error(f"Could not read the schema version: {e}")
                 raise
-            logger.debug(f"Schema version table not found: {e}")
             return 0
 
     def _record_migration(self, version: int, description: str, migration_script: str = "") -> None:
