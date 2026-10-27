@@ -32,8 +32,9 @@ FEATURING_PATTERNS = [
 # e.g., "Artist B & Artist C" or "Artist B, Artist C"
 MULTI_ARTIST_PATTERN = r'\s*[,&]\s*'
 
-# Artists that should NOT be split (duo/group names with &)
-# These are kept as single entities
+# Duo/group names with "&" that must stay whole when they appear as a credit
+# after a featuring marker ("X feat. Hall & Oates"). An override list only:
+# bare tags are never split, so it is not what keeps "Iron & Wine" intact.
 PRESERVED_DUOS = {
     'simon & garfunkel',
     'hall & oates',
@@ -60,6 +61,8 @@ def normalize_artist_name(name: str) -> str:
     - Remove non-alphanumeric characters (preserve unicode letters)
     - Collapse multiple spaces to single space
     - Strip leading/trailing whitespace
+    - A name with no letters or digits ("!!!", "+/-") keeps its NFKC-casefolded
+      symbols, so distinct symbol-only artists stay distinct
 
     Examples:
         >>> normalize_artist_name("AC/DC")
@@ -70,6 +73,8 @@ def normalize_artist_name(name: str) -> str:
         'the beatles'
         >>> normalize_artist_name("Bjork")
         'bjork'
+        >>> normalize_artist_name("!!!")
+        '!!!'
 
     Args:
         name: Raw artist name from metadata
@@ -98,6 +103,12 @@ def normalize_artist_name(name: str) -> str:
     # Collapse multiple spaces to single space
     normalized = re.sub(r'\s+', ' ', normalized)
 
+    # Symbol-only names ("!!!", "+/-") have no alphanumerics and would all
+    # normalise to '', collapsing onto whichever was stored first. Key them on
+    # the NFKC-casefolded name instead so they stay distinct (#5720).
+    if not normalized.strip():
+        normalized = re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', name).casefold())
+
     # Strip leading/trailing whitespace
     normalized = normalized.strip()
 
@@ -113,40 +124,20 @@ def _split_part(part: str) -> list[str]:
 
 
 def _split_featuring(artist_string: str) -> list[str]:
-    """Artists split on the first matching FEATURING_PATTERN, or [] when none match."""
+    """Artists split on the first matching FEATURING_PATTERN, or [] when none match.
+
+    The credit before the marker is the main artist and stays whole, so a band
+    name containing "&" survives ("Iron & Wine feat. Sam Beam"); only the
+    credits after the marker are split further on "," / "&" (#5720).
+    """
     for pattern in FEATURING_PATTERNS:
         if not re.search(pattern, artist_string, re.IGNORECASE):
             continue
-        parts = re.split(pattern, artist_string, flags=re.IGNORECASE)
-        artists = [
-            artist
-            for part in (p.strip() for p in parts)
-            if part
-            for artist in _split_part(part)
-        ]
+        parts = [p.strip() for p in re.split(pattern, artist_string, flags=re.IGNORECASE) if p.strip()]
+        artists = parts[:1] + [artist for part in parts[1:] for artist in _split_part(part)]
         # Return if we found artists; otherwise try the next pattern
         if artists:
             return artists
-    return []
-
-
-def _split_collaboration(artist_string: str) -> list[str]:
-    """Split "Artist A & Artist B" collaborations conservatively, or [] to keep it whole.
-
-    Only splits on " & " / " and " when every part is a short name and none
-    starts with "the " -- so "Tom Petty and the Heartbreakers" stays intact.
-    """
-    if artist_string.lower() in PRESERVED_DUOS:
-        return []
-    if ' & ' not in artist_string and ' and ' not in artist_string.lower():
-        return []
-    potential_parts = re.split(r'\s+&\s+|\s+and\s+', artist_string, flags=re.IGNORECASE)
-    if len(potential_parts) <= 1:
-        return []
-    all_short = all(len(p.split()) <= 3 for p in potential_parts)
-    no_the = not any(p.lower().startswith('the ') for p in potential_parts)
-    if all_short and no_the:
-        return [p.strip() for p in potential_parts if p.strip()]
     return []
 
 
@@ -162,7 +153,11 @@ def parse_featured_artists(artist_string: str) -> list[str]:
     - "Artist A feat. Artist B & Artist C" -> ["Artist A", "Artist B", "Artist C"]
 
     Special cases:
-    - "Simon & Garfunkel" -> ["Simon & Garfunkel"] (preserved duo)
+    - A tag with no explicit marker is ONE artist, however it is spelled:
+      "Iron & Wine", "Belle and Sebastian", "Simon & Garfunkel" stay whole.
+      Co-credited artists arrive as separate tag values, parsed one by one.
+    - The credit before a marker stays whole ("Iron & Wine feat. Sam Beam"
+      -> ["Iron & Wine", "Sam Beam"]); only credits after it are split on "," / "&".
     - Empty string -> ["Unknown Artist"]
 
     Args:
@@ -179,17 +174,11 @@ def parse_featured_artists(artist_string: str) -> list[str]:
     # keeps a leading run of blanks from eating the whole budget.
     artist_string = re.sub(r'\s+', ' ', artist_string.strip()[:MAX_ARTIST_STRING_CHARS]).strip()
 
-    # Check if this is a preserved duo/group name
-    if artist_string.lower() in PRESERVED_DUOS:
-        return [artist_string]
-
     featured = _split_featuring(artist_string)
     if featured:
         return featured
 
-    collaboration = _split_collaboration(artist_string)
-    if collaboration:
-        return collaboration
-
-    # No featuring pattern or collaboration found - return as a single artist
+    # No explicit marker: the whole tag is one artist, however it is spelled
+    # ("Iron & Wine", "Belle and Sebastian"). Separate artists arrive as
+    # separate tag values, which the caller parses one by one.
     return [artist_string]

@@ -15,7 +15,7 @@ from typing import Any, TypeVar
 
 from sqlalchemy import and_, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info, warning
@@ -91,10 +91,18 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
         artists = []
         for name in artist_names:
             normalized = normalize_artist_name(name)
-            artists.append(_get_or_create(
-                session, Artist, Artist.normalized_name == normalized,
-                name=name, normalized_name=normalized,
-            ))
+            try:
+                artist = _get_or_create(
+                    session, Artist, Artist.normalized_name == normalized,
+                    name=name, normalized_name=normalized,
+                )
+            except NoResultFound:
+                # `name` is taken by a row stored under an older normalisation
+                # (symbol-only names such as "!!!" were keyed ''); adopt it and
+                # re-key it so the next lookup matches (#5720).
+                artist = session.execute(select(Artist).where(Artist.name == name)).scalars().one()
+                artist.normalized_name = normalized
+            artists.append(artist)
         return artists
 
     def _get_or_create_genres(self, session: Session, genre_names: list[str]) -> list[Genre]:

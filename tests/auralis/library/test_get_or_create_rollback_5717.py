@@ -12,7 +12,6 @@ the session's own transaction.
 
 import threading
 
-import pytest
 from sqlalchemy import event, func, select
 
 from auralis.library.models import Album, Artist, Genre, Track
@@ -91,15 +90,18 @@ class TestResolveExisting:
 
         assert _counts(library_database)['artists'] == 1
 
-    def test_artist_without_matching_normalized_name_still_raises(self, library_database):
-        """A conflicting `name` whose normalized_name differs yields no row to
-        resolve to; surface that rather than returning None (as IntegrityError did)."""
-        from sqlalchemy.exc import NoResultFound
+    def test_artist_stored_under_an_older_normalisation_is_adopted_and_rekeyed(self, library_database):
+        """The unique `name` is taken by a row whose normalized_name differs
+        (an older normalisation, #5720): the insert is ignored, the row is
+        adopted and re-keyed instead of the lookup coming back empty."""
         with library_database.SessionLocal() as session:
             session.add(Artist(name='Odd', normalized_name='different'))
             session.commit()
-            with pytest.raises(NoResultFound):
-                library_database.tracks._get_or_create_artists(session, ['Odd'])
+            (artist,) = library_database.tracks._get_or_create_artists(session, ['Odd'])
+            session.commit()
+
+            assert artist.name == 'Odd' and artist.normalized_name == 'odd'
+        assert _counts(library_database)['artists'] == 1
 
     def test_album_with_vanished_artist_returns_none(self, library_database):
         with library_database.SessionLocal() as session:
