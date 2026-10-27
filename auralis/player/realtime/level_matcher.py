@@ -26,7 +26,7 @@ class RealtimeLevelMatcher:
         self.enabled = False
         self.reference_rms: float | None = None
         self.target_rms_alpha = 0.01  # Smoothing for RMS calculation
-        self.current_target_rms = 0.0
+        self.current_target_rms = 0.0  # 0 = unseeded; set_reference_audio() seeds it
 
         # Serialises concurrent calls to process() / set_reference_audio() so
         # the playback thread and any prefetch/lookahead thread cannot interleave
@@ -51,6 +51,12 @@ class RealtimeLevelMatcher:
 
             # Calculate RMS of reference audio
             self.reference_rms = np.sqrt(np.mean(reference ** 2))
+            # Seed the smoothed target on the first reference after construction
+            # or reset(): process() eases toward reference_rms from here, and from
+            # 0 the first chunks got gain ~0.01 and faded in over ~7 s (#5707).
+            # A later reference change still glides from the previous target.
+            if self.current_target_rms == 0.0:
+                self.current_target_rms = float(self.reference_rms)
             self.enabled = True
             info(f"Reference RMS set: {self.reference_rms:.6f}")
             return True
@@ -75,6 +81,7 @@ class RealtimeLevelMatcher:
         """
         with self._lock:
             self.reference_rms = None
+            self.current_target_rms = 0.0
             self.enabled = False
             self.gain_smoother = AdaptiveGainSmoother(
                 attack_alpha=0.02,
