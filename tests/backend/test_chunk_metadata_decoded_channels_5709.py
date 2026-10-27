@@ -23,7 +23,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 from core import chunk_metadata
 from core.chunk_metadata import load_audio_metadata
 
-from auralis.io.loaders.ffmpeg_command import decoded_channel_count, build_ffmpeg_cmd
+from auralis.io.loaders.ffmpeg_command import build_ffmpeg_cmd
+from auralis.io.processing import decoded_channel_count
 from auralis.io.unified_loader import load_audio
 
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")

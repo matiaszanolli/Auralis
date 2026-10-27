@@ -226,14 +226,9 @@ class ArtworkExtractor(TagArtworkReadersMixin):
 
     @staticmethod
     def delete_artwork(artwork_path: str) -> bool:
-        """
-        Delete artwork file (stateless, so callable on the class too: #5596)
+        """Delete the artwork file (stateless, so callable on the class: #5596).
 
-        Args:
-            artwork_path: Path to artwork file
-
-        Returns:
-            True if deleted successfully, False otherwise
+        Returns True if deleted, False otherwise.
         """
         try:
             path = Path(artwork_path)

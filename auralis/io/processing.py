@@ -31,6 +31,17 @@ def peak_amplitude(audio_data: np.ndarray) -> float:
     return max(float(audio_data.max()), -float(audio_data.min()))
 
 
+def decoded_channel_count(source_channels: int) -> int:
+    """Channels an FFmpeg decode of a *source_channels* file yields (#5709).
+
+    The one rule behind the ``-ac 2`` downmix in ``build_ffmpeg_cmd``: mono and
+    stereo keep their count, anything wider is folded to stereo. A probe that
+    advertises a channel count for a file decoded this way must use it, not the
+    container's native count.
+    """
+    return 2 if source_channels > 2 else source_channels
+
+
 def requires_layout_aware_downmix(n_channels: int) -> bool:
     """Return whether channel roles cannot be inferred safely from count alone."""
     return n_channels > 2 and n_channels not in _NATIVE_DOWNMIX_CHANNELS

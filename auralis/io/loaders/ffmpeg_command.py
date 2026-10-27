@@ -11,18 +11,8 @@ from pathlib import Path
 import numpy as np
 
 from ...utils.logging import Code, ModuleError, debug, warning
+from ..processing import decoded_channel_count
 from .ffmpeg_probe import _PROTOCOL_WHITELIST_ARGS
-
-
-def decoded_channel_count(source_channels: int) -> int:
-    """Channels an FFmpeg decode of a *source_channels* file yields (#5709).
-
-    The one rule behind the ``-ac 2`` downmix in :func:`build_ffmpeg_cmd`: mono
-    and stereo keep their count, anything wider is folded to stereo. Probes that
-    advertise a channel count for a file that will be decoded this way must use
-    it, not the container's native count.
-    """
-    return 2 if source_channels > 2 else source_channels
 
 
 def build_ffmpeg_cmd(
@@ -40,14 +30,11 @@ def build_ffmpeg_cmd(
     # truncated to `[:, :2]` — which silently dropped the center channel
     # (vocals/dialogue) for 5.1/7.1 content.
     #
-    # #4611/#4597: that downmix is now gated on `source_channels > 2`.
-    # Applying it unconditionally also *up*-mixed genuine mono into fake
-    # stereo, which #3672 never intended: `get_audio_info()` reported the
-    # true channel count from ffprobe while `load_audio()` handed back a
-    # 2-D array, so the two disagreed about the same file and the returned
-    # dimensionality depended on file extension rather than audio content.
-    # Gating here matches `soundfile_loader`, which downmixes only when
-    # `shape[1] > 2`.
+    # #4611/#4597: the downmix is gated on decoded_channel_count() (> 2
+    # sources only). Applying it unconditionally also *up*-mixed genuine mono
+    # into fake stereo, so `get_audio_info()` (true ffprobe count) and
+    # `load_audio()` (a 2-D array) disagreed about the same file. Gating here
+    # matches `soundfile_loader`, which downmixes only when `shape[1] > 2`.
     needs_downmix = decoded_channel_count(source_channels) != source_channels
     ffmpeg_cmd = ['ffmpeg', *_PROTOCOL_WHITELIST_ARGS]
     # -ss BEFORE -i is input seeking: ffmpeg jumps to the offset instead of
