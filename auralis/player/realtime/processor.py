@@ -19,6 +19,7 @@ from ...utils.logging import info
 from ..config import PlayerConfig
 from .auto_master import AutoMasterProcessor
 from .level_matcher import RealtimeLevelMatcher
+from .peak_ceiling import StreamingPeakCeiling
 from .performance_monitor import PerformanceMonitor
 
 
@@ -35,6 +36,11 @@ class RealtimeProcessor:
         # Initialize DSP components
         self.level_matcher = RealtimeLevelMatcher(config) if config.enable_level_matching else None
         self.auto_master = AutoMasterProcessor(config) if config.enable_auto_mastering else None
+
+        # Final safety ceiling (#5721): a per-sample envelope carried across
+        # chunks, not the old per-chunk `ceiling / max(|chunk|)` scalar that
+        # stepped at every chunk boundary.
+        self.safety_ceiling = StreamingPeakCeiling(config.sample_rate)
 
         # Performance monitoring
         self.performance_monitor = PerformanceMonitor(max_cpu_usage=0.75)
@@ -55,7 +61,7 @@ class RealtimeProcessor:
             'auto_mastering': config.enable_auto_mastering,
         }
 
-        info(f"RealtimeProcessor initialized:")
+        info("RealtimeProcessor initialized:")
         info(f"   Sample rate: {config.sample_rate} Hz")
         info(f"   Buffer size: {config.buffer_size} samples ({config.buffer_size / config.sample_rate * 1000:.1f}ms)")
         info(f"   Level matching: {'✅ Enabled' if config.enable_level_matching else '❌ Disabled'}")
@@ -153,26 +159,21 @@ class RealtimeProcessor:
                 self.auto_master.set_sample_rate(sample_rate)
             processed = self.auto_master.process(processed)
 
-        # Final safety limiting — linear gain reduction to target_peak.
-        # tanh was previously applied to ALL samples in the chunk, adding
-        # harmonic distortion even to sub-threshold content (fixes #2201).
-        # Linear scaling preserves signal shape: only the level changes.
+        # Final safety limiting to target_peak. tanh was previously applied to
+        # ALL samples in the chunk, adding harmonic distortion even to
+        # sub-threshold content (fixes #2201); only the level changes here.
         #
-        # #3744: cast the scaling factor to the input dtype so float32
-        # chunks don't silently promote to float64 (np.max returns a
-        # numpy scalar that's float64-typed regardless of input). Same
-        # dtype-drift class as #3658 / #3659 / #2450.
-        # #3754: target peak hoisted to PlayerConfig.realtime_safety_peak
-        # so the ceiling lives next to other player knobs and can be
-        # tuned to align with HybridProcessor's brick-wall threshold
-        # (-0.3 dBFS ≈ 0.9661 linear) when both limiters share the
-        # signal chain. Default 0.95 preserves prior behavior.
-        target_peak = self.config.realtime_safety_peak
-        max_val = np.max(np.abs(processed))
-        if max_val > target_peak:
-            processed = processed * processed.dtype.type(
-                target_peak / max_val
-            )
+        # #5721: the gain is a per-sample envelope that StreamingPeakCeiling
+        # carries across chunks. The old `target_peak / max(|chunk|)` scalar
+        # was constant inside a chunk and independent between chunks, so it
+        # stepped (-2.8 dB in the probe) at both edges of any over-ceiling chunk.
+        # #3744: the helper preserves the input dtype (no float32 -> float64).
+        # #3754: target peak lives in PlayerConfig.realtime_safety_peak so it
+        # can be tuned to align with HybridProcessor's brick-wall threshold
+        # (-0.3 dBFS ~ 0.9661 linear). Default 0.95 preserves prior behavior.
+        if sample_rate is not None:
+            self.safety_ceiling.set_sample_rate(sample_rate)
+        processed = self.safety_ceiling.apply(processed, self.config.realtime_safety_peak)
 
         # #5313: unlike every other pipeline in the engine (HybridProcessor,
         # ContinuousMode, AdaptiveMode, SimpleMasteringPipeline), this chain
@@ -221,6 +222,8 @@ class RealtimeProcessor:
         with self.lock:
             if self.level_matcher:
                 self.level_matcher.reset()
+
+            self.safety_ceiling.reset()
 
             if self.auto_master:
                 self.auto_master.set_enabled(False)

@@ -21,6 +21,7 @@ from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ...utils.logging import debug, info, warning
 from ...core.utils.fingerprint_unpacker import FingerprintUnpacker
 from ..config import PlayerConfig
+from .peak_ceiling import StreamingPeakCeiling
 
 
 class AutoMasterProcessor:
@@ -50,6 +51,10 @@ class AutoMasterProcessor:
         self.compressor = self._build_compressor(self._sample_rate)
         self.transient_enhancer = LowMidTransientEnhancer(sample_rate=self._sample_rate)
         self.use_transient_enhancement = True
+
+        # Adaptive peak ceiling as a per-sample envelope carried across chunks
+        # (#5721), not a per-chunk `target_peak / current_peak` scalar.
+        self.peak_ceiling = StreamingPeakCeiling(self._sample_rate)
 
         debug("AutoMasterProcessor initialized")
 
@@ -89,6 +94,7 @@ class AutoMasterProcessor:
             self._sample_rate = sample_rate
             self.compressor = self._build_compressor(sample_rate)
             self.transient_enhancer = LowMidTransientEnhancer(sample_rate=sample_rate)
+            self.peak_ceiling.set_sample_rate(sample_rate)
 
     def set_enabled(self, enabled: bool) -> None:
         """Thread-safe setter for enabled flag (#3356)."""
@@ -239,10 +245,10 @@ class AutoMasterProcessor:
         if self.adaptive_params is not None:
             target_peak = self.adaptive_params['target_peak']
             current_peak = np.max(np.abs(processed))
-            if current_peak > target_peak and current_peak > 0:
-                processed = processed * (target_peak / current_peak)
+            if current_peak > target_peak:
                 debug(f"Adaptive peak ceiling: {20*np.log10(current_peak):.1f} → "
                       f"{20*np.log10(target_peak):.1f} dBFS")
+            processed = self.peak_ceiling.apply(processed, target_peak)
 
         return processed
 

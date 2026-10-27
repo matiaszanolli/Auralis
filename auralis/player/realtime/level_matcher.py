@@ -16,6 +16,7 @@ import numpy as np
 from ...utils.logging import debug, info
 from ..config import PlayerConfig
 from .gain_smoother import AdaptiveGainSmoother
+from .peak_ceiling import StreamingPeakCeiling
 
 
 class RealtimeLevelMatcher:
@@ -38,6 +39,10 @@ class RealtimeLevelMatcher:
             attack_alpha=0.02,   # Fairly quick attack
             release_alpha=0.005  # Slower release to avoid pumping
         )
+
+        # 0.95 ceiling as a per-sample envelope carried across chunks (#5721),
+        # not a per-chunk `0.95 / max(|chunk|)` scalar that stepped at chunk edges.
+        self.peak_ceiling = StreamingPeakCeiling(config.sample_rate)
 
         debug("RealtimeLevelMatcher initialized")
 
@@ -87,6 +92,7 @@ class RealtimeLevelMatcher:
                 attack_alpha=0.02,
                 release_alpha=0.005,
             )
+            self.peak_ceiling.reset()
 
     def process(self, audio: np.ndarray) -> np.ndarray:
         """Process audio chunk with level matching"""
@@ -118,13 +124,9 @@ class RealtimeLevelMatcher:
         # Apply gain with soft limiting to prevent clipping
         processed: np.ndarray = audio * smooth_gain
 
-        # Soft limiter to prevent harsh clipping
-        max_val = np.max(np.abs(processed))
-        if max_val > 0.95:
-            limiter_gain = 0.95 / max_val
-            processed *= limiter_gain
-
-        return processed
+        # Limiter to prevent harsh clipping (#5721: smoothed across chunks)
+        peak_limited: np.ndarray = self.peak_ceiling.apply(processed, 0.95)
+        return peak_limited
 
     def get_stats(self) -> dict[str, Any]:
         """Get level matching statistics under `_lock` (#4551).
