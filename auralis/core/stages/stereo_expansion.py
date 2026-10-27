@@ -8,6 +8,45 @@ from ...dsp.utils.stereo import adjust_stereo_width_multiband
 from ..utils import SmoothCurveUtilities
 
 
+# Anchors of narrowness_curve on the fingerprint stereo_width axis (0 = mono).
+_NARROW_END = 0.15      # linear segment ends here, at 0.6
+_BELL_END = 0.30        # bell segment ends here, at 0.3; the fade-out starts
+_FADE_END = 0.40        # no widening at or beyond this width
+_AT_NARROW_END = 0.6
+_AT_BELL_END = 0.3
+_BELL_CENTER = 0.225
+_BELL_SIGMA = 0.05
+_BELL_CENTER_VALUE = 0.6  # the curve's value at the bell centre (the old Gaussian's peak)
+
+
+def narrowness_curve(current_width: float) -> float:
+    """Widening weight for a stereo width in [0, 0.40): one continuous curve (#5724).
+
+    1.0 at mono, falling linearly to 0.6 at 0.15 (the narrowest, in-phase
+    material has the most headroom); a bell that passes through 0.6 at 0.225 and
+    joins both neighbours; then an S-curve fade from 0.3 at 0.30 to 0 at 0.40.
+    The bell used to be a bare Gaussian that started and ended at 0.195, so the
+    weight jumped at 0.15 (0.6 -> 0.195) and at 0.30 (0.195 -> 0.3) and two
+    tracks 0.0002 apart in width got side gains +2.6 dB vs +0.9 dB. It now rides
+    on the straight line from 0.6 to 0.3 and adds a bell that is zero at both
+    ends, sized to keep the 0.6 at the centre.
+    """
+    if current_width < _NARROW_END:
+        return 0.6 + 0.4 * (1.0 - current_width / _NARROW_END)
+    if current_width < _BELL_END:
+        def line(w: float) -> float:
+            return _AT_NARROW_END + (_AT_BELL_END - _AT_NARROW_END) * (w - _NARROW_END) / (_BELL_END - _NARROW_END)
+
+        def gaussian(w: float) -> float:
+            return float(np.exp(-((w - _BELL_CENTER) ** 2) / (2 * _BELL_SIGMA**2)))
+
+        edge = gaussian(_NARROW_END)  # == gaussian(_BELL_END): the centre is midway
+        bell = (gaussian(current_width) - edge) / (1.0 - edge)
+        return line(current_width) + (_BELL_CENTER_VALUE - line(_BELL_CENTER)) * bell
+    fade_curve = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(current_width, _BELL_END, _FADE_END)
+    return float(_AT_BELL_END * fade_curve)
+
+
 def apply(
     audio: np.ndarray,
     current_width: float,
@@ -57,21 +96,7 @@ def apply(
     else:
         phase_factor = 1.0
 
-    # Width expansion curve: bell curve with peak at 25% width
-    if current_width < 0.15:
-        # Very narrow AND in-phase (phase_factor gates this) is the safest
-        # material to open up and benefits the most — a near-mono but correlated
-        # mix has the most headroom to gain width without phase artifacts. The
-        # old curve did the opposite, widening the narrowest sources least, so a
-        # 5%-wide track barely moved. Scale widening UP as width approaches mono.
-        narrowness_factor = 0.6 + 0.4 * (1.0 - current_width / 0.15)
-    elif current_width < 0.30:
-        center = 0.225
-        width_offset = current_width - center
-        narrowness_factor = 0.6 * np.exp(-(width_offset**2) / (2 * 0.05**2))
-    else:
-        fade_curve = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(current_width, 0.30, 0.40)
-        narrowness_factor = 0.3 * fade_curve
+    narrowness_factor = narrowness_curve(current_width)
 
     # Brightness preservation — reduce expansion for bright tracks
     brightness_metric = max(spectral_centroid, air_pct * 2.0)
