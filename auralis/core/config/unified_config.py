@@ -85,8 +85,11 @@ class UnifiedConfig:
         self.enable_cross_dimensional_guard: bool = True
 
         # Quality gate: run QualityMetrics.compare_quality() on selected chunks
-        # to verify output quality does not regress vs input.
-        self.quality_gate_enabled: bool = True
+        # to verify output quality does not regress vs input. Diagnostics only:
+        # the result is advisory and read by nothing in production, yet each
+        # gated chunk costs ~2 s of CPU on the mastering path, so it is opt-in
+        # (#5712).
+        self.quality_gate_enabled: bool = False
         self.quality_gate_interval: int = 5  # Run every Nth chunk (0 = first only)
 
         debug(f"Unified config initialized: mode={self.adaptive.mode}, "

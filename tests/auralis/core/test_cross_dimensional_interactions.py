@@ -270,10 +270,10 @@ class TestGuardDisabled:
         assert config.enable_cross_dimensional_guard is True
 
     def test_quality_gate_flag_exists_in_config(self):
-        """Config should have quality_gate_enabled flag."""
+        """Config should have quality_gate_enabled flag (opt-in diagnostics, #5712)."""
         config = UnifiedConfig()
         assert hasattr(config, 'quality_gate_enabled')
-        assert config.quality_gate_enabled is True
+        assert config.quality_gate_enabled is False
         assert config.quality_gate_interval == 5
 
     # ----- Behavioral tests for the guard flag (#3461) -----

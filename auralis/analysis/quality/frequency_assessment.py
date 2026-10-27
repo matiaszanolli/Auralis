@@ -84,6 +84,10 @@ class FrequencyResponseAssessor(BaseAssessor):
         count toward the score nor toward the level that is removed; all are
         zero for a silent spectrum, which has no response to assess.
         """
+        if 'spectrum' not in spectrum_result:
+            # SpectrumAnalyzer.analyze_file() returns {} for audio shorter than
+            # its FFT; callers (the quality gate) catch ValueError (#5712).
+            raise ValueError("No spectrum: the audio is shorter than the analysis FFT")
         spectrum = np.array(spectrum_result['spectrum'], dtype=float)
         weighting = spectrum_result.get('settings', {}).get('weighting')
         if weighting:
