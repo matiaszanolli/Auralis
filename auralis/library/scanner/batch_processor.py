@@ -13,11 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from ...utils.logging import error, warning
+from ..repositories.track_repository_mutation import MTIME_TOLERANCE_SEC
 from ..scan_models import ScanResult
-
-
-# Float-precision slack for comparing a stored REAL mtime with a fresh stat().
-_MTIME_TOLERANCE_SEC = 1e-3
 
 
 class BatchProcessor:
@@ -84,6 +81,8 @@ class BatchProcessor:
                         result.added_tracks.append(track_record)
                 elif file_result == 'updated':
                     result.files_updated += 1
+                    if track_record:
+                        result.updated_tracks.append(track_record)
                 elif file_result == 'skipped':
                     result.files_skipped += 1
                 else:  # failed
@@ -122,7 +121,7 @@ class BatchProcessor:
         # just as changed as a newer one (#5748). The size catches a rewrite
         # that kept the mtime; a NULL stored size means "unknown" and defers to
         # the mtime alone.
-        if abs(stat.st_mtime - scanner_watermark) > _MTIME_TOLERANCE_SEC:
+        if abs(stat.st_mtime - scanner_watermark) > MTIME_TOLERANCE_SEC:
             return False
         stored_size = getattr(existing_track, 'filesize', None)
         return stored_size is None or stored_size == stat.st_size
@@ -141,7 +140,7 @@ class BatchProcessor:
         Returns:
             Tuple of (status, track_record, reason) where status is 'added',
             'updated', 'skipped', or 'failed'; track_record is the Track object
-            if newly added, None otherwise; and reason explains a 'failed'
+            if newly added or updated (#5719), None otherwise; and reason explains a 'failed'
             status and is None for every other status (#4841 — the caller used
             to receive a bare 'failed' with nothing to tell the user).
         """
@@ -195,7 +194,7 @@ class BatchProcessor:
                 # Update existing track (reuses query from above)
                 track = tracks_repo.update_by_filepath(file_path, track_info)
                 if track:
-                    return 'updated', None, None
+                    return 'updated', track, None
                 return 'failed', None, 'Database update failed'
             else:
                 # Add new track

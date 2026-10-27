@@ -213,8 +213,8 @@ class BatchFeeder:
         # fingerprints in the event loop after to_thread() returns.
         # asyncio.create_task() cannot be called from this worker
         # thread — it raises RuntimeError: no running event loop (#2382).
-        if batch_result.added_tracks:
-            result.added_tracks.extend(batch_result.added_tracks)
+        result.added_tracks.extend(batch_result.added_tracks)
+        result.updated_tracks.extend(batch_result.updated_tracks)
         self._report({
             'stage': 'processing',
             'processed': result.files_processed,

@@ -26,7 +26,7 @@ from helpers import spawn_background_task
 from websocket.outbound_messages import broadcast_typed
 
 from .missing_tracks import prune_missing_tracks
-from .scan_events import enqueue_added_for_fingerprinting, make_progress_callback, scan_complete_payload
+from .scan_events import enqueue_scanned_for_fingerprinting, make_progress_callback, scan_complete_payload
 from .scanner_stop import stop_scanner
 from .scanner_watchdog import HAS_WATCHDOG, WatchdogMixin
 
@@ -226,7 +226,7 @@ class LibraryAutoScanner(WatchdogMixin):
         logger.info(f"✅ Auto-scan complete: {files_added} files added")
 
         if self._fingerprint_queue and scan_result:  # only when handed a queue
-            await enqueue_added_for_fingerprinting(scan_result.added_tracks)
+            await enqueue_scanned_for_fingerprinting(scan_result)
 
         # Remove tracks whose files no longer exist on disk (shared with the
         # manual scan route, #5458).

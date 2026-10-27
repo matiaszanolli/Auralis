@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from schemas import LibraryScanRequest, ScanResultResponse
 
 from services.missing_tracks import prune_missing_tracks
-from services.scan_events import enqueue_added_for_fingerprinting, make_progress_callback
+from services.scan_events import enqueue_scanned_for_fingerprinting, make_progress_callback
 
 from .errors import LibraryUnavailableError, handle_query_error
 from .library_scan_events import broadcast_scan_complete, broadcast_scan_error
@@ -156,7 +156,7 @@ async def scan_library(
         if result.rejected:
             raise HTTPException(status_code=409, detail="Scan already in progress")
 
-        await enqueue_added_for_fingerprinting(result.added_tracks)
+        await enqueue_scanned_for_fingerprinting(result)
 
         # #5458: prune tracks whose files are gone, exactly as the
         # auto-scanner does. Only it used to, so users with auto_scan off

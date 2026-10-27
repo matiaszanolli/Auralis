@@ -67,7 +67,7 @@ class LibraryScanner:
         `_enqueue_fingerprints` it fed (#4648) — it was being passed in and
         silently ignored. See `routers/library_scan.py` and
         `LibraryAutoScanner._do_scan`, which both call
-        `services/scan_events.enqueue_added_for_fingerprinting` for the enqueue
+        `services/scan_events.enqueue_scanned_for_fingerprinting` for the enqueue
         that actually runs.
 
         Args:

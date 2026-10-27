@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info, warning
-from ..models import Album, Artist, Genre, Track
+from ..models import Album, Artist, Genre, Track, TrackFingerprint
 from ..path_key import make_filepath_key
 from .base import BaseRepository
 from .track_repository import _filter_metadata_fields, _track_eager_options
@@ -28,6 +28,40 @@ def _apply_metadata_fields(track: Track, track_id: int, fields: dict[str, Any]) 
     for key, value in _filter_metadata_fields(track_id, fields).items():
         if hasattr(track, key) and value is not None:
             setattr(track, key, value)
+
+
+# Float-precision slack for comparing a stored REAL mtime with a fresh stat().
+MTIME_TOLERANCE_SEC = 1e-3
+
+# Fields that describe the audio itself. Compared against the stored row before
+# a rescan overwrites it (#5719); "unknown" (None) on either side never counts
+# as a change, so a pre-v22 row with no watermark is not re-analysed for nothing.
+_AUDIO_FIELDS = ('filesize', 'duration', 'sample_rate', 'channels', 'format')
+_DURATION_TOLERANCE_SEC = 0.01
+
+
+def _audio_changed(track: Track, track_info: dict[str, Any]) -> bool:
+    """True when a rescan shows the file at this path is not the one analysed.
+
+    The stored fingerprint describes the audio that was on disk when it was
+    computed. A re-rip, remaster or re-encode at the same path changes the
+    file's size, duration, format or mtime; a tag edit changes size and mtime
+    too, so it also re-fingerprints once (the cost of not hashing the audio).
+    """
+    for key in _AUDIO_FIELDS:
+        old, new = getattr(track, key, None), track_info.get(key)
+        if old is None or new is None:
+            continue
+        if key == 'duration':
+            if abs(float(new) - float(old)) > _DURATION_TOLERANCE_SEC:
+                return True
+        elif new != old:
+            return True
+    old_mtime, new_mtime = track.file_mtime, track_info.get('file_mtime')
+    return (
+        old_mtime is not None and new_mtime is not None
+        and abs(new_mtime - old_mtime) > MTIME_TOLERANCE_SEC
+    )
 
 
 def _reload_detached(session: Session, where: Any) -> Track:
@@ -86,6 +120,12 @@ class TrackRepositoryMutationMixin(BaseRepository):
         """
         Update track by filepath
 
+        When the new ``track_info`` shows the audio itself changed (see
+        :func:`_audio_changed`) the track's stored fingerprint is deleted in
+        the same transaction (#5719): it describes the previous recording, and
+        the extractor skips any track that already has a row, so left in place
+        it would feed mastering targets and similarity indefinitely.
+
         Args:
             filepath: Path to track file
             track_info: Dictionary with updated track information
@@ -100,6 +140,14 @@ class TrackRepositoryMutationMixin(BaseRepository):
             if not track:
                 warning(f"Track not found: {filepath}")
                 return None
+
+            if _audio_changed(track, track_info):
+                stale = session.execute(
+                    select(TrackFingerprint).where(TrackFingerprint.track_id == track.id)
+                ).scalars().first()
+                if stale is not None:
+                    session.delete(stale)
+                    info(f"Discarded stale fingerprint for modified file: {filepath}")
 
             # Update basic fields
             for key in ['title', 'duration', 'sample_rate', 'channels',

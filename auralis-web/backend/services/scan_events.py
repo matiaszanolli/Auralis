@@ -20,6 +20,8 @@ from helpers import log_task_exception, scan_progress_percentage
 from websocket.outbound.library import ScanCompletePayload, ScanFailurePayload
 from websocket.outbound_messages import broadcast_typed
 
+from .scan_fingerprint_enqueue import enqueue_scanned_for_fingerprinting  # noqa: F401 — re-exported: the two scan sites import everything scan-related from here
+
 logger = logging.getLogger(__name__)
 
 
@@ -90,34 +92,6 @@ def make_progress_callback(
         loop.call_soon_threadsafe(_schedule)
 
     return sync_progress
-
-
-async def enqueue_added_for_fingerprinting(added_tracks: list[Any]) -> None:
-    """Enqueue newly added tracks for background fingerprinting (#2382).
-
-    Failures are logged, never raised: fingerprinting is a follow-up, not part
-    of the scan's success.
-    """
-    if not added_tracks:
-        return
-    try:
-        from analysis.fingerprint_queue import get_fingerprint_queue
-        fp_queue = get_fingerprint_queue()
-        if fp_queue:
-            # Offloaded (#4702): this is a comprehension over every
-            # newly-added track, so its cost scales with scan size — a large
-            # import would hold the loop for the whole sweep, stalling audio
-            # streaming and the scan_complete broadcast. The whole loop is
-            # offloaded rather than each enqueue, matching the batch pattern
-            # in fingerprint_queue.py (#3335): one hop instead of N.
-            def _enqueue_added() -> int:
-                return sum(1 for t in added_tracks if fp_queue.enqueue(t.id))
-
-            enqueued = await asyncio.to_thread(_enqueue_added)
-            if enqueued:
-                logger.info(f"Enqueued {enqueued} tracks for fingerprinting after scan")
-    except Exception as fp_err:
-        logger.warning(f"Fingerprint enqueue failed after scan: {fp_err}")
 
 
 def scan_complete_payload(scan_result: Any) -> ScanCompletePayload:

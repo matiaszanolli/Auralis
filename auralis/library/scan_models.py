@@ -65,6 +65,9 @@ class ScanResult:
     directories_scanned: int = 0
     rejected: bool = False  # True when rejected by the concurrency guard (#2438)
     added_tracks: list[Any] = field(default_factory=list)  # List of Track objects added during scan
+    # Tracks refreshed by a rescan (#5719). Their fingerprint may have been
+    # discarded because the file changed, so they are enqueued next to added_tracks.
+    updated_tracks: list[Any] = field(default_factory=list)
     # Bounded to MAX_RECORDED_FAILURES; `files_failed` remains the exact count.
     failures: list[ScanFailure] = field(default_factory=list)
 
