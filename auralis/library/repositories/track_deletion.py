@@ -26,6 +26,7 @@ from sqlalchemy import CursorResult, delete, update, select
 from sqlalchemy.orm import Session
 
 from ..models import Track, track_artist, track_genre, track_playlist
+from .orphan_pruning import prune_orphans
 
 # The association tables that predate ON DELETE CASCADE.
 _TRACK_ASSOCIATIONS = (track_playlist, track_genre, track_artist)
@@ -34,6 +35,7 @@ _TRACK_ASSOCIATIONS = (track_playlist, track_genre, track_artist)
 def delete_tracks_by_ids(session: Session, track_ids: Sequence[int]) -> int:
     """Delete tracks and their association rows in the caller's transaction.
 
+    Also prunes the albums, artists and genres left without tracks (#5596).
     Does not commit; the caller owns the transaction. Callers batch their ids
     (the repository loops use 1000), well under SQLite's bound-variable limit.
 
@@ -74,4 +76,7 @@ def delete_tracks_by_ids(session: Session, track_ids: Sequence[int]) -> int:
     # session.execute() is typed as Result although a DML statement returns a
     # CursorResult with rowcount.
     result = cast(CursorResult[Any], session.execute(delete(Track).where(Track.id.in_(track_ids))))
-    return int(result.rowcount)
+    deleted = int(result.rowcount)
+    if deleted:
+        prune_orphans(session)  # albums/artists/genres that just lost their last track (#5596)
+    return deleted

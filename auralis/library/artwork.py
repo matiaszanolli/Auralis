@@ -224,9 +224,10 @@ class ArtworkExtractor(TagArtworkReadersMixin):
             error(f"Failed to save artwork: {e}")
             return None
 
-    def delete_artwork(self, artwork_path: str) -> bool:
+    @staticmethod
+    def delete_artwork(artwork_path: str) -> bool:
         """
-        Delete artwork file
+        Delete artwork file (stateless, so callable on the class too: #5596)
 
         Args:
             artwork_path: Path to artwork file
