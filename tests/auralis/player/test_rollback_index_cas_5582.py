@@ -85,3 +85,67 @@ class TestRollbackIndexCompareAndSet:
 
         assert qm.rollback_index(1, expected_current=0) is True
         assert qm.current_index == 0
+
+
+class TestWrappedPreviousMove:
+    """#5705: with repeat on, previous from the first track lands on the LAST
+    one, so the compare-and-set baseline is the reported ``moved_to`` index --
+    ``saved_index - 1`` (-1) never matched and the rollback was skipped."""
+
+    def _three_tracks(self, current_index: int) -> QueueManager:
+        qm = QueueManager()
+        for n in (1, 2, 3):
+            qm.add_track(_track(n))
+        qm.repeat_enabled = True
+        qm.current_index = current_index
+        return qm
+
+    def test_step_previous_reports_the_wrapped_destination(self):
+        qm = self._three_tracks(0)
+
+        track, saved, moved_to = qm.step_previous()
+
+        assert (saved, moved_to) == (0, 2)
+        assert track == qm.tracks[2]
+
+    def test_failed_load_after_a_wrap_restores_the_first_track(self):
+        qm = self._three_tracks(0)
+        _, saved, moved_to = qm.step_previous()
+
+        assert qm.rollback_index(saved, expected_current=moved_to) is True
+
+        assert qm.current_index == 0
+        assert qm.get_current_track() == qm.tracks[0]
+
+    def test_failed_load_after_a_wrap_from_index_minus_one_restores_it(self):
+        qm = self._three_tracks(-1)
+        _, saved, moved_to = qm.step_previous()
+
+        assert (saved, moved_to) == (-1, 2)
+        assert qm.rollback_index(saved, expected_current=moved_to) is True
+        assert qm.current_index == -1
+
+    def test_non_wrapping_move_reports_saved_minus_one(self):
+        qm = self._three_tracks(2)
+
+        _, saved, moved_to = qm.step_previous()
+
+        assert (saved, moved_to) == (2, 1)
+
+    def test_nothing_moves_at_the_start_without_repeat(self):
+        qm = self._three_tracks(0)
+        qm.repeat_enabled = False
+
+        assert qm.step_previous() == (None, 0, 0)
+        assert qm.current_index == 0
+
+    def test_an_edit_during_the_load_still_wins_after_a_wrap(self):
+        qm = self._three_tracks(0)
+        _, saved, moved_to = qm.step_previous()
+        qm.remove_track(0)  # queue is now [2, 3]; the pointer follows
+
+        assert qm.rollback_index(saved, expected_current=moved_to) is False
+        assert -1 <= qm.current_index <= len(qm.tracks) - 1
+
+    def test_empty_queue_reports_no_move(self):
+        assert QueueManager().step_previous() == (None, -1, -1)

@@ -48,8 +48,7 @@ def _make_player(load_succeeds: bool = True) -> AudioPlayer:
     player.file_manager = file_manager
 
     queue = MagicMock()
-    queue.snapshot_index.return_value = 3
-    queue.previous_track.return_value = PREV_TRACK
+    queue.step_previous.return_value = (PREV_TRACK, 3, 2)  # (track, saved, moved_to)
     player.queue = queue
 
     player.gapless = MagicMock()
@@ -130,7 +129,7 @@ class TestPreviousTrackFailurePaths:
 
     def test_no_previous_track_returns_false_and_does_not_play(self):
         player = _make_player()
-        player.queue.previous_track.return_value = None
+        player.queue.step_previous.return_value = (None, 3, 3)
         player.playback.state = PlaybackState.PLAYING
 
         assert player.previous_track() is False
@@ -142,7 +141,7 @@ class TestPreviousTrackFailurePaths:
     def test_failed_load_rolls_back_index_and_does_not_resume(self):
         """#3442: a failed load restores the queue index instead of resuming.
         #5582: the rollback is a compare-and-set against the index
-        previous_track() moved to (snapshot 3 → moved to 2)."""
+        step_previous() reports it moved to (saved 3 → moved to 2, #5705)."""
         player = _make_player(load_succeeds=False)
         player.playback.state = PlaybackState.PLAYING
 

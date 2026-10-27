@@ -114,54 +114,46 @@ class QueueNavigationMixin:
 
     def previous_track(self) -> dict[str, Any] | None:
         """Move to previous track"""
+        return self.step_previous()[0]
+
+    def step_previous(self) -> tuple[dict[str, Any] | None, int, int]:
+        """Move to the previous track; return ``(track, saved_index, moved_to)``.
+
+        The index before the move and the index after it come from the same
+        lock acquisition, so a caller that rolls back after a failed load can
+        compare-and-set against ``moved_to`` even when the move wrapped
+        (``repeat_enabled`` at index 0 lands on ``len(tracks) - 1``, not
+        ``saved_index - 1``, #5705). ``track`` is None when nothing moved.
+        """
         with self._lock:
+            saved_index = self.current_index
             if not self.tracks:
-                return None
+                return None, saved_index, saved_index
 
             if self.current_index > 0:
                 self.current_index -= 1
             elif self.repeat_enabled:
                 self.current_index = len(self.tracks) - 1
             else:
-                return None
+                return None, saved_index, saved_index
 
-            return self._get_current_track_unlocked()
+            return self._get_current_track_unlocked(), saved_index, self.current_index
 
     def snapshot_index(self) -> int:
-        """
-        Atomically read self.current_index under self._lock.
-
-        #3726: callers that need to capture the index for later rollback
-        must read it under the same lock that mutators write through.
-        Previously `previous_track()` read `queue.current_index` as a raw
-        attribute (the write side was already lock-protected by #3668).
-        CPython's GIL keeps the int read torn-free, but a concurrent
-        `next_track()` / `remove_track()` / `reorder_tracks()` can change
-        the index's relationship to the queue contents between the snapshot
-        and the eventual rollback, leaving the queue off-by-one.
-        """
+        """Atomically read self.current_index under self._lock (#3726)."""
         with self._lock:
             return self.current_index
 
     def rollback_index(self, saved_index: int, expected_current: int | None = None) -> bool:
         """
-        Restore current_index to a saved value under self._lock.
+        Restore current_index to *saved_index* under self._lock (#3668).
 
-        #3668: previous_track() callers used to save the index, move it,
-        and on file-load failure write `self.queue.queue.current_index =
-        saved_index` directly. The bare write bypassed self._lock and could
-        clobber a concurrent next_track() / remove_track() / reorder_tracks()
-        modification. This method makes the rollback locked and explicit.
-
-        #5582: the write is now a compare-and-set. previous_track() moves the
-        index and then does a blocking load with no lock held; a queue edit in
-        that window can move current_index somewhere else (the probe: remove
-        the track before the saved slot and the unconditional write landed
-        current_index == len(tracks), a state with no current track). Pass
-        *expected_current* — the index previous_track() moved to — and the
-        restore happens only if current_index still holds it. The restored
-        value is clamped to the live queue bounds either way. Returns whether
-        the rollback was applied.
+        A compare-and-set (#5582): the failed-load rollback follows a blocking,
+        lock-free load, so a queue edit in that window may have moved the index.
+        Pass the ``moved_to`` index from :meth:`step_previous` as
+        *expected_current*; the restore happens only if current_index still
+        holds it, and is clamped to the live queue bounds either way. Returns
+        whether the rollback was applied.
         """
         with self._lock:
             if expected_current is not None and self.current_index != expected_current:

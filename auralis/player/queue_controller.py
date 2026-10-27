@@ -108,16 +108,15 @@ class QueueController(QueueLockedStateMixin, QueueLoadingMixin):
     def rollback_index(self, saved_index: int, expected_current: int | None = None) -> bool:
         """#3668: locked rollback of the queue's current_index for use by
         previous_track() when a file load fails. #5582: compare-and-set —
-        pass the index previous_track() moved to as *expected_current* and
-        the restore only applies if nothing moved the index since."""
+        pass step_previous()'s ``moved_to`` as *expected_current*; the restore
+        only applies if nothing moved the index since."""
         return self.queue.rollback_index(saved_index, expected_current)
 
-    def snapshot_index(self) -> int:
-        """#3726: atomic locked read of the queue's current_index. Use as
-        the rollback baseline in previous_track() so a concurrent
-        next_track/remove_track/reorder_tracks cannot make the saved
-        index stale relative to the queue contents."""
-        return self.queue.snapshot_index()
+    def step_previous(self) -> tuple[dict[str, Any] | None, int, int]:
+        """#5705: move to the previous track and return ``(track, saved_index,
+        moved_to)`` atomically -- the rollback baseline for previous_track(),
+        correct even when the move wrapped (#3726's snapshot could not be)."""
+        return self.queue.step_previous()
 
     def get_current_track(self) -> dict[str, Any] | None:
         """Get current track from queue"""

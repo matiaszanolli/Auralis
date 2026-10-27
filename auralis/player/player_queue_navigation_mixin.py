@@ -158,13 +158,12 @@ class PlayerQueueNavigationMixin:
         on failure the index is rolled back so the queue stays valid (#3442).
         """
         was_playing = self.playback.is_playing()
-        # #3726: capture the index atomically under QueueManager._lock so
-        # a concurrent next_track / remove_track / reorder_tracks cannot
-        # make `saved_index` stale relative to the queue contents.
-        # #3668 already locked the rollback WRITE side; this closes the
-        # remaining read-side race.
-        saved_index = self.queue.snapshot_index()
-        prev_track = self.queue.previous_track()
+        # #3726/#5705: the index before the move and the one it moved to are
+        # read in the same QueueManager._lock acquisition as the move itself,
+        # so a concurrent next_track / remove_track / reorder_tracks cannot
+        # make either stale, and a wrapped move (repeat on, first track) has
+        # the right rollback baseline. #3668 locked the rollback WRITE side.
+        prev_track, saved_index, moved_to = self.queue.step_previous()
         if prev_track:
             file_path = prev_track.get('file_path') or prev_track.get('path')
             if file_path and self.load_file(file_path):
@@ -195,11 +194,11 @@ class PlayerQueueNavigationMixin:
             # File load failed — roll back queue index under lock.
             # #5582: the load above is blocking and lock-free, so a queue edit
             # in that window can move current_index elsewhere. Compare-and-set
-            # against the index previous_track() moved to (saved_index - 1):
-            # an untouched queue restores the saved slot, an edited one keeps
-            # wherever the edit left it instead of writing a possibly
-            # out-of-range stale value back.
-            self.queue.rollback_index(saved_index, expected_current=saved_index - 1)
+            # against the index step_previous() moved to (#5705: not
+            # saved_index - 1, which a wrap makes wrong): an untouched queue
+            # restores the saved slot, an edited one keeps wherever the edit
+            # left it instead of writing a possibly out-of-range stale value.
+            self.queue.rollback_index(saved_index, expected_current=moved_to)
         return False
 
     def add_to_queue(self, track_info: dict[str, Any]) -> None:
