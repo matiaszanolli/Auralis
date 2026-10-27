@@ -41,6 +41,7 @@ const TrackTableRowItemImpl = ({
     handleMoreClick,
     handleTrackContextMenu,
     handleCloseContextMenu,
+    fetchPlaylists,
     handleAddToPlaylist,
     handleCreatePlaylist,
     contextActions,
@@ -137,7 +138,7 @@ const TrackTableRowItemImpl = ({
       trackTitle={track.title}
       playlists={playlists}
       isLoadingPlaylists={isLoadingPlaylists}
-      onPlaylistsLoad={() => {}}
+      onPlaylistsLoad={fetchPlaylists}
       onAddToPlaylist={handleAddToPlaylist}
       onCreatePlaylist={handleCreatePlaylist}
     />

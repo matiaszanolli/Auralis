@@ -87,6 +87,7 @@ const TrackRowComponent = ({
     handleMoreClick,
     handleTrackContextMenu,
     handleCloseContextMenu,
+    fetchPlaylists,
     handleAddToPlaylist,
     handleCreatePlaylist,
     contextActions,
@@ -189,9 +190,10 @@ const TrackRowComponent = ({
         trackTitle={track.title}
         playlists={playlists}
         isLoadingPlaylists={isLoadingPlaylists}
-        onPlaylistsLoad={() => {
-          /* fetch playlists */
-        }}
+        // Stable (useCallback []) on purpose: the menu re-runs its load effect
+        // whenever this identity changes, so an inline arrow would refetch on
+        // every render while the menu is open (#5617).
+        onPlaylistsLoad={fetchPlaylists}
         onAddToPlaylist={handleAddToPlaylist}
         onCreatePlaylist={handleCreatePlaylist}
       />
