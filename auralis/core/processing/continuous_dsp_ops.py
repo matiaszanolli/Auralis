@@ -210,7 +210,11 @@ class ContinuousDSPOpsMixin:
         # R128 *target* (-23.0) as if it were a dBFS->LUFS offset, so it read
         # ~25 LU below `target_lufs`'s true-LUFS scale and this step became a
         # ~+25 dB over-boost that Step 2 clawed back to the ceiling. It is now
-        # genuinely K-weighted per BS.1770-4 and the two sides share a scale.
+        # genuinely K-weighted per BS.1770-4. The per-chunk fingerprint path's
+        # target is converted onto that scale in
+        # ContinuousMode._resolve_parameters (#5700); the fixed-target path
+        # keeps source and target both on the fingerprint's proxy scale, so
+        # only their difference (the lift) is used.
         target_lufs = params.target_lufs
         source_lufs = getattr(params, 'source_lufs', None)
 

@@ -16,6 +16,7 @@ done with those parameters lives alongside it (#4254) --
 the guard knees, and ``fixed_target_params.py`` the fixed-targets conversion.
 """
 
+import dataclasses
 import time
 from typing import Any
 
@@ -23,7 +24,9 @@ import numpy as np
 
 from auralis.core.analysis import ContentAnalyzer
 
+from ...dsp.utils.adaptive import proxy_to_k_offset_db
 from ...utils.logging import debug
+from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from .continuous_space import ProcessingSpaceMapper
 from .continuous_space_types import PreferenceVector, ProcessingParameters
 from .continuous_stages import ContinuousStagesMixin
@@ -238,6 +241,19 @@ class ContinuousMode(ContinuousStagesMixin):
         params = self.param_generator.generate_parameters(
             coords, preference, target_spectrum=target_spectrum,
         )
+
+        # #5700: target_lufs was built on the fingerprint's RMS-proxy scale but
+        # the final normalisation chases it with the K-weighted meter, which
+        # reads ~3-4 dB higher, so the realised gain was `lift - offset` and
+        # loud masters were attenuated. Express the target on the meter's scale
+        # with the offset measured on THIS chunk (the fixed-target path keeps
+        # both sides on the proxy scale and needs no conversion).
+        k_offset = proxy_to_k_offset_db(
+            processed_audio,
+            FingerprintUnpacker.from_dict(fingerprint).lufs,
+            self.config.internal_sample_rate,
+        )
+        params = dataclasses.replace(params, target_lufs=params.target_lufs + k_offset)
         self.last_parameters = params
-        debug(f"[Continuous Space] Parameters: {params}")
+        debug(f"[Continuous Space] Parameters: {params} (K-scale offset {k_offset:+.2f} dB)")
         return params

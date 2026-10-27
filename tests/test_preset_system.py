@@ -279,7 +279,12 @@ class TestPresetProcessing:
 
             # Should be in reasonable mastering range
             # Note: May not hit exact target due to soft clipping, but should be close
-            assert -30 < output_lufs < -10, \
+            # The synthetic input is already loud (~-9.6 LUFS K-weighted) and
+            # the generator never attenuates, so the master lands ~+1 dB above
+            # it. The old `< -10` bound only held because the per-chunk target
+            # was on the fingerprint's RMS-proxy scale and turned this source
+            # down by ~3 dB (#5700).
+            assert -30 < output_lufs < -6, \
                 f"Preset '{preset_name}' LUFS out of range: {output_lufs:.2f}"
 
     def test_processing_is_deterministic(self, test_audio):

@@ -81,6 +81,10 @@ LOUDNESS_FLOOR_LUFS = -70.0
 # path and any other loudness-targeting stage use one definition.
 SILENCE_FLOOR_LUFS = -50.0
 MAX_NORMALIZATION_GAIN_DB = 24.0
+# Largest K-weighted-vs-proxy gap accepted as a real scale offset. Stereo
+# material sits ~+3 to +4 dB above the fingerprint proxy (summed channels plus
+# the K-weighting shelf); beyond this the chunk is degenerate, not mis-scaled.
+MAX_PROXY_TO_K_OFFSET_DB = 10.0
 
 
 def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
@@ -157,3 +161,29 @@ def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
     if not np.isfinite(lufs):
         return LOUDNESS_FLOOR_LUFS
     return float(lufs)
+
+
+def proxy_to_k_offset_db(audio: np.ndarray, fingerprint_lufs: float, sample_rate: int) -> float:
+    """dB to add to a fingerprint-proxy loudness to put it on this module's K scale.
+
+    The fingerprint's ``lufs`` is an RMS proxy and ``calculate_loudness_units``
+    is K-weighted and channel-summed, so the same audio reads ~3-4 dB higher on
+    the latter (+4.0 dB on correlated stereo pink noise). A target built as
+    ``fingerprint_lufs + lift`` and then chased with ``calculate_loudness_units``
+    therefore realises ``lift - offset``: loud masters were turned down although
+    the generator never intends attenuation (#5700).
+
+    Measuring the offset on the chunk itself keeps the correction exact for that
+    chunk's spectrum and channel correlation instead of assuming a constant.
+    Returns 0.0 when either side is unusable (silence, non-finite).
+    """
+    measured = calculate_loudness_units(audio, sample_rate)
+    if not (np.isfinite(measured) and np.isfinite(fingerprint_lufs)):
+        return 0.0
+    if measured <= SILENCE_FLOOR_LUFS:
+        return 0.0
+    return float(np.clip(
+        measured - fingerprint_lufs,
+        -MAX_PROXY_TO_K_OFFSET_DB,
+        MAX_PROXY_TO_K_OFFSET_DB,
+    ))
