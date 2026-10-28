@@ -20,13 +20,24 @@ try:
         TDRC,
         TIT2,
         TPE1,
+        TBPM,
+        TCOM,
+        TCOP,
         TPE2,
         TPOS,
+        TPUB,
         TRCK,
+        USLT,
     )
     MUTAGEN_ID3_AVAILABLE: bool = True
+    # Fields stored as one plain text frame, beyond the ones write_mp3_metadata
+    # spells out; they were accepted and silently dropped (#6110).
+    _SIMPLE_ID3_FRAMES: dict[str, Any] = {
+        'bpm': TBPM, 'composer': TCOM, 'publisher': TPUB, 'copyright': TCOP,
+    }
 except ImportError:
     MUTAGEN_ID3_AVAILABLE = False
+    _SIMPLE_ID3_FRAMES = {}
 
 try:
     from mutagen.mp4 import MP4FreeForm
@@ -135,6 +146,11 @@ class MetadataWriters:
                     # don't accumulate duplicate COMM frames (#4133).
                     _del_id3_frames_by_type(audio_file, 'COMM')
                     audio_file['COMM::eng'] = COMM(encoding=3, lang='eng', desc='', text=str(value))  # type: ignore[no-untyped-call]
+                elif field in _SIMPLE_ID3_FRAMES:
+                    audio_file[tag_key] = _SIMPLE_ID3_FRAMES[field](encoding=3, text=str(value))
+                elif field == 'lyrics':
+                    _del_id3_frames_by_type(audio_file, 'USLT')  # one lyrics frame, like COMM
+                    audio_file['USLT::eng'] = USLT(encoding=3, lang='eng', desc='', text=str(value))  # type: ignore[no-untyped-call]
 
     @staticmethod
     def write_flac_metadata(audio_file: Any, metadata: dict[str, Any]) -> None:
