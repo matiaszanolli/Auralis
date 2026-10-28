@@ -43,7 +43,8 @@ class WebSocketMessageType(str, Enum):
     HEARTBEAT = "heartbeat"  # data: ignored. Liveness keepalive (RealTimeAnalysisStream).
     PLAY_ENHANCED = "play_enhanced"
     # data: {track_id: int (required, >0), preset?: str, intensity?: float
-    # (0.0-1.0), force?: bool}. preset/intensity fall back through
+    # (0.0-1.0), force?: bool, start_position?: float (seconds, default 0.0;
+    # sent on re-issue and reconnect resume)}. preset/intensity fall back through
     # ws-connection settings, then stored enhancement_settings, when absent
     # or invalid (#4600/#4677). force explicitly opts out of the stored
     # `enabled` gate (#3773).

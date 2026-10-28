@@ -420,6 +420,7 @@ Sent once at the beginning of every stream (including seeks/resumes).
     "chunk_duration": number,  // Seconds per chunk (15.0 — see backend/core/chunk_boundaries.py CHUNK_DURATION, the source of truth)
     "total_duration": number,  // Track duration in seconds
     "stream_type"?: "enhanced" | "normal",
+    "stream_epoch"?: number,   // Identifies this stream; audio_chunk frames from another epoch are stale
     // Seek/resume fields — only present when is_seek is true:
     "is_seek"?: boolean,
     "start_chunk"?: number,    // Index of first chunk being sent
