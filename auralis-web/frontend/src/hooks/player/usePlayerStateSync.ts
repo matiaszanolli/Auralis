@@ -50,7 +50,7 @@ export function usePlayerStateSync() {
   // track_changed index against the synced queue) without re-subscribing on
   // every state change.
   const store = useStore<RootState>();
-  const { subscribe, connectionStatus } = useWebSocketContext();
+  const { subscribe } = useWebSocketContext();
   // Highest `seq` applied so far (fixes #3732). The backend broadcasts
   // player_state outside its update lock, so concurrent update_state() calls
   // can deliver snapshots out of order; drop anything older than what we've
@@ -74,21 +74,18 @@ export function usePlayerStateSync() {
   const lastSeenTransportEventSeqRef = useRef(0);
   const lastSeenVolumeEventSeqRef = useRef(0);
 
-  // A backend restart resets its StateManager seq counter to 0, but this ref
-  // survives across reconnects — every post-restart snapshot would otherwise
-  // be dropped as "older" until the counter climbs back past the pre-restart
-  // max (#4338). Reset on every (re)connection: within one continuous
-  // session connectionStatus never flips back to 'connected', so the #3732
-  // out-of-order guard still holds there. Same rationale applies to the
-  // NavigationService-side counter behind lastSeenTrackChangedSeqRef.
-  useEffect(() => {
-    if (connectionStatus === 'connected') {
-      lastSeenSeqRef.current = 0;
-      lastSeenTrackChangedSeqRef.current = 0;
-      lastSeenTransportEventSeqRef.current = 0;
-      lastSeenVolumeEventSeqRef.current = 0;
-    }
-  }, [connectionStatus]);
+  // A backend restart resets every one of these counters (fresh process), but
+  // the refs survive the reconnect — every post-restart frame would otherwise
+  // be dropped as "older" until the counters climbed back past the pre-restart
+  // max (#4338). The restart is detected from the snapshot itself: each
+  // player_state carries the backend's per-process server_instance_id, and the
+  // server pushes one immediately after accept(). Resetting on that change, in
+  // the same handler that applies the snapshot, cannot lose the race the old
+  // useEffect([connectionStatus]) reset did — that ran after React rendered
+  // 'connected', by which point the first post-restart frame could already
+  // have been dropped against the stale watermark (#5882). A reconnect to the
+  // same process keeps its counters, so it needs no reset.
+  const serverInstanceIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!subscribe) {
@@ -100,6 +97,17 @@ export function usePlayerStateSync() {
       try {
         const state: Partial<RawPlayerStateData> | undefined = message.data;
         if (!state || typeof state !== 'object') return;
+
+        const instanceId = state.server_instance_id;
+        if (typeof instanceId === 'string' && instanceId !== serverInstanceIdRef.current) {
+          if (serverInstanceIdRef.current !== null) {
+            lastSeenSeqRef.current = 0;
+            lastSeenTrackChangedSeqRef.current = 0;
+            lastSeenTransportEventSeqRef.current = 0;
+            lastSeenVolumeEventSeqRef.current = 0;
+          }
+          serverInstanceIdRef.current = instanceId;
+        }
 
         if (typeof state.seq === 'number') {
           if (state.seq < lastSeenSeqRef.current) return;
@@ -140,7 +148,7 @@ export function usePlayerStateSync() {
       //
       // lastSeenSeqRef is deliberately NOT advanced here: a tick is not a new
       // state generation, and only player_state should move the watermark. The
-      // reconnect reset (#4338) is shared automatically via the same ref.
+      // backend-restart reset (#4338, #5882) is shared automatically via the same ref.
       if (typeof data.seq === 'number' && data.seq < lastSeenSeqRef.current) {
         return;
       }

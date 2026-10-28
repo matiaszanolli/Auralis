@@ -1005,14 +1005,13 @@ describe('usePlayerStateSync – discrete event seq reset on reconnect (#5294)',
     });
     vi.mocked(WebSocketContextModule.useWebSocketContext).mockImplementation(() => mockContext);
 
-    const { rerender } = renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+    firePlayerState({ server_instance_id: 'proc-A', seq: 1 });
     fire('playback_paused', { state: 'paused', seq: 500 });
     fire('volume_changed', { volume: 80, seq: 500 });
 
-    mockContext.connectionStatus = 'disconnected';
-    rerender();
-    mockContext.connectionStatus = 'connected';
-    rerender();
+    // Backend restarts: the new process's first snapshot carries a new id (#5882).
+    firePlayerState({ server_instance_id: 'proc-B', seq: 0 });
 
     fire('playback_resumed', { state: 'playing', seq: 1 });
     fire('volume_changed', { volume: 10, seq: 1 });
@@ -1168,18 +1167,15 @@ describe('usePlayerStateSync – track_changed seq reset on reconnect (#4582/#43
     });
     vi.mocked(WebSocketContextModule.useWebSocketContext).mockImplementation(() => mockContext);
 
-    const { rerender } = renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
-    firePlayerState({ queue: queueTracks, queue_index: 0 });
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+    firePlayerState({ server_instance_id: 'proc-A', queue: queueTracks, queue_index: 0 });
 
     fire('track_changed', { action: 'next', track_index: 3, seq: 50 });
     expect(store.getState().queue.currentIndex).toBe(3);
 
-    // Backend restarts: connection drops then re-establishes. NavigationService's
-    // module-level counter (a fresh process) restarts from 1.
-    mockContext.connectionStatus = 'disconnected';
-    rerender();
-    mockContext.connectionStatus = 'connected';
-    rerender();
+    // Backend restarts: NavigationService's module-level counter (a fresh
+    // process) restarts from 1, announced by the new process's snapshot.
+    firePlayerState({ server_instance_id: 'proc-B', queue: queueTracks, queue_index: 0 });
 
     fire('track_changed', { action: 'next', track_index: 1, seq: 1 });
     expect(store.getState().queue.currentIndex).toBe(1);
@@ -1260,7 +1256,7 @@ describe('usePlayerStateSync – seq reset on reconnect (#4338)', () => {
     vi.clearAllMocks();
   });
 
-  it('applies a low seq after connectionStatus transitions to connected again', () => {
+  it('applies a low seq from a restarted backend (new server_instance_id)', () => {
     const mockContext = makeMockWsContext({
       connectionStatus: 'connected',
       subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
@@ -1271,27 +1267,50 @@ describe('usePlayerStateSync – seq reset on reconnect (#4338)', () => {
     });
     vi.mocked(WebSocketContextModule.useWebSocketContext).mockImplementation(() => mockContext);
 
-    const { rerender } = renderHook(() => usePlayerStateSync(), {
+    renderHook(() => usePlayerStateSync(), {
       wrapper: makeWrapper(store),
     });
 
     // Pre-restart session climbs to a high seq.
-    firePlayerState({ seq: 500, volume: 50 });
+    firePlayerState({ server_instance_id: 'proc-A', seq: 500, volume: 50 });
     expect(store.getState().player.volume).toBe(50);
 
-    // Backend restarts: connection drops then re-establishes.
-    mockContext.connectionStatus = 'disconnected';
-    rerender();
-    mockContext.connectionStatus = 'connected';
-    rerender();
-
     // Post-restart snapshots restart from seq 1 — must be applied, not
-    // dropped as "older than 500".
-    firePlayerState({ seq: 1, volume: 11 });
+    // dropped as "older than 500". No re-render happens in between: the
+    // reset must not depend on a React effect having run (#5882).
+    firePlayerState({ server_instance_id: 'proc-B', seq: 1, volume: 11 });
     expect(store.getState().player.volume).toBe(11);
 
-    firePlayerState({ seq: 2, volume: 22 });
+    firePlayerState({ server_instance_id: 'proc-B', seq: 2, volume: 22 });
     expect(store.getState().player.volume).toBe(22);
+  });
+
+  it('applies the restarted backend\'s first snapshot even while connectionStatus is not yet connected (#5882)', () => {
+    // The race: the first post-restart frame is handled before React has
+    // rendered the 'connected' status, so a status-driven reset is too late.
+    const mockContext = makeMockWsContext({
+      connectionStatus: 'connecting' as any,
+      subscribe: vi.fn((type: string, handler: (msg: any) => void) => {
+        handlers[type] = handler;
+        if (type === 'player_state') playerStateHandler = handler;
+        return mockUnsubscribe;
+      }) as any,
+    });
+    vi.mocked(WebSocketContextModule.useWebSocketContext).mockImplementation(() => mockContext);
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    firePlayerState({ server_instance_id: 'proc-A', seq: 900, volume: 90 });
+    firePlayerState({ server_instance_id: 'proc-B', seq: 0, volume: 5 });
+    expect(store.getState().player.volume).toBe(5);
+  });
+
+  it('keeps the watermark across a reconnect to the same backend process', () => {
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    firePlayerState({ server_instance_id: 'proc-A', seq: 10, volume: 50 });
+    // Same process, so its counters did not reset: a lower seq is genuinely stale.
+    firePlayerState({ server_instance_id: 'proc-A', seq: 4, volume: 40 });
+    expect(store.getState().player.volume).toBe(50);
   });
 
   it('still drops an out-of-order snapshot within one continuous connected session', () => {
