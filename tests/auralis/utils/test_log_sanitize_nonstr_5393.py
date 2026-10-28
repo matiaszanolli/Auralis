@@ -170,3 +170,54 @@ def test_reused_format_string_when_fmt_omitted():
         logger.removeHandler(handler)
 
     assert stream.getvalue() == "X plain message Y\n"
+
+
+def test_traceback_frames_keep_their_own_lines_but_not_injected_ones():
+    """#6161: sanitizing a whole formatted frame escaped its structural newlines,
+    gluing every frame onto one line. Frames stay one per line (file line, then
+    its source line) while a newline injected through a path or message is still
+    escaped."""
+    logger, stream, handler = _capture(
+        "test_6161_tb", SanitizingFormatter("%(message)s")
+    )
+
+    def inner():
+        raise ValueError(FORGED)
+
+    def outer():
+        inner()
+
+    try:
+        try:
+            outer()
+        except ValueError:
+            logger.exception("boom")
+    finally:
+        logger.removeHandler(handler)
+
+    lines = stream.getvalue().splitlines()
+    file_lines = [ln for ln in lines if ln.startswith('  File "')]
+    assert [ln.rsplit(", in ", 1)[1] for ln in file_lines][-2:] == ["outer", "inner"]
+    assert "    outer()" in lines and "    inner()" in lines
+    assert "\\x" not in "".join(file_lines)
+    # the injected newline is still escaped, so no line starts with the forged text
+    assert not any(ln.startswith("2026-01-01") for ln in lines)
+    assert any("evil\\x0d\\x0a2026-01-01 ERROR FORGED" in ln for ln in lines)
+
+
+def test_traceback_frame_filename_with_a_newline_cannot_forge_a_line():
+    logger, stream, handler = _capture(
+        "test_6161_name", SanitizingFormatter("%(message)s")
+    )
+    code = compile("raise ValueError('x')", "evil\n2026-01-01 ERROR FORGED", "exec")
+    try:
+        try:
+            exec(code)
+        except ValueError:
+            logger.exception("boom")
+    finally:
+        logger.removeHandler(handler)
+
+    lines = stream.getvalue().splitlines()
+    assert not any(ln.startswith("2026-01-01") for ln in lines)
+    assert any("evil\\x0a2026-01-01 ERROR FORGED" in ln for ln in lines)

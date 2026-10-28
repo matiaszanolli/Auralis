@@ -246,8 +246,17 @@ class SanitizingFormatter(_stdlib_logging.Formatter):
             parts.append(self._format_chain(exc.__context__, exc.__context__.__traceback__, seen))
             parts.append(self._CONTEXT_DIVIDER)
         parts.append("Traceback (most recent call last):\n")
-        for line in _traceback.format_tb(tb):
-            parts.append(sanitize_log_value(line))
+        # Frames are built field by field: sanitizing a whole format_tb() entry
+        # escaped its own structural newlines, collapsing every traceback onto
+        # one line (#6161). The newlines below are ours; every value that could
+        # carry one (a path, a function name, a source line) is escaped first.
+        for frame in _traceback.extract_tb(tb):
+            parts.append(
+                f'  File "{sanitize_log_value(frame.filename)}", line {frame.lineno}, '
+                f"in {sanitize_log_value(frame.name)}\n"
+            )
+            if frame.line:
+                parts.append(f"    {sanitize_log_value(frame.line)}\n")
         # The one attacker-controlled line: fully sanitized (including any
         # embedded \r\n) before it is ever joined into the output.
         parts.append(sanitize_log_value(f"{type(exc).__name__}: {exc}") + "\n")
