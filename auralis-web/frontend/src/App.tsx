@@ -11,6 +11,7 @@ import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
 import { useServerRestartNotice } from '@/hooks/player/useServerRestartNotice';
 import { useWebSocketErrors } from '@/hooks/websocket/useWebSocketErrors';
 import { usePrefersReducedMotion } from '@/hooks/shared/usePrefersReducedMotion';
+import { useShowVisualizations } from '@/hooks/shared/useShowVisualizations';
 import { useLibraryChangeSync } from '@/hooks/library/useLibraryChangeSync';
 import { store } from './store';
 import { shouldRetryQuery } from '@/utils/queryRetry';
@@ -51,12 +52,13 @@ function AppContent() {
   // The starfield is a continuously moving full-window WebGL background; the CSS reduced-motion
   // rule cannot stop its render loop, so it is not mounted at all for those users (#5676).
   const reducedMotion = usePrefersReducedMotion();
+  const showVisualizations = useShowVisualizations();
   return (
     <ThemeProvider>
       {/* GPU-accelerated starfield background with audio reactivity. Hosts the
           visualization wiring itself since #5661; AudioReactiveStarfield was a
           pass-through wrapper with nothing left to wrap. */}
-      {!reducedMotion && <StarfieldBackground className="app-ambient-background" />}
+      {!reducedMotion && showVisualizations && <StarfieldBackground className="app-ambient-background" />}
       <ToastProvider maxToasts={3}>
         <WebSocketProvider>
           {/* PlayerStateSync hook must be inside WebSocketProvider */}

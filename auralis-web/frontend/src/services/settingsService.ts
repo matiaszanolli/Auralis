@@ -139,6 +139,13 @@ const crudService = createCrudService<
   },
 });
 
+/** Fired on `window` with the saved UserSettings as `detail` whenever settings change (#5676). */
+export const SETTINGS_CHANGED_EVENT = 'auralis:settings-changed';
+
+function announceSettings(settings: UserSettings): void {
+  window.dispatchEvent(new CustomEvent<UserSettings>(SETTINGS_CHANGED_EVENT, { detail: settings }));
+}
+
 /**
  * Get current user settings
  */
@@ -159,6 +166,7 @@ export async function updateSettings(updates: SettingsUpdate): Promise<UserSetti
   const result = await put<SettingsResponse>(ENDPOINTS.SETTINGS, { ...updates }, {
     validate: isSettingsResponse,
   });
+  announceSettings(result.settings);
   return result.settings;
 }
 
@@ -166,7 +174,9 @@ export async function updateSettings(updates: SettingsUpdate): Promise<UserSetti
  * Reset all settings to defaults
  */
 export async function resetSettings(): Promise<SettingsResponse> {
-  return crudService.custom('reset', 'post', {});
+  const result = await crudService.custom('reset', 'post', {});
+  announceSettings(result.settings);
+  return result;
 }
 
 /**
