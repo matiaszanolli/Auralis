@@ -115,10 +115,7 @@ mount_frontend(app, _BACKEND_DIR)
 
 
 if __name__ == "__main__":
-    # AURALIS_PORT (#4805): launch-auralis-web.py accepts --port and threads
-    # it through via this same env var, mirroring AURALIS_DEV_MODE two lines
-    # below. Without this, --port silently no-op'd -- the launcher printed
-    # the requested port while the backend always bound 8765.
+    # AURALIS_PORT (#4805): launch-auralis-web.py threads --port through this env var.
     _port = BACKEND_PORT
     print(f"🚀 Starting Auralis Web Backend on port {_port}...", flush=True)
 
@@ -126,10 +123,8 @@ if __name__ == "__main__":
         app,  # Pass app directly instead of "main:app" to avoid module duplication
         host="127.0.0.1",
         port=_port,
-        # Bound inbound frames at the transport, before they are buffered; the library default is 16 MB (#5915).
-        ws_max_size=WS_MAX_MESSAGE_SIZE,
-        # Same value the root logger was configured with at import time (#5065).
-        log_level=_log_level,
-        # No uvicorn LOGGING_CONFIG: its stock handlers bypass the sanitizing root handler (#6184).
-        log_config=None,
+        ws_max_size=WS_MAX_MESSAGE_SIZE,  # bound frames at the transport, before buffering: #5915
+        log_level=_log_level,  # the level the root logger was configured with at import: #5065
+        log_config=None,  # uvicorn's stock handlers bypass the sanitizing root handler: #6184
+        proxy_headers=False,  # no reverse proxy: X-Forwarded-For must not rewrite the client IP: #6168
     )
