@@ -1041,7 +1041,9 @@ describe('useEnhancementControl', () => {
       } as any);
 
       const { result } = renderHook(() => useEnhancementControl());
-      await waitFor(() => expect(result.current.enabled).toBe(false));
+      // Wait for the fetched value, not for `enabled === false`: that is already the initial state,
+      // so waitFor returned before the 0.6 landed and the re-issue carried the default 1.0 (#6077).
+      await waitFor(() => expect(result.current.intensity).toBe(0.6));
 
       await act(async () => {
         await result.current.setEnabled(true);
