@@ -31,7 +31,7 @@ export const DropZoneIcon = ({ isDragging, scanning }: DropZoneIconProps) => {
           sx={{
             fontSize: 64,
             color: tokens.colors.semantic.success,
-            animation: `fadeIn ${tokens.transitions.base} ${tokens.transitions.easeOut}`,
+            animation: `dropZoneFadeIn ${tokens.transitions.base} ${tokens.transitions.easeOut}`,
           }}
         />
       ) : isDragging ? (

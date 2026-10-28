@@ -77,8 +77,8 @@ export const ProcessingToast = ({ stats, show }: ProcessingToastProps) => {
               sx={{
                 fontSize: tokens.typography.fontSize.lg,
                 color: getStatusColor(),
-                animation: stats.status === 'analyzing' ? `pulse ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}` : 'none',
-                '@keyframes pulse': {
+                animation: stats.status === 'analyzing' ? `processingToastPulse ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}` : 'none',
+                '@keyframes processingToastPulse': {
                   '0%, 100%': { opacity: 1 },
                   '50%': { opacity: 0.5 }
                 }

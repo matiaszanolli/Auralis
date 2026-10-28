@@ -35,11 +35,11 @@ export const SettingsTabNav = ({
           sx={{
             fontSize: 8,
             color: tokens.colors.semantic.success,
-            '@keyframes pulse': {
+            '@keyframes scanDotPulse': {
               '0%, 100%': { opacity: 1 },
               '50%': { opacity: 0.3 },
             },
-            animation: 'pulse 1.5s ease-in-out infinite',
+            animation: 'scanDotPulse 1.5s ease-in-out infinite',
           }}
         />
       )}

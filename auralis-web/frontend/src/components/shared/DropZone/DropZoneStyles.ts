@@ -56,12 +56,12 @@ export const DropZonePaper = styled(Paper, {
         inset: 0,
         background: tokens.gradients.aurora,
         opacity: 0.05,
-        animation: `pulse ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}`,
+        animation: `dropZonePulse ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}`,
       },
     }),
 
     // Style Guide §6.1: Slow, weighted motion (300-600ms state changes)
-    '@keyframes pulse': {
+    '@keyframes dropZonePulse': {
       '0%, 100%': { opacity: 0.05 },
       '50%': { opacity: 0.1 },
     },
@@ -78,7 +78,7 @@ export const DropZonePaper = styled(Paper, {
       },
     },
 
-    '@keyframes fadeIn': {
+    '@keyframes dropZoneFadeIn': {
       from: {
         opacity: 0,
         transform: 'scale(0.95)',
