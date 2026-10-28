@@ -29,7 +29,12 @@ from collections.abc import Callable
 
 @dataclass
 class StreamState:
-    """Per-process streaming state, keyed by ws_id. Shared across all connections."""
+    """Streaming state, keyed by ws_id. A StreamState is built per connection (#5078).
+
+    The task, track-id, pause, flow and chunk-cancel registries are the module-level dicts
+    passed in, so they are shared by every connection; ``active_stream_settings`` is not passed
+    and defaults to a dict owned by this connection alone.
+    """
 
     active_tasks: dict[str, asyncio.Task[None]]
     active_tasks_lock: asyncio.Lock
