@@ -14,7 +14,7 @@ import { _internal as artworkInternal } from '@/hooks/library/useArtworkUpdates'
 
 // Mock hooks and components to reduce noise (same isolation as
 // TrackRowMemoization.test.tsx).
-vi.mock('@/components/library/Items/shared/ContextMenu', () => ({
+vi.mock('@/components/shared/ContextMenu', () => ({
   ContextMenu: () => null,
 }));
 

@@ -1,8 +1,8 @@
 {
   "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update",
   "generatedFrom": {
-    "totalTests": 3322,
-    "failedTests": 68
+    "totalTests": 3706,
+    "failedTests": 49
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
@@ -31,25 +31,6 @@
     "src/components/library/__tests__/CozyArtistList.test.tsx::CozyArtistList Error Handling should display error message on failure",
     "src/components/library/__tests__/CozyArtistList.test.tsx::CozyArtistList Initial Loading should fetch artists on mount",
     "src/components/library/__tests__/CozyArtistList.test.tsx::CozyArtistList Pagination should fetch with correct limit and offset",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Accessibility should have accessible button for scan action",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Callback Handling should pass onScanFolder to EmptyLibrary component",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Edge Cases should handle case-sensitive view prop",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Edge Cases should handle empty view string",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Edge Cases should handle unknown view type",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Edge Cases should handle whitespace in search query as empty",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Library Empty State should call onScanFolder when scan button clicked",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Library Empty State should display scan folder button",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Library Empty State should show scanning state when scanning prop is true",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Scanning State should toggle scanning indicator when scanning changes",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Search Results View should display search query in empty results message",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Search Results View should prioritize search query over view type",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState Search Results View should show library empty state when search query is empty string",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState State Transitions should show search results when search query is present in library view",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState State Transitions should switch from library to favorites empty state on prop change",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState State Transitions should switch from library to search results on search query change",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState View-Based Rendering should render favorites empty state when view is favourites",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState View-Based Rendering should render library empty state when no search query and view is library",
-    "src/components/library/__tests__/LibraryEmptyState.test.tsx::LibraryEmptyState View-Based Rendering should render search results empty state when search query is present",
     "src/components/library/__tests__/SearchBar.test.tsx::SearchBar edge cases should handle empty string search",
     "src/components/library/__tests__/SearchBar.test.tsx::SearchBar search hint display should highlight searched query in hint",
     "src/components/library/__tests__/TrackRow.test.tsx::TrackRow Drag and Drop should be draggable when draggable prop is true",

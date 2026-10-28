@@ -118,6 +118,8 @@ export function useEnhancementStatusSync(
           });
         }
       } catch (err) {
+        // An unmount (or a retry that was itself aborted) is not a failure.
+        if (cancelled || isAbortError(err)) return;
         // Silently fail - user can still interact with defaults
         console.warn('Failed to fetch initial enhancement state:', err);
       }

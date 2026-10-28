@@ -12,8 +12,8 @@ import { render, screen } from '@/test/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 import { LibraryEmptyState } from '../LibraryEmptyState';
 
-// Mock the shared EmptyState components
-vi.mock('@/components/shared/EmptyState', () => ({
+// Mock the shared feedback components the router renders
+vi.mock('@/components/shared/ui/feedback', () => ({
   EmptyLibrary: ({ onScanFolder, scanning }: any) => (
     <div data-testid="empty-library">
       <p>Library Empty</p>
@@ -419,8 +419,9 @@ describe('LibraryEmptyState', () => {
           />
       );
 
-      // Whitespace is still truthy, so it should show search results
-      expect(screen.getByTestId('no-search-results')).toBeInTheDocument();
+      // The component trims the query, so whitespace is no query: the library state shows
+      expect(screen.getByTestId('empty-library')).toBeInTheDocument();
+      expect(screen.queryByTestId('no-search-results')).not.toBeInTheDocument();
     });
 
     it('should handle case-sensitive view prop', () => {

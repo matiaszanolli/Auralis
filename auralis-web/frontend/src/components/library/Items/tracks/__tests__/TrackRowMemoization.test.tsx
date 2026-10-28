@@ -18,7 +18,7 @@ import TrackRowPlayButton from '../TrackRowPlayButton';
 import TrackRowAlbumArt from '../TrackRowAlbumArt';
 
 // Mock hooks and components to reduce noise in tests
-vi.mock('@/components/library/Items/shared/ContextMenu', () => ({
+vi.mock('@/components/shared/ContextMenu', () => ({
   ContextMenu: () => null,
 }));
 

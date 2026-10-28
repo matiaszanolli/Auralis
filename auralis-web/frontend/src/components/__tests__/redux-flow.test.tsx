@@ -68,7 +68,6 @@ vi.mock('@/contexts/WebSocketContext', () => ({
     disconnect: vi.fn(),
   }),
 }));
-vi.mock('@/hooks/useStandardizedAPI');
 
 describe('End-to-End User Flows', () => {
   let store: any;
