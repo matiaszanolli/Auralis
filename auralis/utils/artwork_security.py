@@ -111,6 +111,20 @@ def open_bounded_image(source: Any) -> Any:
     return image
 
 
+def upright_with_profile(image: Any) -> tuple[Any, dict[str, Any]]:
+    """The image with its EXIF orientation baked in, plus the ``save()`` kwargs that keep its ICC profile (#5927).
+
+    A re-encode drops both. Browsers rotate the original by its EXIF orientation, so a re-encoded
+    copy without it shows sideways next to the original, and a wide-gamut cover loses its profile
+    and shifts colour. Baking the rotation into the pixels keeps every size upright. A CMYK
+    profile is not carried: the copy is converted to RGB, where it would be wrong.
+    """
+    from PIL import ImageOps
+
+    profile = image.info.get("icc_profile") if image.mode != "CMYK" else None
+    return ImageOps.exif_transpose(image), ({"icc_profile": profile} if profile else {})
+
+
 def bound_artwork_dimensions(data: bytes) -> bytes | None:
     """Downscale artwork whose largest side exceeds MAX_ARTWORK_DIMENSION.
 
@@ -148,10 +162,11 @@ def bound_artwork_dimensions(data: bytes) -> bytes | None:
             # downscaling, reproducing the Content-Type mismatch for exactly
             # the oversized case.
             fmt = image.format or "JPEG"
+            image, profile = upright_with_profile(image)
             if fmt == "JPEG" and image.mode not in ("RGB", "L"):
                 image = image.convert("RGB")
             buffer = io.BytesIO()
-            image.save(buffer, format=fmt)
+            image.save(buffer, format=fmt, **profile)
             return buffer.getvalue()
     except ArtworkRejectedError:
         return None

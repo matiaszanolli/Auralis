@@ -8,7 +8,11 @@ Album-artwork thumbnail cache: size buckets, per-file render locks, rendering, e
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
-from auralis.utils.artwork_security import ArtworkRejectedError, open_bounded_image
+from auralis.utils.artwork_security import (
+    ArtworkRejectedError,
+    open_bounded_image,
+    upright_with_profile,
+)
 from core.thumbnail_cache import THUMB_TMP_PREFIX, artwork_cache_dirs, prune_thumbnail_cache, purge_thumbnails, reap_orphan_temp_files, thumb_path_hash
 from pathlib import Path
 from .errors import NotFoundError
@@ -106,15 +110,16 @@ def _render_thumbnail(
                 # thumbnail() preserves aspect ratio and only ever downsizes, so
                 # a small source is served as-is rather than upscaled.
                 image.thumbnail((bucket, bucket))
-                # Rebound to a new name: convert() returns a plain Image while
-                # `image` is typed as the ImageFile the context manager yielded,
-                # so reassigning it is an incompatible-assignment for mypy.
+                # Orientation baked in and the ICC profile kept, so the thumbnail matches
+                # the full-size original the browser renders (#5927). Rebound names:
+                # `image` is typed as the ImageFile the context manager yielded.
+                upright, profile = upright_with_profile(image)
                 out_image = (
-                    image.convert("RGB")
-                    if pil_fmt == "JPEG" and image.mode not in ("RGB", "L")
-                    else image
+                    upright.convert("RGB")
+                    if pil_fmt == "JPEG" and upright.mode not in ("RGB", "L")
+                    else upright
                 )
-                out_image.save(handle, format=pil_fmt)
+                out_image.save(handle, format=pil_fmt, **profile)
         tmp.replace(dst)
     except BaseException:
         # Leave no orphan behind — a generation-based cache purge keys on the
