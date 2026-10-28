@@ -48,9 +48,14 @@ class AdaptiveConfig:
     # Re-add one only together with the code that honours it.
 
     def __post_init__(self) -> None:
-        assert 0.0 <= self.adaptation_strength <= 1.0, "Adaptation strength must be 0-1"
-        assert 5.0 <= self.chunk_size_ms <= 100.0, "Chunk size must be 5-100ms"
-        assert 10.0 <= self.latency_budget_ms <= 100.0, "Latency budget must be 10-100ms"
+        # Real raises, not asserts: -O strips an assert, and these bound live DSP
+        # parameters (#6126).
+        if not (0.0 <= self.adaptation_strength <= 1.0):
+            raise ValueError(f"Adaptation strength must be 0-1, got {self.adaptation_strength!r}")
+        if not (5.0 <= self.chunk_size_ms <= 100.0):
+            raise ValueError(f"Chunk size must be 5-100ms, got {self.chunk_size_ms!r}")
+        if not (10.0 <= self.latency_budget_ms <= 100.0):
+            raise ValueError(f"Latency budget must be 10-100ms, got {self.latency_budget_ms!r}")
 
 
 @dataclass
@@ -66,10 +71,17 @@ class GenreProfile:
     mastering_intensity: float
 
     def __post_init__(self) -> None:
-        assert -30.0 <= self.target_lufs <= 0.0, "Target LUFS must be -30 to 0"
-        assert -12.0 <= self.bass_boost_db <= 12.0, "Bass boost must be -12 to +12 dB"
-        assert -12.0 <= self.midrange_clarity_db <= 12.0, "Midrange clarity must be -12 to +12 dB"
-        assert -12.0 <= self.treble_enhancement_db <= 12.0, "Treble enhancement must be -12 to +12 dB"
-        assert 1.0 <= self.compression_ratio <= 10.0, "Compression ratio must be 1-10"
-        assert 0.0 <= self.stereo_width <= 2.0, "Stereo width must be 0-2"
-        assert 0.0 <= self.mastering_intensity <= 1.0, "Mastering intensity must be 0-1"
+        if not (-30.0 <= self.target_lufs <= 0.0):
+            raise ValueError(f"Target LUFS must be -30 to 0, got {self.target_lufs!r}")
+        if not (-12.0 <= self.bass_boost_db <= 12.0):
+            raise ValueError(f"Bass boost must be -12 to +12 dB, got {self.bass_boost_db!r}")
+        if not (-12.0 <= self.midrange_clarity_db <= 12.0):
+            raise ValueError(f"Midrange clarity must be -12 to +12 dB, got {self.midrange_clarity_db!r}")
+        if not (-12.0 <= self.treble_enhancement_db <= 12.0):
+            raise ValueError(f"Treble enhancement must be -12 to +12 dB, got {self.treble_enhancement_db!r}")
+        if not (1.0 <= self.compression_ratio <= 10.0):
+            raise ValueError(f"Compression ratio must be 1-10, got {self.compression_ratio!r}")
+        if not (0.0 <= self.stereo_width <= 2.0):
+            raise ValueError(f"Stereo width must be 0-2, got {self.stereo_width!r}")
+        if not (0.0 <= self.mastering_intensity <= 1.0):
+            raise ValueError(f"Mastering intensity must be 0-1, got {self.mastering_intensity!r}")

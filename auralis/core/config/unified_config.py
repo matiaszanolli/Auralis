@@ -50,16 +50,20 @@ class UnifiedConfig:
         genre_profiles: dict[str, GenreProfile] | None = None,
     ):
         # Validate and set core audio settings
-        assert internal_sample_rate > 0 and isinstance(internal_sample_rate, int)
+        # Real raises, not asserts: -O strips an assert (#6126).
+        if not isinstance(internal_sample_rate, int) or isinstance(internal_sample_rate, bool) or internal_sample_rate <= 0:
+            raise ValueError(f"internal_sample_rate must be a positive integer, got {internal_sample_rate!r}")
         if internal_sample_rate != 44100:
             debug(f"Using non-standard sample rate {internal_sample_rate}Hz")
         self.internal_sample_rate = internal_sample_rate
 
-        assert max_length > 0
+        if not max_length > 0:
+            raise ValueError(f"max_length must be positive, got {max_length!r}")
         self.max_length = max_length
 
         # FFT size must be power of 2
-        assert fft_size > 1 and math.log2(fft_size).is_integer()
+        if not (fft_size > 1 and math.log2(fft_size).is_integer()):
+            raise ValueError(f"fft_size must be a power of two greater than 1, got {fft_size!r}")
         self.fft_size = fft_size
 
         # System settings
@@ -165,7 +169,8 @@ class UnifiedConfig:
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> UnifiedConfig:
-        """Create configuration from dictionary"""
+        """Create configuration from dictionary (the caller's dict is not modified, #6126)"""
+        config_dict = dict(config_dict)
         # Extract adaptive settings
         adaptive_settings = {}
         for key in ["processing_mode", "adaptation_strength", "enable_genre_detection",
