@@ -96,8 +96,17 @@ export function useEnhancementStatusSync(
     let cancelled = false;
     const fetchInitialState = async () => {
       try {
-        // Shared module-level fetch — concurrent consumers dedupe to one GET (#3955).
-        const response = await _fetchEnhancementStatusOnce(getRef.current);
+        // Shared module-level fetch — concurrent consumers dedupe to one GET (#3955). The GET
+        // runs on whichever consumer mounted first; if that one unmounts mid-flight its hook
+        // aborts the request, and everyone waiting on the shared promise sees the AbortError.
+        // A consumer that is still mounted asks again with its own getter (#5655).
+        let response;
+        try {
+          response = await _fetchEnhancementStatusOnce(getRef.current);
+        } catch (err) {
+          if (cancelled || !(err instanceof Error) || err.name !== 'AbortError') throw err;
+          response = await _fetchEnhancementStatusOnce(getRef.current);
+        }
 
         if (response && !cancelled) {
           setState({
