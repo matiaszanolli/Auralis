@@ -49,17 +49,22 @@ export const TracksTab = ({
       <Table>
         <TracksTableHeader />
         <TableBody>
-          {tracks.map((track, index) => (
+          {tracks.map((track, index) => {
+            const isCurrentTrack = currentTrackId === track.id;
+            return (
             <ArtistTrackRow
               key={track.id}
               track={track}
               index={index}
-              isCurrentTrack={currentTrackId === track.id}
-              isPlaying={isPlaying}
+              isCurrentTrack={isCurrentTrack}
+              // A row reads isPlaying only when it is the current track; handing the global flag to
+              // every row changed their props on each play/pause and defeated memo (#6023).
+              isPlaying={isCurrentTrack && isPlaying}
               onTrackClick={onTrackClick}
               formatDuration={formatDuration}
             />
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
     </TracksTableContainer>
