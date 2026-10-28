@@ -32,7 +32,10 @@ class ProcessingSettings(BaseModel):
     # fallback for anything unrecognised — a bad value used to reach
     # libsndfile and fail deep inside the save step as a generic job
     # failure, not a 422 at submit time.
-    output_format: Literal["wav", "flac", "mp3"] = "wav"
+    # No "mp3": MP3 has no PCM subtype, so the save pipeline can never write it. It used to be
+    # listed here and then rejected by the validator below, so /api/audio/formats and the OpenAPI
+    # schema advertised a value no request could use (#5969).
+    output_format: Literal["wav", "flac"] = "wav"
     bit_depth: BitDepth = 16
     sample_rate: int | None = None  # None = keep original
 
@@ -68,16 +71,8 @@ class ProcessingSettings(BaseModel):
         Verified against the installed libsndfile (soundfile.available_subtypes):
         - WAV:  PCM_16 / PCM_24 / PCM_32 all valid.
         - FLAC: PCM_16 / PCM_24 valid; FLAC has no 32-bit PCM subtype.
-        - MP3:  only MPEG_LAYER_I/II/III subtypes exist — none of the PCM_*
-          subtypes bit_depth maps to are valid for MP3, so no (mp3, bit_depth)
-          combination can currently succeed via this pipeline.
+        - MP3 is not an accepted output_format at all (the Literal above).
         """
-        if self.output_format == "mp3":
-            raise ValueError(
-                "output_format='mp3' is not currently supported — MP3 is a "
-                "lossy format with no PCM bit depth, and the save pipeline "
-                "only writes PCM subtypes. Use 'wav' or 'flac'."
-            )
         if self.output_format == "flac" and self.bit_depth == 32:
             raise ValueError(
                 "output_format='flac' does not support bit_depth=32 "

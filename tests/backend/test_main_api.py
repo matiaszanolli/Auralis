@@ -278,7 +278,7 @@ class TestAudioFormats:
         output_formats = data["output_formats"]
         assert ".wav" in output_formats
         assert ".flac" in output_formats
-        assert ".mp3" in output_formats
+        assert ".mp3" not in output_formats  # not writable by the save pipeline (#5969)
 
     def test_supported_sample_rates(self, client):
         """Test sample rates include standard values"""
