@@ -34,6 +34,10 @@ pytestmark = pytest.mark.asyncio
 def _stub_repos(album=None) -> MagicMock:
     repos = MagicMock()
     repos.albums.get_by_id = MagicMock(return_value=album)
+    # the GET route reads one column through get_artwork_path (#5896)
+    repos.albums.get_artwork_path = MagicMock(
+        return_value=(album is not None, album.artwork_path if album is not None else None)
+    )
     return repos
 
 

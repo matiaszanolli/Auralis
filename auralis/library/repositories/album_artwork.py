@@ -13,10 +13,11 @@ from sqlalchemy.orm import selectinload
 
 from ..artwork import ArtworkExtractor
 from ..models import Album
+from .album_artwork_lookup import AlbumArtworkLookupMixin
 from .base import BaseRepository
 
 
-class AlbumArtworkMixin(BaseRepository):
+class AlbumArtworkMixin(AlbumArtworkLookupMixin, BaseRepository):
     """Artwork methods of AlbumRepository; ``artwork_extractor`` is built by its ``__init__``."""
 
     artwork_extractor: ArtworkExtractor
@@ -34,9 +35,7 @@ class AlbumArtworkMixin(BaseRepository):
         with self._session_scope() as session:
             album = session.execute(
                 select(Album)
-                # Deliberately narrower than _ALBUM_DETAIL_OPTIONS (#5028
-                # CONSISTENCY check): only album.tracks is read below, never
-                # album.artist, so there's no reason to pay for the join.
+                # Narrower than _ALBUM_DETAIL_OPTIONS (#5028): only album.tracks is read.
                 .options(selectinload(Album.tracks))
                 .where(Album.id == album_id)
             ).scalars().first()

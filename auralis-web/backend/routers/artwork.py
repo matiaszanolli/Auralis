@@ -94,13 +94,13 @@ async def get_album_artwork(
         HTTPException: If the library is not available, album/artwork not found,
                      or path validation fails
     """
-    # Get album to find artwork path
-    album = await asyncio.to_thread(repos.albums.get_by_id, album_id)
+    # One column, not get_by_id's whole graph (#5896).
+    album_exists, artwork_path = await asyncio.to_thread(repos.albums.get_artwork_path, album_id)
 
-    if not album:
+    if not album_exists:
         raise NotFoundError("Album")
 
-    if not album.artwork_path:
+    if not artwork_path:
         raise NotFoundError("Artwork")
 
     # Security: Validate artwork path is within allowed directory
@@ -115,9 +115,9 @@ async def get_album_artwork(
     # Resolve artwork path (handles symlinks and relative paths)
     # Use strict=False to resolve path even if file doesn't exist (for security validation)
     try:
-        requested_path = Path(album.artwork_path).resolve(strict=False)
+        requested_path = Path(artwork_path).resolve(strict=False)
     except (OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Invalid artwork path for album {album_id}: {Path(album.artwork_path).name} - {e}")
+        logger.warning(f"Invalid artwork path for album {album_id}: {Path(artwork_path).name} - {e}")
         raise HTTPException(status_code=403, detail="Access denied: invalid path")
 
     # Security: Check that resolved path is within allowed directory

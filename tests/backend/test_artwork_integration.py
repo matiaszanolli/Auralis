@@ -318,6 +318,7 @@ def test_serve_cached_artwork(tmp_path):
     album.artwork_path = str(art_path)
     repos = MagicMock()
     repos.albums.get_by_id.return_value = album
+    repos.albums.get_artwork_path.return_value = (album is not None, album.artwork_path if album is not None else None)
 
     request = MagicMock(headers={})
 
@@ -362,6 +363,7 @@ def test_serve_artwork_with_fallback(tmp_path):
     album.artwork_path = None  # No artwork extracted/downloaded for this album.
     repos = MagicMock()
     repos.albums.get_by_id.return_value = album
+    repos.albums.get_artwork_path.return_value = (album is not None, album.artwork_path if album is not None else None)
 
     request = MagicMock(headers={})
 
@@ -464,6 +466,7 @@ def test_handle_corrupted_artwork(tmp_path):
     album.artwork_path = str(corrupt_path)
     repos = MagicMock()
     repos.albums.get_by_id.return_value = album
+    repos.albums.get_artwork_path.return_value = (album is not None, album.artwork_path if album is not None else None)
     request = MagicMock(headers={})
 
     # Request a thumbnail size so PIL is actually asked to decode the
@@ -502,6 +505,7 @@ def test_handle_missing_artwork_file(tmp_path):
     album.artwork_path = str(missing_path)
     repos = MagicMock()
     repos.albums.get_by_id.return_value = album
+    repos.albums.get_artwork_path.return_value = (album is not None, album.artwork_path if album is not None else None)
     request = MagicMock(headers={})
 
     with patch("routers.artwork_thumbnails._artwork_dirs", return_value=(artwork_dir, thumb_dir)):
