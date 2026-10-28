@@ -93,3 +93,32 @@ describe('TrackTableRowItem', () => {
     expect(onTrackClick).not.toHaveBeenCalled();
   });
 });
+
+describe('TrackTableRowItem current-track marker (#6068)', () => {
+  const renderWith = (isCurrentTrack: boolean) => render(
+    <table>
+      <tbody>
+        <TrackTableRowItem
+          track={track}
+          index={0}
+          isCurrentTrack={isCurrentTrack}
+          isPlaying={false}
+          onTrackClick={vi.fn()}
+          formatDuration={formatDuration}
+        />
+      </tbody>
+    </table>
+  );
+
+  it('marks the current track with aria-current and says so in its name', () => {
+    renderWith(true);
+    const row = screen.getByRole('row', { name: 'Play Test Track (now playing)' });
+    expect(row).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('does not mark other rows', () => {
+    renderWith(false);
+    expect(screen.getByRole('row', { name: 'Play Test Track' })).not.toHaveAttribute('aria-current');
+  });
+});
+

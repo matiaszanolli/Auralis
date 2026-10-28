@@ -117,7 +117,10 @@ const TrackRowComponent = ({
       <RowContainer
         tabIndex={tabIndex}
         role="option"
-        aria-label={`${track.title} by ${track.artist}`}
+        // The label replaces the option's content for AT, so the playing state
+        // must be in it as well as in aria-current (#6068).
+        aria-label={`${track.title} by ${track.artist}${isCurrent ? ', now playing' : ''}`}
+        aria-current={isCurrent ? 'true' : undefined}
         aria-selected={isSelected}
         data-track-index={index}
         iscurrent={isCurrentStr}

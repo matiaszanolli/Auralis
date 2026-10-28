@@ -91,3 +91,19 @@ describe('TrackRow keyboard activation (#5658)', () => {
     expect(onPlay).toHaveBeenCalledWith(track.id);
   });
 });
+
+describe('TrackRow current-track marker (#6068)', () => {
+  it('marks the current track with aria-current and ", now playing" in the option name', () => {
+    render(<TrackRow track={track} index={0} onPlay={vi.fn()} isCurrent />);
+
+    const row = screen.getByRole('option', { name: 'Test Track by Test Artist, now playing' });
+    expect(row).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('does not mark other tracks', () => {
+    render(<TrackRow track={track} index={0} onPlay={vi.fn()} />);
+
+    expect(screen.getByRole('option', { name: 'Test Track by Test Artist' })).not.toHaveAttribute('aria-current');
+  });
+});
+

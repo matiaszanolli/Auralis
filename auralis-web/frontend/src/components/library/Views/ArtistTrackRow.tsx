@@ -32,7 +32,8 @@ const ArtistTrackRowImpl = ({
       onClick={() => onTrackClick(track)}
       className={isCurrentTrack ? 'current-track' : ''}
       tabIndex={0}
-      aria-label={`Play ${track.title}`}
+      aria-label={`Play ${track.title}${isCurrentTrack ? ' (now playing)' : ''}`}
+      aria-current={isCurrentTrack ? 'true' : undefined}
       onKeyDown={(e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();

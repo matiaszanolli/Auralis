@@ -58,7 +58,8 @@ const TrackTableRowItemImpl = ({
         onContextMenu={handleTrackContextMenu}
         className={isCurrentTrack ? 'current-track' : ''}
         tabIndex={0}
-        aria-label={`Play ${track.title}`}
+        aria-label={`Play ${track.title}${isCurrentTrack ? ' (now playing)' : ''}`}
+        aria-current={isCurrentTrack ? 'true' : undefined}
         onKeyDown={(e: KeyboardEvent) => {
           // Keydown from the nested More button bubbles to the row; its
           // keyboard activation must reach the button (#5658) — only
