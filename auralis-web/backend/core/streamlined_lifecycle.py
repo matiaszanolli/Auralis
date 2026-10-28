@@ -47,7 +47,25 @@ class WorkerLifecycleMixin:
             # done task, or a plain truthiness check report a stopped worker
             # as running.
             self._worker_task = None
+        self._close_cached_processors()
         logger.info("🛑 Streamlined cache worker stopped")
+
+    def _close_cached_processors(self) -> None:
+        """Release every cached ChunkedAudioProcessor (#5979).
+
+        Each holds a SeekableSource reference on the converted temp WAV of an .m4a/.aac/.wma
+        track, and ConvertedWavRegistry.shutdown() deletes only unreferenced conversions, so
+        processors left in the cache kept their temp files for the life of the process.
+        """
+        cache = getattr(self, "_processor_cache", None)
+        if not cache:
+            return
+        for processor in list(cache.values()):
+            try:
+                processor.close()
+            except Exception as e:
+                logger.debug(f"Failed to close a cached processor: {e}")
+        cache.clear()
 
     @property
     def worker_task(self) -> asyncio.Task[None] | None:
