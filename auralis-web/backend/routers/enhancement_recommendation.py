@@ -18,7 +18,7 @@ import asyncio
 
 from .dependencies import require_service, with_error_handling
 from .enhancement_deps import _get_repository_factory
-from .errors import BadRequestError, NotFoundError
+from .errors import BadRequestError, NotFoundError, UnprocessableAudioFileError
 
 logger = logging.getLogger(__name__)
 
@@ -125,14 +125,18 @@ async def get_mastering_recommendation(
                 timeout=_asc.CHUNK_PROCESS_TIMEOUT,
             )
         except TimeoutError:
+            # 504 like the scan route's timeout, not a generic 500 (#5997).
             raise HTTPException(
-                status_code=500,
+                status_code=504,
                 detail="Mastering recommendation analysis timed out — "
                 "the file may be corrupt or on slow storage",
             ) from None
 
         if result is None:
-            raise HTTPException(status_code=500, detail="Failed to analyze audio file")
+            # None only ever means "this file could not be analysed": the engine
+            # itself always has a fallback profile. A client-side file problem,
+            # not a server fault (#5997).
+            raise UnprocessableAudioFileError()
 
         result_dict = result if isinstance(result, dict) else {}
         streamlined_cache_manager.set_mastering_recommendation(

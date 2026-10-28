@@ -437,8 +437,8 @@ class TestGetMasteringRecommendation:
     def test_returns_500_when_analysis_times_out(self, client, repos):
         """#5248: a hung ChunkedAudioProcessor construction/analysis (e.g. a
         corrupt-header file — sf.info() has no timeout of its own for
-        natively-decodable formats) must surface as a clean 500 naming the
-        timeout, not hang the request indefinitely.
+        natively-decodable formats) must surface as a clean 504 naming the
+        timeout (#5997), not hang the request indefinitely.
 
         Patches asyncio.wait_for (not asyncio.to_thread) so the earlier,
         unrelated `await asyncio.to_thread(repos.tracks.get_by_id, ...)`
@@ -461,8 +461,25 @@ class TestGetMasteringRecommendation:
         with patch("routers.enhancement_recommendation.asyncio.wait_for", side_effect=_timeout_side_effect):
             response = client.get("/api/player/mastering/recommendation/1")
 
-        assert response.status_code == 500
+        assert response.status_code == 504
         assert "timed out" in response.json()["detail"].lower()
+
+    def test_unanalysable_file_is_a_422_not_a_500(self, client, repos):
+        """#5997: compute_mastering_recommendation returns None when the file
+        cannot be analysed (corrupt/unsupported audio); that is the client's
+        file, not a server fault."""
+        from unittest.mock import Mock, patch
+
+        track = Mock()
+        track.filepath = "/music/song.flac"
+        repos.tracks.get_by_id.return_value = track
+
+        with patch("core.chunked_processor.ChunkedAudioProcessor") as processor_cls:
+            processor_cls.return_value.get_mastering_recommendation.return_value = None
+            response = client.get("/api/player/mastering/recommendation/1")
+
+        assert response.status_code == 422
+        assert "unsupported" in response.json()["detail"].lower()
 
 
 class TestGetProcessingParameters:
