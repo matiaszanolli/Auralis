@@ -22,6 +22,7 @@ from ...utils.logging import info
 from ..models import Playlist, Track
 from ..models.base import track_playlist
 from .base import BaseRepository
+from .track_repository import _iter_in_batches
 
 # Named eager-load constants (#5028's rule, extended to playlists by #6212):
 # module scope so a future playlist read path can't silently omit the tuple —
@@ -74,11 +75,15 @@ class PlaylistCrudMixin(BaseRepository):
             # are collapsed (first occurrence wins) — the composite PK
             # would reject them anyway.
             if track_ids:
-                existing_ids = set(
-                    session.execute(
-                        select(Track.id).where(Track.id.in_(track_ids))
-                    ).scalars().all()
-                )
+                # Batched: the request cap (50,000) is above SQLite's bound-variable
+                # limit, so one IN over every id failed the whole create (#6163).
+                existing_ids: set[int] = set()
+                for batch in _iter_in_batches(track_ids):
+                    existing_ids.update(
+                        session.execute(
+                            select(Track.id).where(Track.id.in_(batch))
+                        ).scalars().all()
+                    )
                 rows: list[dict[str, Any]] = []
                 seen: set[int] = set()
                 position = 0
