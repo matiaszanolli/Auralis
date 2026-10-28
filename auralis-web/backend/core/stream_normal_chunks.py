@@ -192,6 +192,8 @@ async def pump_normal_chunks(
                     track_id,
                     f"Failed to stream audio chunk {chunk_idx}",
                     recovery_position=normal_recovery_position,
+                    # False on the read-timeout abort below, which ends the stream (#5867).
+                    stream_continues=read_timeouts < MAX_CONSECUTIVE_READ_TIMEOUTS,
                 )
                 # Skip failed chunk and continue with remaining chunks (#3190).
                 # Recorded so the terminal message doesn't claim

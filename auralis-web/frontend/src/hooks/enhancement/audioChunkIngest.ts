@@ -32,6 +32,14 @@ export const FLOW_PAUSE_FILL_PCT = 75;
  *  hysteresis — without it the two frames ping-pong every chunk. */
 export const FLOW_RESUME_FILL_PCT = 50;
 
+/**
+ * Most frames held while no stream is initialized (#5867). A legitimate wait
+ * for audio_stream_start queues a few; after a client-side teardown the
+ * backend keeps sending the rest of the track, which used to pile up here
+ * without bound. 64 frames of ~300 KB is several 10 s chunks.
+ */
+export const MAX_PENDING_CHUNK_FRAMES = 64;
+
 /** Why `classifyChunk` rejected a message, or `null` to keep processing. */
 export type ChunkRejection =
   /** Belongs to a different stream type (#2104). */

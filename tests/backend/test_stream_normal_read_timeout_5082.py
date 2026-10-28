@@ -190,6 +190,11 @@ class TestNormalStreamReadTimeout:
 
         errors = [m for m in sent if "error" in str(m.get("type", ""))]
         assert errors, f"no error message sent to client; got types {[m.get('type') for m in sent]}"
+        # #5867: the error raised on the aborting timeout must not claim the
+        # stream continues; the ones before it (skip-and-continue) do.
+        stream_errors = [m["data"] for m in sent if m.get("type") == "audio_stream_error"]
+        assert "continues" not in stream_errors[-1]
+        assert all(e.get("continues") is True for e in stream_errors[:-1])
 
     @pytest.mark.asyncio
     async def test_stalled_read_does_not_report_the_track_as_completed(self):

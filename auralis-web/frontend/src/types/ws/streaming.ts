@@ -181,5 +181,8 @@ export interface AudioStreamErrorMessage extends WebSocketMessage {
      *  so the client can offer a 'retry from here' (#3547 / BE-NEW-89,
      *  also exposed at audio_stream_controller.py per #2085). */
     recovery_position?: number;
+    /** The backend skipped the failed chunk and keeps streaming (#3190), so
+     *  the client keeps its engine and buffer (#5867). Absent: stopped. */
+    continues?: true;
   };
 }

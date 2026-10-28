@@ -176,6 +176,8 @@ class TestChunkTimeoutAbortsStream:
         assert data["recovery_position"] == emitted_chunk_start(TIMEOUT_AT_CHUNK)
         # Plain enhanced playback keeps the generic code; only seek reports SEEK_ERROR.
         assert data["code"] == "STREAMING_ERROR"
+        # A timeout ends the stream, so the client must not wait for more (#5867).
+        assert "continues" not in data
 
     @pytest.mark.asyncio
     async def test_stream_end_reports_stopped_not_completed(self):

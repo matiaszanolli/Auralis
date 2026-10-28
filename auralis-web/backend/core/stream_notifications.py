@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-
 async def send_error(
     controller: 'AudioStreamController',
     websocket: WebSocket,
@@ -33,6 +32,7 @@ async def send_error(
     error_message: str,
     recovery_position: float | None = None,
     error_code: str = "STREAMING_ERROR",
+    stream_continues: bool = False,
 ) -> None:
     """Send audio_stream_error message to client.
 
@@ -43,6 +43,8 @@ async def send_error(
         recovery_position: Seconds into the track from which the client may
             seek/retry (set when a specific chunk fails, issue #2085).
         error_code: Machine-readable error code for frontend recovery logic
+        stream_continues: The pump skips the failed chunk and keeps sending
+            (#3190), so the client must keep its engine and buffer (#5867).
     """
     if not controller._is_websocket_connected(websocket):
         return
@@ -58,13 +60,13 @@ async def send_error(
     }
     if recovery_position is not None:
         data["recovery_position"] = recovery_position
+    if stream_continues:
+        data["continues"] = True
     message: dict[str, Any] = {"type": "audio_stream_error", "data": data}
     # safe_send classifies the outcome by connection state (#5273): a client
     # disconnect racing the send logs at debug, a genuine failure at warning —
     # never at ERROR, which triaged as a server-side fault.
     await controller._safe_send(websocket, message)
-
-
 
 
 async def send_fingerprint_progress(

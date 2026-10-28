@@ -501,9 +501,13 @@ Sent when the backend encounters an unrecoverable streaming error.
     "code": string,            // Machine-readable code for frontend recovery logic
                                // Default: "STREAMING_ERROR"
     "stream_type"?: "enhanced" | "normal",
-    "recovery_position"?: number  // Seconds offset at which the client may seek/retry.
+    "recovery_position"?: number, // Seconds offset at which the client may seek/retry.
                                   // Set when a specific chunk fails so the client can
                                   // offer a "retry from here" action.
+    "continues"?: true            // The stream skipped this chunk and keeps sending
+                                  // (#3190): keep the engine and buffer, the gap is
+                                  // reported by audio_stream_end{reason:"errored"} (#5867).
+                                  // Absent: the stream has stopped.
   }
 }
 ```

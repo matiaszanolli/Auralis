@@ -160,6 +160,9 @@ class TestChunkFailureRecovery:
             "error payload must contain recovery_position (issue #2085)"
         assert err["recovery_position"] == pytest.approx(expected_position), \
             f"expected recovery_position={expected_position}, got {err['recovery_position']}"
+        # #5867: the pump skips the chunk and keeps sending (#3190), and says so,
+        # or the client tears down its engine at the bad chunk.
+        assert err["continues"] is True
 
     @pytest.mark.asyncio
     async def test_error_contains_track_id_and_stream_type(self):
@@ -399,6 +402,9 @@ class TestNormalChunkFailureDoesNotReportCompleted:
 
         assert end_data["reason"] != "completed"
         assert end_data["reason"] == "errored"
+        # #5867: the normal pump continues past a read failure, and says so.
+        error_msgs = [m for m in sent if m.get("type") == "audio_stream_error"]
+        assert error_msgs and all(m["data"]["continues"] is True for m in error_msgs)
         # Only chunk 0 was delivered — a full CHUNK_DURATION read (150 frames
         # at 10Hz), not the full 300-frame file.
         assert end_data["total_samples"] == 150

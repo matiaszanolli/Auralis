@@ -18,7 +18,13 @@ import { updateStreamingProgress, setStreamingError, completeStreaming } from '@
 import type { AppDispatch } from '@/store';
 import { endActiveStream } from '@/hooks/websocket/websocketConnectionState';
 import type { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { classifyChunk, ingestChunk, isOutOfSequence, shouldDispatchProgress } from './audioChunkIngest';
+import {
+  MAX_PENDING_CHUNK_FRAMES,
+  classifyChunk,
+  ingestChunk,
+  isOutOfSequence,
+  shouldDispatchProgress,
+} from './audioChunkIngest';
 import type {
   AudioChunkMessage,
   AudioStreamEndMessage,
@@ -108,7 +114,12 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
       const incomingChunkIndex = message.data?.chunk_index ?? 0;
 
       if (rejection === 'not-initialized') {
-        // Queue rather than drop — audio_stream_start may still be in flight.
+        // Queue rather than drop — audio_stream_start may still be in flight —
+        // but bounded: nothing drains the queue after a teardown (#5867).
+        if (pendingChunksRef.current.length >= MAX_PENDING_CHUNK_FRAMES) {
+          DEBUG && console.warn(`${logPrefix} Dropping chunk: no stream initialized and the queue is full`);
+          return;
+        }
         DEBUG && console.log(`${logPrefix} Queuing chunk until stream initialized:`, {
           chunkIndex: incomingChunkIndex,
           queueLength: pendingChunksRef.current.length + 1,
@@ -236,6 +247,16 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     if (!acceptsStreamType(message.data.stream_type)) return;
 
     const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
+
+    // #5867: the backend skipped this chunk and keeps streaming (#3190). Tearing
+    // down here ended audible playback at the bad chunk while the rest of the
+    // track arrived with nowhere to go. Keep the engine and buffer; the gap is
+    // reported by the closing audio_stream_end{reason:'errored'}.
+    if (message.data.continues === true) {
+      console.warn(logPrefix, `${errorMsg}; chunk skipped, stream continues`);
+      return;
+    }
+
     console.error(logPrefix, errorMsg);
     // Pass track_id so a stale error from a superseded track after a rapid
     // skip isn't shown on the new track (#4434).

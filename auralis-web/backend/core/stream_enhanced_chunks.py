@@ -272,6 +272,7 @@ async def pump_chunks(
                         chunk_idx, start_chunk_idx, effective_position
                     ),
                     error_code=error_code,
+                    stream_continues=True,
                 )
                 # Skip failed chunk and continue with remaining chunks (#3190).
                 # Recorded so the terminal message doesn't claim reason="completed"
