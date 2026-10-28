@@ -26,6 +26,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from core.job_models import ProcessingJob, ProcessingStatus
+from core.job_store import INTERRUPTED_MESSAGE, persist
 from core.task_cancellation import await_cancelled_task
 
 if TYPE_CHECKING:
@@ -125,6 +126,13 @@ class JobWorker:
             except asyncio.CancelledError:
                 pass
 
+    @staticmethod
+    def _interrupt(job: ProcessingJob) -> None:
+        """Mark *job* as cut short by the backend stopping (#5994)."""
+        job.status = ProcessingStatus.INTERRUPTED
+        job.error_message = INTERRUPTED_MESSAGE
+        job.completed_at = datetime.now()
+
     async def stop(self) -> None:
         """Stop the worker loop and cancel all in-progress jobs.
 
@@ -142,16 +150,20 @@ class JobWorker:
             await await_cancelled_task(self._worker_task, logger)
 
         # Cancel all in-progress tasks, including dispatched ones that have not
-        # taken their first step yet (they are registered at spawn).
+        # taken their first step yet (they are registered at spawn). These jobs
+        # did not finish because the BACKEND stopped, not because a user asked:
+        # INTERRUPTED, exactly what a restart after a crash reports for them
+        # (#5994). cancel_job keeps CANCELLED for the user's own cancel.
         cancelled: list[asyncio.Task[None]] = []
+        interrupted: list[ProcessingJob] = []
         for job_id, task in list(self._tasks.items()):
             if not task.done():
                 task.cancel()
                 cancelled.append(task)
                 job = self._engine.jobs.get(job_id)
                 if job and job.status in (ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING):
-                    job.status = ProcessingStatus.CANCELLED
-                    job.completed_at = datetime.now()
+                    self._interrupt(job)
+                    interrupted.append(job)
 
         # #4543: wait for the cancelled tasks to actually unwind. Previously
         # stop() cancelled and returned immediately, logging "worker stopped"
@@ -180,14 +192,22 @@ class JobWorker:
                     f"{self.STOP_DRAIN_TIMEOUT_SECONDS}s; proceeding with shutdown"
                 )
 
-        # Drain the queue
+        # Drain the queue: never started, equally interrupted by the shutdown.
         while not self.job_queue.empty():
             try:
                 job = self.job_queue.get_nowait()
-                job.status = ProcessingStatus.CANCELLED
-                job.completed_at = datetime.now()
             except asyncio.QueueEmpty:
                 break
+            self._interrupt(job)
+            interrupted.append(job)
+
+        # Persist each interrupted job once, now that everything has unwound. A
+        # running job's own finally also saves it, but a task cancelled before
+        # its first step and every queued job would otherwise be reloaded as
+        # "interrupted by a hard kill" only if the process died, never on a
+        # graceful stop (#5994).
+        for job in interrupted:
+            await persist(self._engine, job)
 
         # Drop the finished task so a later `if worker._worker_task:` check
         # can't read a stopped worker as running (#4577).

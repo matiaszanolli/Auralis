@@ -128,7 +128,7 @@ class TestShutdown5950:
         await asyncio.sleep(0.05)
 
         assert harness.started == ["job-0", "job-1"], "a waiting job started during/after shutdown"
-        assert [j.status for j in jobs] == [ProcessingStatus.CANCELLED] * len(jobs)
+        assert [j.status for j in jobs] == [ProcessingStatus.INTERRUPTED] * len(jobs)  # backend stop (#5994)
         alive = [t for t in asyncio.all_tasks() if (t.get_name() or "").startswith("_run_job")]
         assert not alive
 
@@ -160,3 +160,47 @@ class TestShutdown5950:
         assert worker._concurrency_semaphore._value == MAX_CONCURRENT
         assert job.status == ProcessingStatus.CANCELLED
         assert job.job_id not in worker._tasks
+
+
+@pytest.mark.regression
+@pytest.mark.asyncio
+class TestShutdownMarksJobsInterrupted5994:
+    """A graceful stop() persisted in-flight and queued jobs as CANCELLED, so the
+    INTERRUPTED state (and its message) was reachable only after a hard kill; a
+    restart after a clean shutdown reported something different from one after a
+    crash. Both now yield INTERRUPTED; a user's own cancel stays CANCELLED."""
+
+    async def test_running_and_queued_jobs_are_interrupted_with_the_standard_message(self, harness):
+        from core.job_store import INTERRUPTED_MESSAGE
+
+        jobs = [await harness.submit(n) for n in range(MAX_CONCURRENT + MAX_QUEUE)]
+
+        await harness.engine.stop_worker()
+
+        assert {j.status for j in jobs} == {ProcessingStatus.INTERRUPTED}
+        assert {j.error_message for j in jobs} == {INTERRUPTED_MESSAGE}
+        assert all(j.completed_at is not None for j in jobs)
+
+    async def test_every_interrupted_job_is_persisted_as_interrupted(self, harness, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        # The harness injects a MagicMock store, which persist() deliberately skips
+        # (only a real JobStore saves), so observe the persist calls themselves.
+        persisted = AsyncMock()
+        monkeypatch.setattr("core.job_worker.persist", persisted)
+        jobs = [await harness.submit(n) for n in range(MAX_CONCURRENT + MAX_QUEUE)]
+
+        await harness.engine.stop_worker()
+
+        handed_over = {call.args[1].job_id: call.args[1].status for call in persisted.await_args_list}
+        assert set(handed_over) == {j.job_id for j in jobs}, "a queued or running job was not persisted"
+        assert set(handed_over.values()) == {ProcessingStatus.INTERRUPTED}
+
+    async def test_a_users_cancel_is_still_cancelled(self, harness):
+        jobs = [await harness.submit(n) for n in range(MAX_CONCURRENT + 1)]
+        queued = jobs[-1]
+
+        assert await harness.engine.cancel_job(queued.job_id) is True
+
+        assert queued.status == ProcessingStatus.CANCELLED
+
