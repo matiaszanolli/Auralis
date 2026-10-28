@@ -86,11 +86,6 @@ async def try_musicbrainz(
             if resp is None:
                 return None
 
-            # Size-limited read to prevent memory exhaustion (#2576)
-            content_length = resp.content_length or 0
-            if content_length > _MAX_ARTWORK_BYTES:
-                logger.warning(f"MusicBrainz artwork too large: {content_length} bytes")
-                return None
             artwork_data = await read_bounded(resp, _MAX_ARTWORK_BYTES)
             if artwork_data is None:
                 logger.warning(f"MusicBrainz artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")

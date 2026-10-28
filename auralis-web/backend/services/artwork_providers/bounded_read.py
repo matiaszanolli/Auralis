@@ -21,7 +21,13 @@ _CHUNK_BYTES = 64 * 1024
 
 
 async def read_bounded(resp: aiohttp.ClientResponse, limit: int) -> bytes | None:
-    """Read the whole body, or None as soon as it exceeds ``limit`` bytes."""
+    """Read the whole body, or None when it exceeds ``limit`` bytes.
+
+    A declared Content-Length over the limit is refused before any read; a
+    chunked body is cut off as soon as the running total crosses it.
+    """
+    if (resp.content_length or 0) > limit:
+        return None
     chunks: list[bytes] = []
     total = 0
     async for chunk in resp.content.iter_chunked(_CHUNK_BYTES):

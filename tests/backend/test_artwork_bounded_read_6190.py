@@ -77,3 +77,15 @@ async def test_json_over_the_limit_is_refused_and_small_json_decodes():
         assert len(decoded["pad"]) == 2 * MIB
     finally:
         await server.close()
+
+
+@pytest.mark.asyncio
+async def test_a_declared_length_over_the_limit_is_refused_before_reading():
+    async def handler(request):
+        return web.Response(body=b"x" * (2 * MIB))
+
+    server = await _serve(handler)
+    try:
+        assert await _fetch(server, MIB) is None
+    finally:
+        await server.close()

@@ -85,10 +85,6 @@ async def try_itunes(
             if resp is None:
                 return None
 
-            content_length = resp.content_length or 0
-            if content_length > _MAX_ARTWORK_BYTES:
-                logger.warning(f"iTunes artwork too large: {content_length} bytes")
-                return None
             artwork_data = await read_bounded(resp, _MAX_ARTWORK_BYTES)
             if artwork_data is None:
                 logger.warning(f"iTunes artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
