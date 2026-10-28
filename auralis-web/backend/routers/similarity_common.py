@@ -26,6 +26,7 @@ from collections.abc import Callable
 from typing import Any, ParamSpec, TypeVar
 
 from fastapi import HTTPException
+from sqlalchemy.exc import OperationalError
 
 from .errors import NotFoundError, ServiceUnavailableError
 
@@ -108,6 +109,12 @@ def _with_similarity_error_handling(operation: str) -> Callable[[Callable[P, T]]
                 return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
             except HTTPException:
                 raise
+            except OperationalError as e:
+                # A locked SQLite database (concurrent scan, graph rebuild) is retryable (#5381).
+                logger.warning("[similarity] database unavailable during %s: %s", operation, e)
+                raise ServiceUnavailableError(
+                    f"Database temporarily unavailable during {operation}"
+                ) from e
             except Exception as e:
                 raise _internal_error_response(operation, e) from e
         return wrapper  # type: ignore[return-value]
