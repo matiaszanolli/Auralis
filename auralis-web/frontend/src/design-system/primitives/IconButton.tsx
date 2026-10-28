@@ -181,6 +181,10 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(({
       size={size}
       active={active}
       disabled={disabled}
+      // An icon-only button needs a name even where its Tooltip is not mounted
+      // (disabled): the tooltip text doubles as the accessible name unless the
+      // caller gives an explicit aria-label, which wins by coming later (#5134).
+      aria-label={tooltip}
       {...props}
     >
       {children}
