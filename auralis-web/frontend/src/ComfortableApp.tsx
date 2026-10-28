@@ -148,6 +148,7 @@ function ComfortableApp() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           onNavigate={handleSidebarNavigation}
+          activeView={currentView}
           onOpenSettings={() => setSettingsOpen(true)}
           mobileDrawerOpen={mobileDrawerOpen}
           onCloseMobileDrawer={() => setMobileDrawerOpen(false)}

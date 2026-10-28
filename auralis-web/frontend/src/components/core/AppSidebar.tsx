@@ -24,6 +24,9 @@ export interface AppSidebarProps {
    */
   onNavigate: (view: string) => void;
 
+  /** The app's current view, so the highlighted item follows it (#6014). */
+  activeView?: string;
+
   /**
    * Callback when settings button is clicked.
    */
@@ -88,6 +91,7 @@ export const AppSidebar = ({
   collapsed,
   onToggleCollapse,
   onNavigate,
+  activeView,
   onOpenSettings,
   mobileDrawerOpen,
   onCloseMobileDrawer,
@@ -108,6 +112,7 @@ export const AppSidebar = ({
         open={mobileDrawerOpen}
         onClose={onCloseMobileDrawer}
         onNavigate={onNavigate}
+        activeView={activeView}
         onOpenSettings={onOpenSettings}
       />
     );
@@ -121,6 +126,7 @@ export const AppSidebar = ({
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
       onNavigate={onNavigate}
+      activeView={activeView}
       onOpenSettings={onOpenSettings}
     />
   );

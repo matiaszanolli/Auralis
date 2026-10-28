@@ -15,9 +15,16 @@ interface UseSidebarStateReturn {
  * - Playlists section expand/collapse state
  * - Item selection callbacks
  */
-export const useSidebarState = (onNavigate?: (view: string) => void): UseSidebarStateReturn => {
+export const useSidebarState = (
+  onNavigate?: (view: string) => void,
+  activeView?: string
+): UseSidebarStateReturn => {
   const [playlistsOpen, setPlaylistsOpen] = useState(true);
-  const [selectedItem, setSelectedItem] = useState('songs');
+  const [localSelected, setSelectedItem] = useState('songs');
+  // The app's current view is the source of truth when the shell provides it: the 1/2/3 shortcuts
+  // change the view without going through this sidebar, and a remount (desktop <-> mobile drawer)
+  // used to reset the highlight to 'songs' whatever view was showing (#6014).
+  const selectedItem = activeView ?? localSelected;
 
   const handleItemClick = useCallback(
     (itemId: string) => {

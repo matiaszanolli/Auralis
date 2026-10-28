@@ -10,6 +10,8 @@ interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onNavigate?: (view: string) => void;
+  /** The app's current view; drives the highlighted item when provided (#6014). */
+  activeView?: string;
   onOpenSettings?: () => void;
 }
 
@@ -28,9 +30,10 @@ const SidebarComponent = ({
   collapsed = false,
   onToggleCollapse,
   onNavigate,
+  activeView,
   onOpenSettings,
 }: SidebarProps) => {
-  const { selectedItem, handleItemClick } = useSidebarState(onNavigate);
+  const { selectedItem, handleItemClick } = useSidebarState(onNavigate, activeView);
 
   // Collapsing swaps this tree for CollapsedSidebar (and back), so the focused
   // toggle button unmounts and focus falls to <body>. After a toggle the user

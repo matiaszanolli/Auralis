@@ -14,6 +14,7 @@ interface MobileSidebarDrawerProps {
   open: boolean;
   onClose: () => void;
   onNavigate: (view: string) => void;
+  activeView?: string;
   onOpenSettings: () => void;
 }
 
@@ -21,6 +22,7 @@ export const MobileSidebarDrawer = ({
   open,
   onClose,
   onNavigate,
+  activeView,
   onOpenSettings,
 }: MobileSidebarDrawerProps) => {
   const handleNavigate = (view: string) => {
@@ -62,6 +64,7 @@ export const MobileSidebarDrawer = ({
       <Sidebar
         collapsed={false} // Mobile drawer never collapses
         onNavigate={handleNavigate}
+        activeView={activeView}
         onOpenSettings={handleSettings}
       />
     </SwipeableDrawer>
