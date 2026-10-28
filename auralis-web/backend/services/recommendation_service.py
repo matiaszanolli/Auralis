@@ -8,14 +8,13 @@ Performs background analysis of loaded tracks to suggest optimal audio profiles.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import logging
 from typing import Any, cast
 
 from cache import StreamlinedCacheManager, streamlined_cache_manager
-from core import audio_stream_controller as _asc
-from schemas import DEFAULT_PRESET
 from security.path_security import PathValidationError, validate_file_path
+from core import audio_stream_controller as _asc
+from services.recommendation_analysis import cached_or_analyzed_recommendation
 from websocket.outbound.enhancement import MasteringRecommendationPayload
 from websocket.outbound_messages import BroadcastManager, broadcast_typed
 
@@ -65,38 +64,9 @@ class RecommendationService:
                 f"Not analysing track {track_id}: stored filepath failed validation"
             )
             return None
-        cached = self.cache_manager.get_mastering_recommendation(
-            track_id, confidence_threshold
+        return await cached_or_analyzed_recommendation(
+            self.cache_manager, track_id, track_path, confidence_threshold
         )
-        if cached is not None:
-            logger.debug(f"Returning cached mastering recommendation for track {track_id}")
-            return cached
-
-        def _analyze() -> dict[str, Any] | None:
-            from core.chunked_processor import ChunkedAudioProcessor
-
-            processor = ChunkedAudioProcessor(
-                track_id=track_id,
-                filepath=track_path,
-                preset=DEFAULT_PRESET,
-                intensity=1.0,
-                chunk_cache={},
-            )
-            rec = processor.get_mastering_recommendation(
-                confidence_threshold=confidence_threshold
-            )
-            if rec is None:
-                return None
-            return cast(dict[str, Any], rec.to_response(track_id))
-
-        result = await asyncio.wait_for(
-            asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT
-        )
-        if result is not None:
-            self.cache_manager.set_mastering_recommendation(
-                track_id, result, confidence_threshold
-            )
-        return result
 
     async def generate_and_broadcast_recommendation(
         self,

@@ -63,7 +63,7 @@ class TestGenerateAndBroadcastRecommendation:
         service, conn_mgr = _make_service()
 
         # Patch asyncio.to_thread to return None (simulate low confidence)
-        with patch("services.recommendation_service.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+        with patch("services.recommendation_analysis.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
             mock_thread.return_value = None
             result = await service.generate_and_broadcast_recommendation(1, "/music/track.mp3")
 
@@ -75,7 +75,7 @@ class TestGenerateAndBroadcastRecommendation:
         """Exceptions during analysis are swallowed — recommendations are optional."""
         service, conn_mgr = _make_service()
 
-        with patch("services.recommendation_service.asyncio.to_thread", side_effect=RuntimeError("analysis failed")):
+        with patch("services.recommendation_analysis.asyncio.to_thread", side_effect=RuntimeError("analysis failed")):
             result = await service.generate_and_broadcast_recommendation(1, "/music/track.mp3")
 
         assert result == {}
@@ -88,7 +88,7 @@ class TestGenerateAndBroadcastRecommendation:
 
         rec_dict = {"preset": "warm", "confidence": 0.9, "track_id": 42}
 
-        with patch("services.recommendation_service.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+        with patch("services.recommendation_analysis.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
             mock_thread.return_value = rec_dict
             await service.generate_and_broadcast_recommendation(42, "/music/track.mp3")
 
@@ -104,7 +104,7 @@ class TestGetRecommendationForTrack:
         service, conn_mgr = _make_service()
         rec_dict = {"preset": "adaptive", "confidence": 0.75, "track_id": 7}
 
-        with patch("services.recommendation_service.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+        with patch("services.recommendation_analysis.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
             mock_thread.return_value = rec_dict
             result = await service.generate_and_broadcast_recommendation(7, "/music/track.mp3")
 
@@ -117,7 +117,7 @@ class TestGetRecommendationForTrack:
         rec_dict = {"preset": "adaptive", "confidence": 0.75, "track_id": 7}
 
         with patch(
-            "services.recommendation_service.asyncio.to_thread",
+            "services.recommendation_analysis.asyncio.to_thread",
             new_callable=AsyncMock,
             return_value=rec_dict,
         ) as mock_thread:
@@ -150,7 +150,7 @@ class TestAnalysisTimeout:
         service, conn_mgr = _make_service()
 
         with patch(
-            "services.recommendation_service.asyncio.to_thread",
+            "services.recommendation_analysis.asyncio.to_thread",
             side_effect=TimeoutError,
         ):
             result = await service.generate_and_broadcast_recommendation(1, "/music/track.mp3")
@@ -168,7 +168,7 @@ class TestAnalysisTimeout:
         service, _ = _make_service()
 
         with patch(
-            "services.recommendation_service.asyncio.wait_for",
+            "services.recommendation_analysis.asyncio.wait_for",
             new_callable=AsyncMock,
         ) as mock_wait_for:
             mock_wait_for.return_value = None
@@ -233,7 +233,7 @@ async def test_a_stored_path_outside_allowed_directories_is_not_analysed(monkeyp
     monkeypatch.setattr("services.recommendation_service.validate_file_path", real_validate)
     service, conn_mgr = _make_service()
 
-    with patch("services.recommendation_service.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+    with patch("services.recommendation_analysis.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
         result = await service.generate_and_broadcast_recommendation(7, "/definitely/not/allowed/track.mp3")
 
     assert result == {}

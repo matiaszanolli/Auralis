@@ -8,15 +8,15 @@ GET /api/player/mastering/recommendation/{track_id} handler (split from enhancem
 import logging
 from cache import streamlined_cache_manager
 from cache.models import RECOMMENDATION_THRESHOLD_STEP
-from core import audio_stream_controller as _asc
 from fastapi import Depends, HTTPException, Path, Query
-from schemas import DEFAULT_PRESET
 from security.path_errors import PathMissingError, PathValidationError
 from security.path_security import validate_file_path
 from typing import Annotated, Any
 import asyncio
 
 from .dependencies import require_service, with_error_handling
+from services.recommendation_analysis import cached_or_analyzed_recommendation
+
 from .enhancement_deps import _get_repository_factory
 from .errors import BadRequestError, NotFoundError, UnprocessableAudioFileError
 
@@ -83,46 +83,11 @@ async def get_mastering_recommendation(
     except PathValidationError:
         raise BadRequestError(f"Track {track_id}'s file is not in an allowed location")
 
-    # Return cached result if still valid — avoids re-running full audio
-    # analysis (~1-5 s CPU) on repeated calls for the same track (#3865).
-    _cached = streamlined_cache_manager.get_mastering_recommendation(
-        track_id, confidence_threshold
-    )
-    if _cached is not None:
-        logger.debug(f"Returning cached mastering recommendation for track {track_id}")
-        return _cached
-
     try:
-        from core.chunked_processor import ChunkedAudioProcessor
-
-        # Run CPU-bound processor off the event loop (#2301)
-        _fp = str(filepath)
-        _tid = track_id
-        _ct = confidence_threshold
-
-        def _run_recommendation() -> dict[str, Any] | None:
-            proc = ChunkedAudioProcessor(
-                track_id=_tid,
-                filepath=_fp,
-                preset=DEFAULT_PRESET,  # Default for analysis-only mode
-                intensity=1.0,
-                chunk_cache={}
-            )
-            rec = proc.get_mastering_recommendation(confidence_threshold=_ct)
-            # Use to_response (not to_dict) so the payload carries track_id +
-            # is_hybrid and honors MasteringRecommendationResponse (#3840).
-            return rec.to_response(_tid) if rec is not None else None
-
-        # #5248: bound the same way every streaming entry point bounds
-        # ChunkedAudioProcessor construction — sf.info() has no timeout of
-        # its own for natively-decodable formats, so a corrupt header or a
-        # track on storage that disappears mid-read can otherwise hang this
-        # thread forever and, since analysis is unconditional, eventually
-        # exhaust the shared IO_EXECUTOR pool.
+        # Cache lookup, bounded analysis (#5248) and cache store live in one place (#5970).
         try:
-            result = await asyncio.wait_for(
-                asyncio.to_thread(_run_recommendation),
-                timeout=_asc.CHUNK_PROCESS_TIMEOUT,
+            result = await cached_or_analyzed_recommendation(
+                streamlined_cache_manager, track_id, str(filepath), confidence_threshold
             )
         except TimeoutError:
             # 504 like the scan route's timeout, not a generic 500 (#5997).
@@ -138,11 +103,7 @@ async def get_mastering_recommendation(
             # not a server fault (#5997).
             raise UnprocessableAudioFileError()
 
-        result_dict = result if isinstance(result, dict) else {}
-        streamlined_cache_manager.set_mastering_recommendation(
-            track_id, result_dict, confidence_threshold
-        )
-        return result_dict
+        return result
 
     except HTTPException:
         raise
