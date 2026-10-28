@@ -185,6 +185,15 @@ MIN_SCAN_INTERVAL_S: int = 60
 MAX_SCAN_INTERVAL_S: int = 86400
 MAX_CONCURRENT_SCANS_LIMIT: int = 16
 
+
+def clamp_scan_interval(stored: int | None) -> int:
+    """The scan interval to use for a stored setting: 1 h when unset, else in range.
+
+    Covers a value saved before the request bound existed (#6164), which must
+    not turn into a rescan every few seconds.
+    """
+    return min(max(int(stored) if stored else 3600, MIN_SCAN_INTERVAL_S), MAX_SCAN_INTERVAL_S)
+
 RATE_LIMIT_UPLOAD_MAX: int = get_int_env("AURALIS_RATE_LIMIT_UPLOAD_MAX", 5)
 RATE_LIMIT_UPLOAD_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_UPLOAD_WINDOW", 60)
 RATE_LIMIT_PROCESSING_MAX: int = get_int_env("AURALIS_RATE_LIMIT_PROCESSING_MAX", 10)

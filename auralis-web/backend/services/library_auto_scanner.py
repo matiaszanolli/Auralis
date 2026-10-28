@@ -19,7 +19,7 @@ import asyncio
 import json
 import logging
 
-from config.limits import MAX_SCAN_INTERVAL_S, MIN_SCAN_INTERVAL_S, SHUTDOWN_STEP_TIMEOUT_S
+from config.limits import SHUTDOWN_STEP_TIMEOUT_S, clamp_scan_interval
 from typing import Any
 
 from helpers import spawn_background_task
@@ -139,10 +139,7 @@ class LibraryAutoScanner(WatchdogMixin):
 
         scan_folders = _parse_scan_folders(settings)
         auto_scan: bool = bool(settings.auto_scan) if settings else False
-        scan_interval: int = int(settings.scan_interval) if settings and settings.scan_interval else 3600
-        # A stored value from before the request bound existed (#6164) must not
-        # turn into a rescan every few seconds.
-        scan_interval = min(max(scan_interval, MIN_SCAN_INTERVAL_S), MAX_SCAN_INTERVAL_S)
+        scan_interval = clamp_scan_interval(settings.scan_interval if settings else None)
 
         # Restart watchdog if folder list changed
         await self._sync_watchdog(scan_folders)
