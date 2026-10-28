@@ -115,3 +115,30 @@ class TestEndOfQueue:
         assert player._advance_thread is not None
         assert advanced, "auto-advance thread did not run"
         assert player.playback.state is PlaybackState.PLAYING
+
+
+class TestFinishDoesNotAnnounceOverAnEarlierStop:
+    """#6131: playback_finished was sent even when stop() found the state
+    already changed (a user stop landing first), so a stale finish event arrived
+    after the stop event."""
+
+    def test_no_finish_event_when_playback_was_already_stopped(self):
+        player = _make_player(total_samples=4410, has_next=False)
+        player.playback.state = PlaybackState.STOPPED  # the user's stop won the race
+        finished = []
+        player.integration._notify_callbacks = finished.append
+
+        player._finish_playback()
+
+        assert finished == []
+
+    def test_finish_event_still_sent_when_this_call_did_the_stop(self):
+        player = _make_player(total_samples=4410, has_next=False)
+        player.playback.state = PlaybackState.PLAYING
+        finished = []
+        player.integration._notify_callbacks = finished.append
+
+        player._finish_playback()
+
+        assert [e['action'] for e in finished] == ['playback_finished']
+        assert player.playback.state is PlaybackState.STOPPED

@@ -153,7 +153,11 @@ class PlayerStreamingMixin:
         (same lock-order rule PlayerFileLoadingMixin/seek() document). #5706
         reuses it when the successor cannot be loaded.
         """
-        self.playback.stop()
+        # stop() is False when the state already changed (a user stop or pause
+        # landed first): that path announced itself, so a finish event here
+        # would be a stale second one (#6131).
+        if not self.playback.stop():
+            return
         self.integration._notify_callbacks({
             'action': 'playback_finished',
             # The pre-materialised current-track dict is the documented
