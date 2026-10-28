@@ -20,6 +20,7 @@ import {
   subscribeToIsActive,
 } from '@/hooks/audio/audioVisualization';
 import { useAudioVisualization } from '@/hooks/audio/useAudioVisualization';
+import { usePrefersReducedMotion } from '@/hooks/shared/usePrefersReducedMotion';
 import { useTheme } from '@/contexts/ThemeContext';
 
 /** Draw cap while animating: the shader is ~30 noise evaluations per pixel. */
@@ -35,22 +36,6 @@ interface StarfieldBackgroundProps {
   enableAudioReactivity?: boolean;
 }
 
-/** Tracks the OS reduced-motion preference, re-evaluated when it changes. */
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(
-    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => setReduced(query.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, []);
-
-  return reduced;
-}
-
 export const StarfieldBackground = ({
   enableParallax = true,
   parallaxStrength = 0.5,
@@ -62,6 +47,7 @@ export const StarfieldBackground = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programRef = useRef<WebGLProgram | null>(null);
+  const bufferRef = useRef<WebGLBuffer | null>(null);
   const uniformsRef = useRef<Record<string, WebGLUniformLocation | null>>({});
   const startTimeRef = useRef<number>(Date.now());
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
@@ -131,8 +117,14 @@ export const StarfieldBackground = ({
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
 
+    // A linked program keeps its own copy: the shader objects are released here, not leaked on
+    // every re-init (#6036).
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       console.error('[StarfieldBackground] Program link error:', gl.getProgramInfoLog(program));
+      gl.deleteProgram(program);
       return false;
     }
 
@@ -151,6 +143,7 @@ export const StarfieldBackground = ({
 
     const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
     const buffer = gl.createBuffer();
+    bufferRef.current = buffer;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
@@ -269,6 +262,10 @@ export const StarfieldBackground = ({
       if (gl && programRef.current) {
         gl.deleteProgram(programRef.current);
         programRef.current = null;
+      }
+      if (gl && bufferRef.current) {
+        gl.deleteBuffer(bufferRef.current);
+        bufferRef.current = null;
       }
     };
   }, [initWebGL, draw, handleMouseMove, prefersReducedMotion, mode, audioIsActive]);

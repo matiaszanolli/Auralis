@@ -49,6 +49,7 @@ function makeFakeGL(): WebGLRenderingContext {
     enableVertexAttribArray: vi.fn(),
     vertexAttribPointer: vi.fn(),
     deleteProgram: vi.fn(),
+    deleteBuffer: vi.fn(),
     useProgram: vi.fn(),
     uniform1f: vi.fn(),
     uniform2f: vi.fn(),
@@ -126,6 +127,33 @@ describe('StarfieldBackground render loop (#5661)', () => {
       cb(clock.now);
     }
   }
+
+  it('releases the shaders after linking and the buffer on teardown (#6036)', () => {
+    const { unmount } = render(<StarfieldBackground />);
+
+    // Two shaders compiled, two released once the program is linked.
+    expect(fakeGL.createShader).toHaveBeenCalledTimes(2);
+    expect(fakeGL.deleteShader).toHaveBeenCalledTimes(2);
+    expect(fakeGL.deleteBuffer).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(fakeGL.deleteBuffer).toHaveBeenCalledTimes(1);
+    expect(fakeGL.deleteProgram).toHaveBeenCalledTimes(1);
+  });
+
+  it('a re-init after an audio toggle does not accumulate GL objects (#6036)', () => {
+    render(<StarfieldBackground />);
+    const buffersBefore = vi.mocked(fakeGL.createBuffer).mock.calls.length;
+
+    act(() => { setAudioVisualizationActive(true); });
+
+    const created = vi.mocked(fakeGL.createBuffer).mock.calls.length - buffersBefore;
+    const released = vi.mocked(fakeGL.deleteBuffer).mock.calls.length;
+    expect(released).toBeGreaterThanOrEqual(created > 0 ? 1 : 0);
+    expect(vi.mocked(fakeGL.deleteShader).mock.calls.length)
+      .toBe(vi.mocked(fakeGL.createShader).mock.calls.length);
+  });
 
   it('mounts nothing in the light theme', () => {
     themeState.mode = 'light';
