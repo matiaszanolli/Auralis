@@ -13,6 +13,7 @@ single wiring point:
 - unhandled_exception.py  UnhandledExceptionMiddleware
 - origin_check.py      OriginCheckMiddleware
 - hosts.py             cors_allowed_origins(), trusted_hosts()
+- logged_rejections.py Host / CORS-preflight middleware that logs its 400s (#6186)
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -21,10 +22,9 @@ single wiring point:
 import logging
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .hosts import cors_allowed_origins, trusted_hosts
+from .logged_rejections import LoggingCORSMiddleware, LoggingTrustedHostMiddleware
 from .no_cache import NoCacheMiddleware
 from .origin_check import OriginCheckMiddleware
 from .rate_limit import RateLimitMiddleware
@@ -80,7 +80,7 @@ def setup_middleware(app: FastAPI) -> None:
     # would not if it short-circuited outside SecurityHeadersMiddleware. It
     # still runs before RateLimit, so a rebinding probe cannot consume the rate
     # budget, and before any route handler.
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts())
+    app.add_middleware(LoggingTrustedHostMiddleware, allowed_hosts=trusted_hosts())
 
     # Origin validation for state-changing REST requests (#4893) — runs
     # before TrustedHost on the request-inbound path, so it cannot rely on
@@ -104,7 +104,7 @@ def setup_middleware(app: FastAPI) -> None:
     # by CORS preflight even though localhost:3001 was allowed (#3539 /
     # BE-NEW-81).
     app.add_middleware(
-        CORSMiddleware,
+        LoggingCORSMiddleware,
         allow_origins=cors_allowed_origins(),
         allow_credentials=True,
         # Explicit lists instead of wildcards — allow_credentials=True with "*"

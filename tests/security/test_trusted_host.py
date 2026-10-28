@@ -121,7 +121,8 @@ class TestWiring:
 
         app = FastAPI()
         setup_middleware(app)
-        assert any(m.cls is TrustedHostMiddleware for m in app.user_middleware)
+        # a subclass that logs the refusal counts (#6186)
+        assert any(issubclass(m.cls, TrustedHostMiddleware) for m in app.user_middleware)
 
     def test_registered_with_a_real_allowlist(self):
         """allowed_hosts=None or ['*'] would make it a no-op."""
@@ -129,7 +130,7 @@ class TestWiring:
 
         app = FastAPI()
         setup_middleware(app)
-        entry = next(m for m in app.user_middleware if m.cls is TrustedHostMiddleware)
+        entry = next(m for m in app.user_middleware if issubclass(m.cls, TrustedHostMiddleware))
         allowed = entry.kwargs["allowed_hosts"]
         assert allowed
         assert "*" not in allowed
