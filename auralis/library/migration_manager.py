@@ -16,6 +16,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from sqlalchemy import inspect
 from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import __db_schema_version__
@@ -45,11 +46,9 @@ __all__ = [
 
 
 class MigrationError(RuntimeError):
-    """The library schema could not be brought to the current version.
+    """The library schema could not be brought to the current version (#5174).
 
-    Raised by ``LibraryDatabase`` when ``check_and_migrate_database`` reports
-    failure, so a caller can handle exactly that case instead of catching
-    ``Exception`` and swallowing unrelated bugs with it (#5174).
+    Raised by ``LibraryDatabase`` when ``check_and_migrate_database`` reports failure.
     """
 
 
@@ -57,28 +56,14 @@ class MigrationManager(SchemaVersionStoreMixin):
     """Manages database schema migrations."""
 
     def __init__(self, db_path: str):
-        """
-        Initialize migration manager.
-
-        Args:
-            db_path: Path to SQLite database file
-        """
+        """Initialize migration manager over the SQLite file at ``db_path``."""
         self.db_path = Path(db_path)
         self.engine = create_migration_engine(self.db_path)
         self._SessionFactory = sessionmaker(self.engine)
         self.migrations_dir = Path(__file__).parent / "migrations"
 
     def apply_migration(self, from_version: int, to_version: int) -> bool:
-        """
-        Apply migration from one version to another.
-
-        Args:
-            from_version: Current version
-            to_version: Target version
-
-        Returns:
-            True if successful, False otherwise
-        """
+        """Apply the migration ``from_version`` -> ``to_version``; True on success."""
         # `datetime.now` is passed rather than imported by migration_steps so
         # this module stays the patch point for the atomicity test (#2905).
         return run_migration_step(
@@ -98,8 +83,16 @@ class MigrationManager(SchemaVersionStoreMixin):
         """
         logger.info("Initializing fresh database...")
 
+        # create_all() skips existing tables, so stamping such a file "current" would leave its
+        # old columns in place and every query would fail (#5851).
+        legacy = set(inspect(self.engine).get_table_names()) - {"schema_version", "sqlite_sequence"}
+        if legacy:
+            raise MigrationError(
+                f"{self.db_path.name} has tables ({', '.join(sorted(legacy)[:3])}...) but no schema "
+                "version: it predates versioning and cannot be migrated. Move it aside for a fresh library."
+            )
+
         try:
-            # Create all tables
             Base.metadata.create_all(self.engine)
 
             # Record initial schema version
@@ -222,10 +215,8 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
                 if not backed_up:
                     return False
 
-                # Perform migration. Steps are applied one at a time, each
-                # atomically (#2905), so a failure partway leaves the file at an
-                # intermediate version no released app targets. Put the backup
-                # back while still holding the lock (#5316).
+                # Steps apply one at a time, each atomically (#2905), so a failure partway
+                # leaves an intermediate version: restore the backup under the lock (#5316).
                 try:
                     success = manager.migrate_to_latest()
                 except Exception:

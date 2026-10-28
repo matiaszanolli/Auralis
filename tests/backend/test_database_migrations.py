@@ -329,19 +329,19 @@ def test_migration_handles_old_schema_gracefully(temp_db_dir):
     conn.commit()
     conn.close()
 
-    # Opening a pre-versioning file must either refuse with MigrationError or
-    # leave a library that records its schema version.
-    try:
-        db = LibraryDatabase(database_path=str(db_path))
-    except MigrationError:
-        return
+    # A pre-versioning file cannot be migrated (no known starting version), and stamping it
+    # "current" left the old tracks columns in place so every query failed (#5851): it must be
+    # refused up front, and left exactly as it was.
+    with pytest.raises(MigrationError):
+        LibraryDatabase(database_path=str(db_path))
 
-    # TODO(#5851): the legacy `tracks` table is stamped current without being
-    # migrated; once that is fixed, assert its columns here as well.
     with sqlite3.connect(str(db_path)) as check:
-        versions = check.execute("SELECT version FROM schema_version").fetchall()
-    assert versions, "an opened database must record its schema version"
-    db.shutdown()
+        columns = [row[1] for row in check.execute("PRAGMA table_info(tracks)")]
+        tables = {row[0] for row in check.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert columns == ["id", "filepath", "title", "artist", "album"]
+    assert "schema_version" not in tables or not sqlite3.connect(str(db_path)).execute(
+        "SELECT 1 FROM schema_version"
+    ).fetchall()
 
 
 def test_failed_migration_raises_migration_error(temp_db_dir, monkeypatch):
