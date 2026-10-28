@@ -29,7 +29,7 @@ export function formatTime(seconds: number): string {
  */
 export function formatDuration(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) {
-    return '0:00:00';
+    return '0:00';
   }
 
   const hours = Math.floor(seconds / 3600);

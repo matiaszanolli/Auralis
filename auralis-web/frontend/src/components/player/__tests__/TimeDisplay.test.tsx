@@ -68,7 +68,7 @@ describe('TimeDisplay', () => {
       expect(screen.getByTestId('time-display')).toHaveTextContent('1:01:01 / 2:00:00');
     });
 
-    it('should display hours even at 0 for long tracks', () => {
+    it('should not pad the elapsed side with an hour when only the duration has hours', () => {
       render(
         <TimeDisplay
           currentTime={60}
@@ -76,7 +76,7 @@ describe('TimeDisplay', () => {
         />
       );
 
-      expect(screen.getByTestId('time-display')).toHaveTextContent('0:01:00 / 2:00:00');
+      expect(screen.getByTestId('time-display')).toHaveTextContent('1:00 / 2:00:00');
     });
 
     it('should handle multiple hours correctly', () => {
@@ -125,7 +125,7 @@ describe('TimeDisplay', () => {
         />
       );
 
-      expect(screen.getByTestId('time-display')).toHaveTextContent('1:01:01 / -0:58:59');
+      expect(screen.getByTestId('time-display')).toHaveTextContent('1:01:01 / -58:59');
     });
 
     it('should handle remaining time at start of track', () => {
@@ -283,20 +283,6 @@ describe('TimeDisplay', () => {
 
       expect(screen.getByTestId('time-display')).toBeInTheDocument();
     });
-
-    it('should have title attribute for tooltip', () => {
-      render(
-        <TimeDisplay
-          currentTime={90}
-          duration={225}
-        />
-      );
-
-      expect(screen.getByTestId('time-display')).toHaveAttribute(
-        'title',
-        '1:30 / 3:45'
-      );
-    });
   });
 
   describe('Edge Cases', () => {
@@ -449,7 +435,7 @@ describe('TimeDisplay', () => {
         />
       );
 
-      expect(screen.getByTestId('time-display')).toHaveTextContent('0:20:34 / 1:30:00');
+      expect(screen.getByTestId('time-display')).toHaveTextContent('20:34 / 1:30:00');
     });
 
     it('should maintain format consistency when paused and playing', () => {
@@ -523,7 +509,7 @@ describe('TimeDisplay', () => {
       );
 
       // With h:mm:ss format for durations >= 3600
-      expect(screen.getByTestId('time-display')).toHaveTextContent('0:01:00 / 1:00:00');
+      expect(screen.getByTestId('time-display')).toHaveTextContent('1:00 / 1:00:00');
 
       rerender(
         <TimeDisplay

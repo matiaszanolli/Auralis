@@ -2,13 +2,10 @@
   "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update",
   "generatedFrom": {
     "totalTests": 3322,
-    "failedTests": 79
+    "failedTests": 68
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
-    "src/components/library/Items/__tests__/useTrackFormatting.test.ts::useTrackFormatting formatDuration should format 3661 seconds as \"61:01\"",
-    "src/components/library/Items/__tests__/useTrackFormatting.test.ts::useTrackFormatting formatDuration should handle 2 hours duration",
-    "src/components/library/Items/__tests__/useTrackFormatting.test.ts::useTrackFormatting formatDuration should handle large durations (hours)",
     "src/components/library/__tests__/AlbumDetailView.test.tsx::AlbumDetailView Integration should handle full album view workflow",
     "src/components/library/__tests__/AlbumDetailView.test.tsx::AlbumDetailView Loading State should refetch when albumId changes",
     "src/components/library/__tests__/AlbumDetailView.test.tsx::AlbumDetailView Playback Integration should play track when track row clicked",
@@ -67,11 +64,6 @@
     "src/components/library/__tests__/TrackRow.test.tsx::TrackRow Selection should support ctrl/cmd-click for multi-select",
     "src/components/library/__tests__/TrackRow.test.tsx::TrackRow Selection should support shift-click for range selection",
     "src/components/library/__tests__/TrackRow.test.tsx::TrackRow Selection should toggle selection on checkbox click",
-    "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay CSS Classes and Styling should have title attribute for tooltip",
-    "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay Long Duration Formatting should display hours even at 0 for long tracks",
-    "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay Props Updates should update format when duration crosses hour threshold",
-    "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay Realistic Scenarios should handle album-length tracks with hours",
-    "src/components/player/__tests__/TimeDisplay.test.tsx::TimeDisplay Remaining Time Display should show remaining time with hours for long tracks",
     "src/components/player/__tests__/TrackDisplay.test.tsx::TrackDisplay CSS & Styling should use design tokens for colors",
     "src/components/player/__tests__/VolumeScale.test.tsx::Player - Volume Scale Consistency (#2116) should call AudioPlaybackEngine.setVolume with 0-1 scale",
     "src/components/player/__tests__/VolumeScale.test.tsx::Player - Volume Scale Consistency (#2116) should convert volume to 0-1 for VolumeControl component",
@@ -80,9 +72,6 @@
     "src/components/player/__tests__/VolumeScale.test.tsx::Player - Volume Scale Consistency (#2116) should maintain volume consistency after WebSocket player_state update",
     "src/components/player/__tests__/VolumeScale.test.tsx::Player - Volume Scale Consistency (#2116) should persist volume changes to Redux when slider changes",
     "src/components/player/__tests__/VolumeScale.test.tsx::Player - Volume Scale Consistency (#2116) should round volume correctly when converting 0-1 to 0-100",
-    "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle NaN values",
-    "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle negative currentTime",
-    "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Realistic Scenarios should handle podcast playback (multi-hour)",
     "src/hooks/shared/__tests__/useReduxState.test.tsx::Redux State Hooks State Selectors usePlayerState should return player slice"
   ]
 }

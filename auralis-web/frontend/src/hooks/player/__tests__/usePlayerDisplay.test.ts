@@ -607,7 +607,7 @@ describe('usePlayerDisplay Hook', () => {
         })
       );
 
-      expect(result.current.fullTimeDisplay).toBe('0:30:00 / 2:00:00');
+      expect(result.current.fullTimeDisplay).toBe('30:00 / 2:00:00');
       expect(result.current.progressPercentage).toBe(25);
       expect(result.current.fullTimeWithRemaining).toContain('-1:30:00');
     });

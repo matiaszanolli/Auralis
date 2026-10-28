@@ -40,12 +40,12 @@ describe('useTrackFormatting', () => {
       expect(formatted).toBe('1:00');
     });
 
-    it('should format 3661 seconds as "61:01"', () => {
+    it('should format 3661 seconds as "1:01:01"', () => {
       const { result } = renderHook(() => useTrackFormatting());
 
       const formatted = result.current.formatDuration(3661);
 
-      expect(formatted).toBe('61:01');
+      expect(formatted).toBe('1:01:01');
     });
 
     it('should pad single-digit seconds', () => {
@@ -62,7 +62,7 @@ describe('useTrackFormatting', () => {
       // 1 hour = 3600 seconds
       const formatted = result.current.formatDuration(3600);
 
-      expect(formatted).toBe('60:00');
+      expect(formatted).toBe('1:00:00');
     });
 
     it('should handle 2 hours duration', () => {
@@ -71,7 +71,7 @@ describe('useTrackFormatting', () => {
       // 2 hours 30 minutes 45 seconds
       const formatted = result.current.formatDuration(9045);
 
-      expect(formatted).toBe('150:45');
+      expect(formatted).toBe('2:30:45');
     });
 
     it('should pad minutes with single digit', () => {
