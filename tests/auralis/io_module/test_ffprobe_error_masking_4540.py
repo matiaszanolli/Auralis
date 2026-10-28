@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from auralis.io import unified_loader
+from auralis.io import audio_probe, unified_loader
 from auralis.io.unified_loader import get_audio_info
 
 _MASKING_SUBSTRINGS = ("local variable", "UnboundLocalError", "not associated with a value")
@@ -53,12 +53,12 @@ def test_missing_ffprobe_binary_is_reported_clearly(tmp_path, monkeypatch):
     path = tmp_path / "track.mp3"
     path.write_bytes(b"\x00" * 512)
 
-    monkeypatch.setattr(unified_loader, "check_ffprobe", lambda: True)
+    monkeypatch.setattr(audio_probe, "check_ffprobe", lambda: True)
 
     def _boom(*args, **kwargs):
         raise FileNotFoundError("ffprobe")
 
-    monkeypatch.setattr(unified_loader.subprocess, "run", _boom)
+    monkeypatch.setattr(audio_probe.subprocess, "run", _boom)
 
     result = get_audio_info(path)
     error = str(result.get("error", ""))
@@ -77,7 +77,7 @@ def test_guard_uses_check_ffprobe_not_check_ffmpeg(tmp_path, monkeypatch):
     path = tmp_path / "track.mp3"
     path.write_bytes(b"\x00" * 512)
 
-    monkeypatch.setattr(unified_loader, "check_ffprobe", lambda: False)
+    monkeypatch.setattr(audio_probe, "check_ffprobe", lambda: False)
 
     called = False
 
@@ -86,7 +86,7 @@ def test_guard_uses_check_ffprobe_not_check_ffmpeg(tmp_path, monkeypatch):
         called = True
         raise AssertionError("subprocess.run reached despite ffprobe being absent")
 
-    monkeypatch.setattr(unified_loader.subprocess, "run", _tracker)
+    monkeypatch.setattr(audio_probe.subprocess, "run", _tracker)
 
     result = get_audio_info(path)
 
@@ -99,12 +99,12 @@ def test_timeout_still_reported(tmp_path, monkeypatch):
     path = tmp_path / "track.mp3"
     path.write_bytes(b"\x00" * 512)
 
-    monkeypatch.setattr(unified_loader, "check_ffprobe", lambda: True)
+    monkeypatch.setattr(audio_probe, "check_ffprobe", lambda: True)
 
     def _timeout(*args, **kwargs):
         raise subprocess.TimeoutExpired(cmd="ffprobe", timeout=30)
 
-    monkeypatch.setattr(unified_loader.subprocess, "run", _timeout)
+    monkeypatch.setattr(audio_probe.subprocess, "run", _timeout)
 
     result = get_audio_info(path)
     assert "timed out" in str(result.get("error", "")).lower()
@@ -115,14 +115,14 @@ def test_invalid_json_still_reported(tmp_path, monkeypatch):
     path = tmp_path / "track.mp3"
     path.write_bytes(b"\x00" * 512)
 
-    monkeypatch.setattr(unified_loader, "check_ffprobe", lambda: True)
+    monkeypatch.setattr(audio_probe, "check_ffprobe", lambda: True)
 
     class _Result:
         returncode = 0
         stdout = "not json at all"
         stderr = ""
 
-    monkeypatch.setattr(unified_loader.subprocess, "run", lambda *a, **k: _Result())
+    monkeypatch.setattr(audio_probe.subprocess, "run", lambda *a, **k: _Result())
 
     result = get_audio_info(path)
     assert "invalid ffprobe output" in str(result.get("error", "")).lower()
