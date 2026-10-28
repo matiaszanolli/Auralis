@@ -21,6 +21,10 @@
  * the report (ran, whether it passed or failed), so a scoped run that never
  * touched a baselined spec cannot trip it.
  *
+ * Run-size sanity (#5679): fails when the run collected under 90 % of the tests the baseline
+ * was generated from, and, when the CI step passes VITEST_EXIT_CODE, when vitest exited non-zero
+ * without a single failing test in the report.
+ *
  * Exit codes: 0 = no new failures, 1 = new failures (or unusable input),
  * 1 = stale entries when --strict-stale is set.
  */
@@ -147,10 +151,40 @@ if (UPDATE) {
 }
 
 let baseline;
+let baselineTotalTests;
 try {
-  baseline = new Set(JSON.parse(readFileSync(BASELINE_PATH, 'utf8')).failures ?? []);
+  const parsedBaseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+  baseline = new Set(parsedBaseline.failures ?? []);
+  baselineTotalTests = parsedBaseline.generatedFrom?.totalTests;
 } catch (err) {
   console.error(`✖ Could not read baseline at ${BASELINE_PATH}: ${err.message}`);
+  process.exit(1);
+}
+
+// A run that silently lost a large share of the suite (an include/exclude change, a worker that
+// died on the heap limit but still left a report) must not read as "no new failures" (#5679).
+// The floor is a fraction of the size recorded when the baseline was last regenerated, so a
+// deliberate deletion of specs is acknowledged by `test:baseline:update`, not by loosening this.
+const MIN_TOTAL_FRACTION = 0.9;
+if (typeof baselineTotalTests === 'number' && results.numTotalTests < baselineTotalTests * MIN_TOTAL_FRACTION) {
+  console.error(
+    `✖ This run collected ${results.numTotalTests} tests but the baseline was generated from ` +
+    `${baselineTotalTests} (floor ${Math.ceil(baselineTotalTests * MIN_TOTAL_FRACTION)}). ` +
+    'A big drop means specs were excluded or a worker died; if tests were deleted on purpose, ' +
+    'run `pnpm run test:baseline:update` and commit it.'
+  );
+  process.exit(1);
+}
+
+// The CI step tolerates vitest's non-zero exit (baselined failures are expected) and hands the
+// code here. A non-zero exit with NO failing test in the report is not a baseline failure: it is
+// an unhandled error, a crashed worker or a failed collection that left nothing to compare (#5679).
+const runnerExit = Number(process.env.VITEST_EXIT_CODE ?? 0);
+if (runnerExit !== 0 && current.size === 0) {
+  console.error(
+    `✖ vitest exited ${runnerExit} but the report lists no failing test — the runner itself failed ` +
+    '(unhandled error, crashed worker or collection failure). Read the vitest step output.'
+  );
   process.exit(1);
 }
 

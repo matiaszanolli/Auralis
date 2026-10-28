@@ -58,9 +58,11 @@ jobs:
 
       # Runs under the documented 2GB heap (the suite OOMs at Node's default)
       # and always exits 0 — a failing suite is expected while the baseline is
-      # non-empty. The baseline check below is what decides the job.
+      # non-empty. The baseline check below is what decides the job, and it is
+      # told vitest's exit code (#5679) so a run that died without reporting a
+      # failing test is not mistaken for a clean one.
       - name: Run vitest
-        run: pnpm run test:ci || true
+        run: pnpm run test:ci || echo "VITEST_EXIT_CODE=$?" >> "$GITHUB_ENV"
 
       # Fails the job on any failure not present in test-baseline.json, and
       # also fails if the JSON report is missing or reports 0 collected tests,
