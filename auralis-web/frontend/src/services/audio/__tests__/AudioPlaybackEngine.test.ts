@@ -144,6 +144,32 @@ describe('AudioPlaybackEngine', () => {
       expect(engine.isPlaying()).toBe(false);
     });
 
+    it('starts a buffer below the minimum once the stream has ended (#5900)', async () => {
+      const { ctx } = createMockAudioContext();
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(0.01)); // below minBufferSamples
+      const onStateChange = vi.fn();
+      engine.onStateChanged(onStateChange);
+      engine.markStreamEnded();
+
+      await engine.startPlayback();
+
+      expect(onStateChange).not.toHaveBeenCalledWith('error');
+      expect(engine.isPlaying()).toBe(true);
+    });
+
+    it('an ended stream with nothing buffered still reports the underrun (#5900)', async () => {
+      const { ctx } = createMockAudioContext();
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(0));
+      const onUnderrun = vi.fn();
+      engine.onUnderrun(onUnderrun);
+      engine.markStreamEnded();
+
+      await engine.startPlayback();
+
+      expect(onUnderrun).toHaveBeenCalledOnce();
+      expect(engine.isPlaying()).toBe(false);
+    });
+
     it('starts playback via the ScriptProcessorNode fallback when the buffer has enough samples', async () => {
       const { ctx, gainNode, scriptNode } = createMockAudioContext();
       // minBufferSamples (~1s @ 48kHz stereo) — use a healthy 10s buffer.

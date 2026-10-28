@@ -198,7 +198,10 @@ export function useAudioStreamingCore(
     const buffer = pcmBufferRef.current;
     const metadata = streamingMetadataRef.current;
     if (!engine || !buffer || !metadata || pauseHoldRef.current || engine.isPlaying()) return;
-    if (buffer.getAvailableSamples() >= getStartThresholdRef.current(metadata, engine)) {
+    const available = buffer.getAvailableSamples();
+    // A stream that has ended will not grow: start with whatever it delivered (#5900).
+    const shortStream = engine.hasStreamEnded() && available > 0;
+    if (shortStream || available >= getStartThresholdRef.current(metadata, engine)) {
       engine.startPlayback();
       setIsPaused(false);
     }

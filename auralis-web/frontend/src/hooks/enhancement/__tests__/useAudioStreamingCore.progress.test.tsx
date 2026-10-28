@@ -168,7 +168,7 @@ describe('useAudioStreamingCore progress accounting (#4414)', () => {
 
     function renderWithEngine() {
       const hook = render(1);
-      const engine = { markStreamEnded: vi.fn() };
+      const engine = { markStreamEnded: vi.fn(), isPlaying: vi.fn(() => false), hasStreamEnded: vi.fn(() => false) };
       hook.result.current.playbackEngineRef.current = engine as never;
       return { hook, engine };
     }

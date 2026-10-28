@@ -228,6 +228,9 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     // stream, whose engine is replaced or reset anyway.
     if (reason === 'completed' || reason === 'errored') {
       playbackEngineRef.current?.markStreamEnded();
+      // A stream shorter than the start threshold never auto-started; its end is the last
+      // chance to play what it delivered (#5900).
+      startPlaybackWhenBuffered();
       // The backend has sent all it will, so neither a reconnect nor an
       // enhancement toggle may restart this track (#5876). The buffered tail
       // keeps playing in its current mode.
@@ -252,7 +255,7 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     }
     // 'stopped': whatever stopped it supersedes it — a new play command, or the
     // play_normal re-issue that disabling enhancement sends — so nothing to record.
-  }, [dispatch, streamType, logPrefix, acceptsStreamType, playbackEngineRef, isSupersededTrack]);
+  }, [dispatch, streamType, logPrefix, acceptsStreamType, playbackEngineRef, isSupersededTrack, startPlaybackWhenBuffered]);
 
   const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
     // Only process messages intended for this stream (#2104)

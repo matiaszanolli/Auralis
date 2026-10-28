@@ -116,7 +116,10 @@ export class AudioPlaybackEngine {
 
     const availableSamples = this.buffer.getAvailableSamples();
     const minBufferSamples = this.bufferScheduler.getMinBufferSamples();
-    if (availableSamples < minBufferSamples) {
+    // A finished stream can never refill the buffer, so what it delivered is all there will be:
+    // a seek into the last second or a sub-second track is shorter than the minimum (#5900).
+    const streamIsComplete = this.bufferScheduler.hasStreamEnded() && availableSamples > 0;
+    if (availableSamples < minBufferSamples && !streamIsComplete) {
       console.warn(
         `[AudioPlaybackEngine] Insufficient buffer for playback. ` +
         `Available: ${availableSamples}, Required: ${minBufferSamples}`
@@ -194,6 +197,11 @@ export class AudioPlaybackEngine {
    */
   markStreamEnded(): void {
     this.bufferScheduler.markStreamEnded();
+  }
+
+  /** True once the backend has delivered the stream's last chunk. */
+  hasStreamEnded(): boolean {
+    return this.bufferScheduler.hasStreamEnded();
   }
 
   /**

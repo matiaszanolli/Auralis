@@ -59,6 +59,11 @@ export class BufferHealth {
     this.paused = false;
   }
 
+  /** True once the stream has delivered everything it will. */
+  hasStreamEnded(): boolean {
+    return this.streamEnded;
+  }
+
   /** Forget a previous stream's end (stop / seek restart the same engine). */
   resetStreamEnded(): void {
     this.streamEnded = false;

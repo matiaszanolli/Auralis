@@ -179,6 +179,7 @@ let mockEngineInstance: {
   getCurrentPlaybackTime: ReturnType<typeof vi.fn>;
   getMinBufferSamples: ReturnType<typeof vi.fn>;
   markStreamEnded: ReturnType<typeof vi.fn>;
+  hasStreamEnded: ReturnType<typeof vi.fn>;
   dispose: ReturnType<typeof vi.fn>;
 };
 
@@ -227,6 +228,7 @@ function setupMocks() {
     // assertions below (buffer >= threshold ⇒ startPlayback).
     getMinBufferSamples: vi.fn().mockReturnValue(176400),
     markStreamEnded: vi.fn(),
+    hasStreamEnded: vi.fn().mockReturnValue(false),
     dispose: vi.fn(),
   };
   // `function` form so `new AudioPlaybackEngine()` constructs (see note above, #3933).

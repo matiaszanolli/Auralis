@@ -101,6 +101,10 @@ export class BufferScheduler {
     this.health.markStreamEnded();
   }
 
+  hasStreamEnded(): boolean {
+    return this.health.hasStreamEnded();
+  }
+
   /** Forget a previous stream's end (stop / seek restart the same engine). */
   resetStreamEnded(): void {
     this.health.resetStreamEnded();
