@@ -21,6 +21,28 @@ from .queue_service_base import QueueServiceBase
 logger = logging.getLogger(__name__)
 
 
+def _start_index_after_filtering(track_ids: list[int], db_tracks: list[Any], start_index: int) -> int:
+    """Re-express ``start_index`` against the tracks that resolved (#5933).
+
+    The caller's index addresses ``track_ids``, but ids missing from the library are dropped, so
+    the same number pointed at a different track - or past the end - of the filtered list. Returns
+    the position of the first surviving track at or after the requested one (the last one if
+    everything from there on was dropped).
+    """
+    if len(db_tracks) == len(track_ids):  # nothing dropped: the index already lines up
+        return start_index
+    kept: list[int] = []  # requested position of each surviving track, in order
+    j = 0
+    for position, track_id in enumerate(track_ids):
+        if j < len(db_tracks) and db_tracks[j].id == track_id:
+            kept.append(position)
+            j += 1
+    for index, position in enumerate(kept):
+        if position >= start_index:
+            return index
+    return max(0, len(db_tracks) - 1)
+
+
 class QueueSetMixin(QueueServiceBase):
     """Generation-sequenced whole-queue replacement."""
 
@@ -115,6 +137,11 @@ class QueueSetMixin(QueueServiceBase):
 
             if not db_tracks:
                 raise InvalidRequest("No valid tracks found")
+            if start_index >= len(track_ids):
+                raise InvalidRequest(
+                    f"start_index {start_index} is outside the {len(track_ids)} requested tracks"
+                )
+            start_index = _start_index_after_filtering(track_ids, db_tracks, start_index)
 
             # Convert to TrackInfo for state
             track_infos = [self.create_track_info_fn(t) for t in db_tracks]
