@@ -19,7 +19,7 @@ from collections.abc import Callable
 from fastapi import WebSocket
 
 from core.audio_stream_controller import ws_id as _ws_id
-from core.stream_protocol import safe_send_text
+from core.stream_protocol import is_websocket_connected, safe_send_text
 from helpers import spawn_background_task
 from schemas import DEFAULT_PRESET
 from websocket.websocket_protocol import HeartbeatManager
@@ -57,6 +57,8 @@ async def run_heartbeat_loop(
     # deadline can read as not-yet-stale and cost an extra zero-delay pass.
     # Wake a hair after it instead.
     DEADLINE_EPSILON = 0.01
+    MAX_CONSECUTIVE_PING_FAILURES = 3
+    failed_pings = 0
 
     while True:
         until_stale = heartbeat.seconds_until_stale(connection_id)
@@ -69,7 +71,10 @@ async def run_heartbeat_loop(
 
         if heartbeat.is_stale(connection_id):
             logger.warning(f"WebSocket {connection_id} stale — closing")
-            await websocket.close(code=1001, reason="Heartbeat timeout")
+            try:
+                await websocket.close(code=1001, reason="Heartbeat timeout")
+            except RuntimeError:
+                pass  # Already closing: the eviction is moot, not a task failure (#5077)
             return
 
         # Woke for the timeout deadline, not the ping deadline — the pong
@@ -85,7 +90,14 @@ async def run_heartbeat_loop(
         # or payload error. safe_send_text logs a real close at debug and
         # anything else at warning, so genuine bugs stay visible.
         if not await safe_send_text(websocket, {"type": "ping"}):
-            return  # Connection already dead, or the send genuinely failed
+            # A dead socket ends the loop. A live one that refused a ping is retried on the next
+            # interval, a few times, rather than losing staleness detection for good (#5077).
+            failed_pings += 1
+            if not is_websocket_connected(websocket) or failed_pings >= MAX_CONSECUTIVE_PING_FAILURES:
+                return
+            next_ping_at += heartbeat.interval_seconds
+            continue
+        failed_pings = 0
         heartbeat.mark_ping(connection_id)
         # Fixed cadence from the scheduled time, not from now, so a slow
         # send does not let the ping interval drift outward over a long
