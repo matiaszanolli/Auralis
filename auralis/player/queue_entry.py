@@ -21,3 +21,21 @@ def entry_path(entry: Mapping[str, Any] | None) -> str | None:
     if not entry:
         return None
     return entry.get('filepath') or entry.get('file_path') or entry.get('path') or None
+
+
+class QueueEntryTrack:
+    """Stand-in for a library Track when all that is known is the queue entry (#5726).
+
+    ``IntegrationManager.set_current_track`` only ran from ``load_track_from_library``, so after a
+    queue-driven advance (next / previous / auto-advance) ``current_track`` and the dict behind
+    every playback-state payload and the ``playback_finished`` event kept describing whichever
+    track was loaded last. Its ``to_dict()`` is the entry minus the filesystem path (#3205).
+    """
+
+    _PATH_KEYS = frozenset({'filepath', 'file_path', 'path'})
+
+    def __init__(self, entry: Mapping[str, Any]) -> None:
+        self._entry = dict(entry)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {k: v for k, v in self._entry.items() if k not in self._PATH_KEYS}

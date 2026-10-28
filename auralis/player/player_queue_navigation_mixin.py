@@ -29,7 +29,7 @@ from .gapless_playback_engine import GaplessPlaybackEngine
 from .integration_manager import IntegrationManager
 from .playback_controller import PlaybackController
 from .queue_controller import QueueController
-from .queue_entry import entry_path
+from .queue_entry import QueueEntryTrack, entry_path
 
 
 class PlayerQueueNavigationMixin:
@@ -115,6 +115,7 @@ class PlayerQueueNavigationMixin:
             return False
 
         self.integration.record_track_completion()
+        self._sync_current_track_from_queue()
 
         # The gapless advance also bypasses AudioPlayer.load_file(), so
         # schedule the fingerprint loader here too — otherwise adaptive
@@ -151,6 +152,12 @@ class PlayerQueueNavigationMixin:
                 self.playback.pause()
 
         return True
+
+    def _sync_current_track_from_queue(self) -> None:
+        """Make ``current_track`` describe the track the queue just advanced to (#5726)."""
+        entry = self.queue.get_current_track()
+        if entry:
+            self.integration.set_current_track(QueueEntryTrack(entry))  # type: ignore[arg-type]
 
     def previous_track(self) -> bool:
         """Skip to previous track in queue.
@@ -191,6 +198,7 @@ class PlayerQueueNavigationMixin:
                         self.playback.stop()
                     elif self._pause_requested.is_set():
                         self.playback.pause()
+                self._sync_current_track_from_queue()
                 return True
             # File load failed — roll back queue index under lock.
             # #5582: the load above is blocking and lock-free, so a queue edit
