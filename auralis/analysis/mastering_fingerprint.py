@@ -27,6 +27,7 @@ import librosa
 import numpy as np
 
 from ..utils.logging import warning
+from .fingerprint.body_window import body_window_offset_s
 from .fingerprint.windows import FINGERPRINT_BODY_WINDOW_S
 
 from .fingerprint.metrics import AudioMetrics
@@ -107,13 +108,16 @@ class MasteringFingerprint:
             # ffmpeg transcodes only the window rather than the whole file
             # (#5713).
             audio_path = Path(file_path)
+            # Measure the body of the track, like the 25D fingerprint (#6143): a window
+            # from t=0 biases loudness by up to 9 dB on ambient intros (#4595).
+            body_offset = body_window_offset_s(audio_path)
             if audio_path.suffix.lower() in FFMPEG_FORMATS:
                 import tempfile
 
                 from auralis.io.loaders import load_with_ffmpeg
                 with tempfile.TemporaryDirectory() as tmp:
                     raw_audio, raw_sr = load_with_ffmpeg(
-                        audio_path, tmp, duration=FINGERPRINT_BODY_WINDOW_S
+                        audio_path, tmp, offset=body_offset or None, duration=FINGERPRINT_BODY_WINDOW_S
                     )
                 # (samples, channels) or (samples,) -> (channels, samples),
                 # matching librosa.load(mono=False)'s convention.
@@ -130,7 +134,9 @@ class MasteringFingerprint:
                 y = raw_audio[..., :int(sr * FINGERPRINT_BODY_WINDOW_S)]
                 sr_loaded = sr
             else:
-                y, _loaded_sr = librosa.load(file_path, sr=sr, mono=False, duration=FINGERPRINT_BODY_WINDOW_S)
+                y, _loaded_sr = librosa.load(
+                    file_path, sr=sr, mono=False, offset=body_offset, duration=FINGERPRINT_BODY_WINDOW_S
+                )
                 sr_loaded = int(_loaded_sr)
 
             # Convert to mono if stereo
