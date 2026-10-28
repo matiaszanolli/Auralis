@@ -300,14 +300,10 @@ describe('usePlaybackQueue', () => {
     const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await act(async () => {
-      try {
-        await result.current.setQueue(mockTracks);
-      } catch (err) {
-        expect(err).toBeDefined();
-      }
+      await expect(result.current.setQueue(mockTracks)).rejects.toBeDefined();
     });
 
-    expect(result.current.error).toBeDefined();
+    expect(result.current.error).not.toBeNull();
     expect(result.current.queue).toEqual([]); // Reverted
   });
 
@@ -675,14 +671,10 @@ describe('usePlaybackQueue', () => {
     const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await act(async () => {
-      try {
-        await result.current.setRepeatMode('invalid' as any);
-      } catch (err) {
-        expect(err).toBeDefined();
-      }
+      await expect(result.current.setRepeatMode('invalid' as any)).rejects.toBeDefined();
     });
 
-    expect(result.current.error).toBeDefined();
+    expect(result.current.error).not.toBeNull();
     expect((result.current.error as any)?.code).toBe('INVALID_REPEAT_MODE');
   });
 
@@ -759,7 +751,7 @@ describe('usePlaybackQueue', () => {
       }
     });
 
-    expect(result.current.error).toBeDefined();
+    expect(result.current.error).not.toBeNull();
 
     act(() => {
       result.current.clearError();
@@ -1041,7 +1033,7 @@ describe('usePlaybackQueue', () => {
       expect(result.current.currentIndex).toBe(originalIndex);
       expect(result.current.isShuffled).toBe(originalShuffle);
       expect(result.current.repeatMode).toBe(originalRepeat);
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
 
     it('should rollback toggleShuffle on API failure using latest state from ref', async () => {
@@ -1083,7 +1075,7 @@ describe('usePlaybackQueue', () => {
 
       // Should rollback to original state
       expect(result.current.isShuffled).toBe(originalShuffle);
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
 
     it('should rollback setRepeatMode on API failure using latest state from ref', async () => {
@@ -1125,7 +1117,7 @@ describe('usePlaybackQueue', () => {
 
       // Should rollback to original state
       expect(result.current.repeatMode).toBe(originalRepeatMode);
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
 
     it('should rollback clearQueue on API failure using latest state from ref', async () => {
@@ -1173,7 +1165,7 @@ describe('usePlaybackQueue', () => {
       expect(result.current.currentIndex).toBe(originalIndex);
       expect(result.current.isShuffled).toBe(originalShuffle);
       expect(result.current.repeatMode).toBe(originalRepeat);
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
   });
 });

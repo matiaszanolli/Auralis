@@ -34,6 +34,17 @@ function asGuard<T extends (value: unknown) => boolean>(mock: Mock<T>): T {
 
 import { useRestAPI } from '../useRestAPI';
 
+/** What `fn` rejects with, or undefined if it resolves — lets a test assert the failure happened
+ *  instead of swallowing it in a try/catch that passes either way (#5674). */
+async function rejectionOf(fn: () => Promise<unknown>): Promise<unknown> {
+  try {
+    await fn();
+  } catch (err) {
+    return err;
+  }
+  return undefined;
+}
+
 // Mock fetch globally
 const mockFetch = vi.fn();
 global.fetch = mockFetch as any;
@@ -198,15 +209,15 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.get('/api/test');
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.get('/api/test'));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
       expect(result.current.isLoading).toBe(false);
     });
 
@@ -215,15 +226,15 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.get('/api/test');
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.get('/api/test'));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
       expect(result.current.error?.message).toContain('Network error');
     });
 
@@ -304,15 +315,15 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.post('/api/test', {});
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.post('/api/test', {}));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
 
     it('should skip null/undefined query parameters', async () => {
@@ -373,15 +384,15 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.put('/api/test', {});
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.put('/api/test', {}));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
   });
 
@@ -410,15 +421,15 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.patch('/api/test', {});
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.patch('/api/test', {}));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
   });
 
@@ -445,15 +456,15 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.delete('/api/test/999');
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.delete('/api/test/999'));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
   });
 
@@ -493,7 +504,7 @@ describe('useRestAPI Hook', () => {
         ).rejects.toBeDefined();
       });
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
       expect(result.current.error?.message).toContain('/api/test');
     });
 
@@ -641,15 +652,14 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.get('/api/test');
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.get('/api/test'));
       });
+      // The caller still sees the rejection (so it can stop), unchanged...
+      expect(rejection).toBe(abortErr);
 
-      // AbortErrors should be swallowed — no error state surfaced to consumers
+      // ...but an abort is not an API error: nothing is surfaced to consumers
       expect(result.current.error).toBeNull();
     });
   });
@@ -750,15 +760,15 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.get('/api/test');
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.get('/api/test'));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
 
       act(() => {
         result.current.clearError();
@@ -772,13 +782,13 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.get('/api/test');
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.get('/api/test'));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
       expect(result.current.error?.message).toContain('404');
       expect(result.current.error?.message).toContain('Not Found');
@@ -811,13 +821,13 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.post('/api/test/track', { limit: 500 });
-        } catch {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.post('/api/test/track', { limit: 500 }));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
       expect(result.current.error?.message).toBe('limit: ensure this value is <= 100');
       expect(result.current.error?.status).toBe(422);
@@ -830,13 +840,13 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.delete('/api/test/track');
-        } catch {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.delete('/api/test/track'));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
       expect(result.current.error?.message).toBe('HTTP 500: Internal Server Error');
       expect(result.current.error?.status).toBe(500);
@@ -847,15 +857,15 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.get('/api/test');
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.get('/api/test'));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
 
     it('should clear error on new successful request', async () => {
@@ -864,15 +874,15 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let rejection: unknown;
       await act(async () => {
-        try {
-          await result.current.get('/api/test');
-        } catch (err) {
-          // Expected
-        }
+        rejection = await rejectionOf(() => result.current.get('/api/test'));
       });
+      // The call must reject, with the very error the hook exposes.
+      expect(rejection).toBeDefined();
+      expect(rejection).toBe(result.current.error);
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
 
       // Second request succeeds
       mockFetchSuccess({ data: 'success' });
@@ -947,7 +957,7 @@ describe('useRestAPI Hook', () => {
         }
       });
 
-      expect(result.current.error).toBeDefined();
+      expect(result.current.error).not.toBeNull();
     });
 
     it('should handle very long query parameter values', async () => {
