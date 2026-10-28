@@ -605,10 +605,12 @@ class TestWebSocketPlayback:
     _EXTRA_PRESET = "second_preset"
 
     def _with_extra_preset(self):
-        import ws_handlers.playback_commands as playback_commands
+        # The preset check lives in enhancement_params since the resolver was split out
+        # of playback_commands, so that is the module whose VALID_PRESETS must be patched.
+        import ws_handlers.enhancement_params as enhancement_params
 
         return patch.object(
-            playback_commands, "VALID_PRESETS", [*VALID_PRESETS, self._EXTRA_PRESET]
+            enhancement_params, "VALID_PRESETS", [*VALID_PRESETS, self._EXTRA_PRESET]
         )
 
     def test_play_enhanced_invalid_preset(self, client):

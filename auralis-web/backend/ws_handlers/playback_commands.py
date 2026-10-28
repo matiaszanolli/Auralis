@@ -19,7 +19,6 @@ from typing import Any
 from core.audio_stream_controller import ws_id as _ws_id
 from core.task_cancellation import await_cancelled_task
 from fastapi import WebSocket
-from helpers import spawn_background_task
 from schemas import (  # single source of truth (#4424, #4600)
     DEFAULT_PRESET,
     VALID_PRESETS,
@@ -29,7 +28,6 @@ from websocket.websocket_security import send_error_response
 from .context import StreamState, WSDeps
 from .enhancement_params import (
     DEFAULT_INTENSITY,
-    _generate_mastering_recommendation,
     parse_play_request,
     resolve_enhancement_params,
 )
@@ -195,12 +193,6 @@ async def handle_play_enhanced(
         state.active_track_ids[ws_id] = track_id
     logger.info(f"Started background streaming task for track {track_id}")
 
-    # #4542: trigger the mastering recommendation on the live play path.
-    spawn_background_task(
-        _generate_mastering_recommendation(track_id, deps),
-        name=f"mastering_recommendation:{track_id}",
-    )
-
 
 async def handle_play_normal(
     websocket: WebSocket, message: dict[str, Any], state: StreamState, deps: WSDeps
@@ -241,12 +233,5 @@ async def handle_play_normal(
         # dedup checks see the truth (#3509 / BE-NEW-51).
         state.active_track_ids[ws_id] = track_id
     logger.info(f"Started background normal streaming task for track {track_id}")
-
-    # #4542 SIBLING: normal playback needs the trigger too — wiring only the
-    # enhanced path would leave the feature dead for unenhanced playback.
-    spawn_background_task(
-        _generate_mastering_recommendation(track_id, deps),
-        name=f"mastering_recommendation:{track_id}",
-    )
 
 
