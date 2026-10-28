@@ -15,6 +15,8 @@ interface Album {
   year?: number;
   track_count: number;
   total_duration: number;
+  /** Present only when the album has artwork (#5925). */
+  artwork_url?: string | null;
 }
 
 interface AlbumsTabProps {
@@ -98,12 +100,9 @@ export const AlbumsTab = ({
               albumId={album.id}
               title={album.title}
               artist={artistName ?? ''}
-              // `AlbumInArtist` (backend) carries no artwork flag, and the
-              // AlbumArt this replaced always requested the URL and fell back to
-              // a gradient on error. MediaCardArtwork does the same via onError,
-              // so requesting unconditionally preserves artwork here instead of
-              // forcing every album to the placeholder.
-              hasArtwork
+              // Only albums the backend says have artwork request one (#5925); the rest go
+              // straight to the placeholder instead of 404ing a thumbnail request each.
+              hasArtwork={Boolean(album.artwork_url)}
               trackCount={album.track_count}
               duration={album.total_duration}
               year={album.year}

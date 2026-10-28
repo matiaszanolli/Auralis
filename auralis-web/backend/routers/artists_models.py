@@ -66,6 +66,8 @@ class AlbumInArtist(BaseModel):
     year: int | None = None
     track_count: int
     total_duration: float
+    # `/api/albums/{id}/artwork` when the album has artwork, else None (#5925).
+    artwork_url: str | None = None
 
 
 class ArtistDetailResponse(BaseModel):

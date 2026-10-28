@@ -148,9 +148,7 @@ async def get_artist(
     # Transform albums to response format
     albums = []
     for album in (artist.albums or []):
-        # Keep aggregate preference and unloaded-relationship handling in
-        # Album.to_dict()/serialize_album rather than duplicating it here
-        # (#5200, mirrors the artist-level fix in #4909).
+        # Aggregates and unloaded relationships stay in Album.to_dict() (#5200, #4909).
         album_data = serialize_album(album)
 
         albums.append(AlbumInArtist(
@@ -159,6 +157,7 @@ async def get_artist(
             year=album.year,
             track_count=album_data.get('track_count', 0),
             total_duration=album_data.get('total_duration', 0),
+            artwork_url=album_data.get('artwork_url'),
         ))
 
     # Sort albums by year (newest first), then by title

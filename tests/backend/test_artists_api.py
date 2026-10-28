@@ -286,6 +286,20 @@ class TestGetArtistById:
             assert data["albums"][0]["track_count"] == 2
             assert data["albums"][0]["total_duration"] == 380
 
+    def test_get_artist_albums_carry_artwork_url_only_when_they_have_art(self, client, artist_page):
+        """#5925: the nested album says whether it has artwork, so the UI skips the 404 probe."""
+        with_art = next(album for album in artist_page.albums if album.id == 1)
+        with_art.artwork_path = "/tmp/auralis-test-cover-5925.jpg"
+
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_page.return_value = artist_page
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
+            albums = {a["id"]: a for a in client.get("/api/artists/1").json()["albums"]}
+
+        assert albums[1]["artwork_url"] == "/api/albums/1/artwork"
+        assert albums[2]["artwork_url"] is None
+
     def test_get_artist_artwork_url_in_detail_response(self, client, artist_page):
         """Test that artwork_url is included in artist detail response (issue #2110)"""
         artist_page.artwork_url = "https://example.com/artist.jpg"
@@ -343,6 +357,7 @@ class TestGetArtistById:
             "year": 2024,
             "track_count": 0,
             "total_duration": 0.0,
+            "artwork_url": None,
         }]
 
     def test_get_artist_album_uses_model_aggregate_values(self, client):
