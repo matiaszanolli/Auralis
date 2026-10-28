@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION, __db_schema_version__
@@ -103,7 +103,7 @@ def test_upsert_promotes_an_old_version_row(repo):
     repo.add(1, dict(_DIMENSIONS))
     with repo._session_scope() as session:
         from auralis.library.models import TrackFingerprint
-        row = session.query(TrackFingerprint).filter_by(track_id=1).one()
+        row = session.scalars(select(TrackFingerprint).filter_by(track_id=1)).one()
         row.fingerprint_version = FINGERPRINT_ALGORITHM_VERSION - 1
         session.commit()
 

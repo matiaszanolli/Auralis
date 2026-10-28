@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 try:
-    from sqlalchemy import create_engine, func
+    from sqlalchemy import create_engine, func, select
     from sqlalchemy.orm import sessionmaker
 
     from auralis.library.models import Track, TrackFingerprint
@@ -34,8 +34,8 @@ def get_status():
     session = Session()
 
     try:
-        total_tracks = session.query(Track).count()
-        fingerprinted_count = session.query(func.count(TrackFingerprint.id)).scalar() or 0
+        total_tracks = session.scalar(select(func.count()).select_from(Track)) or 0
+        fingerprinted_count = session.scalar(select(func.count(TrackFingerprint.id))) or 0
         pending_count = total_tracks - fingerprinted_count
         progress_percent = int((fingerprinted_count / max(1, total_tracks)) * 100)
 
