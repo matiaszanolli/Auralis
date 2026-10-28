@@ -1159,3 +1159,47 @@ class TestSystemIntegration:
         with client.websocket_connect("/ws") as websocket:
             websocket.send_text(json.dumps({"type": "ping"}))
             _recv_until_type(websocket, "pong")
+
+
+class TestWebSocketPingHasItsOwnBudget:
+    """#5079: ping is exempt from the main rate limit (#4786) yet costs a pong reply per frame, so
+    it had no limit at all. It now has its own budget; over it, pings are dropped silently."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_limiters(self):
+        import routers.system as system_module
+
+        def _clear():
+            for limiter in (system_module._rate_limiter, system_module._ping_limiter):
+                limiter.message_log.clear()
+                limiter.ip_message_log.clear()
+
+        _clear()
+        yield
+        _clear()
+
+    def test_a_ping_flood_is_answered_only_up_to_the_budget(self, client):
+        from config.limits import WS_MAX_PINGS_PER_SECOND
+
+        flood = WS_MAX_PINGS_PER_SECOND * 4
+        with client.websocket_connect("/ws") as websocket:
+            for _ in range(flood):
+                websocket.send_text(json.dumps({"type": "ping"}))
+            # A sentinel the main limiter allows, to know when the replies have drained.
+            websocket.send_text(json.dumps({"type": "stop"}))
+
+            pongs = 0
+            for _ in range(flood * 3):
+                try:
+                    data = json.loads(websocket.receive_text())
+                except Exception:
+                    break
+                if data.get("type") == "pong":
+                    pongs += 1
+                if pongs >= flood:
+                    break
+                # the stop produces no reply; a short idle drain is enough once pongs stop coming
+                if pongs >= WS_MAX_PINGS_PER_SECOND and data.get("type") != "pong":
+                    break
+
+        assert 1 <= pongs <= WS_MAX_PINGS_PER_SECOND + 1, pongs

@@ -12,7 +12,7 @@ from typing import Any
 from collections.abc import Callable
 
 from config.globals import WebSocketOriginRejected
-from config.limits import WS_MAX_MESSAGES_PER_SECOND
+from config.limits import WS_MAX_MESSAGES_PER_SECOND, WS_MAX_PINGS_PER_SECOND
 from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_gates import stream_chunk_cancel_events, stream_flow_events, stream_pause_events
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
@@ -40,14 +40,14 @@ logger = logging.getLogger(__name__)
 # Global rate limiter for all WebSocket connections (fixes #2156)
 _rate_limiter = WebSocketRateLimiter(max_messages_per_second=WS_MAX_MESSAGES_PER_SECOND)
 
-# Protocol-critical control frames, exempt from rate limiting (#4786). They
-# are small, fixed-size, and a dropped one has an outsized effect: a
-# rate-limited pong never reaches heartbeat.mark_pong(), so the connection
-# gets force-closed by the next heartbeat tick as if it had gone stale.
-# buffer_full/buffer_ready are exempt (#5863): they are the flow-control
-# pair that gates audio delivery itself — a dropped resume signal parks
-# the stream (the client sends them at most a few times per track).
-_RATE_LIMIT_EXEMPT_TYPES = frozenset({"ping", "pong", "heartbeat", "buffer_full", "buffer_ready"})
+# Protocol-critical control frames, exempt from rate limiting. A rate-limited pong never reaches
+# heartbeat.mark_pong() and the connection is closed as stale (#4786); buffer_full/buffer_ready gate
+# audio delivery itself, so a dropped resume signal parks the stream (#5863).
+_RATE_LIMIT_EXEMPT_TYPES = frozenset({"pong", "heartbeat", "buffer_full", "buffer_ready"})
+
+# `ping` costs a pong send per frame, so it has its own budget (the keepalive must still be answered
+# when a burst exhausted the main one, #4786); over it a ping is dropped silently (#5079).
+_ping_limiter = WebSocketRateLimiter(max_messages_per_second=WS_MAX_PINGS_PER_SECOND)
 
 
 # ============================================================================
@@ -115,24 +115,22 @@ async def websocket_endpoint(
             if raw_data is None:
                 continue
 
-            # Security: Validate message size and structure (fixes #2156).
-            # Parsed BEFORE rate-limiting (#4786) so the type is known:
-            # ping/pong/heartbeat are protocol-critical and exempt from
-            # the rate limit below. Rate-limiting on the raw text used to
-            # run first and applied uniformly to every message type,
-            # including replies to the server's own heartbeat ping — a
-            # burst of unrelated messages (e.g. buffer_full/buffer_ready
-            # during a seek-bar drag) could silently drop the client's
-            # pong, and since heartbeat.mark_pong() then never ran, the
-            # next heartbeat tick force-closed the connection as if it
-            # had gone stale.
+            # Security: Validate message size and structure (fixes #2156). Parsed BEFORE
+            # rate-limiting so the type is known (#4786): rate-limiting the raw text applied to
+            # every type, including replies to the server's own heartbeat ping, so a burst of
+            # unrelated messages (buffer_full/buffer_ready during a seek-bar drag) could drop the
+            # client's pong, so the next heartbeat tick closed the connection as stale.
             message, error = await validate_and_parse_message(raw_data, websocket, may_reply=_may_reply)
             if error or not message:
                 continue
 
+            if message.get("type") == "ping" and not _ping_limiter.check_rate_limit(websocket)[0]:
+                logger.debug(f"Dropping ping over budget from WebSocket {_ws_id(websocket)}")
+                continue
+
             # Security: Check rate limit (fixes #2156), except for
-            # protocol-critical control frames (#4786).
-            if message.get("type") not in _RATE_LIMIT_EXEMPT_TYPES:
+            # protocol-critical control frames (#4786) and ping (own budget above).
+            if message.get("type") not in _RATE_LIMIT_EXEMPT_TYPES and message.get("type") != "ping":
                 allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
                 if not allowed:
                     logger.warning(f"Rate limit exceeded for WebSocket {_ws_id(websocket)}: {error_msg}")
@@ -183,6 +181,7 @@ async def websocket_endpoint(
     except Exception as e:
         logger.error(f"Unexpected WebSocket error: {e}", exc_info=True)
     finally:
+        _ping_limiter.cleanup(websocket)
         if state is not None and heartbeat_task is not None:
             await ws_connection.teardown_connection(
                 websocket, heartbeat_task, state, deps.manager, _rate_limiter,

@@ -250,6 +250,8 @@ WS_MAX_MESSAGE_SIZE: int = 64 * 1024
 # rejecting (#3811 also maintains a per-client-IP fallback bucket so closing
 # and reopening the connection can't reset this budget).
 WS_MAX_MESSAGES_PER_SECOND: int = 10
+# Pings get their own budget: each costs a pong reply (#5079). Far above any keepalive cadence.
+WS_MAX_PINGS_PER_SECOND: int = 5
 WS_MESSAGE_WINDOW_SECONDS: float = 1.0
 
 # Server heartbeat (websocket/websocket_protocol.HeartbeatManager): a ping every
