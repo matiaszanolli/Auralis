@@ -204,6 +204,13 @@ class TestHandleQueryError:
         assert exc_info.value.status_code == 403
         assert "/" not in exc_info.value.detail
 
+    def test_an_integer_too_large_for_sqlite_is_a_404_without_a_traceback(self, caplog):
+        """#6162: an id such as 10**30 raises OverflowError in the SQLite binding."""
+        with caplog.at_level("WARNING"), pytest.raises(HTTPException) as exc_info:
+            handle_query_error("get track", OverflowError("Python int too large to convert to SQLite INTEGER"))
+        assert exc_info.value.status_code == 404
+        assert not [r for r in caplog.records if r.exc_info]
+
     def test_other_os_errors_stay_500(self):
         with pytest.raises(HTTPException) as exc_info:
             handle_query_error("get artwork", OSError(5, "Input/output error"))

@@ -118,7 +118,7 @@ def handle_query_error(operation: str, error: Exception) -> NoReturn:
 
     Maps transient SQLite/SQLAlchemy errors to HTTP 503 (retryable), a vanished or
     unreadable file to 404 / 403 (#5081), and reserves HTTP 500 for truly
-    unexpected failures (#3222).
+    unexpected failures (#3222). An integer too large for SQLite is a 404 (#6162).
 
     Args:
         operation: Description of the operation that failed (e.g., "get tracks")
@@ -134,6 +134,12 @@ def handle_query_error(operation: str, error: Exception) -> NoReturn:
         except Exception as e:
             raise handle_query_error("get tracks", e)
     """
+    # An id too large for SQLite's INTEGER cannot name a row: not found, and not
+    # worth an ERROR traceback per request (#6162).
+    if isinstance(error, OverflowError):
+        logger.warning(f"Out-of-range integer during {operation}: {error}")
+        raise NotFoundError("Resource")
+
     logger.error(f"Query error during {operation}: {error}", exc_info=True)
 
     # Transient SQLite errors → 503 so clients know to retry

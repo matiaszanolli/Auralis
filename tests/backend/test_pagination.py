@@ -155,7 +155,7 @@ class TestLimitOffsetQueryFactories:
         offset_p = self._param_schema(app, "/probe", "offset")
         assert limit_p["schema"] == {"default": 50, "minimum": 1, "maximum": 200, "type": "integer", "title": "Limit"}
         assert offset_p["schema"]["default"] == 0 and offset_p["schema"]["minimum"] == 0
-        assert "maximum" not in offset_p["schema"] or offset_p["schema"].get("maximum") is None
+        assert offset_p["schema"]["maximum"] == 2**63 - 1  # SQLite's INTEGER limit (#6162)
         assert "description" not in limit_p and "description" not in offset_p
 
     def test_factory_description_passthrough(self):

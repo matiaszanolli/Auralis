@@ -32,11 +32,15 @@ from pydantic import Field
 #: every id at once) while still refusing a pathological payload outright.
 MAX_TRACK_ID_LIST = 50_000
 
+#: Largest integer SQLite can bind. A bigger Python int makes the binding raise
+#: OverflowError, which would surface as a 500 with a logged traceback (#6162).
+MAX_SQLITE_INT = 2**63 - 1
+
 #: A track's database id. 1-based, so 0 and negatives are contract violations.
-TrackId = Annotated[int, Field(ge=1)]
+TrackId = Annotated[int, Field(ge=1, le=MAX_SQLITE_INT)]
 
 #: A zero-based position within the queue or a playlist.
-QueueIndex = Annotated[int, Field(ge=0)]
+QueueIndex = Annotated[int, Field(ge=0, le=MAX_SQLITE_INT)]
 
 #: A list of track ids, bounded per element and in length.
 TrackIdList = Annotated[list[TrackId], Field(max_length=MAX_TRACK_ID_LIST)]

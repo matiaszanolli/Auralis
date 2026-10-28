@@ -11,6 +11,7 @@ reducing boilerplate and ensuring consistency.
 from typing import Annotated, Any, Literal
 
 from fastapi import Query
+from schemas.request_bounds import MAX_SQLITE_INT
 
 
 def compute_has_more(offset: int, item_count: int, total: int) -> bool:
@@ -62,6 +63,7 @@ class PaginationParams:
     MIN_LIMIT = 1
     DEFAULT_OFFSET = 0
     MIN_OFFSET = 0
+    MAX_OFFSET = MAX_SQLITE_INT  # a larger value cannot be bound by SQLite (#6162)
 
 
 def limit_query(description: str | None = None) -> Any:
@@ -92,9 +94,14 @@ def offset_query(description: str | None = None) -> Any:
         return Query(
             PaginationParams.DEFAULT_OFFSET,
             ge=PaginationParams.MIN_OFFSET,
+            le=PaginationParams.MAX_OFFSET,
             description=description,
         )
-    return Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET)
+    return Query(
+        PaginationParams.DEFAULT_OFFSET,
+        ge=PaginationParams.MIN_OFFSET,
+        le=PaginationParams.MAX_OFFSET,
+    )
 
 
 # The ``order`` Query parameter of the album/artist/track lists (#5868).
