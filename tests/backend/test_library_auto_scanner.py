@@ -277,6 +277,45 @@ class TestRunCyclePolling:
         scanner._do_scan.assert_not_awaited()
         scanner._interruptible_sleep.assert_awaited_once_with(60)
 
+    @pytest.mark.asyncio
+    async def test_trigger_during_scan_survives_into_the_sleep(self):
+        """#5881: a reload_config() that lands while _do_scan runs (folder
+        added mid-scan) must make the following sleep return at once instead
+        of being cleared by it and waiting out the full interval."""
+        settings = _make_settings(auto_scan=True, scan_folders=["/music"], scan_interval=3600)
+        scanner, *_ = _make_scanner(settings)
+
+        async def _scan_then_reload(_folders: list[str]) -> None:
+            await scanner.reload_config()
+
+        scanner._do_scan = _scan_then_reload  # type: ignore[method-assign]
+
+        await asyncio.wait_for(scanner._run_cycle(), timeout=1.0)
+
+    @pytest.mark.asyncio
+    async def test_trigger_during_settings_read_survives_into_the_sleep(self):
+        """#5881: the clear happens before get_settings, so a trigger raised
+        while settings are being read is not lost either."""
+        scanner, settings_repo, *_ = _make_scanner()
+
+        def _read_then_trigger() -> SimpleNamespace:
+            scanner._trigger_event.set()
+            return _make_settings(auto_scan=False, scan_interval=3600)
+
+        settings_repo.get_settings = MagicMock(side_effect=_read_then_trigger)
+
+        await asyncio.wait_for(scanner._run_cycle(), timeout=1.0)
+
+    @pytest.mark.asyncio
+    async def test_trigger_consumed_before_the_cycle_does_not_skip_the_sleep(self):
+        """A trigger set before the cycle starts is consumed by that cycle, so
+        the sleep still waits (no tight rescan loop)."""
+        scanner, *_ = _make_scanner(_make_settings(auto_scan=False, scan_interval=3600))
+        scanner._trigger_event.set()
+
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(scanner._run_cycle(), timeout=0.2)
+
 
 # ---------------------------------------------------------------------------
 # Watchdog: debounce handler + _sync_watchdog wiring

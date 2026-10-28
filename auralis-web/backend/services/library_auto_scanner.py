@@ -132,6 +132,9 @@ class LibraryAutoScanner(WatchdogMixin):
 
     async def _run_cycle(self) -> None:
         """One complete scan cycle: read settings, scan, cleanup, sleep."""
+        # Consume the wake-up before anything this cycle reads, not in the sleep:
+        # a trigger raised during the settings read or the scan must survive (#5881).
+        self._trigger_event.clear()
         settings = await asyncio.to_thread(self._settings_repo.get_settings)
 
         scan_folders = _parse_scan_folders(settings)
@@ -178,12 +181,9 @@ class LibraryAutoScanner(WatchdogMixin):
         if self._on_scan_complete is not None:
             scanner.set_scan_complete_callback(self._on_scan_complete)
 
-        # #3710: capture the to_thread future so cancellation (lifespan
-        # shutdown) can signal the scanner's should_stop flag. Without
-        # this, cancelling the auto-scanner task during a long scan
-        # leaves the thread running until its next checkpoint and
-        # releases its scan slot early — racing a subsequent manual
-        # scan against the still-active thread.
+        # #3710: keep the to_thread future so a cancellation (lifespan shutdown)
+        # can signal should_stop instead of releasing the scan slot while the
+        # thread is still running and racing a later manual scan.
         scan_future = asyncio.ensure_future(asyncio.to_thread(
             scanner.scan_directories,
             scan_folders,
@@ -254,11 +254,11 @@ class LibraryAutoScanner(WatchdogMixin):
 
     async def _interruptible_sleep(self, seconds: int) -> None:
         """
-        Sleep for `seconds`, but wake up early if:
-        - `_trigger_event` is set (config change or watchdog event)
-        - `_stop_event` is set (shutdown)
+        Sleep for `seconds`, waking early on `_trigger_event` (config change,
+        watchdog event, shutdown). One already set returns at once (#5881).
         """
-        self._trigger_event.clear()
+        if self._stop_event.is_set():
+            return
         try:
             await asyncio.wait_for(self._trigger_event.wait(), timeout=float(seconds))
         except TimeoutError:
