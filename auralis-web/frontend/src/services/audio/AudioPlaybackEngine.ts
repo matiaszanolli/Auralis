@@ -18,33 +18,11 @@
  */
 
 import PCMStreamBuffer from './PCMStreamBuffer';
-import { PLAYBACK_ENGINE_CONFIG } from './audioConstants';
+import { createGlobalAnalyser } from './globalAnalyser';
 import { BufferScheduler } from './BufferScheduler';
 import { PlaybackPositionTracker, type PlaybackState } from './PlaybackPositionTracker';
 
 export type { PlaybackState } from './PlaybackPositionTracker';
-
-/**
- * Create or get a shared AnalyserNode for visualization
- * Stores in global for useAudioVisualization hook to access
- */
-function createGlobalAnalyser(audioContext: AudioContext): AnalyserNode {
-  const existing = window.__auralisAnalyser;
-  // Reuse only when the cached node belongs to the same, non-closed context.
-  // When usePlayEnhanced replaces an AudioContext (e.g. sample-rate change), the
-  // stale analyser belongs to the closed old context; connecting a gainNode from
-  // the new context to it throws DOMException: InvalidStateError (fixes #2488).
-  if (existing && existing.context === audioContext && audioContext.state !== 'closed') {
-    return existing;
-  }
-
-  const analyser = audioContext.createAnalyser();
-  analyser.fftSize = PLAYBACK_ENGINE_CONFIG.fftSize;
-  analyser.smoothingTimeConstant = PLAYBACK_ENGINE_CONFIG.smoothingTimeConstant;
-  window.__auralisAnalyser = analyser;
-
-  return analyser;
-}
 
 export interface PlaybackStats {
   isPlaying: boolean;
@@ -215,9 +193,7 @@ export class AudioPlaybackEngine {
     this.bufferScheduler.resetStreamEnded();
   }
 
-  /**
-   * Stop playback completely
-   */
+  /** Stop playback completely */
   stopPlayback(): void {
     this.bufferScheduler.disconnectProcessor();
     this.bufferScheduler.resetStreamEnded();
@@ -231,15 +207,10 @@ export class AudioPlaybackEngine {
   }
 
   /**
-   * Fully tear down this engine's Web Audio graph.
-   *
-   * disconnectProcessor()/stopPlayback() only tear down the worklet/script
-   * nodes; the gainNode is wired permanently in the constructor
-   * (gainNode → analyser → destination) and is never otherwise disconnected.
-   * In enhanced mode the AudioContext stays open across track switches
-   * (closeContextOnCleanup: false), so without this each new engine strands the
-   * previous engine's gainNode — connected to the analyser for the life of the
-   * context (#4445). Idempotent; safe to call after the context has closed.
+   * Fully tear down this engine's Web Audio graph. stopPlayback() only drops the worklet/script
+   * nodes; the gainNode is wired permanently (gainNode → analyser → destination), and the context
+   * stays open across track switches, so without this each engine strands its gainNode (#4445).
+   * Idempotent; safe after the context has closed.
    */
   dispose(): void {
     this.bufferScheduler.disconnectProcessor();
