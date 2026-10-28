@@ -34,10 +34,9 @@ from .ffmpeg_process import (
 # mitigation until (or instead of) bundling.
 MINIMUM_FFMPEG_VERSION = (4, 0, 0)
 
-# Pinned on every ffmpeg/ffprobe input so the only protocol FFmpeg may open is
-# a plain file (#5326). Without it, whether a content-sniffed HLS/concat
-# playlist can reach http:// or other local files rests on FFmpeg's own
-# default whitelist and extension checks, which vary by build and version.
+# Pinned on every ffmpeg/ffprobe input so the only protocol FFmpeg may open is a
+# plain file (#5326); otherwise whether a content-sniffed HLS/concat playlist can
+# reach http:// or other local files rests on build-dependent defaults.
 # The option dates from FFmpeg 3.0, so MINIMUM_FFMPEG_VERSION supports it.
 _PROTOCOL_WHITELIST_ARGS = ['-protocol_whitelist', 'file']
 
@@ -162,6 +161,7 @@ def _probe_audio(file_path: Path) -> dict[str, Any]:
             ffprobe_cmd,
             capture_output=True,
             timeout=FFPROBE_TIMEOUT_S,
+            stdin=subprocess.DEVNULL,
             **SUBPROCESS_TEXT_KWARGS,
         )
 

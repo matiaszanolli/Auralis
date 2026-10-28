@@ -130,6 +130,7 @@ def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
             ffprobe_cmd,
             capture_output=True,
             timeout=FFPROBE_TIMEOUT_S,
+            stdin=subprocess.DEVNULL,
             **SUBPROCESS_TEXT_KWARGS,
         )
 

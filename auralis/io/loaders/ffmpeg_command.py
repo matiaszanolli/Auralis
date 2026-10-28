@@ -24,19 +24,18 @@ def build_ffmpeg_cmd(
     duration: float | None,
 ) -> list[str]:
     """The ffmpeg argv converting the input to a float32 temp WAV."""
-    # #3672: `-ac 2` lets FFmpeg apply its proper surround downmix matrix
-    # (center → L+R at -3 dB, surround channels distributed). Previously
-    # we passed `-ac {source_channels}` and then `soundfile_loader`
-    # truncated to `[:, :2]` — which silently dropped the center channel
-    # (vocals/dialogue) for 5.1/7.1 content.
+    # #3672: `-ac 2` lets FFmpeg apply its proper surround downmix matrix (center
+    # at -3 dB into L+R, surrounds distributed); `-ac {source_channels}` plus a
+    # `[:, :2]` truncation in soundfile_loader silently dropped the center channel.
     #
-    # #4611/#4597: the downmix is gated on decoded_channel_count() (> 2
-    # sources only). Applying it unconditionally also *up*-mixed genuine mono
-    # into fake stereo, so `get_audio_info()` (true ffprobe count) and
-    # `load_audio()` (a 2-D array) disagreed about the same file. Gating here
-    # matches `soundfile_loader`, which downmixes only when `shape[1] > 2`.
+    # #4611/#4597: gated on decoded_channel_count() (> 2 sources only); applying it
+    # to mono *up*-mixed it into fake stereo, so get_audio_info() (true ffprobe
+    # count) and load_audio() (a 2-D array) disagreed. soundfile_loader likewise
+    # downmixes only when `shape[1] > 2`.
     needs_downmix = decoded_channel_count(source_channels) != source_channels
-    ffmpeg_cmd = ['ffmpeg', *_PROTOCOL_WHITELIST_ARGS]
+    # -nostdin: the child must never read the backend's terminal; -hide_banner and
+    # -loglevel error keep stderr to the failure reason (#5731).
+    ffmpeg_cmd = ['ffmpeg', '-nostdin', '-hide_banner', '-loglevel', 'error', *_PROTOCOL_WHITELIST_ARGS]
     # -ss BEFORE -i is input seeking: ffmpeg jumps to the offset instead of
     # decoding and discarding everything ahead of it (#5110).
     if offset is not None and offset > 0:
