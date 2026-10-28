@@ -27,9 +27,9 @@ class WeightedProfilePayload(TypedDict):
 
 
 class AlternativeProfilePayload(TypedDict):
-    profile_id: str
-    profile_name: str
-    confidence_score: float
+    # The keys MasteringRecommendation.to_dict() emits (#5981); no confidence per alternative.
+    id: str
+    name: str
 
 
 class MasteringRecommendationPayload(TypedDict):

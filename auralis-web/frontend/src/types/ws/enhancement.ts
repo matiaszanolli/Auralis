@@ -51,9 +51,8 @@ export interface MasteringRecommendationData {
   /** Alternative profile rankings emitted by adaptive_mastering_engine
    *  but not currently consumed by the frontend (#3550 / BE-NEW-92). */
   alternative_profiles?: Array<{
-    profile_id: string;
-    profile_name: string;
-    confidence_score: number;
+    id: string;
+    name: string;
   }>;
   /** ISO timestamp the recommendation was computed. */
   created?: string;
