@@ -28,7 +28,8 @@ export interface UseLibraryScanReturn {
   scanning: boolean;
   webFolderPath: string;
   setWebFolderPath: (path: string) => void;
-  handleScanFolder: () => Promise<void>;
+  /** With a path (the folder a DropZone click already picked) the picker is skipped. */
+  handleScanFolder: (selectedFolder?: string) => Promise<void>;
   scanAbortRef: React.MutableRefObject<AbortController | null>;
 }
 
@@ -62,10 +63,13 @@ export const useLibraryScan = ({
     };
   }, []);
 
-  const handleScanFolder = useCallback(async () => {
+  const handleScanFolder = useCallback(async (selectedFolder?: string) => {
     let folderPath: string | undefined;
 
-    if (isElectron()) {
+    // Callers also bind this straight to onClick, so only a string is a path.
+    if (typeof selectedFolder === 'string' && selectedFolder.trim()) {
+      folderPath = selectedFolder.trim();
+    } else if (isElectron()) {
       try {
         const result = await getElectronAPI()!.selectFolder();
         if (result && result.length > 0) {

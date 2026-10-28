@@ -79,6 +79,30 @@ describe('useLibraryScan (#4185)', () => {
     expect(result.current.scanning).toBe(false);
   });
 
+  it('scans a folder the caller already picked instead of asking again (#6012)', async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ files_added: 1 }) });
+
+    const { result } = setup();
+    await act(async () => {
+      await result.current.handleScanFolder('/music/picked');
+    });
+
+    const scanCall = mockFetch.mock.calls.find(([url]) => url === '/api/library/scan');
+    expect(scanCall).toBeDefined();
+    expect(JSON.parse(scanCall![1].body)).toEqual({ directories: ['/music/picked'] });
+    expect(mockInfo).not.toHaveBeenCalled(); // no "enter a folder path" prompt
+  });
+
+  it('treats a click event passed as the argument as no folder (#6012)', async () => {
+    const { result } = setup();
+    await act(async () => {
+      await result.current.handleScanFolder({ type: 'click' } as unknown as string);
+    });
+
+    expect(mockInfo).toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('registers the folder in the allowlist before scanning (#5865)', async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ files_added: 3 }) });
 

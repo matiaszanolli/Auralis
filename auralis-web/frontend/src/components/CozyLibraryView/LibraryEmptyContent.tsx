@@ -13,7 +13,8 @@ interface LibraryEmptyContentProps {
   view: string;
   searchQuery: string;
   scanning: boolean;
-  onScanFolder: () => void;
+  /** Called with the picked folder when the DropZone was clicked, with nothing for the button. */
+  onScanFolder: (selectedFolder?: string) => void;
   /** The load error, when the list is empty because the fetch failed. */
   error?: string | null;
   onRetry?: () => void;
@@ -47,7 +48,10 @@ export const LibraryEmptyContent = memo<LibraryEmptyContentProps>(
     if (searchQuery) {
       return <NoSearchResults query={searchQuery} />;
     }
-    return <EmptyLibrary onScanFolder={onScanFolder} onFolderDrop={onScanFolder} scanning={scanning} />;
+    // A drop yields a drop-root-relative path ("/FolderName"), not a usable absolute
+    // one, so it falls back to the picker; a click already picked a real folder and
+    // must not open a second picker (#6012).
+    return <EmptyLibrary onScanFolder={onScanFolder} onFolderDrop={() => onScanFolder()} scanning={scanning} />;
   }
 );
 

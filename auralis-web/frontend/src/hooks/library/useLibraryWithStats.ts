@@ -40,7 +40,7 @@ export interface UseLibraryWithStatsReturn {
   /** In-place refresh of loaded pages — never empties the list (#5626). */
   refreshTracks: () => Promise<void>;
   loadMore: () => Promise<void>;
-  handleScanFolder: () => Promise<void>;
+  handleScanFolder: (selectedFolder?: string) => Promise<void>;
   refetchStats: () => Promise<void>;
   webFolderPath: string;
   setWebFolderPath: (path: string) => void;
