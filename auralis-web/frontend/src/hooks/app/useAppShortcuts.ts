@@ -23,7 +23,9 @@ interface UseAppShortcutsArgs {
   isPlaying: boolean;
   nextTrack: () => void;
   previousTrack: () => void;
-  volume: number;
+  /** Read at keypress time: subscribing to the volume re-rendered the whole shell on every slider
+   *  input event, only to compute a +/-10 step (#6067). */
+  getVolume: () => number;
   setVolume: (newVolume: number) => void;
   /** Toast notifier (the shortcuts announce what they did). */
   info: (message: string) => void;
@@ -46,7 +48,7 @@ export function useAppShortcuts({
   isPlaying,
   nextTrack,
   previousTrack,
-  volume,
+  getVolume,
   setVolume,
   info,
   searchQuery,
@@ -98,7 +100,7 @@ export function useAppShortcuts({
       description: 'Volume up',
       category: 'Playback',
       handler: () => {
-        const newVolume = Math.min(volume + 10, 100);
+        const newVolume = Math.min(getVolume() + 10, 100);
         setVolume(newVolume);
         info(`Volume: ${newVolume}%`);
       }
@@ -108,7 +110,7 @@ export function useAppShortcuts({
       description: 'Volume down',
       category: 'Playback',
       handler: () => {
-        const newVolume = Math.max(volume - 10, 0);
+        const newVolume = Math.max(getVolume() - 10, 0);
         setVolume(newVolume);
         info(`Volume: ${newVolume}%`);
       }
@@ -203,7 +205,7 @@ export function useAppShortcuts({
         setSettingsOpen(true);
       }
     }
-  ], [session, togglePlayPause, isPlaying, nextTrack, previousTrack, volume, setVolume,
+  ], [session, togglePlayPause, isPlaying, nextTrack, previousTrack, getVolume, setVolume,
       searchQuery, setSearchQuery, settingsOpen, setSettingsOpen, setCurrentView, info, openHelpRef]);
 }
 

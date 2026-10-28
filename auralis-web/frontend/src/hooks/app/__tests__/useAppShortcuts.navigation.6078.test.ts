@@ -18,7 +18,7 @@ function setup(overrides: Partial<Parameters<typeof useAppShortcuts>[0]> = {}) {
     isPlaying: false,
     nextTrack: vi.fn(),
     previousTrack: vi.fn(),
-    volume: 50,
+    getVolume: () => 50,
     setVolume: vi.fn(),
     info: vi.fn(),
     searchQuery: '',
@@ -134,5 +134,35 @@ describe('global shortcuts', () => {
     run(',', true);
 
     expect(args.setSettingsOpen).toHaveBeenCalledWith(true);
+  });
+});
+
+describe('volume shortcuts read the volume at keypress time (#6067)', () => {
+  it('ArrowUp/ArrowDown step from the volume now, without the table being rebuilt', () => {
+    let volume = 50;
+    const { args, run } = setup({ getVolume: () => volume });
+
+    run('ArrowUp');
+    expect(args.setVolume).toHaveBeenLastCalledWith(60);
+
+    volume = 95; // changed by the slider; no re-render of the shell happened
+    run('ArrowUp');
+    expect(args.setVolume).toHaveBeenLastCalledWith(100);
+
+    volume = 5;
+    run('ArrowDown');
+    expect(args.setVolume).toHaveBeenLastCalledWith(0);
+  });
+
+  it('does not rebuild the shortcut table when the volume changes', () => {
+    let volume = 50;
+    const args = setup({ getVolume: () => volume }).args;
+    const { result, rerender } = renderHook(() => useAppShortcuts(args));
+    const before = result.current;
+
+    volume = 80;
+    rerender();
+
+    expect(result.current).toBe(before);
   });
 });

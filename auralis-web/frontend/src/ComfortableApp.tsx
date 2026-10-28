@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { Box } from '@mui/material';
-import { useSelector } from 'react-redux';
+import { useSelector, useStore } from 'react-redux';
 import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
@@ -33,6 +33,7 @@ import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts } from '@/hooks/app/useKeyboardShortcuts';
 import { selectVolume } from './store/slices/playerSlice';
+import type { RootState } from './store';
 import { playerSelectors } from './store/selectors';
 import type { ViewMode } from '@/components/navigation/ViewToggle';
 
@@ -61,8 +62,10 @@ function ComfortableApp() {
   // Toast notifications
   const { success, info } = useToast();
 
-  // Redux selector for the volume shortcuts' +/-10 stepping (read-only).
-  const volume = useSelector(selectVolume);
+  // The volume shortcuts' +/-10 step reads the store at keypress time instead of subscribing:
+  // a subscription re-rendered this whole shell on every slider input event (#6067).
+  const store = useStore<RootState>();
+  const getVolume = useCallback(() => selectVolume(store.getState()), [store]);
   // The Player boundary recovers when the track changes: the same bad track would crash every
   // "Try again", the next one need not (#6035).
   const currentTrackId = useSelector(playerSelectors.selectCurrentTrack)?.id;
@@ -98,7 +101,7 @@ function ComfortableApp() {
     isPlaying,
     nextTrack,
     previousTrack,
-    volume,
+    getVolume,
     setVolume,
     info,
     searchQuery,
