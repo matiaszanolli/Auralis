@@ -9,16 +9,14 @@ import { ReactNode, createElement } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
 import { usePlaybackQueue, usePlaybackQueueView } from '../usePlaybackQueue';
-import queueReducer from '@/store/slices/queueSlice';
+import { createTestStore } from '@/test/test-utils';
 import * as useRestAPIModule from '@/hooks/api/useRestAPI';
 import * as useWebSocketModule from '@/hooks/websocket/useWebSocketMessages';
 
-// usePlaybackQueue reads/writes queue state via Redux (queueSlice) — every
-// renderHook call needs a real store wrapped in a Provider, or useDispatch/
-// useSelector throw "could not find react-redux context value".
-const createTestStore = () => configureStore({ reducer: { queue: queueReducer } });
+// usePlaybackQueue reads/writes queue state via Redux (queueSlice) and composes
+// useQueueSubscription, which also reads the player slice — so the shared test
+// store (every slice) is needed, not a queue-only one (#6032).
 const createWrapper = () => {
   const store = createTestStore();
   return ({ children }: { children: ReactNode }) =>
@@ -53,15 +51,19 @@ const mockTracks = [
   },
 ];
 
+// What the queue state holds for those tracks: the queue strips `filepath`, which
+// is never sent to clients (#3205), so compare against that shape.
+const storedTracks = mockTracks.map(({ filepath: _filepath, ...track }) => track);
+
 describe('usePlaybackQueue', () => {
   beforeEach(() => {
     // Mock useRestAPI
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: [],
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: vi.fn().mockResolvedValue({}),
@@ -100,9 +102,9 @@ describe('usePlaybackQueue', () => {
   it('should fetch initial queue on mount', async () => {
     const mockGet = vi.fn().mockResolvedValue({
       tracks: mockTracks,
-      currentIndex: 1,
+      current_index: 1,
       shuffle_enabled: false,
-      repeatMode: 'all',
+      repeat_mode: 'all',
       lastUpdated: Date.now(),
     });
 
@@ -120,7 +122,7 @@ describe('usePlaybackQueue', () => {
     const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(result.current.queue).toEqual(mockTracks);
+      expect(result.current.queue).toEqual(storedTracks);
       expect(result.current.currentIndex).toBe(1);
       expect(result.current.repeatMode).toBe('all');
     });
@@ -165,9 +167,9 @@ describe('usePlaybackQueue', () => {
     await act(async () => {
       resolveGet({
         tracks: mockTracks,
-        currentIndex: 1,
+        current_index: 1,
         shuffle_enabled: true,
-        repeatMode: 'all',
+        repeat_mode: 'all',
         lastUpdated: Date.now(),
       });
       await pending;
@@ -182,9 +184,9 @@ describe('usePlaybackQueue', () => {
   it('should get current track from queue', async () => {
     const mockGet = vi.fn().mockResolvedValue({
       tracks: mockTracks,
-      currentIndex: 1,
+      current_index: 1,
       shuffle_enabled: false,
-      repeatMode: 'off',
+      repeat_mode: 'off',
       lastUpdated: Date.now(),
     });
 
@@ -202,7 +204,7 @@ describe('usePlaybackQueue', () => {
     const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(result.current.currentTrack).toEqual(mockTracks[1]);
+      expect(result.current.currentTrack).toEqual(storedTracks[1]);
     });
   });
 
@@ -216,9 +218,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: [],
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -248,9 +250,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: [],
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -281,9 +283,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: [],
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -319,9 +321,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks.slice(0, 2),
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -355,9 +357,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -404,9 +406,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: vi.fn().mockResolvedValue({}),
@@ -441,9 +443,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: vi.fn().mockResolvedValue({}),
@@ -480,9 +482,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: vi.fn().mockResolvedValue({}),
@@ -519,9 +521,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -559,9 +561,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: true,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -603,9 +605,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -640,9 +642,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -694,9 +696,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -733,9 +735,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: [],
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       }),
       post: mockPost,
@@ -774,9 +776,9 @@ describe('usePlaybackQueue', () => {
     vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
       get: vi.fn().mockResolvedValue({
         tracks: mockTracks,
-        currentIndex: 1,
+        current_index: 1,
         shuffle_enabled: true,
-        repeatMode: 'all',
+        repeat_mode: 'all',
         lastUpdated: Date.now(),
       }),
       post: vi.fn().mockResolvedValue({}),
@@ -791,9 +793,9 @@ describe('usePlaybackQueue', () => {
     const { result } = renderHook(() => usePlaybackQueueView(), { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(result.current.queue).toEqual(mockTracks);
+      expect(result.current.queue).toEqual(storedTracks);
       expect(result.current.currentIndex).toBe(1);
-      expect(result.current.currentTrack).toEqual(mockTracks[1]);
+      expect(result.current.currentTrack).toEqual(storedTracks[1]);
       expect(result.current.isShuffled).toBe(true);
       expect(result.current.repeatMode).toBe('all');
     });
@@ -808,9 +810,9 @@ describe('usePlaybackQueue', () => {
       const mockPost = vi.fn().mockResolvedValue({});
       const mockGet = vi.fn().mockResolvedValue({
         tracks: [],
-        currentIndex: 0,
+        current_index: 0,
         shuffle_enabled: false,
-        repeatMode: 'off',
+        repeat_mode: 'off',
         lastUpdated: Date.now(),
       });
 
@@ -859,9 +861,9 @@ describe('usePlaybackQueue', () => {
       vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
-          currentIndex: 0,
+          current_index: 0,
           shuffle_enabled: false,
-          repeatMode: 'off',
+          repeat_mode: 'off',
           lastUpdated: Date.now(),
         }),
         post: mockPost,
@@ -904,9 +906,9 @@ describe('usePlaybackQueue', () => {
       vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
-          currentIndex: 0,
+          current_index: 0,
           shuffle_enabled: false,
-          repeatMode: 'off',
+          repeat_mode: 'off',
           lastUpdated: Date.now(),
         }),
         post: mockPost,
@@ -949,9 +951,9 @@ describe('usePlaybackQueue', () => {
       vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
-          currentIndex: 0,
+          current_index: 0,
           shuffle_enabled: false,
-          repeatMode: 'off',
+          repeat_mode: 'off',
           lastUpdated: Date.now(),
         }),
         post: mockPost,
@@ -1000,9 +1002,9 @@ describe('usePlaybackQueue', () => {
       vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
-          currentIndex: 1,
+          current_index: 1,
           shuffle_enabled: true,
-          repeatMode: 'all',
+          repeat_mode: 'all',
           lastUpdated: Date.now(),
         }),
         post: mockPost,
@@ -1017,7 +1019,7 @@ describe('usePlaybackQueue', () => {
       const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(result.current.queue).toEqual(mockTracks);
+        expect(result.current.queue).toEqual(storedTracks);
       });
 
       const originalQueue = result.current.queue;
@@ -1048,9 +1050,9 @@ describe('usePlaybackQueue', () => {
       vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
-          currentIndex: 0,
+          current_index: 0,
           shuffle_enabled: false,
-          repeatMode: 'off',
+          repeat_mode: 'off',
           lastUpdated: Date.now(),
         }),
         post: mockPost,
@@ -1065,7 +1067,7 @@ describe('usePlaybackQueue', () => {
       const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(result.current.queue).toEqual(mockTracks);
+        expect(result.current.queue).toEqual(storedTracks);
       });
 
       const originalShuffle = result.current.isShuffled;
@@ -1090,9 +1092,9 @@ describe('usePlaybackQueue', () => {
       vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
-          currentIndex: 0,
+          current_index: 0,
           shuffle_enabled: false,
-          repeatMode: 'off',
+          repeat_mode: 'off',
           lastUpdated: Date.now(),
         }),
         post: mockPost,
@@ -1107,7 +1109,7 @@ describe('usePlaybackQueue', () => {
       const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(result.current.queue).toEqual(mockTracks);
+        expect(result.current.queue).toEqual(storedTracks);
       });
 
       const originalRepeatMode = result.current.repeatMode;
@@ -1132,9 +1134,9 @@ describe('usePlaybackQueue', () => {
       vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
         get: vi.fn().mockResolvedValue({
           tracks: mockTracks,
-          currentIndex: 1,
+          current_index: 1,
           shuffle_enabled: true,
-          repeatMode: 'all',
+          repeat_mode: 'all',
           lastUpdated: Date.now(),
         }),
         post: mockPost,
@@ -1149,7 +1151,7 @@ describe('usePlaybackQueue', () => {
       const { result } = renderHook(() => usePlaybackQueue(), { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(result.current.queue).toEqual(mockTracks);
+        expect(result.current.queue).toEqual(storedTracks);
       });
 
       const originalQueue = result.current.queue;
