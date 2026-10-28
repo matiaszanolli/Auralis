@@ -56,6 +56,7 @@ def build_ffmpeg_cmd(
     if needs_downmix:
         ffmpeg_cmd += ['-ac', '2']         # Surround → stereo (#3672)
     ffmpeg_cmd += [
+        '-rf64', 'auto',                   # RF64 past 4 GiB, not a wrapped RIFF size (#5566)
         '-y',                              # Overwrite output
         str(temp_wav)
     ]
