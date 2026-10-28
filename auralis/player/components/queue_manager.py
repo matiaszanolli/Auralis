@@ -12,10 +12,11 @@ import threading
 from typing import Any
 
 from .queue_navigation import QueueNavigationMixin
+from .queue_selection import QueueSelectionMixin
 from .queue_shuffle import ShuffleMixin
 
 
-class QueueManager(QueueNavigationMixin, ShuffleMixin):
+class QueueManager(QueueNavigationMixin, QueueSelectionMixin, ShuffleMixin):
     """Simple queue management for track playback"""
 
     def __init__(self) -> None:

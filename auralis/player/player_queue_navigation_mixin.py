@@ -236,10 +236,14 @@ class PlayerQueueNavigationMixin:
             file_path = entry_path(track_info)
             track_id = track_info.get('id')
 
+            loaded = False
             if track_id:
-                self.load_track_from_library(track_id)
+                loaded = bool(self.load_track_from_library(track_id))
             elif file_path:
-                self.load_file(file_path)
+                loaded = bool(self.load_file(file_path))
+            if loaded:
+                # The loaded track is the queue's current one (#5727).
+                self.queue.queue.select_if_unselected(track_info)
 
     def add_track_to_queue(self, track_id: int) -> bool:
         """Add a track from the library to the queue"""
