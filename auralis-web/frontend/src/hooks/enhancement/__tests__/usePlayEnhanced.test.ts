@@ -348,6 +348,21 @@ describe('usePlayEnhanced – subscription lifecycle', () => {
     expect(result.current.isSeeking).toBe(false);
     expect(result.current.fingerprintStatus).toBe('idle');
   });
+
+  it('keeps stopPlayback stable across re-renders (#6018)', () => {
+    // The inline onCleanupExtra/onDisconnectExtra options gave cleanupStreaming a
+    // new identity each render, which rebuilt stopPlayback, handleNext/Previous
+    // and the whole playback-controls context value with it.
+    const { result, rerender } = renderHook(() => usePlayEnhanced(), {
+      wrapper: makeWrapper(store),
+    });
+    const first = result.current;
+
+    rerender();
+    rerender();
+
+    expect(result.current.stopPlayback).toBe(first.stopPlayback);
+  });
 });
 
 // ============================================================================

@@ -135,6 +135,17 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   // disconnect (#2536).
   const fingerprint = useFingerprintStatus(wsContext);
 
+  // Stable identities: these are in cleanupStreaming's dependency list, and an
+  // inline arrow made it (and stopPlayback, handleNext, handlePrevious and the
+  // playback controls value) change on every render (#6018).
+  // Ensure isSeeking doesn't stick if cleanup runs mid-seek (#2873)
+  const onCleanupExtra = useCallback(() => setIsSeeking(false), []);
+  // Cancel orphaned fingerprint timeout so a stale callback cannot fire against
+  // the next stream context after disconnect (fixes #2536).
+  const cancelFingerprintTimeoutRef = useRef(fingerprint.cancelFingerprintTimeout);
+  cancelFingerprintTimeoutRef.current = fingerprint.cancelFingerprintTimeout;
+  const onDisconnectExtra = useCallback(() => cancelFingerprintTimeoutRef.current(), []);
+
   const core = useAudioStreamingCore(wsContext, {
     streamType: 'enhanced',
     acceptNormalStream: true,
@@ -146,15 +157,8 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     throttleProgress: true,
     detectOutOfSequence: true,
     closeContextOnCleanup: false,
-    onCleanupExtra: () => {
-      // Ensure isSeeking doesn't stick if cleanup runs mid-seek (#2873)
-      setIsSeeking(false);
-    },
-    onDisconnectExtra: () => {
-      // Cancel orphaned fingerprint timeout so a stale callback cannot fire
-      // against the next stream context after disconnect (fixes #2536).
-      fingerprint.cancelFingerprintTimeout();
-    },
+    onCleanupExtra,
+    onDisconnectExtra,
   });
 
   // Register the enhanced audio_stream_start handler on the core.
