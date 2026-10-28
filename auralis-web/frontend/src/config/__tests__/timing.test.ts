@@ -38,4 +38,13 @@ describe('shared timing constants', () => {
 
     expect(offenders.map((f) => relative(SRC, f))).toEqual([]);
   });
+
+  it('keep gcTime and the similarity cache TTL out of shipped code as literals (#6064)', () => {
+    const offenders = sources(SRC).filter((file) => {
+      const text = readFileSync(file, 'utf8');
+      return /gcTime:\s*[\d(]/.test(text) || /CACHE_TTL_MS\s*=\s*[\d(]/.test(text);
+    });
+
+    expect(offenders.map((f) => relative(SRC, f))).toEqual([]);
+  });
 });

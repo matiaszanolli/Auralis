@@ -14,8 +14,16 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
-import { getOrNullOn404 } from '@/utils/apiRequest';
+import { APIRequestError, getOrNullOn404 } from '@/utils/apiRequest';
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from '@/config/timing';
+
+/**
+ * Failures that say "the backend is briefly unavailable", not "this request is
+ * wrong": transport failure/timeout (0), 408, 429 and 502-504. A track that is
+ * still queued for its fingerprint keeps being polled through these (#6064). A
+ * plain 500 or any other 4xx stops polling and surfaces the error once (#4847).
+ */
+const TRANSIENT_OUTAGE_STATUSES: ReadonlySet<number> = new Set([0, 408, 429, 502, 503, 504]);
 
 interface TrackFingerprintResponse {
   track_id: number;
@@ -81,16 +89,21 @@ export function useTrackFingerprint(
     staleTime: QUERY_STALE_TIME_MS, // fingerprints don't change
     gcTime: QUERY_GC_TIME_MS,   // 30 minutes cache retention
     enabled,
-    retry: false, // Don't retry on 404
+    // No retry override: the app-wide shouldRetryQuery decides. A 404 is not an
+    // error here (getOrNullOn404 resolves null), so `retry: false` protected
+    // nothing and only denied the retry a transient failure deserves (#6064).
     // Re-fetch periodically if fingerprint not ready (queued for generation)
     refetchInterval: (query) => {
-      // #4847: a failed fetch (5xx, network error) leaves `data` at its
-      // last value — which is `null` for a track that was still queued
-      // when it started failing — so the error check must come first, or
-      // polling never stops and the error is silently masked as "pending"
-      // forever.
+      // #4847: a failed fetch leaves `data` at its last value — `null` for a
+      // track that was still queued — so the error check must come first, or
+      // polling never stops and the error is masked as "pending" forever.
+      // Only a transient outage on a still-pending track keeps polling (#6064):
+      // one dropped request used to end the polling for the whole session.
       if (query.state.status === 'error') {
-        return false;
+        const error = query.state.error;
+        const transient = error instanceof APIRequestError && TRANSIENT_OUTAGE_STATUSES.has(error.statusCode);
+        // `data` is undefined (never fetched) or null (queued): both are still pending.
+        return transient && !query.state.data ? retryInterval : false;
       }
       // If we got null (not ready), poll every 5 seconds
       if (query.state.data === null) {

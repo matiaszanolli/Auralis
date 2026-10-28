@@ -26,6 +26,7 @@
  * tracks are fingerprinted and the stored graph has gone stale.
  */
 
+import { QUERY_STALE_TIME_MS } from '@/config/timing';
 import type { SimilarTrack } from './useSimilarTracks';
 
 /** Maximum entries before the least-recently-used one is evicted. */
@@ -39,7 +40,7 @@ export const CACHE_MAX_ENTRIES = 50;
  * a reload. Only an upper bound on staleness — not a correctness guarantee, see
  * the module docstring.
  */
-export const CACHE_TTL_MS = 5 * 60 * 1000;
+export const CACHE_TTL_MS = QUERY_STALE_TIME_MS; // one shared freshness window (#6064)
 
 interface CacheEntry {
   results: SimilarTrack[];

@@ -169,6 +169,61 @@ describe('useTrackFingerprint', () => {
     );
   });
 
+  it.each([[503, 'a 503'], [502, 'a 502'], [429, 'a 429']])(
+    'keeps polling a still-queued track through %s (transient outage, #6064)',
+    async (status) => {
+      setupFetch({ detail: 'busy' }, status);
+
+      const { result } = renderHook(
+        () => useTrackFingerprint(1, { retryInterval: 10 }),
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(result.current.error).toBeTruthy();
+      });
+      const callsAfterFirstFailure = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      await waitFor(() => {
+        expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(
+          callsAfterFirstFailure
+        );
+      });
+    }
+  );
+
+  it('keeps polling through a transport failure and recovers once the backend answers (#6064)', async () => {
+    global.fetch = vi.fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(mockFingerprintResponse) });
+
+    const { result } = renderHook(
+      () => useTrackFingerprint(1, { retryInterval: 10 }),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => {
+      expect(result.current.fingerprint).toEqual(mockFingerprintResponse.fingerprint);
+    });
+  });
+
+  it('does not poll through a plain 400 either (client error, not an outage)', async () => {
+    setupFetch({ detail: 'bad' }, 400);
+
+    const { result } = renderHook(
+      () => useTrackFingerprint(1, { retryInterval: 10 }),
+      { wrapper: createWrapper() }
+    );
+    await waitFor(() => {
+      expect(result.current.error).toBeTruthy();
+    });
+    const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(calls);
+  });
+
   it('should keep polling on a genuine 404 (queued, not an error)', async () => {
     setupFetch({ detail: 'Not found' }, 404);
 
