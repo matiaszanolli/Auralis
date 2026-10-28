@@ -10,22 +10,28 @@ from schemas import TrackId
 from typing import Any
 
 
+# Text caps follow the scanner's MAX_TAG_TEXT_CHARS for short tags; free-text tags get more room.
+_SHORT_TAG = 1000
+_COMMENT_TAG = 10_000
+_LYRICS_TAG = 100_000
+
+
 class MetadataUpdateRequest(BaseModel):
-    """Request model for metadata updates"""
-    title: str | None = None
-    artist: str | None = None
-    album: str | None = None
-    albumartist: str | None = None
-    year: int | None = None
-    genre: str | None = None
-    track: int | None = None
-    disc: int | None = None
-    comment: str | None = None
-    bpm: int | None = None
-    composer: str | None = None
-    publisher: str | None = None
-    lyrics: str | None = None
-    copyright: str | None = None
+    """Request model for metadata updates; every value is bounded (#5266)."""
+    title: str | None = Field(default=None, max_length=_SHORT_TAG)
+    artist: str | None = Field(default=None, max_length=_SHORT_TAG)
+    album: str | None = Field(default=None, max_length=_SHORT_TAG)
+    albumartist: str | None = Field(default=None, max_length=_SHORT_TAG)
+    year: int | None = Field(default=None, ge=0, le=9999)
+    genre: str | None = Field(default=None, max_length=_SHORT_TAG)
+    track: int | None = Field(default=None, ge=0, le=99_999)
+    disc: int | None = Field(default=None, ge=0, le=99_999)
+    comment: str | None = Field(default=None, max_length=_COMMENT_TAG)
+    bpm: int | None = Field(default=None, ge=0, le=1000)
+    composer: str | None = Field(default=None, max_length=_SHORT_TAG)
+    publisher: str | None = Field(default=None, max_length=_SHORT_TAG)
+    lyrics: str | None = Field(default=None, max_length=_LYRICS_TAG)
+    copyright: str | None = Field(default=None, max_length=_SHORT_TAG)
 
     # One name per field: the app's only payload builder (the metadata editor)
     # sends the mutagen tag names ``track``/``disc``, and the alias spelling

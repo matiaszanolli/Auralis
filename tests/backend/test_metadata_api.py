@@ -516,17 +516,14 @@ class TestMetadataSecurityValidation:
         mock_require_repos.return_value = mock_repos
         mock_repos.tracks.get_by_id.return_value = mock_track
 
-        # Very long title (10KB)
-        long_title = "A" * 10000
+        # A 10KB title is over the tag-length bound (#5266): rejected by validation, before
+        # any file access.
+        response = client.put("/api/metadata/tracks/1", json={"title": "A" * 10000})
+        assert response.status_code == 422
 
-        response = client.put(
-            "/api/metadata/tracks/1",
-            json={"title": long_title}
-        )
-
-        # Should handle safely. mock_track.filepath is outside the allowed
-        # base directories, so validate_file_path() always rejects it —
-        # deterministically 400 — before any length limit could apply.
+        # At the bound it is accepted by validation. mock_track.filepath is outside the allowed
+        # base directories, so validate_file_path() always rejects it -- deterministically 400.
+        response = client.put("/api/metadata/tracks/1", json={"title": "A" * 1000})
         assert response.status_code == 400
 
 
