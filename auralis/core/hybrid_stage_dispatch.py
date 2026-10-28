@@ -63,6 +63,17 @@ def validate_and_normalize_input(
     if not isinstance(target_audio, np.ndarray):
         raise ValueError(f"Target audio must be a NumPy array, got {type(target_audio)}")
 
+    if not np.issubdtype(target_audio.dtype, np.floating):
+        raise ValueError(f"Audio must be a float array in [-1, 1], got dtype {target_audio.dtype} (#6118)")
+    if target_audio.ndim not in (1, 2):
+        raise ValueError(f"Audio must be (samples,) or (samples, channels), got shape {target_audio.shape}")
+    # A librosa-style (channels, samples) array has shape[0] == 2, so it used to look "too short" and
+    # come back unprocessed with a warning about milliseconds: refuse it by name instead (#6118).
+    if target_audio.ndim == 2 and target_audio.shape[0] <= 2 and target_audio.shape[1] >= MIN_SAMPLES:
+        raise ValueError(
+            f"Audio looks channels-first {target_audio.shape}; expected (samples, channels). "
+            "Transpose it (audio.T)."
+        )
     if target_audio.ndim == 1:
         target_audio = np.column_stack([target_audio, target_audio])
         debug(f"Converted mono audio to stereo: shape now {target_audio.shape}")
