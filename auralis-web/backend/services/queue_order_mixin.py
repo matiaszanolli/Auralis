@@ -136,6 +136,21 @@ class QueueOrderMixin(QueueServiceBase):
             logger.error(f"Failed to move track in queue: {e}")
             raise
 
+    async def _record_shuffle_state(self, enabled: bool) -> None:
+        """Mirror the engine's shuffle flag into PlayerState.
+
+        Nothing wrote ``shuffle_enabled`` there, so every ``player_state`` snapshot carried
+        False and the next one (a repeat toggle, a reconnect push) switched the UI's shuffle
+        off while the queue stayed shuffled (#5899). Best-effort: a failed state update must
+        not fail the shuffle that already happened.
+        """
+        if self.player_state_manager is None:
+            return
+        try:
+            await self.player_state_manager.update_state(shuffle_enabled=enabled)
+        except Exception as e:
+            logger.warning(f"Could not record shuffle state in PlayerState: {e}")
+
     async def shuffle_queue(self) -> dict[str, Any]:
         """
         Shuffle the playback queue (keeps current track in place).
@@ -169,6 +184,7 @@ class QueueOrderMixin(QueueServiceBase):
                 "queue_shuffled",
                 {"is_shuffled": True},
             )
+            await self._record_shuffle_state(True)
 
             logger.info(f"Queue shuffled ({len(updated_queue)} tracks)")
             return {
@@ -213,6 +229,7 @@ class QueueOrderMixin(QueueServiceBase):
                 "queue_shuffled",
                 {"is_shuffled": False},
             )
+            await self._record_shuffle_state(False)
 
             logger.info(f"Queue unshuffled ({len(updated_queue)} tracks)")
             return {
