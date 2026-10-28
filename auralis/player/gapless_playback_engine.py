@@ -20,6 +20,7 @@ from ..utils.logging import error, info, warning
 from .audio_file_manager import AudioFileManager
 from .gapless_prebuffer import PrebufferMixin
 from .queue_controller import QueueController
+from .queue_entry import entry_path
 
 
 class GaplessPlaybackEngine(PrebufferMixin):
@@ -127,16 +128,13 @@ class GaplessPlaybackEngine(PrebufferMixin):
                 info("No next track to advance to")
                 return False
 
-            file_path = next_track.get('file_path') or next_track.get('path')
+            file_path = entry_path(next_track)
             if not file_path:
                 return False
 
-            # Check for prebuffered track — validate it matches the expected
-            # next track before using it (fixes #2303: queue modified after
-            # prebuffering started). Read audio_data and next_track_info in
-            # a single lock scope and match inside it (#5583 shared helper)
-            # to prevent TOCTOU: invalidate_prebuffer() could clear the
-            # buffer between two separate acquisitions (#2589).
+            # Use the prebuffer only if it matches the expected next track (#2303: the queue may
+            # have changed since). Read buffer and info in one lock scope and match inside it
+            # (#5583 helper) so invalidate_prebuffer() cannot slip between two acquisitions (#2589).
             with self.update_lock:
                 if (self.next_track_buffer is not None and
                         self.next_track_info is not None):

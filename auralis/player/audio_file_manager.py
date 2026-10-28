@@ -43,7 +43,7 @@ class AudioFileManager:
         self.reference_data: np.ndarray | None = None
         self.reference_file: str | None = None
 
-    def load_file(self, file_path: str, on_loaded: Callable[[], None] | None = None) -> bool:
+    def load_file(self, file_path: str, on_loaded: Callable[[], object] | None = None) -> bool:
         """
         Load an audio file for playback.
 

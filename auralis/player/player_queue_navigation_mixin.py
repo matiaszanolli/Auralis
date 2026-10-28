@@ -29,6 +29,7 @@ from .gapless_playback_engine import GaplessPlaybackEngine
 from .integration_manager import IntegrationManager
 from .playback_controller import PlaybackController
 from .queue_controller import QueueController
+from .queue_entry import entry_path
 
 
 class PlayerQueueNavigationMixin:
@@ -165,7 +166,7 @@ class PlayerQueueNavigationMixin:
         # the right rollback baseline. #3668 locked the rollback WRITE side.
         prev_track, saved_index, moved_to = self.queue.step_previous()
         if prev_track:
-            file_path = prev_track.get('file_path') or prev_track.get('path')
+            file_path = entry_path(prev_track)
             if file_path and self.load_file(file_path):
                 # #3712: use `_stop_requested.is_set()` as the cancellation
                 # signal instead of a state read. `load_file()` calls
@@ -224,7 +225,7 @@ class PlayerQueueNavigationMixin:
                 needs_load = True
 
         if needs_load:
-            file_path = track_info.get('file_path') or track_info.get('filepath')
+            file_path = entry_path(track_info)
             track_id = track_info.get('id')
 
             if track_id:

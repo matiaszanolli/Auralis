@@ -10,6 +10,7 @@ takes ``_lock`` for its whole read-modify-write.
 import threading
 from typing import Any
 from collections.abc import Callable
+from ..queue_entry import entry_path
 
 
 def _track_matches(candidate: dict[str, Any], expected: dict[str, Any]) -> bool:
@@ -18,8 +19,8 @@ def _track_matches(candidate: dict[str, Any], expected: dict[str, Any]) -> bool:
     exp_id = expected.get('id')
     if cand_id is not None and exp_id is not None:
         return bool(cand_id == exp_id)
-    cand_path = candidate.get('file_path') or candidate.get('path')
-    exp_path = expected.get('file_path') or expected.get('path')
+    cand_path = entry_path(candidate)
+    exp_path = entry_path(expected)
     return cand_path is not None and bool(cand_path == exp_path)
 
 

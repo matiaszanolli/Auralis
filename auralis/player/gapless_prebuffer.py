@@ -18,6 +18,7 @@ import numpy as np
 
 from ..utils.logging import debug, info, warning
 from .queue_controller import QueueController
+from .queue_entry import entry_path
 
 
 class PrebufferMixin:
@@ -97,7 +98,7 @@ class PrebufferMixin:
                     info("No next track to prebuffer")
                     return
 
-                file_path = next_track.get('file_path') or next_track.get('path')
+                file_path = entry_path(next_track)
                 if not file_path:
                     warning("Next track has no file path")
                     return
@@ -202,19 +203,16 @@ class PrebufferMixin:
 
     @staticmethod
     def _entries_match(a: dict[str, Any] | None, b: dict[str, Any] | None) -> bool:
-        """Same queue entry: equal id, or equal file path when both carry one
-        (#2303's contract, shared by advance_with_prebuffer and the #5583
-        re-peek check). The path branch requires a non-None path on both
-        sides — two entries that carry neither key must not match on
-        ``None == None``."""
+        """Same queue entry: equal id, or equal file path when both carry one (#2303's
+        contract, shared by advance_with_prebuffer and the #5583 re-peek check). Two
+        entries with neither must not match on ``None == None``."""
         if a is None or b is None:
             return False
         a_id = a.get('id')
         if a_id is not None and a_id == b.get('id'):
             return True
-        a_path = a.get('file_path') or a.get('path')
-        b_path = b.get('file_path') or b.get('path')
-        return a_path is not None and a_path == b_path
+        a_path = entry_path(a)
+        return a_path is not None and a_path == entry_path(b)
 
     def _prebuffer_matches(self, expected_next: dict[str, Any] | None) -> bool:
         """Whether the stored prebuffer is still valid for *expected_next*.
