@@ -75,7 +75,8 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
     transient shaper (TRANSIENT_SLOW_MS) restart their envelopes fresh on
     every chunk, so this crossfade must outlast their settle time or every
     seam becomes an audible step. Enforced in __post_init__ below — change
-    those constants together with this one, never in isolation."""
+    those constants together with this one, never in isolation. Must also stay
+    below CHUNK_DURATION_SEC."""
 
     QUALITY_EVALUATION_ENABLED: bool = True
     """Attach advisory before/after measurements to file-master results."""
@@ -93,14 +94,24 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
         min_crossfade_sec = (
             _SEAM_SETTLE_TAUS * _SEAM_SAFETY_FACTOR * slowest_tau_ms / 1000.0
         )
-        assert self.CROSSFADE_DURATION_SEC >= min_crossfade_sec, (
-            f"CROSSFADE_DURATION_SEC ({self.CROSSFADE_DURATION_SEC}s) is below "
-            f"{_SEAM_SETTLE_TAUS * _SEAM_SAFETY_FACTOR:.0f}x the slowest "
-            f"per-chunk-reset envelope time constant ({slowest_tau_ms:.0f} ms — "
-            f"TRANSIENT_SLOW_MS / LOUDNESS_LIMITER_RELEASE_MS): chunk boundaries "
-            f"would become audible steps (#5339). Raise the crossfade or shorten "
-            f"the envelope constants together."
-        )
+        # Real raises, not asserts: -O strips an assert, and the seam guard is
+        # a render invariant (#5511, #5533).
+        if self.CROSSFADE_DURATION_SEC < min_crossfade_sec:
+            raise ValueError(
+                f"CROSSFADE_DURATION_SEC ({self.CROSSFADE_DURATION_SEC}s) is below "
+                f"{_SEAM_SETTLE_TAUS * _SEAM_SAFETY_FACTOR:.0f}x the slowest "
+                f"per-chunk-reset envelope time constant ({slowest_tau_ms:.0f} ms — "
+                f"TRANSIENT_SLOW_MS / LOUDNESS_LIMITER_RELEASE_MS): chunk boundaries "
+                f"would become audible steps (#5339). Raise the crossfade or shorten "
+                f"the envelope constants together."
+            )
+        # A crossfade as long as the chunk leaves no core to write; the loop
+        # used to fail on it mid-render with "Crossfade write_region mismatch".
+        if self.CROSSFADE_DURATION_SEC >= self.CHUNK_DURATION_SEC:
+            raise ValueError(
+                f"CROSSFADE_DURATION_SEC ({self.CROSSFADE_DURATION_SEC}s) must be "
+                f"shorter than CHUNK_DURATION_SEC ({self.CHUNK_DURATION_SEC}s)"
+            )
 
     # =========================================================================
     # Enhancement Frequencies (Hz)
