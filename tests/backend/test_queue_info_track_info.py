@@ -169,3 +169,43 @@ async def test_empty_queue_returns_empty_list():
 
     assert info["tracks"] == []
     assert info["current_track"] is None
+
+
+@pytest.mark.asyncio
+async def test_unresolvable_entries_rebase_current_index_and_count():
+    """#5934: the read path dropped entries but kept the engine's raw index/count, so it pointed
+    at a different row than the queue_changed broadcast does for the same queue."""
+    tracks = [_track_info(1), _track_info(2)]
+    gone = {"filepath": "/music/deleted_from_library.flac"}
+    engine_info = {
+        # [gone, t1, t2] with the engine pointing at t2 (index 2)
+        "tracks": [gone, {"filepath": tracks[0].filepath}, {"filepath": tracks[1].filepath}],
+        "current_index": 2,
+        "current_track": {"filepath": tracks[1].filepath},
+        "track_count": 3,
+    }
+    service = _build_service(state_queue=tracks, engine_info=engine_info)
+    service.library_database.tracks.get_by_paths = MagicMock(return_value={})
+
+    info = await service.get_queue_info()
+
+    assert [t.id for t in info["tracks"]] == [1, 2]
+    assert info["track_count"] == 2
+    assert info["current_index"] == 1  # still t2, now at index 1
+
+
+@pytest.mark.asyncio
+async def test_index_on_a_dropped_entry_becomes_minus_one():
+    tracks = [_track_info(1)]
+    engine_info = {
+        "tracks": [{"filepath": "/music/gone.flac"}, {"filepath": tracks[0].filepath}],
+        "current_index": 0,
+        "track_count": 2,
+    }
+    service = _build_service(state_queue=tracks, engine_info=engine_info)
+    service.library_database.tracks.get_by_paths = MagicMock(return_value={})
+
+    info = await service.get_queue_info()
+
+    assert info["current_index"] == -1
+    assert info["track_count"] == 1
