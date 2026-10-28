@@ -75,14 +75,14 @@ class QueueLoadingMixin:
             # end-of-track check or the gapless prebuffer thread) could
             # observe a momentarily empty queue between clear() and the
             # repopulating add_track() calls.
+            # Snapshot playlist.tracks before iteration so a concurrent queue
+            # modification cannot cause RuntimeError mid-loop (fixes #2492), and
+            # serialise every row before taking the lock: to_dict() is O(n) work
+            # the audio thread must not wait behind (#6084).
+            track_infos = [track.to_dict() for track in list(playlist.tracks)]
             with self.queue._lock:
-                # Clear and reload queue
                 self.queue.clear()
-
-                # Snapshot playlist.tracks before iteration so a concurrent
-                # queue modification cannot cause RuntimeError mid-loop (fixes #2492).
-                for track in list(playlist.tracks):
-                    track_info = track.to_dict()
+                for track_info in track_infos:
                     self.queue.add_track(track_info)
 
                 # Clamp + write current_index atomically (#4098): the length

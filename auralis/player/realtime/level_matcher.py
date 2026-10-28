@@ -48,14 +48,16 @@ class RealtimeLevelMatcher:
 
     def set_reference_audio(self, reference: np.ndarray | None) -> bool:
         """Set reference audio for level matching"""
+        # The RMS is O(len(reference)); measure it before taking the lock the audio
+        # thread's process() waits on (#6084).
+        reference_rms = None if reference is None else np.sqrt(np.mean(reference ** 2))
         with self._lock:
-            if reference is None:
+            if reference_rms is None:
                 self.reference_rms = None
                 self.enabled = False
                 return False
 
-            # Calculate RMS of reference audio
-            self.reference_rms = np.sqrt(np.mean(reference ** 2))
+            self.reference_rms = reference_rms
             # Seed the smoothed target on the first reference after construction
             # or reset(): process() eases toward reference_rms from here, and from
             # 0 the first chunks got gain ~0.01 and faded in over ~7 s (#5707).
