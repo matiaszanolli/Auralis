@@ -19,14 +19,21 @@ test('production path clears AURALIS_DEV_MODE even when unset in the parent env'
   assert.equal(env.AURALIS_DEV_MODE, '0');
 });
 
-test('development path leaves an ambient AURALIS_DEV_MODE untouched', () => {
+test('development path keeps AURALIS_DEV_MODE=1 when the shell already exports it', () => {
   const env = buildBackendEnv({ AURALIS_DEV_MODE: '1', PATH: '/usr/bin' }, true);
   assert.equal(env.AURALIS_DEV_MODE, '1');
 });
 
-test('development path does not fabricate AURALIS_DEV_MODE when unset', () => {
+// #5373: the dev spawn passes no --dev flag, and the :3000 renderer's WebSocket Origin is only
+// admitted in backend dev mode, so the dev path must turn it on itself.
+test('development path enables backend dev mode even when the shell does not export it', () => {
   const env = buildBackendEnv({ PATH: '/usr/bin' }, true);
-  assert.equal('AURALIS_DEV_MODE' in env, false);
+  assert.equal(env.AURALIS_DEV_MODE, '1');
+});
+
+test('development path overrides an ambient AURALIS_DEV_MODE=0', () => {
+  const env = buildBackendEnv({ AURALIS_DEV_MODE: '0' }, true);
+  assert.equal(env.AURALIS_DEV_MODE, '1');
 });
 
 test('does not mutate the base env object', () => {

@@ -11,10 +11,13 @@
 //
 // A packaged build never passes `--dev` in pythonArgs, so the only guard
 // available to the *production* spawn path is to explicitly clear whatever
-// AURALIS_DEV_MODE the parent shell happened to have set. The development
-// spawn path is left untouched — it legitimately wants the ambient value
-// (or the developer explicitly exports it), and clearing it there would
-// break the intended dev workflow.
+// AURALIS_DEV_MODE the parent shell happened to have set.
+//
+// The development spawn path sets it to '1' instead (#5373). The renderer is
+// served from the Vite dev server on :3000 and its WebSocket handshake carries
+// that Origin; the backend's origin allowlist admits :3000 only in dev mode,
+// and the dev spawn passes no `--dev` flag, so without this the socket closed
+// with 1008 and nothing pointed at the cause.
 
 /**
  * Return the env object to pass to the spawned backend process.
@@ -25,10 +28,9 @@
  */
 function buildBackendEnv(baseEnv, isDevelopment) {
   const env = { ...baseEnv };
-  if (!isDevelopment) {
-    // Production: never let an ambient AURALIS_DEV_MODE reach the backend.
-    env.AURALIS_DEV_MODE = '0';
-  }
+  // Production: never let an ambient AURALIS_DEV_MODE reach the backend.
+  // Development: always on, so the :3000 renderer's origin is admitted.
+  env.AURALIS_DEV_MODE = isDevelopment ? '1' : '0';
   return env;
 }
 
