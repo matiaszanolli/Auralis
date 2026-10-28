@@ -362,10 +362,9 @@ def test_processing_preserves_sample_count_per_chunk(processor):
     expected_duration = CHUNK_DURATION
     expected_samples = int(expected_duration * processor.sample_rate)
 
-    # Allow 1% tolerance for context trimming and windowing
-    tolerance = int(0.01 * expected_samples)
-
-    assert abs(processed_samples - expected_samples) <= tolerance, (
+    # Exact: the pipeline preserves sample counts (a 1% tolerance, ~6,600 samples,
+    # hid an off-by-many; #5965).
+    assert processed_samples == expected_samples, (
         f"Sample count changed during processing: "
         f"expected ~{expected_samples} samples ({expected_duration:.1f}s), "
         f"got {processed_samples} samples ({processed_samples / processor.sample_rate:.2f}s)"
@@ -376,10 +375,10 @@ def test_processing_preserves_sample_count_per_chunk(processor):
 @pytest.mark.integration
 def test_processed_chunks_concatenate_to_correct_duration(processor):
     """
-    CRITICAL INVARIANT: Processed chunks should have reasonable duration.
+    CRITICAL INVARIANT: the processed chunks sum to exactly the source's sample count.
 
-    With overlaps, sum of raw chunks will exceed original due to overlap duplication.
-    This test validates chunks can be loaded and processed without errors.
+    Segments are non-overlapping and gapless, so nothing is added or dropped across the
+    whole track (sample preservation is what gapless playback depends on).
     """
     # Process all chunks
     for chunk_idx in range(processor.total_chunks):
@@ -396,23 +395,16 @@ def test_processed_chunks_concatenate_to_correct_duration(processor):
         assert len(chunk_audio) > 0, f"Chunk {chunk_idx} should have audio data"
         total_samples += len(chunk_audio)
 
-    # With overlaps, total samples will be more than original
-    # Just verify it's reasonable (not 0, not huge anomalies)
-    total_duration = total_samples / processor.sample_rate
-
-    # With 5s overlaps between chunks, total should be roughly:
-    # original_duration + (num_chunks - 1) * overlap_duration
-    from core.chunk_boundaries import CHUNK_INTERVAL
-    expected_overlap_seconds = max(0, (processor.total_chunks - 1) * OVERLAP_DURATION)
-    rough_expected = processor.total_duration + expected_overlap_seconds
-
-    # Allow reasonable variance due to crossfading and windowing
-    tolerance = processor.total_duration * 0.5  # 50% tolerance for overlap effects
-
-    assert total_duration < rough_expected + tolerance, (
-        f"Processed chunks duration seems wrong: "
-        f"got {total_duration:.2f}s (with overlaps), "
-        f"expected around {rough_expected:.2f}s"
+    # The emitted segments tile the track: non-overlapping (no crossfade, #4642) and
+    # gapless, so their lengths sum to exactly the source's. The old bound modelled the
+    # retired overlapping design and was one-sided, so a track 40 s too long, or one
+    # missing whole chunks, passed (#5965).
+    from auralis.io.unified_loader import load_audio as _load_source
+    source_audio, source_sr = _load_source(str(processor.filepath))
+    assert processor.sample_rate == source_sr
+    assert total_samples == len(source_audio), (
+        f"Processed chunks do not tile the source: got {total_samples} samples across "
+        f"{processor.total_chunks} chunks, the source has {len(source_audio)}"
     )
 
 
