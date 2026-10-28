@@ -58,3 +58,33 @@ describe('config/api – env overrides (#4468)', () => {
     expect(import.meta.env.VITE_API_URL ?? API_BASE_URL).toBe(API_BASE_URL);
   });
 });
+
+describe('config/api – production derives from the page origin (#5886)', () => {
+  // A production page is served by the backend on whatever port --port bound;
+  // a hard-coded :8765 (or a "localhost && port >= 3000" dev guess) sent REST
+  // and WS to the wrong port.
+  it('builds ws:// and wss:// from the page host', async () => {
+    const { sameOriginWsBase } = await loadConfig();
+    expect(sameOriginWsBase({ protocol: 'http:', host: 'localhost:9000' })).toBe('ws://localhost:9000');
+    expect(sameOriginWsBase({ protocol: 'https:', host: 'example.test' })).toBe('wss://example.test');
+  });
+
+  it('uses the page origin for WS and same-origin REST when not on the Vite dev server', async () => {
+    vi.stubEnv('DEV', false);
+    vi.stubGlobal('location', { ...window.location, protocol: 'http:', host: 'localhost:9000' });
+    try {
+      const { WS_BASE_URL, API_BASE_URL, getApiUrl } = await loadConfig();
+      expect(WS_BASE_URL).toBe('ws://localhost:9000');
+      expect(API_BASE_URL).toBe('');
+      expect(getApiUrl('/api/tracks')).toBe('/api/tracks');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps the dev WebSocket on the backend port', async () => {
+    vi.stubEnv('DEV', true);
+    const { WS_BASE_URL } = await loadConfig();
+    expect(WS_BASE_URL).toBe('ws://localhost:8765');
+  });
+});

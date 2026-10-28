@@ -150,19 +150,8 @@ interface WebSocketProviderProps {
 
 export const WebSocketProvider = ({
   children,
-  url = (() => {
-    // In development (Vite on localhost:3000+), connect directly to backend
-    // Vite proxy for WebSocket can be unreliable, so we connect directly to the backend port
-    // In production, use same host as frontend (backend serves both)
-    if (window.location.hostname === 'localhost' && parseInt(window.location.port) >= 3000) {
-      // Development: Connect directly to backend at 8765
-      // Bypasses Vite proxy which can have WebSocket issues
-      return `${WS_BASE_URL}/ws`
-    } else {
-      // Production: Use same host as frontend (backend serves both)
-      return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
-    }
-  })()
+  // Dev targets the backend port, production the page's own origin (#5886).
+  url = `${WS_BASE_URL}/ws`,
 }: WebSocketProviderProps) => {
   // Use module-level singleton subscriptions (survive provider remounts).
   // This fixes the bug where StrictMode remounting caused subscriptions to be lost.

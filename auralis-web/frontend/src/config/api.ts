@@ -2,23 +2,33 @@
  * API Configuration
  *
  * Centralized configuration for API endpoints and base URLs.
- * In development with Vite dev server, use relative URLs to leverage proxy.
- * In production, use absolute URLs.
+ *
+ * A production bundle is served by the backend itself, so the page's own
+ * origin IS the backend, on whatever port `launch-auralis-web.py --port N`
+ * bound (#5886). Only the Vite dev server (`import.meta.env.DEV`) runs on a
+ * different port from the backend: REST goes through its proxy (relative URLs)
+ * and the WebSocket connects straight to :8765, since Vite's WS proxy is
+ * unreliable. The production fallback used to be a hard-coded :8765 as well,
+ * and the WS URL was picked by "localhost and port >= 3000", which a
+ * production page on :9000 also matched.
+ *
+ * VITE_API_URL / VITE_WS_URL override both (#4468). Same `??` semantics as the
+ * retired services/api client (now cacheShapeGuards.ts): only an undefined
+ * override falls through to the default, so an explicit empty string still
+ * selects the relative URL.
  */
 
-// Use relative URL in development (Vite proxy handles forwarding)
-// Use absolute URL in production build.
-//
-// VITE_API_URL / VITE_WS_URL override both (#4468). Without an escape hatch
-// there was no way to move off port 8765 when it is already taken, and this
-// module disagreed with the retired services/api client (now cacheShapeGuards.ts), which always
-// read `import.meta.env.VITE_API_URL ?? API_BASE_URL`. Same `??` semantics as
-// that client: only an undefined override falls through to the default, so an
-// explicit empty string still selects the dev-style relative URL.
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? '' : 'http://localhost:8765');
+/** Same-origin WebSocket base for a page the backend served. */
+export function sameOriginWsBase(location: Pick<Location, 'protocol' | 'host'>): string {
+  return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+}
 
-// WebSocket URL - always absolute since WebSocket doesn't use proxy
-export const WS_BASE_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8765';
+// Relative in both modes: the Vite proxy in dev, the backend's own origin in production.
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
+
+export const WS_BASE_URL =
+  import.meta.env.VITE_WS_URL ??
+  (import.meta.env.DEV ? 'ws://localhost:8765' : sameOriginWsBase(window.location));
 
 /**
  * Upper bound for a library-scan request, in ms — deliberately NOT the shared
