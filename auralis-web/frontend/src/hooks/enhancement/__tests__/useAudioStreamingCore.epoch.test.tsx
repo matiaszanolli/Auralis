@@ -231,7 +231,7 @@ describe('useAudioStreamingCore stream epoch (#4563)', () => {
       dispatched.push(action.type);
       return originalDispatch(action as never);
     }) as never;
-    const hook = render();
+    render();
 
     act(() => { ws.emit('audio_stream_start', streamStart(2)); });
     dispatched.length = 0;

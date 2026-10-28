@@ -26,6 +26,7 @@ import { DEFAULT_MAX_RECONNECT_ATTEMPTS } from '@/config/timing';
 const initialState: ConnectionState = {
   wsConnected: false,
   apiConnected: false,
+  backendDegraded: false,
   latency: 0,
   reconnectAttempts: 0,
   maxReconnectAttempts: DEFAULT_MAX_RECONNECT_ATTEMPTS,

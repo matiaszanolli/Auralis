@@ -55,13 +55,9 @@ export interface TrackInfo {
    * Use `format` for format-aware logic rather than parsing this.
    */
   filepath?: string;
-  // Additional fields (optional)
-  artwork_url?: string;
-  genre?: string;
-  year?: number;
-  sample_rate?: number;
-  format?: string;
-  date_added?: string;
-  date_modified?: string;
+  /** `null` for a track without artwork — the backend sends the key either way. */
+  artwork_url?: string | null;
+  /** Audio container/codec ("flac", "mp3"); `null` when unknown. */
+  format?: string | null;
 }
 

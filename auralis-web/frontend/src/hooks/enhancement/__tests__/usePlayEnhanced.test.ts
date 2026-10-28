@@ -180,6 +180,8 @@ let mockEngineInstance: {
   getMinBufferSamples: ReturnType<typeof vi.fn>;
   markStreamEnded: ReturnType<typeof vi.fn>;
   hasStreamEnded: ReturnType<typeof vi.fn>;
+  setSeekOffset: ReturnType<typeof vi.fn>;
+  resetStreamEnded: ReturnType<typeof vi.fn>;
   dispose: ReturnType<typeof vi.fn>;
 };
 

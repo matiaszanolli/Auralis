@@ -153,6 +153,7 @@ export const emptyStoreState: RootState = {
   connection: {
     wsConnected: false,
     apiConnected: false,
+    backendDegraded: false,
     latency: 0,
     reconnectAttempts: 0,
     maxReconnectAttempts: 5,

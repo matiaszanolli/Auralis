@@ -110,7 +110,7 @@ if (typeof Blob === 'undefined' || typeof Blob.prototype.text !== 'function') {
 // only under jsdom 30, which is why the jsdom 27 baseline never saw them).
 // Restoring focus to "the document" is semantically a no-op — there was no
 // element to restore — so define exactly that no-op.
-if (typeof document.focus !== 'function') {
+if (typeof (document as unknown as { focus?: unknown }).focus !== 'function') {
   (Document.prototype as unknown as { focus: () => void }).focus = function focus() {};
 }
 

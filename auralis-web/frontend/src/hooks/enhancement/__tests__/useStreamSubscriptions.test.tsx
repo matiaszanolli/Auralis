@@ -53,6 +53,7 @@ function makeDeps(overrides: Partial<StreamSubscriptionDeps> = {}): StreamSubscr
     handleStreamEnd: () => {},
     handleStreamError: () => {},
     ...overrides,
+    bufferEpochRef: overrides.bufferEpochRef ?? { current: null },
     subscribe,
     unsubscribes,
     clearStreamStartWatchdog,

@@ -58,7 +58,7 @@ const mockPlaylist = {
 
 describe('PlaylistDetailView', () => {
   it('fetches the playlist endpoint, not the library tracks endpoint', async () => {
-    mockFetch.mockImplementation((url: string) =>
+    mockFetch.mockImplementation(() =>
       jsonResponse(mockPlaylist));
 
     render(<PlaylistDetailView playlistId={7} />);
