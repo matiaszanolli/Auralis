@@ -1179,29 +1179,8 @@ describe('useLibraryQuery', () => {
 
   describe('cleanup', () => {
     it('should abort request on unmount', async () => {
-      const abortSpy = vi.fn();
-      const mockGet = vi.fn(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(() => {
-              resolve({
-                tracks: [mockTrackApi],
-                total: 1,
-                offset: 0,
-                limit: 50,
-                hasMore: false,
-              });
-            }, 1000);
-          })
-      );
-
-      // Mock AbortController
-      const originalAbortController = global.AbortController;
-      const MockAbortController = vi.fn(() => ({
-        abort: abortSpy,
-        signal: {},
-      }));
-      (global as any).AbortController = MockAbortController;
+      // A request that never settles, so the only thing that can end it is the abort.
+      const mockGet = vi.fn((_url: string, _options?: { signal?: AbortSignal }) => new Promise(() => {}));
 
       vi.mocked(useRestAPI).mockReturnValue({
         get: mockGet,
@@ -1212,12 +1191,15 @@ describe('useLibraryQuery', () => {
       } as any);
 
       const { unmount } = renderHook(() => useLibraryQuery('tracks'));
+      await waitFor(() => expect(mockGet).toHaveBeenCalled());
 
-      // Unmount immediately
+      const signal = mockGet.mock.calls[0][1]?.signal;
+      expect(signal).toBeInstanceOf(AbortSignal);
+      expect(signal?.aborted).toBe(false);
+
       unmount();
 
-      // AbortController should be restored
-      global.AbortController = originalAbortController;
+      expect(signal?.aborted).toBe(true);
     });
   });
 

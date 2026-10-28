@@ -5,20 +5,21 @@
  * Part of Week 3 - Frontend Testing Roadmap (200-test suite)
  *
  * Test Categories:
- * 1. Playlist CRUD Operations (6 tests)
+ * 1. Playlist CRUD Operations (3 tests: create, load, metadata)
  * 2. Track Management in Playlists (2 tests)
  * 3. Playlist Display & Navigation (3 tests)
- * 4. Drag & Drop Reordering (3 tests)
- * 5. Playlist Playback (2 tests)
- * 6. Playlist Search & Filter (1 test)
+ * 4. Playlist Playback (2 tests)
+ * 5. Playlist Search & Filter (1 test)
  *
- * Total: 20 tests
+ * Total: 14 tests
+ *
+ * Rename, delete, duplicate and drag-and-drop specs were removed (#5677): each ended on a
+ * comment saying the interaction was out of scope and asserted only that a playlist it already
+ * held was still in the document. Reinstate them with a real context-menu / dnd keyboard-sensor drive.
  *
  * Coverage:
  * - PlaylistList component
  * - CreatePlaylistDialog component
- * - EditPlaylistDialog component
- * - DroppablePlaylist drag-and-drop
  * - Playlist API integration via playlistService
  * - MSW API mocking for playlist endpoints
  */
@@ -114,76 +115,6 @@ describe('Playlist Management Integration Tests', () => {
         expect(screen.getByText('Recently Added')).toBeInTheDocument();
         expect(screen.getByText('Workout Mix')).toBeInTheDocument();
       });
-    });
-
-    it('should rename an existing playlist', async () => {
-      // Arrange
-      const user = userEvent.setup();
-      render(<PlaylistListWithDnd />);
-
-      // Wait for playlists to load
-      await waitFor(() => {
-        expect(screen.getByText('Favorites')).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Act - Right-click playlist to open context menu
-      const playlist = screen.getByText('Favorites');
-      await user.pointer({ keys: '[MouseRight]', target: playlist });
-
-      // Wait for context menu
-      await waitFor(() => {
-        const editOption = screen.queryByText(/edit/i);
-        if (editOption) {
-          user.click(editOption);
-        }
-      }, { timeout: 1000 });
-
-      // Note: Context menu may or may not appear in test environment
-      // The edit functionality is tested through the component's structure
-      expect(playlist).toBeInTheDocument();
-    });
-
-    it('should delete a playlist with confirmation', async () => {
-      // Arrange
-      const user = userEvent.setup();
-      mockConfirm.mockReturnValue(true); // User confirms deletion
-
-      render(<PlaylistListWithDnd />);
-
-      // Wait for playlists to load
-      await waitFor(() => {
-        expect(screen.getByText('Favorites')).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Act - Right-click to open context menu and delete
-      const playlist = screen.getByText('Favorites');
-      await user.pointer({ keys: '[MouseRight]', target: playlist });
-
-      // Assert - Playlist exists before deletion
-      expect(playlist).toBeInTheDocument();
-
-      // Note: Delete operation requires context menu interaction
-      // Testing infrastructure validates the delete API is properly mocked
-    });
-
-    it('should duplicate a playlist', async () => {
-      // Arrange
-      render(<PlaylistListWithDnd />);
-
-      // Wait for playlists to load
-      await waitFor(() => {
-        expect(screen.getByText('Favorites')).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Assert - Initial playlist count
-      expect(screen.getByText(/Playlists \(3\)/i)).toBeInTheDocument();
-
-      // Act - Duplicate functionality is tested through create API
-      // A full duplicate would: get playlist, create new with same tracks
-      const createSpy = vi.spyOn(playlistService, 'createPlaylist');
-
-      // Verify create API is available for duplication
-      expect(createSpy).toBeDefined();
     });
 
     it('should display playlist metadata correctly', async () => {
@@ -299,74 +230,6 @@ describe('Playlist Management Integration Tests', () => {
       // Assert - Empty state would show "No playlists yet" if list was empty
       // With mock data, we have 3 playlists
       expect(screen.queryByText(/no playlists yet/i)).not.toBeInTheDocument();
-    });
-  });
-
-  // ==========================================
-  // 4. Drag & Drop Reordering (3 tests)
-  // ==========================================
-
-  describe('Drag & Drop Reordering', () => {
-    it('should support drag track to new position within playlist', async () => {
-      // Arrange
-      render(<PlaylistListWithDnd />);
-
-      // Wait for playlists to load
-      await waitFor(() => {
-        expect(screen.getByText('Favorites')).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Assert - DroppablePlaylist components are rendered
-      const favorites = screen.getByText('Favorites');
-      expect(favorites).toBeInTheDocument();
-
-      // Note: Actual drag-and-drop testing requires @testing-library/user-event
-      // with complex drag simulation. The DroppablePlaylist component
-      // uses @hello-pangea/dnd which is difficult to test in JSDOM.
-      // This test verifies the component structure is ready for drag-and-drop.
-    });
-
-    it('should allow drag track from library to playlist', async () => {
-      // Arrange
-      render(<PlaylistListWithDnd />);
-
-      // Wait for playlists to load
-      await waitFor(() => {
-        expect(screen.getByText('Favorites')).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Assert - DroppablePlaylist accepts drops (droppableId="playlist-{id}")
-      // Each playlist has a unique droppableId for drag-and-drop
-      const playlists = screen.getAllByText(/tracks/i);
-      expect(playlists.length).toBeGreaterThan(0);
-
-      // Drag-and-drop infrastructure is in place via DroppablePlaylist component
-      // Full integration requires DraggableTrack components from library view
-    });
-
-    it('should allow drag track from queue to playlist', async () => {
-      // Arrange
-      const user = userEvent.setup();
-
-      render(<PlaylistListWithDnd />);
-
-      // Wait for playlists to load
-      await waitFor(() => {
-        expect(screen.getByText('Favorites')).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Act - Hover over playlist to show drop zone
-      const workoutPlaylist = screen.getByText('Workout Mix');
-      await user.hover(workoutPlaylist);
-
-      // Assert - Playlist is interactive and ready to receive drops
-      expect(workoutPlaylist).toBeInTheDocument();
-
-      // Note: Full drag-and-drop from queue requires:
-      // 1. DraggableTrack in queue component
-      // 2. DroppablePlaylist in sidebar (✓ already implemented)
-      // 3. onDragEnd handler in parent DragDropContext
-      // This test verifies the drop target is properly set up
     });
   });
 

@@ -7,12 +7,14 @@
  * Test Categories:
  * 1. Library View Rendering (4 tests)
  * 2. Track Selection & Multi-Select (4 tests)
- * 3. Search & Filter (4 tests)
- * 4. Batch Operations (4 tests)
- * 5. Pagination & Infinite Scroll (2 tests)
- * 6. Track Actions (2 tests)
+ * 3. Batch Operations (4 tests)
+ * 4. Pagination & Infinite Scroll (2 tests)
+ * 5. Track Actions (2 tests)
  *
- * Total: 20 tests
+ * Total: 16 tests
+ *
+ * No search specs: CozyLibraryView has no search input (search lives in the app shell), and the
+ * placeholder specs that only re-asserted the heading were removed (#5677).
  *
  * Coverage:
  * - CozyLibraryView main orchestrator
@@ -188,81 +190,6 @@ describe('Library Management Integration Tests', () => {
       await waitFor(() => {
         expect(screen.getByText(/All tracks in your library/i)).toBeInTheDocument();
       }, { timeout: 500 });
-    });
-  });
-
-  // ==========================================
-  // 3. Search & Filter (4 tests)
-  // ==========================================
-
-  describe('Search & Filter', () => {
-    it('should search tracks by title', async () => {
-      // Arrange
-      render(<CozyLibraryView view="songs" />);
-
-      // Wait for component to render
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /songs/i })).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Assert - Component renders with track data
-      // Note: Search input UI is not currently integrated in CozyLibraryView
-      // This test verifies the view renders correctly for future search integration
-      expect(screen.getByText(/All tracks in your library/i)).toBeInTheDocument();
-    });
-
-    it('should search tracks by artist', async () => {
-      // Arrange
-      render(<CozyLibraryView view="songs" />);
-
-      // Wait for component to render
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /songs/i })).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Assert - Component renders with track data showing artist info
-      // Note: Search input UI is not currently integrated in CozyLibraryView
-      // This test verifies the view renders correctly for future search integration
-      expect(screen.getByText(/All tracks in your library/i)).toBeInTheDocument();
-    });
-
-    it('should search tracks by album', async () => {
-      // Arrange
-      render(<CozyLibraryView view="songs" />);
-
-      // Wait for component to render
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /songs/i })).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Assert - Component renders with track data showing album info
-      // Note: Search input UI is not currently integrated in CozyLibraryView
-      // This test verifies the view renders correctly for future search integration
-      expect(screen.getByText(/All tracks in your library/i)).toBeInTheDocument();
-    });
-
-    it('should handle empty search results gracefully', async () => {
-      // Wrap render in act() to ensure all initial state updates are flushed
-      // This prevents "Should not already be working" React concurrent errors
-      await act(async () => {
-        render(<CozyLibraryView view="songs" />);
-      });
-
-      // Wait for component to render with view title (heading contains emoji + "Songs")
-      // The CozyLibraryView displays "🎵 Songs" as the title for the songs view
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /songs/i })).toBeInTheDocument();
-      }, { timeout: 2000 });
-
-      // Assert - Component renders correctly and can handle empty state
-      // The component shows appropriate UI elements
-      expect(screen.getByText(/All tracks in your library/i)).toBeInTheDocument();
-
-      // Verify the component is properly mounted and rendering
-      // When there are no tracks, the component should display an empty library state
-      // or track cards (depending on mock data)
-      const container = document.querySelector('.MuiBox-root');
-      expect(container).toBeInTheDocument();
     });
   });
 
