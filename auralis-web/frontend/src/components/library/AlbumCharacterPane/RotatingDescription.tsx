@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
+import { usePrefersReducedMotion } from '@/hooks/shared/usePrefersReducedMotion';
 
 interface RotatingDescriptionProps {
   descriptions: string[];
@@ -17,10 +18,12 @@ export const RotatingDescription = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const reducedMotion = usePrefersReducedMotion();
 
-  // Rotate descriptions every 10 seconds when playing
+  // Rotate descriptions every 10 seconds when playing. Content that changes by itself for longer
+  // than five seconds needs a way to stop (WCAG 2.2.2); reduced motion is that opt-out (#5676).
   useEffect(() => {
-    if (!isPlaying || descriptions.length === 0) {
+    if (!isPlaying || descriptions.length === 0 || reducedMotion) {
       setCurrentIndex(0);
       return;
     }
@@ -38,7 +41,7 @@ export const RotatingDescription = ({
       clearInterval(interval);
       clearTimeout(timeoutRef.current);
     };
-  }, [isPlaying, descriptions.length]);
+  }, [isPlaying, descriptions.length, reducedMotion]);
 
   const displayText = isPlaying && descriptions.length > 0
     ? descriptions[currentIndex]
