@@ -3,7 +3,7 @@ import type { LibraryTrack as Track } from '@/types/domain';
 
 interface UseSimilarTracksModalArgs {
   tracks: Track[];
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (track: Pick<Track, 'id'>) => void;
 }
 
 /**
@@ -43,8 +43,10 @@ export const useSimilarTracksModal = ({ tracks, onPlayTrack }: UseSimilarTracksM
   // that defeated memoization if the modal is ever wrapped in React.memo.
   const handlePlaySimilarTrack = useCallback(
     (trackId: number) => {
-      const track = tracks.find(t => t.id === trackId);
-      if (track) onPlayTrack(track);
+      // Similar tracks come from the whole library, but `tracks` is only the host view's
+      // loaded page (or one album), so a hit outside it used to do nothing and still close
+      // the modal. Playing needs only the id (#5888).
+      onPlayTrack(tracks.find(t => t.id === trackId) ?? { id: trackId });
     },
     [tracks, onPlayTrack]
   );

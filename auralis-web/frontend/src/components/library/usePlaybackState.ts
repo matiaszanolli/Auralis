@@ -33,7 +33,7 @@ export const usePlaybackState = () => {
   const { handlePlayPause } = usePlaybackControls();
 
   const handlePlayTrack = useCallback(
-    (track: Track) => playTrack(track),
+    (track: Pick<Track, 'id'>) => playTrack(track),
     [playTrack]
   );
 

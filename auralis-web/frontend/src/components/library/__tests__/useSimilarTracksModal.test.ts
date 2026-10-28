@@ -63,3 +63,23 @@ describe('useSimilarTracksModal (#5397)', () => {
     expect(result.current.similarTrackTitle).toBe('Overrated');
   });
 });
+
+describe('useSimilarTracksModal playing a similar track (#5888)', () => {
+  it('plays a track from the host list with that row', () => {
+    const onPlayTrack = vi.fn();
+    const { result } = renderHook(() => useSimilarTracksModal({ tracks, onPlayTrack }));
+
+    act(() => result.current.handlePlaySimilarTrack(8));
+
+    expect(onPlayTrack).toHaveBeenCalledWith(tracks[1]);
+  });
+
+  it('still plays a similar track that is not in the host view\'s loaded list', () => {
+    const onPlayTrack = vi.fn();
+    const { result } = renderHook(() => useSimilarTracksModal({ tracks, onPlayTrack }));
+
+    act(() => result.current.handlePlaySimilarTrack(4242)); // library-wide hit, not on this page
+
+    expect(onPlayTrack).toHaveBeenCalledWith({ id: 4242 });
+  });
+});

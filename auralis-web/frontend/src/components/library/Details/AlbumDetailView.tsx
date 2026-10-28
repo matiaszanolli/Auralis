@@ -196,12 +196,8 @@ export const AlbumDetailView = ({
             trackId={similarTrackId}
             trackTitle={similarTrackTitle}
             onClose={handleCloseSimilarTracksModal}
-            onTrackPlay={(trackId) => {
-              const track = album.tracks?.find((t: Track) => t.id === trackId);
-              if (track) {
-                playTrack(track);
-              }
-            }}
+            // By id: a similar track need not be on this album (#5888).
+            onTrackPlay={(trackId) => playTrack({ id: trackId })}
             limit={20}
           />
         </Container>
