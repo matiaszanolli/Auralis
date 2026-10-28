@@ -51,6 +51,8 @@ interface CozyLibraryViewProps {
   viewMode?: ViewMode;
   /** Navigate to another view id; PlaylistDetailView's Back uses it (#6007). */
   onNavigate?: (view: string) => void;
+  /** Changes when the user re-selects the current view's nav item; closes any detail page. */
+  navigationResetToken?: number;
 }
 
 // View title and icon based on current view — static, so it lives at module
@@ -69,6 +71,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
   searchQuery = '',
   viewMode = 'grid',
   onNavigate,
+  navigationResetToken,
 }) => {
   // Sidebar playlist clicks set `playlist-<id>` view ids (#6007).
   const playlistId = parsePlaylistViewId(view);
@@ -133,7 +136,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     handleBackFromArtist,
     handleAlbumClick,
     handleArtistClick,
-  } = useNavigationState({ view });
+  } = useNavigationState({ view, resetToken: navigationResetToken });
 
   // Playback state and handlers
   const {

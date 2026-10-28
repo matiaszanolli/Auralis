@@ -124,8 +124,12 @@ function ComfortableApp() {
   // Keep ref in sync with latest openHelp
   openHelpRef.current = openHelp;
 
+  // Picking the nav item of the view you are already in leaves any open detail page: the view id is
+  // unchanged, so a counter tells the library view to reset (#6014).
+  const [navigationResetToken, setNavigationResetToken] = useState(0);
   const handleSidebarNavigation = useCallback((view: string) => {
     setCurrentView(view);
+    setNavigationResetToken((token) => token + 1);
   }, []);
 
   return (
@@ -194,6 +198,7 @@ function ComfortableApp() {
                   searchQuery={searchQuery}
                   viewMode={viewMode}
                   onNavigate={handleSidebarNavigation}
+                  navigationResetToken={navigationResetToken}
                 />
               </Suspense>
             </ErrorBoundary>

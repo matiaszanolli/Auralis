@@ -317,3 +317,37 @@ describe('useNavigationState', () => {
     });
   });
 });
+
+describe('useNavigationState resetToken (#6014)', () => {
+  it('closes an open detail page when the token changes without the view changing', () => {
+    const { result, rerender } = renderHook(
+      ({ resetToken }) => useNavigationState({ view: 'albums', resetToken }),
+      { initialProps: { resetToken: 0 } }
+    );
+    act(() => {
+      result.current.handleAlbumClick(7);
+      result.current.handleArtistClick(3, 'Someone');
+    });
+    expect(result.current.selectedAlbumId).toBe(7);
+
+    rerender({ resetToken: 1 });
+
+    expect(result.current.selectedAlbumId).toBeNull();
+    expect(result.current.selectedArtistId).toBeNull();
+    expect(result.current.selectedArtistName).toBe('');
+  });
+
+  it('keeps the detail page when neither the view nor the token changes', () => {
+    const { result, rerender } = renderHook(
+      ({ resetToken }) => useNavigationState({ view: 'albums', resetToken }),
+      { initialProps: { resetToken: 2 } }
+    );
+    act(() => {
+      result.current.handleAlbumClick(7);
+    });
+
+    rerender({ resetToken: 2 });
+
+    expect(result.current.selectedAlbumId).toBe(7);
+  });
+});

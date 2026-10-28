@@ -14,9 +14,14 @@ export function parsePlaylistViewId(view: string): number | null {
 
 interface UseNavigationStateProps {
   view: string;
+  /**
+   * Bumped by the shell when the user picks the nav item for the view they are already in. The
+   * view id does not change then, so without it an open album/artist detail page stayed (#6014).
+   */
+  resetToken?: number;
 }
 
-export const useNavigationState = ({ view }: UseNavigationStateProps) => {
+export const useNavigationState = ({ view, resetToken = 0 }: UseNavigationStateProps) => {
   const [selectedAlbumId, setSelectedAlbumId] = useState<number | null>(null);
   const [selectedArtistId, setSelectedArtistId] = useState<number | null>(null);
   const [selectedArtistName, setSelectedArtistName] = useState<string>('');
@@ -26,7 +31,7 @@ export const useNavigationState = ({ view }: UseNavigationStateProps) => {
     setSelectedAlbumId(null);
     setSelectedArtistId(null);
     setSelectedArtistName('');
-  }, [view]);
+  }, [view, resetToken]);
 
   const handleBackFromAlbum = useCallback(() => {
     setSelectedAlbumId(null);
