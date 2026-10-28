@@ -194,17 +194,16 @@ async def get_fingerprint_stats(repos: Any = Depends(_repo_deps.get_repos)) -> d
     """
     Get overall fingerprint statistics for the library.
 
-    Returns:
-        Statistics including total tracks, fingerprinted count, and progress
+    Returns: total tracks, fingerprinted count, and progress.
     """
     stats = await asyncio.to_thread(repos.fingerprint_stats.get_fingerprint_stats)
-
+    fingerprinted = stats.get('current', stats['fingerprinted'])  # usable rows, as progress_percent counts (#5891)
     return {
         "total_tracks": stats['total'],
-        "fingerprinted": stats['fingerprinted'],
-        "pending": stats['pending'],
+        "fingerprinted": fingerprinted,
+        "pending": max(0, stats['total'] - fingerprinted),
         "progress_percent": stats['progress_percent'],
-        "message": f"{stats['fingerprinted']}/{stats['total']} tracks fingerprinted ({stats['progress_percent']}%)"
+        "message": f"{fingerprinted}/{stats['total']} tracks fingerprinted ({stats['progress_percent']}%)"
     }
 
 

@@ -65,8 +65,8 @@ async def get_fingerprinting_status(repos: Any = Depends(_repo_deps.get_repos)) 
     stats = await asyncio.to_thread(repos.fingerprint_stats.get_fingerprint_stats)
 
     total_tracks = stats['total']
-    fingerprinted_count = stats['fingerprinted']
-    pending_count = stats['pending']
+    fingerprinted_count = stats.get('current', stats['fingerprinted'])  # usable rows; outdated are pending (#5891)
+    pending_count = max(0, total_tracks - fingerprinted_count)
     progress_percent = stats['progress_percent']
 
     if total_tracks == 0:
