@@ -18,6 +18,7 @@ registries from here and hands them to the WebSocket handlers through
 
 import asyncio
 import logging
+import threading
 
 from fastapi import WebSocket
 
@@ -40,6 +41,12 @@ stream_pause_events: dict[str, asyncio.Event] = {}
 # (frontend buffer is full); when set, backend continues streaming.
 # Separate from pause events — pause is user-initiated, flow is buffer-driven.
 stream_flow_events: dict[str, asyncio.Event] = {}
+
+# Per-WebSocket cooperative-cancel signal for in-flight chunk DSP (#4815). The stream entry
+# points create one threading.Event per active stream and set()/pop() it here;
+# _cancel_prior_task / handle_stop set() it before cancelling so an abandoned chunk's executor
+# thread can bail out early instead of running to completion unreferenced.
+stream_chunk_cancel_events: dict[str, threading.Event] = {}
 
 
 async def wait_for_stream_gates(websocket: WebSocket) -> None:

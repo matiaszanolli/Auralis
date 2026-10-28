@@ -25,6 +25,7 @@ from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
 from .job_error_mapping import _safe_error_message
+from .stream_gates import stream_chunk_cancel_events
 from .stream_enhanced_chunks import pump_chunks, validate_processor_metadata
 from .proactive_buffer import buffer_presets_for_track
 from .stream_track_resolution import resolve_and_validate_track
@@ -108,9 +109,8 @@ async def stream_enhanced_audio(
     # playback_commands._cancel_prior_task / playback_control.handle_stop
     # before they call task.cancel(); checked by
     # chunk_streaming.process_chunk before starting DSP.
-    from routers.system_streams import _stream_chunk_cancel_events
     chunk_cancel_event = threading.Event()
-    _stream_chunk_cancel_events[_asc.ws_id(websocket)] = chunk_cancel_event
+    stream_chunk_cancel_events[_asc.ws_id(websocket)] = chunk_cancel_event
 
     # Whether the chunk loop exited before delivering the whole track, and how
     # much audio actually reached the client. Without these the terminal message
@@ -198,9 +198,9 @@ async def stream_enhanced_audio(
             websocket=websocket
         )
         if fingerprint_available:
-            logger.info(f"🎯 Adaptive mastering will use fingerprint-optimized parameters (cached)")
+            logger.info("🎯 Adaptive mastering will use fingerprint-optimized parameters (cached)")
         else:
-            logger.info(f"📊 Streaming with standard adaptive mastering (fingerprint queued for background generation)")
+            logger.info("📊 Streaming with standard adaptive mastering (fingerprint queued for background generation)")
 
         logger.info(
             f"Starting audio stream: track={track_id}, preset={preset}, "
@@ -219,7 +219,7 @@ async def stream_enhanced_audio(
             chunk_duration=processor.chunk_duration,
             total_duration=processor.duration,
         ):
-            logger.info(f"WebSocket disconnected, cannot start stream")
+            logger.info("WebSocket disconnected, cannot start stream")
             return
 
         # Process and stream chunks with look-ahead: start processing
@@ -261,7 +261,7 @@ async def stream_enhanced_audio(
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53;
         # prior code matched on \"close message\" inside the exception
         # string which depended on Starlette internals).
-        logger.info(f"Audio streaming stopped: client disconnected")
+        logger.info("Audio streaming stopped: client disconnected")
     except Exception as e:
         logger.error(f"Audio streaming failed: {e}", exc_info=True)
         # Only try to send error if WebSocket is still connected
@@ -295,8 +295,8 @@ async def stream_enhanced_audio(
         # same ws_id may already have registered its own event by the time
         # this (cancelled) task's finally runs.
         _ws_id_key = _asc.ws_id(websocket)
-        if _stream_chunk_cancel_events.get(_ws_id_key) is chunk_cancel_event:
-            _stream_chunk_cancel_events.pop(_ws_id_key, None)
+        if stream_chunk_cancel_events.get(_ws_id_key) is chunk_cancel_event:
+            stream_chunk_cancel_events.pop(_ws_id_key, None)
         # #5378: last, for the re-raise reason given above. Popping the event
         # from the registry above does not disarm it — buffer_presets_for_track
         # holds the Event object itself, already set() by whoever cancelled us.

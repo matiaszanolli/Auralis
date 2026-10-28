@@ -9,7 +9,6 @@ system.py, #5832).
 import asyncio
 import json
 import logging
-import threading
 from typing import Any
 from collections.abc import Callable
 
@@ -25,13 +24,6 @@ _active_streaming_tasks: dict[str, asyncio.Task[None]] = {}
 _active_streaming_tasks_lock = asyncio.Lock()  # Protects all _active_streaming_tasks access (fixes #2425)
 # Track which track ID is currently streaming per WS (for deduplication)
 _active_streaming_track_ids: dict[str, int] = {}
-
-# Per-WebSocket cooperative-cancel signal for in-flight chunk DSP (#4815).
-# stream_enhanced.py/stream_seek.py create one threading.Event per active
-# stream and set()/pop() it in this dict; _cancel_prior_task/handle_stop
-# set() it before cancelling so an already-abandoned chunk's executor
-# thread can bail out early instead of running to completion unreferenced.
-_stream_chunk_cancel_events: dict[str, threading.Event] = {}
 
 
 # ============================================================================

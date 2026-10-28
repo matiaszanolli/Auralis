@@ -29,6 +29,7 @@ from .chunk_boundaries import (
     chunk_for_position,
 )
 from .job_error_mapping import _safe_error_message
+from .stream_gates import stream_chunk_cancel_events
 from .stream_enhanced_chunks import pump_chunks, validate_processor_metadata
 from .stream_track_resolution import resolve_and_validate_track
 from security.path_security import validate_file_path
@@ -104,9 +105,8 @@ async def stream_enhanced_audio_from_position(
     # rationale. Registered before track lookup/processor construction so
     # _cancel_prior_task can find and set() it for this task's whole
     # lifetime.
-    from routers.system_streams import _stream_chunk_cancel_events
     chunk_cancel_event = threading.Event()
-    _stream_chunk_cancel_events[_asc.ws_id(websocket)] = chunk_cancel_event
+    stream_chunk_cancel_events[_asc.ws_id(websocket)] = chunk_cancel_event
 
     # Same early-exit accounting as the non-seek path (#4659): a stream stopped
     # by a mid-stream enhancement toggle must not report the full track length.
@@ -195,7 +195,7 @@ async def stream_enhanced_audio_from_position(
 
         # Check if WebSocket disconnected
         if not controller._is_websocket_connected(websocket):
-            logger.info(f"WebSocket disconnected, aborting seek stream")
+            logger.info("WebSocket disconnected, aborting seek stream")
             return
 
         # Send stream start message with seek info
@@ -217,7 +217,7 @@ async def stream_enhanced_audio_from_position(
             seek_position=effective_position,
             seek_offset=seek_offset,
         ):
-            logger.info(f"WebSocket disconnected, cannot start seek stream")
+            logger.info("WebSocket disconnected, cannot start seek stream")
             return
 
         # Process and stream chunks with look-ahead (same pattern as
@@ -261,7 +261,7 @@ async def stream_enhanced_audio_from_position(
 
     except WebSocketDisconnect:
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).
-        logger.info(f"Seek streaming stopped: client disconnected")
+        logger.info("Seek streaming stopped: client disconnected")
     except Exception as e:
         logger.error(f"Seek streaming failed: {e}", exc_info=True)
         if controller._is_websocket_connected(websocket):
@@ -288,5 +288,5 @@ async def stream_enhanced_audio_from_position(
         # same ws_id may already have registered its own event by the time
         # this (cancelled) task's finally runs.
         _ws_id_key = _asc.ws_id(websocket)
-        if _stream_chunk_cancel_events.get(_ws_id_key) is chunk_cancel_event:
-            _stream_chunk_cancel_events.pop(_ws_id_key, None)
+        if stream_chunk_cancel_events.get(_ws_id_key) is chunk_cancel_event:
+            stream_chunk_cancel_events.pop(_ws_id_key, None)

@@ -235,7 +235,7 @@ class TestProactiveBufferSharesTheStreamsCancelEvent:
 
     @pytest.mark.asyncio
     async def test_buffering_receives_the_streams_registered_cancel_event(self):
-        from routers.system import _stream_chunk_cancel_events
+        from core.stream_gates import stream_chunk_cancel_events as _stream_chunk_cancel_events
 
         processor = _make_processor()
         controller, ws = _wire_controller(processor)
