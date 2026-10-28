@@ -31,6 +31,8 @@ import { ArtistListEmptyState } from './ArtistListEmptyState';
 import { ArtistListContent } from './ArtistListContent';
 import { ArtistInfoModal } from './ArtistInfoModal';
 import { useArtistsQuery } from '@/hooks/library';
+import { LIBRARY_CHANGE_MESSAGES } from '@/hooks/library/useLibraryChangeSync';
+import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import { useGroupedArtists } from '@/hooks/shared';
 import { useContextMenuActions } from './useContextMenuActions';
 import { useContextMenu } from '@/components/shared/ContextMenu';
@@ -56,7 +58,13 @@ export const CozyArtistList = ({ onArtistClick, search }: CozyArtistListProps) =
     hasMore,
     fetchMore,
     refetch,
+    refresh,
   } = useArtistsQuery({ limit: 50, search });
+
+  // Hook-local state, so no query invalidation reaches it: re-read the loaded
+  // pages in place when the library changes while the list is mounted (#5871).
+  const refreshArtists = useCallback(() => void refresh(), [refresh]);
+  useWebSocketMessages(LIBRARY_CHANGE_MESSAGES, refreshArtists);
 
   // Artist grouping by first letter
   const { groupedArtists, sortedLetters } = useGroupedArtists(artists);

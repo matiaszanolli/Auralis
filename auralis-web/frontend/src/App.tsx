@@ -10,6 +10,7 @@ import ComfortableApp from './ComfortableApp';
 import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
 import { useServerRestartNotice } from '@/hooks/player/useServerRestartNotice';
 import { useWebSocketErrors } from '@/hooks/websocket/useWebSocketErrors';
+import { useLibraryChangeSync } from '@/hooks/library/useLibraryChangeSync';
 import { store } from './store';
 import { shouldRetryQuery } from '@/utils/queryRetry';
 import { QUERY_STALE_TIME_MS } from '@/config/timing';
@@ -37,6 +38,8 @@ function PlayerStateSync() {
   useWebSocketErrors();
   // Say so when a backend restart dropped the playback session (#5487)
   useServerRestartNotice();
+  // Re-read the album caches when the library changes (#5871)
+  useLibraryChangeSync();
   return null;
 }
 

@@ -26,6 +26,7 @@ import {
   buildEndpoint as buildQueryEndpoint,
   extractItemsFromResponse,
   fetchLibraryPage,
+  fetchLoadedPages,
 } from '@/hooks/library/libraryQueryRequest';
 import {
   QUERY_TYPE_GUARD,
@@ -62,11 +63,9 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
   queryType: Q,
   options: LibraryQueryOptions = {}
 ): UseLibraryQueryResult<LibraryItemByQuery[Q]> {
-  // Destructure the stable `get` from useRestAPI's stableMethods. The api
-  // wrapper object itself is re-memoized on every isLoading/error change, so
-  // depending on the whole object churned executeQuery/fetchMore each fetch
-  // cycle and re-fired the auto-fetch effect after completion — a latent
-  // refetch loop (#4164). `get` is referentially stable.
+  // Only the referentially stable `get`: depending on the whole api object
+  // (re-memoized on every isLoading/error change) re-fired the auto-fetch
+  // effect after each completion — a latent refetch loop (#4164).
   const { get } = useRestAPI();
 
   // State
@@ -85,16 +84,13 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
   const queryKeyRef = useRef<string>('');
   const isFetchingRef = useRef<boolean>(false);
   const isFetchingMoreRef = useRef<boolean>(false);
-  /**
-   * Monotonic request id guarding against out-of-order responses (#4609).
-   *
-   * The in-flight dedup keys on the endpoint URL, which differs per search
-   * term, so it never fires across a fast sequence of searches. Without this,
-   * request A ("be") resolving after B ("bea") overwrote B's results. A ref,
-   * not an effect-scoped `isActive` flag (#3925), because fetchMore/refetch
-   * drive executeQuery directly and an effect cleanup would not cover them.
-   */
+  // Monotonic request id guarding against out-of-order responses (#4609): the
+  // URL-keyed dedup never fires across searches, so request A ("be") resolving
+  // after B ("bea") overwrote B's results. A ref, not an effect-scoped flag
+  // (#3925), because fetchMore/refetch/refresh drive requests directly.
   const requestIdRef = useRef<number>(0);
+  const dataLengthRef = useRef(0); // sizes refresh() without a `data` dependency
+  dataLengthRef.current = data.length;
   const claimRequest = useSupersedingAbort(); // aborts the superseded HTTP request (#5650)
 
   // Constants
@@ -116,17 +112,13 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
     [limit, options.endpoint, options.search, options.orderBy]
   );
 
-  /**
-   * Execute query
-   */
+  /** Execute query */
   const executeQuery = useCallback(
     async (targetOffset: number = 0, append: boolean = false) => {
       const url = buildQueryEndpoint(queryType, endpointOptions, targetOffset);
 
-      // Generate query key for deduplication
+      // Skip if the same query is already in flight (ref: no stale closure)
       const queryKey = `${queryType}:${url}:${targetOffset}`;
-
-      // Skip if same query already in flight (use ref to avoid stale closure)
       if (queryKeyRef.current === queryKey && isFetchingRef.current) {
         return;
       }
@@ -169,13 +161,8 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
         setOffset(newOffset);
         setHasMore(deriveHasMore(response, newOffset, items.length));
 
-        if (append) {
-          // Append to existing data (infinite scroll)
-          setData(prev => [...prev, ...items]);
-        } else {
-          // Replace data (first load or refetch)
-          setData(items);
-        }
+        // Append (infinite scroll) or replace (first load / refetch)
+        setData(prev => (append ? [...prev, ...items] : items));
       } finally {
         // Only the newest request owns the shared in-flight/loading state.
         // Clearing it from a superseded request would drop the spinner while
@@ -189,10 +176,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
     [get, queryType, endpointOptions, claimRequest]
   );
 
-  /**
-   * Fetch next page (for infinite scroll)
-   * Includes deduplication to prevent concurrent fetch requests
-   */
+  /** Fetch next page (infinite scroll), deduplicated against concurrent calls */
   const fetchMore = useCallback(async (): Promise<void> => {
     // Guard: Skip if already fetching, no more items, or query in flight
     if (isFetchingMoreRef.current || !hasMore || isFetchingRef.current) {
@@ -204,12 +188,9 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
     setIsLoadingMore(true);
     setLoadMoreError(null);
 
-    // Claim a request id the same way executeQuery does (#4885). The
-    // in-flight/has-more checks above only cover the moment this call
-    // *starts* — they don't stop a newer executeQuery() (e.g. the user
-    // changing the search term) from completing and replacing `data` while
-    // this fetchMore's request is still in flight. Sharing requestIdRef with
-    // executeQuery means that supersession is detected here too.
+    // Share executeQuery's request id (#4885): the guards above only cover
+    // this call's start, not a newer query (a search change) replacing `data`
+    // while this page is in flight.
     const myRequestId = ++requestIdRef.current;
     const isStale = () => requestIdRef.current !== myRequestId;
     const signal = claimRequest();
@@ -245,15 +226,32 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
       setTotal(response.total);
       setHasMore(deriveHasMore(response, nextOffset, items.length));
     } finally {
-      // Always clear this call's own fetching flags, regardless of
-      // staleness — unlike executeQuery's isFetchingRef/isLoading (shared
-      // across every call), isFetchingMoreRef/isLoadingMore belong solely to
-      // fetchMore, so leaving them set on a superseded call would lock out
-      // every future fetchMore() for the rest of the component's lifetime.
+      // Always clear these, stale or not: unlike executeQuery's shared flags
+      // they belong solely to fetchMore, and leaving them set on a superseded
+      // call would lock out every future fetchMore().
       isFetchingMoreRef.current = false;
       setIsLoadingMore(false);
     }
   }, [get, offset, limit, hasMore, queryType, endpointOptions, claimRequest]);
+
+  /**
+   * Refresh in place (#5871): re-read the loaded pages so a library change
+   * updates the rows without dropping back to page 1 like refetch(). A failed
+   * refresh keeps the current rows; the next change retries.
+   */
+  const refresh = useCallback(async (): Promise<void> => {
+    if (dataLengthRef.current === 0) return executeQuery(0, false);
+    const myRequestId = ++requestIdRef.current;
+    const result = await fetchLoadedPages({
+      get, queryType, endpointOptions, loaded: dataLengthRef.current,
+      isStale: () => requestIdRef.current !== myRequestId, signal: claimRequest(),
+    });
+    if (result.kind !== 'refreshed') return;
+    setData(result.items);
+    setOffset(result.offset);
+    setTotal(result.total);
+    setHasMore(result.hasMore);
+  }, [get, queryType, endpointOptions, claimRequest, executeQuery]);
 
   /** Refetch - Reset and fetch from beginning */
   const refetch = useCallback(async (): Promise<void> => {
@@ -290,6 +288,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
     hasMore,
     fetchMore,
     refetch,
+    refresh,
     clearError,
   };
 }

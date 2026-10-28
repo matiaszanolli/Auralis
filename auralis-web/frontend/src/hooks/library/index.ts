@@ -10,6 +10,7 @@ export { useLibraryQuery, useAlbumsQuery, useArtistsQuery, useTracksQuery } from
 
 // New hooks moved from root
 export { useLibraryWithStats } from './useLibraryWithStats';
+export { useLibraryChangeSync, LIBRARY_CHANGE_MESSAGES } from './useLibraryChangeSync';
 export { useLibraryPagination } from './useLibraryPagination';
 export { useLibraryStats } from './useLibraryStats';
 export { useLibraryScan } from './useLibraryScan';

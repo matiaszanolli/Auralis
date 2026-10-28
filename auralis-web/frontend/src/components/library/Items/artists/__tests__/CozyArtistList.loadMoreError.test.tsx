@@ -1,5 +1,6 @@
 /**
- * A failed later page keeps the loaded artists (#5870)
+ * A failed later page keeps the loaded artists (#5870); a library change
+ * refreshes them in place (#5871)
  *
  * fetchMore stored a page failure in the same `error` the initial load used,
  * and CozyArtistList rendered the error EmptyState whenever `error` was set,
@@ -15,6 +16,14 @@ import type { ApiError } from '@/types/api';
 
 const query = vi.hoisted(() => ({
   current: {} as Record<string, unknown>,
+}));
+
+let deliver: ((message: unknown) => void) | undefined;
+vi.mock('@/hooks/websocket/useWebSocketMessages', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/websocket/useWebSocketMessages')>()),
+  useWebSocketMessages: (_types: string[], callback: (msg: unknown) => void) => {
+    deliver = callback;
+  },
 }));
 
 vi.mock('@/hooks/library', async (importOriginal) => {
@@ -40,6 +49,7 @@ const state = (overrides: Record<string, unknown>) => ({
   hasMore: true,
   fetchMore: vi.fn().mockResolvedValue(undefined),
   refetch: vi.fn().mockResolvedValue(undefined),
+  refresh: vi.fn().mockResolvedValue(undefined),
   ...overrides,
 });
 
@@ -78,5 +88,17 @@ describe('CozyArtistList load-more failure (#5870)', () => {
     expect(alert).toHaveTextContent('Error Loading Artists');
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(query.current.refetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('CozyArtistList library changes (#5871)', () => {
+  it('refreshes the loaded artists in place when the library changes while mounted', () => {
+    query.current = state({});
+    render(<CozyArtistList />);
+
+    deliver?.({ type: 'library_updated', data: { action: 'scan' } });
+
+    expect(query.current.refresh).toHaveBeenCalledTimes(1);
+    expect(query.current.refetch).not.toHaveBeenCalled();
   });
 });

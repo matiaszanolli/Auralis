@@ -698,6 +698,63 @@ describe('useLibraryQuery', () => {
     });
   });
 
+  describe('refresh (#5871)', () => {
+    const page = (ids: number[], offset: number, hasMore: boolean) => ({
+      tracks: ids.map((id) => ({ ...mockTrackApi, id, title: `v2-${id}` })),
+      total: 3, offset, limit: 2, has_more: hasMore,
+    });
+
+    it('re-reads every loaded page in place and keeps pagination continuity', async () => {
+      const mockGet = vi
+        .fn()
+        .mockResolvedValueOnce({ ...page([1, 2], 0, true), tracks: [{ ...mockTrackApi, id: 1 }, { ...mockTrackApi, id: 2 }] })
+        .mockResolvedValueOnce({ ...page([3], 2, false), tracks: [{ ...mockTrackApi, id: 3 }] })
+        .mockResolvedValueOnce(page([1, 2], 0, true))
+        .mockResolvedValueOnce(page([3], 2, false));
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+
+      const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 2 }));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      await act(async () => {
+        await result.current.fetchMore();
+      });
+      expect(result.current.data).toHaveLength(3);
+
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      // Not torn down to page 1: all three rows, with the refreshed values.
+      expect(result.current.data.map((track) => track.title)).toEqual(['v2-1', 'v2-2', 'v2-3']);
+      expect(result.current.hasMore).toBe(false);
+      expect(mockGet.mock.calls[2][0]).toContain('offset=0');
+      expect(mockGet.mock.calls[3][0]).toContain('offset=2');
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it('a failed refresh keeps the current rows', async () => {
+      const mockGet = vi
+        .fn()
+        .mockResolvedValueOnce(page([1, 2], 0, false))
+        .mockRejectedValueOnce(new Error('Library database is locked'));
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+
+      const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 2 }));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      expect(result.current.data.map((track) => track.id)).toEqual([1, 2]);
+      expect(result.current.error).toBeNull();
+    });
+  });
+
   describe('refetch', () => {
     it('should reset data and refetch from beginning', async () => {
       const firstLoad = [{ ...mockTrackApi, id: 1 }];

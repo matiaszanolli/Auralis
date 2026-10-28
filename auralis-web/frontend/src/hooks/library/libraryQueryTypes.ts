@@ -97,6 +97,9 @@ export interface UseLibraryQueryResult<T> {
   /** Reset query and refetch */
   refetch: () => Promise<void>;
 
+  /** Re-read the loaded pages in place, keeping the list's length (#5871) */
+  refresh: () => Promise<void>;
+
   /** Clear error state */
   clearError: () => void;
 }

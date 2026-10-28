@@ -17,6 +17,7 @@ import { transformAlbums, transformArtists, transformTracks } from '@/api/transf
 import type { AlbumApiResponse, ArtistApiResponse, TrackApiResponse } from '@/api/transformers';
 import { ApiErrorHandler } from '@/types/api';
 import type { ApiError } from '@/types/api';
+import { QUERY_TYPE_GUARD, deriveHasMore } from './libraryQueryTypes';
 import type {
   LibraryItemByQuery,
   LibraryQueryOptions,
@@ -187,4 +188,52 @@ export async function fetchLibraryPage(deps: {
 
     return { kind: 'error', error: ApiErrorHandler.parseWithCode(err, errorCode) };
   }
+}
+
+/**
+ * Re-read the first `loaded` items page by page (#5871).
+ *
+ * A library change (scan, metadata edit, removal) must refresh the rows the
+ * user already has in place: `refetch()` empties the list and drops back to
+ * page 1, the skeleton-tear #5626 fixed for the track list. This re-requests
+ * exactly as many pages as are loaded, so the next fetchMore() continues from
+ * the returned `offset` (the start of the last page, as fetchMore keeps it).
+ */
+export async function fetchLoadedPages<Q extends LibraryQueryType>(deps: {
+  get: Parameters<typeof fetchLibraryPage>[0]['get'];
+  queryType: Q;
+  endpointOptions: EndpointOptions;
+  loaded: number;
+  isStale: () => boolean;
+  signal?: AbortSignal;
+}): Promise<
+  | { kind: 'refreshed'; items: LibraryItemByQuery[Q][]; offset: number; total: number; hasMore: boolean }
+  | Exclude<PageFetchResult, { kind: 'ok' }>
+> {
+  const { get, queryType, endpointOptions, loaded, isStale, signal } = deps;
+  const items: LibraryItemByQuery[Q][] = [];
+  let pageOffset = 0;
+  let offset = 0;
+  let total = 0;
+  let hasMore = true;
+  while (items.length < loaded && hasMore) {
+    const result = await fetchLibraryPage({
+      get,
+      url: buildEndpoint(queryType, endpointOptions, pageOffset),
+      validate: QUERY_TYPE_GUARD[queryType],
+      isStale,
+      errorCode: 'QUERY_ERROR',
+      requireResponse: true,
+      signal,
+    });
+    if (result.kind !== 'ok') return result;
+    if (!result.response) break; // unreachable with requireResponse
+    const page = extractItemsFromResponse(result.response, queryType);
+    items.push(...page);
+    total = result.response.total || 0;
+    hasMore = page.length > 0 && deriveHasMore(result.response, pageOffset, page.length);
+    offset = pageOffset;
+    pageOffset += endpointOptions.limit || LIBRARY_PAGE_LIMIT;
+  }
+  return { kind: 'refreshed', items, offset, total, hasMore };
 }
