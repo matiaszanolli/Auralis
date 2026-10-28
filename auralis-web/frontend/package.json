@@ -56,14 +56,14 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.12.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "@vitest/coverage-v8": "^4.1.7",
-    "@vitest/ui": "^4.1.7",
+    "@vitest/coverage-v8": "^4.1.12",
+    "@vitest/ui": "^4.1.12",
     "axe-core": "^4.13.0",
     "fake-indexeddb": "^6.2.5",
     "happy-dom": "^20.8.9",
     "jsdom": "^30.1.0",
     "msw": "^2.6.5",
     "vite": "^8.3.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }
