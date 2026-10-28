@@ -80,6 +80,39 @@ describe('useAPIHealthPoll (#5012)', () => {
     expect(typeof store.getState().connection.latency).toBe('number');
   });
 
+  it('flags a backend that is up but started without its library (#5958)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'healthy', auralis_available: false }),
+    });
+    const store = createTestStore();
+    renderHook(() => useAPIHealthPoll(5000), { wrapper: makeWrapper(store) });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(store.getState().connection.apiConnected).toBe(true);
+    expect(store.getState().connection.backendDegraded).toBe(true);
+  });
+
+  it('clears the flag once the backend reports its library available', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'healthy', auralis_available: true }),
+    });
+    const store = createTestStore({ connection: { backendDegraded: true } });
+    renderHook(() => useAPIHealthPoll(5000), { wrapper: makeWrapper(store) });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(store.getState().connection.backendDegraded).toBe(false);
+  });
+
   it('fires on every interval tick', async () => {
     mockFetch.mockResolvedValue(okResponse());
     const store = createTestStore();

@@ -20,7 +20,6 @@
 import { ReactElement, ReactNode } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { createTestStore } from '@/test/test-utils';
@@ -59,7 +58,17 @@ function MinimalWrapper({ children }: { children: ReactNode }) {
   return (
     // No <BrowserRouter> (#4943): the app has no router, so this was
     // scaffolding for a dependency nothing under src/ uses in production.
-    <Provider store={createTestStore()}>
+    // The indicator reads Redux (#3380), not the WebSocket context, so the mocked
+    // connection state has to be mirrored into the store it renders from.
+    <Provider
+      store={createTestStore({
+        connection: {
+          wsConnected: mockContextValue.isConnected,
+          apiConnected: true,
+          lastError: mockContextValue.connectionStatus === 'error' ? 'WebSocket connection error' : null,
+        },
+      })}
+    >
       <ThemeProvider>
         {children}
       </ThemeProvider>
@@ -102,6 +111,22 @@ describe('ConnectionStatusIndicator', () => {
 
     const indicator = screen.getByTestId('connection-indicator');
     expect(indicator).toHaveAttribute('data-status', 'connected');
+  });
+
+  it('shows a degraded backend as such, not as Connected (#5958)', () => {
+    const store = createTestStore({
+      connection: { wsConnected: true, apiConnected: true, backendDegraded: true },
+    });
+    render(
+      <Provider store={store}>
+        <ThemeProvider>
+          <ConnectionStatusIndicator />
+        </ThemeProvider>
+      </Provider>
+    );
+
+    expect(screen.getByTestId('connection-indicator')).toHaveAttribute('data-status', 'degraded');
+    expect(screen.getByRole('status')).toHaveAccessibleName(/library unavailable/i);
   });
 
   it('should render with disconnected status when not connected and no error', () => {
@@ -204,15 +229,11 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should toggle details on click', async () => {
-    const user = userEvent.setup();
     renderWithMinimalWrapper(<ConnectionStatusIndicator />);
 
-    const indicator = screen.getByTestId('connection-indicator');
-    // Click the compact indicator (the circular div inside)
-    const clickableArea = indicator.querySelector('div');
-    if (clickableArea) {
-      await user.click(clickableArea);
-    }
+    // fireEvent.click, not user.click: a pointer click first hovers (which opens the
+    // details) and then toggles them shut again.
+    fireEvent.click(screen.getByRole('status'));
 
     // Details should show after click
     await waitFor(() => {

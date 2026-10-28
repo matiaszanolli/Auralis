@@ -2,7 +2,7 @@
   "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update",
   "generatedFrom": {
     "totalTests": 3322,
-    "failedTests": 89
+    "failedTests": 79
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
@@ -80,16 +80,6 @@
     "src/components/player/__tests__/VolumeScale.test.tsx::Player - Volume Scale Consistency (#2116) should maintain volume consistency after WebSocket player_state update",
     "src/components/player/__tests__/VolumeScale.test.tsx::Player - Volume Scale Consistency (#2116) should persist volume changes to Redux when slider changes",
     "src/components/player/__tests__/VolumeScale.test.tsx::Player - Volume Scale Consistency (#2116) should round volume correctly when converting 0-1 to 0-100",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should display error message when error exists and details expanded",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should render with connected status attribute when WebSocket connected",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should render with reconnecting status when error and not connected",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should return null in compact mode when connected",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should show WebSocket as connected in details",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should show reconnect button when reconnecting and details expanded",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should toggle details on click",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should transition from connected to disconnected",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should transition from disconnected to reconnecting",
-    "src/components/shared/__tests__/ConnectionStatusIndicator.test.tsx::ConnectionStatusIndicator should transition from reconnecting to connected",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle NaN values",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Edge Cases should handle negative currentTime",
     "src/hooks/player/__tests__/usePlayerDisplay.test.ts::usePlayerDisplay Hook Realistic Scenarios should handle podcast playback (multi-hour)",

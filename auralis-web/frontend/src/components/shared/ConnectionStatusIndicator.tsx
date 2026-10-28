@@ -81,30 +81,34 @@ export function ConnectionStatusIndicator({
   useAutoHide(status.wsConnected && showDetails, () => setShowDetails(false));
 
   // Don't show if everything is connected and compact mode
-  if (compact && status.wsConnected && status.apiConnected && !showDetails) {
+  if (compact && status.wsConnected && status.apiConnected && !status.backendDegraded && !showDetails) {
     return null;
   }
 
-  const isHealthy = status.wsConnected && status.apiConnected;
+  const isDegraded = status.backendDegraded && status.apiConnected;
+  const isHealthy = status.wsConnected && status.apiConnected && !status.backendDegraded;
   const isReconnecting = status.lastError !== null && !status.wsConnected;
   const statusColor = isHealthy
     ? tokens.colors.semantic.success
-    : isReconnecting
+    : isReconnecting || isDegraded
       ? tokens.colors.semantic.warning
       : tokens.colors.semantic.error;
 
-  const statusText = isHealthy
-    ? 'Connected'
-    : isReconnecting
-      ? 'Reconnecting...'
-      : 'Disconnected';
+  // The backend answers but its library did not start: say so, not "Connected" (#5958).
+  const statusText = isDegraded
+    ? 'Library unavailable - the backend started without its library; see the logs'
+    : isHealthy
+      ? 'Connected'
+      : isReconnecting
+        ? 'Reconnecting...'
+        : 'Disconnected';
 
   const positionStyles = getPositionStyles(position);
 
   return (
     <div
       data-testid="connection-indicator"
-      data-status={isHealthy ? 'connected' : isReconnecting ? 'reconnecting' : 'disconnected'}
+      data-status={isDegraded ? 'degraded' : isHealthy ? 'connected' : isReconnecting ? 'reconnecting' : 'disconnected'}
       style={positionStyles}
       onMouseEnter={() => setShowDetails(true)}
       onMouseLeave={() => setShowDetails(false)}

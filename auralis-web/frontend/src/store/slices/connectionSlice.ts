@@ -20,6 +20,9 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 export interface ConnectionState {
   wsConnected: boolean;
   apiConnected: boolean;
+  /** The backend answers but started without its library (health reports
+   *  auralis_available: false): every data route 503s, so the UI must say so (#5958). */
+  backendDegraded: boolean;
   latency: number;
   reconnectAttempts: number;
   maxReconnectAttempts: number;
@@ -31,6 +34,7 @@ export interface ConnectionState {
 const initialState: ConnectionState = {
   wsConnected: false,
   apiConnected: false,
+  backendDegraded: false,
   latency: 0,
   reconnectAttempts: 0,
   // #6220: one budget with the WebSocketManager default — the previous
@@ -141,6 +145,19 @@ const connectionSlice = createSlice({
     },
 
     /**
+     * The backend is reachable but reports its library failed to initialise (#5958)
+     */
+    setBackendDegraded: {
+      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
+        state.backendDegraded = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(degraded: boolean) {
+        return { payload: degraded, meta: { timestamp: Date.now() } };
+      },
+    },
+
+    /**
      * Set error message
      */
     setError: {
@@ -183,6 +200,7 @@ export const {
   setWSConnected,
   setAPIConnected,
   setLatency,
+  setBackendDegraded,
   incrementReconnectAttempts,
   resetReconnectAttempts,
   setMaxReconnectAttempts,

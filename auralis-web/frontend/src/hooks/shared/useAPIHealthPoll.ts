@@ -13,7 +13,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
-import { setAPIConnected, setLatency } from '@/store/slices/connectionSlice';
+import { setAPIConnected, setBackendDegraded, setLatency } from '@/store/slices/connectionSlice';
 import { get, APIRequestError } from '@/utils/apiRequest';
 
 export function useAPIHealthPoll(intervalMs = 5000): void {
@@ -31,11 +31,15 @@ export function useAPIHealthPoll(intervalMs = 5000): void {
         // #5019: shared transport, so a stalled backend fails this poll after
         // DEFAULT_TIMEOUT_MS instead of leaving it pending forever — a bare
         // fetch() here could accumulate one hung request per interval tick.
-        await get('/api/health');
+        const health = await get<{ auralis_available?: boolean } | null>('/api/health');
         if (!mountedRef.current) return;
         const latency = Math.round(performance.now() - start);
         dispatch(setAPIConnected(true));
         dispatch(setLatency(latency));
+        // /api/health stays 200 "healthy" when the library failed to start, and
+        // only auralis_available says so (#5958). Nothing read it, so the user got
+        // a window whose every data request 503'd with no explanation.
+        dispatch(setBackendDegraded(health?.auralis_available === false));
       } catch (err) {
         if (!mountedRef.current) return;
         // Pre-#5019 semantics preserved: the success arm was gated on
