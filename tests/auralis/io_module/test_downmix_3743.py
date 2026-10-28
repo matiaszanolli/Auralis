@@ -10,16 +10,19 @@ shared between both native loaders so all three paths produce
 compatible stereo.
 
 The downmix mapping (BS.775-3, LFE dropped):
-    L_out = L + (1/√2)·C + (1/√2)·Ls
-    R_out = R + (1/√2)·C + (1/√2)·Rs
+    L_out = L + (1/√2)·C + (1/√2)·Ls [+ (1/√2)·Lss for 7.1]
+    R_out = R + (1/√2)·C + (1/√2)·Rs [+ (1/√2)·Rss for 7.1]
 """
 
 from __future__ import annotations
 
 import math
+import shutil
+import subprocess
 
 import numpy as np
 import pytest
+import soundfile as sf
 
 from auralis.io.processing import downmix_to_stereo
 
@@ -117,14 +120,47 @@ def test_stereo_input_passes_through_as_copy() -> None:
     assert out is not audio
 
 
-def test_71_extra_channels_summed_into_both_sides() -> None:
-    """Index 6 / 7 (e.g. Lsr / Rsr) should contribute energy to both
-    outputs without lopsided placement."""
+def test_71_symmetric_side_channels_stay_balanced() -> None:
+    """Equal side-left / side-right content lands equally in both outputs."""
     audio = np.zeros((100, 8), dtype=np.float32)
-    audio[:, 6] = 0.2  # Lsr
-    audio[:, 7] = 0.2  # Rsr
+    audio[:, 6] = 0.2  # Lss
+    audio[:, 7] = 0.2  # Rss
     out = downmix_to_stereo(audio)
     assert math.isclose(float(out[0, 0]), float(out[0, 1]), rel_tol=1e-5)
+
+
+@pytest.mark.parametrize("channel, expect_left, expect_right", [
+    (4, 1, 0),  # back-left
+    (5, 0, 1),  # back-right
+    (6, 1, 0),  # side-left  (#5735: used to land in both outputs)
+    (7, 0, 1),  # side-right
+])
+def test_71_back_and_side_channels_stay_on_their_own_side(channel, expect_left, expect_right) -> None:
+    audio = np.zeros((100, 8), dtype=np.float32)
+    audio[:, channel] = 0.2
+    out = downmix_to_stereo(audio)
+    assert float(out[0, 0]) == pytest.approx(expect_left * 0.2 * 0.7071067811865476, abs=1e-6)
+    assert float(out[0, 1]) == pytest.approx(expect_right * 0.2 * 0.7071067811865476, abs=1e-6)
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg required")
+@pytest.mark.parametrize("channel", range(8))
+def test_71_matches_ffmpeg_ac2_per_channel(channel, tmp_path) -> None:
+    """The native matrix and `ffmpeg -ac 2` (used for the same content in an
+    M4A) place each 7.1 channel identically (#5735)."""
+    sr = 48000
+    audio = np.zeros((sr // 4, 8), dtype=np.float32)
+    audio[:, channel] = 0.2 * np.sin(2 * np.pi * 440 * np.arange(sr // 4) / sr)
+    src, dst = tmp_path / "in71.wav", tmp_path / "out.wav"
+    sf.write(str(src), audio, sr, subtype="FLOAT")
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-i", str(src), "-af", "channelmap=channel_layout=7.1",
+         "-ac", "2", "-c:a", "pcm_f32le", str(dst)],
+        check=True,
+    )
+    expected, _ = sf.read(str(dst), dtype="float32")
+
+    np.testing.assert_allclose(downmix_to_stereo(audio), expected, atol=1e-4)
 
 
 @pytest.mark.parametrize("channels", [4, 5, 7])

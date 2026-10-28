@@ -173,11 +173,10 @@ def downmix_to_stereo(audio_data: np.ndarray) -> np.ndarray:
     Mapping (BS.775-3):
         L_out = L + 0.707·C + 0.707·Ls
         R_out = R + 0.707·C + 0.707·Rs
+        7.1 adds L_out += 0.707·Lss and R_out += 0.707·Rss (side pair).
     LFE is omitted from the stereo image (the standard mixes it ±10 dB
     into either channel optionally; we treat it as discardable for a
-    music-master downmix). Channels past the canonical surround layout
-    are summed equally into both outputs so we don't lose energy from
-    atypical layouts (e.g. 7.1 side channels).
+    music-master downmix). This matches `ffmpeg -ac 2` on the same layout.
 
     After downmixing the matrix sum can exceed ±1.0, so the result is
     rescaled so its peak ≤ the original input peak (no surprise
@@ -231,13 +230,14 @@ def downmix_to_stereo(audio_data: np.ndarray) -> np.ndarray:
     if Rs is not None:
         R_out += _SQ * Rs
 
-    # Side / rear channels beyond Rs (index 5) get summed equally into
-    # both outputs — preserves their energy without inventing a
-    # placement decision.
+    # 7.1 (the only layout past 5.1 that reaches here): side-left / side-right
+    # follow the same BS.775 coefficient as the back pair, each into its own
+    # side. Summing them into BOTH outputs collapsed hard-panned side content
+    # toward the centre and disagreed with FFmpeg's -ac 2 matrix for the same
+    # content in an M4A (#5735).
     if n_channels > 6:
-        extra = audio[:, 6:].sum(axis=1)
-        L_out += _SQ * extra
-        R_out += _SQ * extra
+        L_out += _SQ * audio[:, 6]
+        R_out += _SQ * audio[:, 7]
 
     stereo = np.column_stack([L_out, R_out])
 
