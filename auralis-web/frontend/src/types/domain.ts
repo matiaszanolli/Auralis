@@ -143,5 +143,4 @@ export interface LibraryStats {
   total_plays: number;
   favorite_count: number;
   average_dr?: number | null;
-  avg_dr_rating?: number | null;
 }

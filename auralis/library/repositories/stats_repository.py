@@ -60,9 +60,6 @@ class StatsRepository(BaseRepository):
             avg_dr = track_stats_row.avg_dr
             stats['average_dr'] = float(avg_dr) if avg_dr else None
 
-            # Derived fields expected by frontend
-            stats['avg_dr_rating'] = stats['average_dr']
-
             # Format total duration as human-readable string
             total_secs = int(stats['total_duration'])
             if total_secs >= 86400:
