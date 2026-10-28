@@ -51,7 +51,9 @@ def fetch_from_discogs(service: "ArtworkService", artist_name: str) -> dict[str,
         )
 
         req = urllib.request.Request(search_url)
-        req.add_header('Authorization', f'Discogs token={service.discogs_token}')
+        # Unredirected: urllib copies ordinary headers to a redirect target on another host, which
+        # would replay the token there (#6182); these are not carried across a redirect.
+        req.add_unredirected_header('Authorization', f'Discogs token={service.discogs_token}')
         req.add_header('User-Agent', service.user_agent)
 
         with urllib.request.urlopen(req, timeout=service.timeout) as response:

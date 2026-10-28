@@ -15,7 +15,9 @@ Usage:
 
 import argparse
 import logging
+import os
 import sys
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -41,7 +43,7 @@ def fetch_artwork_for_all_artists(
     artist_repository: Any,
     artwork_service: ArtworkService,
     force_refresh: bool = False
-) -> dict:
+) -> dict[str, Any]:
     """
     Fetch artwork for all artists in the library.
 
@@ -112,7 +114,23 @@ def fetch_artwork_for_all_artists(
     return stats
 
 
-def main():
+def resolve_credentials(args: argparse.Namespace, environ: Mapping[str, str]) -> tuple[str | None, str | None]:
+    """The Discogs token and Last.fm key, from the environment or (discouraged) the command line.
+
+    An argument is readable by any local user in `ps` / `/proc/<pid>/cmdline` and stays in shell
+    history, so AURALIS_DISCOGS_TOKEN / AURALIS_LASTFM_KEY are preferred and win over argv (#6182).
+    """
+    token = environ.get('AURALIS_DISCOGS_TOKEN') or args.discogs_token or None
+    key = environ.get('AURALIS_LASTFM_KEY') or args.lastfm_key or None
+    if args.discogs_token or args.lastfm_key:
+        logger.warning(
+            "Credentials passed as arguments are visible to other local users and in shell "
+            "history; set AURALIS_DISCOGS_TOKEN / AURALIS_LASTFM_KEY instead."
+        )
+    return token, key
+
+
+def main() -> None:
     """Main entry point for fetch_artwork CLI"""
     parser = argparse.ArgumentParser(
         description='Fetch artist artwork from external sources'
@@ -120,12 +138,13 @@ def main():
     parser.add_argument(
         '--discogs-token',
         type=str,
-        help='Discogs user token for API access'
+        help='Discogs user token (prefer the AURALIS_DISCOGS_TOKEN environment variable: '
+             'an argument is visible in `ps` and shell history)'
     )
     parser.add_argument(
         '--lastfm-key',
         type=str,
-        help='Last.fm API key'
+        help='Last.fm API key (prefer AURALIS_LASTFM_KEY; see --discogs-token)'
     )
     parser.add_argument(
         '--force-refresh',
@@ -139,6 +158,7 @@ def main():
     )
 
     args = parser.parse_args()
+    args.discogs_token, args.lastfm_key = resolve_credentials(args, os.environ)
 
     # Initialize services
     try:
