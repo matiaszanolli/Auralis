@@ -36,15 +36,10 @@ async def send_error(
 ) -> None:
     """Send audio_stream_error message to client.
 
-    Args:
-        websocket: WebSocket connection to send the error to
-        track_id: ID of the track that failed
-        error_message: Human-readable error description
-        recovery_position: Seconds into the track from which the client may
-            seek/retry (set when a specific chunk fails, issue #2085).
-        error_code: Machine-readable error code for frontend recovery logic
-        stream_continues: The pump skips the failed chunk and keeps sending
-            (#3190), so the client must keep its engine and buffer (#5867).
+    ``recovery_position`` is where the client may seek/retry after a chunk
+    failure (#2085); ``error_code`` is the machine-readable code for frontend
+    recovery logic; ``stream_continues`` says the pump skips the failed chunk
+    and keeps sending (#3190), so the client keeps its engine (#5867).
     """
     if not controller._is_websocket_connected(websocket):
         return
@@ -76,18 +71,8 @@ async def send_fingerprint_progress(
     status: str,
     message: str
 ) -> None:
-    """
-    Send fingerprint_progress message to client.
-
-    Args:
-        controller: AudioStreamController instance — the send routes through
-            ``controller._safe_send`` so a benign client disconnect racing
-            the progress update logs at debug, not ERROR (#5273).
-        websocket: WebSocket connection
-        track_id: Track ID being analyzed
-        status: Progress status (analyzing, complete, failed, error)
-        message: Human-readable progress message
-    """
+    """Send fingerprint_progress to the client via ``controller._safe_send``, so
+    a benign disconnect racing the update logs at debug, not ERROR (#5273)."""
     progress_message: dict[str, Any] = {
         "type": "fingerprint_progress",
         "data": {

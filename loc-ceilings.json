@@ -19,7 +19,7 @@
     "auralis-web/backend/core/processor_factory.py": 222,
     "auralis-web/backend/core/state_manager.py": 223,
     "auralis-web/backend/core/stream_lifecycle.py": 247,
-    "auralis-web/backend/core/stream_notifications.py": 96,
+    "auralis-web/backend/core/stream_notifications.py": 86,
     "auralis-web/backend/core/streamlined_worker.py": 248,
     "auralis-web/backend/main.py": 130,
     "auralis-web/backend/routers/albums.py": 223,
