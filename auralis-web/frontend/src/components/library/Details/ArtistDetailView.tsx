@@ -2,8 +2,8 @@ import { useState, useCallback } from 'react';
 import { Container } from '@mui/material';
 import { ApiErrorHandler } from '@/types/api';
 import { tokens } from '@/design-system';
-import { EmptyState } from '@/components/shared/ui/feedback';
 import DetailLoading from './DetailLoading';
+import { DetailError } from './DetailError';
 import type { DetailTrack as Track } from '@/types/domain';
 import { usePlayTrack } from '@/hooks/player';
 import { useArtistDetailsData } from './useArtistDetailsData';
@@ -30,6 +30,7 @@ interface ArtistDetailViewProps {
  */
 export const ArtistDetailView = ({
   artistId,
+  artistName,
   onBack,
   onAlbumClick,
 }: ArtistDetailViewProps) => {
@@ -78,15 +79,13 @@ export const ArtistDetailView = ({
     // sibling AlbumDetailView for the identical fix and full rationale.
     const notFound = !error || ApiErrorHandler.isNotFound(error);
     return (
-      <Container maxWidth="xl" sx={{
-        py: tokens.spacing.xl,
-        px: tokens.spacing.lg,
-      }} role="alert" aria-live="assertive">
-        <EmptyState
-          title={notFound ? 'Artist not found' : 'Error Loading Artist'}
-          description={notFound ? undefined : error?.message}
-        />
-      </Container>
+      <DetailError
+        title={notFound ? 'Artist not found' : 'Error Loading Artist'}
+        description={notFound ? (artistName ? `${artistName} is no longer in your library.` : undefined) : error?.message}
+        onBack={onBack}
+        backLabel="Back to Artists"
+        alert
+      />
     );
   }
 

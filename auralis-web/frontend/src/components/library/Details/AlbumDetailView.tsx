@@ -18,10 +18,10 @@ import { useState, useCallback } from 'react';
 import { ApiErrorHandler } from '@/types/api';
 import { tokens } from '@/design-system';
 import { formatDuration } from '@/utils/timeFormat';
-import { EmptyState } from '@/components/shared/ui/feedback';
 import { SimilarTracksModal } from '@/components/shared/SimilarTracksModal';
 import AlbumTrackTable from '@/components/library/Items/tables/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
+import { DetailError } from './DetailError';
 import type { DetailTrack as Track } from '@/types/domain';
 import { usePlayTrack } from '@/hooks/player';
 import { useAlbumDetails } from './useAlbumDetails';
@@ -29,7 +29,7 @@ import { useArtworkPalette } from '@/hooks/app/useArtworkPalette';
 import { useAlbumFingerprint } from '@/hooks/fingerprint/useAlbumFingerprint';
 import { AlbumCharacterPane } from '@/components/library/AlbumCharacterPane';
 import ArrowBack from '@mui/icons-material/ArrowBack';
-import { Button, IconButton } from '@/design-system';
+import { IconButton } from '@/design-system';
 import { Box, Container, Skeleton } from '@mui/material';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -113,39 +113,12 @@ export const AlbumDetailView = ({
     // longer indistinguishable to the user.
     const notFound = !error || ApiErrorHandler.isNotFound(error);
     return (
-      <Container maxWidth="xl" sx={{
-        py: tokens.spacing.xl,
-        px: tokens.spacing.lg,
-      }}>
-        <EmptyState
-          title={notFound ? 'Album not found' : 'Error Loading Album'}
-          description={notFound ? undefined : error?.message}
-        />
-        {onBack && (
-          <Box sx={{ textAlign: 'center', mt: tokens.spacing.lg }}>
-            <Button
-              onClick={onBack}
-              startIcon={<ArrowBack />}
-              sx={{
-                background: tokens.gradients.aurora,
-                color: themeVars.textPrimary,
-                fontWeight: tokens.typography.fontWeight.semibold,
-                padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-                borderRadius: tokens.borderRadius.md,
-                border: 'none',
-                transition: tokens.transitions.all,
-                boxShadow: tokens.shadows.md,
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: tokens.shadows.glowMd,
-                },
-              }}
-            >
-              Back to Albums
-            </Button>
-          </Box>
-        )}
-      </Container>
+      <DetailError
+        title={notFound ? 'Album not found' : 'Error Loading Album'}
+        description={notFound ? undefined : error?.message}
+        onBack={onBack}
+        backLabel="Back to Albums"
+      />
     );
   }
 

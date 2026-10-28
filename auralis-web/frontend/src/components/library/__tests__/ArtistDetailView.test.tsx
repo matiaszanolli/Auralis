@@ -119,6 +119,38 @@ describe('ArtistDetailView', () => {
     });
   });
 
+  describe('Error state navigation (#6034)', () => {
+    it('offers a Back button on the not-found state, wired to onBack', async () => {
+      mockUseArtistDetailsData.mockReturnValue({
+        artist: null, loading: false, error: { status: 404, message: 'Artist 999 not found' },
+      });
+      const onBack = vi.fn();
+      render(<ArtistDetailView artistId={999} onBack={onBack} />);
+
+      await userEvent.click(screen.getByRole('button', { name: /back to artists/i }));
+
+      expect(onBack).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers the same Back button on a real error', () => {
+      mockUseArtistDetailsData.mockReturnValue({
+        artist: null, loading: false, error: { status: 500, message: 'Internal server error' },
+      });
+      render(<ArtistDetailView artistId={1} onBack={vi.fn()} />);
+
+      expect(screen.getByRole('button', { name: /back to artists/i })).toBeInTheDocument();
+    });
+
+    it('names the artist on the not-found state when the caller knows it', () => {
+      mockUseArtistDetailsData.mockReturnValue({
+        artist: null, loading: false, error: { status: 404, message: 'Artist 999 not found' },
+      });
+      render(<ArtistDetailView artistId={999} artistName="Boards of Canada" />);
+
+      expect(screen.getByText(/Boards of Canada is no longer in your library/)).toBeInTheDocument();
+    });
+  });
+
   describe('Data display', () => {
     it('renders artist name in header', () => {
       mockUseArtistDetailsData.mockReturnValue({ artist: mockArtist, loading: false, error: null });
