@@ -150,9 +150,10 @@ class TestSeekChunkTimeoutAbortsStream:
         assert "timed out" in error_msgs[0]["data"]["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_seek_stream_end_reports_stopped_not_completed(self):
-        """The terminal message must reflect the seek stream stopped early,
-        not that it delivered the full requested range (#4659)."""
+    async def test_seek_stream_end_reports_errored_not_completed(self):
+        """The terminal message must not claim the full requested range was
+        delivered (#4659); a server-side timeout is "errored", the value the
+        normal pump uses, not the client-driven "stopped" (#5995)."""
         calls: list[int] = []
         processor = _make_processor(calls, timeout_at=TIMEOUT_AT_CHUNK)
         sent: list[dict] = []
@@ -168,7 +169,7 @@ class TestSeekChunkTimeoutAbortsStream:
 
         end_msgs = [m for m in sent if m.get("type") == "audio_stream_end"]
         assert end_msgs, "Expected an audio_stream_end message"
-        assert end_msgs[0]["data"]["reason"] == "stopped"
+        assert end_msgs[0]["data"]["reason"] == "errored"
 
     @pytest.mark.asyncio
     async def test_plain_chunk_error_still_uses_skip_and_continue(self):
