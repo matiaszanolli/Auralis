@@ -291,7 +291,8 @@ async def receive_text_frame(websocket: WebSocket, may_reply: Callable[[], bool]
 async def send_error_response(
     websocket: WebSocket,
     error_code: str,
-    message: str
+    message: str,
+    command: str | None = None,
 ) -> None:
     """
     Send a standardized error response to the WebSocket client.
@@ -300,11 +301,13 @@ async def send_error_response(
         websocket: WebSocket connection
         error_code: Error code (e.g., "validation_error", "rate_limit_exceeded")
         message: Human-readable error message
+        command: Type of the client message being rejected, when known (#5885)
     """
     try:
         error_response = WebSocketErrorResponse(
             error=error_code,
-            message=message
+            message=message,
+            command=command,
         )
         await websocket.send_text(error_response.model_dump_json())
     except Exception as e:

@@ -29,6 +29,8 @@ export interface WebSocketErrorMessage {
   type: 'error';
   error: string;   // e.g. "rate_limit_exceeded", "validation_error"
   message: string;  // Human-readable description
+  /** Type of the client message this rejects, when known (#5885). */
+  command?: string | null;
   timestamp?: string;
 }
 

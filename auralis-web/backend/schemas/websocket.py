@@ -99,6 +99,10 @@ class WebSocketErrorResponse(BaseModel):
     type: str = Field(default="error", description="Message type")
     error: str = Field(description="Error code")
     message: str = Field(description="Human-readable error message")
+    # #5885: which client message this rejects, so a client can roll back the
+    # optimistic state it set before sending (a rate-limited seek left the UI
+    # 'seeking' forever). None for errors not tied to one parsed message.
+    command: str | None = Field(default=None, description="Type of the rejected client message")
     timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
 
     model_config = ConfigDict(json_schema_extra={

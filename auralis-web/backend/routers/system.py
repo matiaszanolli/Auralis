@@ -141,7 +141,8 @@ async def websocket_endpoint(
                     # is always set when allowed is False, but fall back so
                     # the client still gets a message either way.
                     await send_error_response(
-                        websocket, "rate_limit_exceeded", error_msg or "Rate limit exceeded"
+                        websocket, "rate_limit_exceeded", error_msg or "Rate limit exceeded",
+                        command=message.get("type"),
                     )
                     continue
 
@@ -154,19 +155,17 @@ async def websocket_endpoint(
                 # handler's dedicated branches deal with them.
                 raise
             except Exception as e:
-                # #4771: an exception inside any single handler (e.g.
-                # handle_seek) used to unwind all the way to the outer
-                # except below, which falls into `finally:
-                # teardown_connection` and silently kills the whole
-                # connection — the client sees an abrupt close with no
-                # explanation and its reconnect path misdiagnoses it as
-                # a network drop. Report the failure and keep the
-                # connection (and any other in-flight streams) alive.
+                # #4771: a single handler's exception (e.g. handle_seek) used to
+                # unwind into teardown_connection and silently kill the whole
+                # connection, which the client misread as a network drop.
+                # Report it, naming the command (#5885), and keep the connection.
                 logger.error(
                     f"WebSocket handler error for message type "
                     f"{message.get('type')!r}: {e}", exc_info=True
                 )
-                await send_error_response(websocket, "internal_error", "Command failed")
+                await send_error_response(
+                    websocket, "internal_error", "Command failed", command=message.get("type"),
+                )
                 continue
 
     except WebSocketOriginRejected as e:

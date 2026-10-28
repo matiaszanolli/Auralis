@@ -626,7 +626,12 @@ of the binary audio frames; see "Audio Streaming Messages" above).
 
 #### `error`
 Generic error envelope (top-level fields, not under `data`).
-`{ "type": "error", "error": string /* e.g. "rate_limit_exceeded" */, "message": string, "timestamp?": string }`
+`{ "type": "error", "error": string /* e.g. "rate_limit_exceeded" */, "message": string, "command": string | null, "timestamp?": string }`
+
+`command` names the client message type the error rejects (`rate_limit_exceeded`,
+`internal_error`), or is `null` when the error is not tied to one parsed message
+(e.g. a frame that failed validation). A client uses it to roll back optimistic
+state, e.g. clear its seeking flag and retry a rejected `seek` (#5885).
 
 ---
 

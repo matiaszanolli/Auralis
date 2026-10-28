@@ -8,6 +8,12 @@
  * seeking flag as soon as the backend acknowledges — a fallback if the follow-up
  * audio_stream_start (is_seek=true) is lost on reconnect (#2873).
  *
+ * A seek the backend rejects (`error` frame whose `command` is 'seek') would
+ * otherwise leave `isSeeking` set forever: neither seek_started nor
+ * audio_stream_start ever comes for it, and the local reset already stopped
+ * the engine. The rejection clears the flag, and a rate-limited one is re-sent
+ * once after the limiter's window so the target is not silently lost (#5885).
+ *
  * The `isSeeking` state itself is owned by the composing hook (usePlayEnhanced)
  * because the shared streaming core's cleanup callback also needs to clear it;
  * this hook receives `setIsSeeking` and drives it.
@@ -19,7 +25,7 @@
 
 const DEBUG = import.meta.env.DEV;
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useMessageSubscriptions } from '@/hooks/websocket/useWebSocketMessages';
@@ -27,6 +33,16 @@ import type { StreamingCoreReturn } from './useAudioStreamingCore';
 import type { CurrentTrackInfo } from './useEnhancedStreamStart';
 
 type WebSocketContextValue = ReturnType<typeof useWebSocketContext>;
+
+/** The backend limiter counts messages per 1 s window (#5885). */
+export const SEEK_RETRY_DELAY_MS = 1000;
+
+interface PendingSeek {
+  trackId: number;
+  position: number;
+  /** Already re-sent once after a rate-limit rejection. */
+  retried: boolean;
+}
 
 export interface UseEnhancedSeekParams {
   wsContext: WebSocketContextValue;
@@ -46,20 +62,22 @@ export function useEnhancedSeek({
   currentTrackInfoRef,
   setIsSeeking,
 }: UseEnhancedSeekParams): UseEnhancedSeekReturn {
-  const seekTo = useCallback((position: number) => {
-    if (!currentTrackInfoRef.current) {
-      DEBUG && console.warn('[usePlayEnhanced] Cannot seek: no track info available');
-      return;
+  // The seek awaiting seek_started, so a rejection can be matched to it.
+  const pendingSeekRef = useRef<PendingSeek | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearRetry = useCallback(() => {
+    if (retryTimerRef.current !== null) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
     }
+  }, []);
 
-    if (!wsContext.isConnected) {
-      DEBUG && console.warn('[usePlayEnhanced] Cannot seek: WebSocket not connected');
-      return;
-    }
+  useEffect(() => clearRetry, [clearRetry]);
 
-    const { trackId } = currentTrackInfoRef.current;
-
-    DEBUG && console.log('[usePlayEnhanced] Seeking to:', position, 'seconds');
+  const sendSeek = useCallback((seek: PendingSeek) => {
+    DEBUG && console.log('[usePlayEnhanced] Seeking to:', seek.position, 'seconds');
+    pendingSeekRef.current = seek;
 
     // Set seeking state
     setIsSeeking(true);
@@ -87,17 +105,52 @@ export function useEnhancedSeek({
     wsContext.send({
       type: 'seek',
       data: {
-        track_id: trackId,
-        position,
+        track_id: seek.trackId,
+        position: seek.position,
       },
     });
-  }, [wsContext, currentTrackInfoRef, setIsSeeking, core.playbackEngineRef, core.pcmBufferRef, core.streamingMetadataRef, core.pendingChunksRef, core.lastReceivedChunkIndexRef]);
+  }, [wsContext, setIsSeeking, core.playbackEngineRef, core.pcmBufferRef, core.streamingMetadataRef, core.pendingChunksRef, core.lastReceivedChunkIndexRef]);
+
+  const seekTo = useCallback((position: number) => {
+    if (!currentTrackInfoRef.current) {
+      DEBUG && console.warn('[usePlayEnhanced] Cannot seek: no track info available');
+      return;
+    }
+
+    if (!wsContext.isConnected) {
+      DEBUG && console.warn('[usePlayEnhanced] Cannot seek: WebSocket not connected');
+      return;
+    }
+
+    // A new target supersedes a scheduled retry of an older one.
+    clearRetry();
+    sendSeek({ trackId: currentTrackInfoRef.current.trackId, position, retried: false });
+  }, [wsContext.isConnected, currentTrackInfoRef, clearRetry, sendSeek]);
 
   // seek_started clears isSeeking as soon as the backend acknowledges the seek
   // request (fallback for a lost audio_stream_start #2873). The shared
   // subscription hook keys off `subscribe` only, so a status flicker does not
   // resubscribe (#4668).
-  useMessageSubscriptions(wsContext.subscribe, { seek_started: () => setIsSeeking(false) });
+  useMessageSubscriptions(wsContext.subscribe, {
+    seek_started: () => {
+      pendingSeekRef.current = null;
+      setIsSeeking(false);
+    },
+    error: (message) => {
+      const rejected = pendingSeekRef.current;
+      if (message.command !== 'seek' || rejected === null) return;
+      pendingSeekRef.current = null;
+      setIsSeeking(false);
+      if (message.error !== 'rate_limit_exceeded' || rejected.retried) return;
+      clearRetry();
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = null;
+        // The user moved on (stopped, changed track) in the meantime.
+        if (currentTrackInfoRef.current?.trackId !== rejected.trackId) return;
+        sendSeek({ ...rejected, retried: true });
+      }, SEEK_RETRY_DELAY_MS);
+    },
+  });
 
   return { seekTo };
 }

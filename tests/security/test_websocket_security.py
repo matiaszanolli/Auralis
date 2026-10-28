@@ -578,6 +578,19 @@ class TestWebSocketErrorResponses:
         assert "timestamp" in error_response
 
     @pytest.mark.asyncio
+    async def test_send_error_response_names_the_rejected_command(self):
+        """#5885: a client can only roll back the optimistic state of the
+        command an error rejects if the frame says which command it was."""
+        mock_ws = AsyncMock()
+        mock_ws.send_text = AsyncMock()
+
+        await send_error_response(mock_ws, "rate_limit_exceeded", "slow down", command="seek")
+        assert json.loads(mock_ws.send_text.call_args[0][0])["command"] == "seek"
+
+        await send_error_response(mock_ws, "validation_error", "bad frame")
+        assert json.loads(mock_ws.send_text.call_args[0][0])["command"] is None
+
+    @pytest.mark.asyncio
     async def test_error_response_handles_send_failure(self):
         """Error response should handle WebSocket send failures gracefully."""
         mock_ws = AsyncMock()

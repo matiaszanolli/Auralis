@@ -249,31 +249,32 @@ class TestWebSocketMessageValidation:
     def test_websocket_rate_limiting(self, client):
         """Test WebSocket rate limiting (security)
 
-        Uses "buffer_full" rather than "ping" (#4786: ping/pong/heartbeat are
-        protocol-critical control frames exempt from the rate limiter, so a
-        burst of pings would never trigger it — see
-        TestWebSocketRateLimitExemptsControlFrames below for that guarantee).
+        Uses "stop" (a no-op with nothing playing): ping/pong/heartbeat
+        (#4786) and buffer_full/buffer_ready (#5863) are exempt from the rate
+        limiter, so a burst of those never triggers it — see
+        TestWebSocketRateLimitExemptsControlFrames below for that guarantee.
         """
         with client.websocket_connect("/ws") as websocket:
             # Send messages rapidly to trigger rate limit
             for i in range(15):  # Limit is 10/sec
-                websocket.send_text(json.dumps({"type": "buffer_full"}))
+                websocket.send_text(json.dumps({"type": "stop"}))
 
             # Should receive rate limit error
-            # Note: Some pongs may come through before rate limit kicks in
-            response_received = False
-            for _ in range(15):
+            rejection = None
+            for _ in range(30):
                 try:
-                    response = websocket.receive_text()
-                    data = json.loads(response)
-                    if data["type"] == "error" and "rate" in str(data).lower():
-                        response_received = True
-                        break
+                    data = json.loads(websocket.receive_text())
                 except Exception:
+                    break
+                if data["type"] == "error" and data.get("error") == "rate_limit_exceeded":
+                    rejection = data
                     break
 
             # Rate limiting should have triggered
-            assert response_received, "Rate limiting did not trigger"
+            assert rejection is not None, "Rate limiting did not trigger"
+            # #5885: the frame names the rejected command, so the client can
+            # roll back the optimistic state it set before sending.
+            assert rejection["command"] == "stop"
 
 
 class TestWebSocketRateLimitExemptsControlFrames:
@@ -309,7 +310,7 @@ class TestWebSocketRateLimitExemptsControlFrames:
         sent immediately after — a real pong reply must still arrive.
 
         The burst itself legitimately produces real rate_limit_exceeded
-        errors (for the non-exempt buffer_full messages) queued ahead of the
+        errors (for the non-exempt stop messages) queued ahead of the
         pong — those are drained, not asserted against; only the pong's
         eventual arrival is the assertion.
         """
@@ -317,7 +318,7 @@ class TestWebSocketRateLimitExemptsControlFrames:
             # Exhaust the per-connection rate limit (10 msg/s) — same burst
             # shape proven to trigger it in test_websocket_rate_limiting.
             for _ in range(15):
-                websocket.send_text(json.dumps({"type": "buffer_full"}))
+                websocket.send_text(json.dumps({"type": "stop"}))
 
             # ping is exempt: must still get a real pong, even though the
             # limiter is exhausted from the burst above.
@@ -345,7 +346,7 @@ class TestWebSocketRateLimitExemptsControlFrames:
         check)."""
         with client.websocket_connect("/ws") as websocket:
             for _ in range(15):
-                websocket.send_text(json.dumps({"type": "buffer_full"}))
+                websocket.send_text(json.dumps({"type": "stop"}))
             websocket.send_text(json.dumps({"type": "pong"}))  # exempt, no reply
             websocket.send_text(json.dumps({"type": "ping"}))
 
@@ -1084,6 +1085,7 @@ class TestWebSocketHandlerExceptionResilience:
 
                 data = _recv_until_type(websocket, "error")
                 assert data["error"] == "internal_error"
+                assert data["command"] == "pause"  # #5885
                 # Never leak the raw exception text to the client (#3825-style
                 # guarantee — same rationale as _safe_error_message).
                 assert "boom" not in data.get("message", "")

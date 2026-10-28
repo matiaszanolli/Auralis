@@ -13,11 +13,11 @@
  * announcements); exactly one seek commits on release, at the last position
  * the pointer held. A plain click still seeks once: mousedown does not seek,
  * the click event does — unless a drag just committed, which the trailing
- * click is taught to swallow.
+ * click is taught to swallow. Keyboard bursts get the same treatment in
+ * useKeyboardSeek (#5885).
  */
 
 import {
-  KeyboardEvent,
   MouseEvent,
   TouchEvent,
   useCallback,
@@ -26,7 +26,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { keyboardSeekTarget, positionFromPointer, progressPercent } from './progressBarMath';
+import { positionFromPointer, progressPercent } from './progressBarMath';
+import { useKeyboardSeek } from './useKeyboardSeek';
 
 export interface UseProgressBarInteractionArgs {
   currentTime: number;
@@ -72,9 +73,12 @@ export function useProgressBarInteraction({
   const onSeekRef = useRef(onSeek);
   onSeekRef.current = onSeek;
 
-  // During a drag the played range follows the pointer, not the (frozen)
-  // playback clock — the seek only lands after release (#5625).
-  const displayTime = dragPosition ?? currentTime;
+  // Keyboard seeks are coalesced too (#5885); see useKeyboardSeek.
+  const { handleKeyDown, keyboardTarget } = useKeyboardSeek({ currentTime, duration, onSeek, disabled });
+
+  // During a drag (or a key burst) the played range follows the pending
+  // target, not the (frozen) playback clock — the seek lands later (#5625).
+  const displayTime = dragPosition ?? keyboardTarget ?? currentTime;
 
   const progressPercentage = useMemo(
     () => progressPercent(displayTime, duration),
@@ -173,23 +177,6 @@ export function useProgressBarInteraction({
     }
     // No move since mousedown: nothing to commit — the trailing click seeks.
   }, []);
-
-  // Handle keyboard navigation (unchanged by #5625: each keypress is a
-  // deliberate, discrete seek request)
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>) => {
-      if (disabled || !Number.isFinite(duration) || duration <= 0) {
-        return;
-      }
-
-      const newPosition = keyboardSeekTarget(event.key, currentTime, duration);
-      if (newPosition === null) return;
-
-      event.preventDefault();
-      onSeek(newPosition);
-    },
-    [disabled, duration, currentTime, onSeek]
-  );
 
   // Handle touch start. Like mousedown, it must not seek (#5625) — but the
   // press point becomes the pending commit, because some browsers never fire
