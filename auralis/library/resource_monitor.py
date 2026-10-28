@@ -58,7 +58,9 @@ class AdaptiveResourceMonitor:
         self.on_semaphore_change = on_semaphore_change
 
         self.current_worker_count = self.limits.min_workers
-        self.current_semaphore_size = 4  # Start conservative
+        # Start at the capacity the queue really builds (limits.max_semaphore), so the
+        # first tick neither throttles an idle pool nor ignores a memory squeeze (#6140).
+        self.current_semaphore_size = self.limits.max_semaphore
 
         self._stop_event = threading.Event()
         self._monitor_thread: threading.Thread | None = None
