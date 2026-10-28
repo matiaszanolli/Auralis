@@ -59,6 +59,34 @@ describe('config/api – env overrides (#4468)', () => {
   });
 });
 
+describe('config/api – VITE_API_URL alone moves the WebSocket (#5654)', () => {
+  it('derives ws:// and wss:// from an absolute API URL', async () => {
+    const { wsBaseFromApiBase } = await loadConfig();
+    expect(wsBaseFromApiBase('http://localhost:9999')).toBe('ws://localhost:9999');
+    expect(wsBaseFromApiBase('https://example.test/')).toBe('wss://example.test');
+  });
+
+  it('derives nothing from a relative or empty API URL', async () => {
+    const { wsBaseFromApiBase } = await loadConfig();
+    expect(wsBaseFromApiBase('')).toBeUndefined();
+    expect(wsBaseFromApiBase(undefined)).toBeUndefined();
+    expect(wsBaseFromApiBase('/api')).toBeUndefined();
+  });
+
+  it('WS_BASE_URL follows VITE_API_URL when VITE_WS_URL is unset', async () => {
+    vi.stubEnv('VITE_API_URL', 'http://localhost:9999');
+    const { WS_BASE_URL } = await loadConfig();
+    expect(WS_BASE_URL).toBe('ws://localhost:9999');
+  });
+
+  it('VITE_WS_URL still wins over the derived value', async () => {
+    vi.stubEnv('VITE_API_URL', 'http://localhost:9999');
+    vi.stubEnv('VITE_WS_URL', 'ws://elsewhere:1');
+    const { WS_BASE_URL } = await loadConfig();
+    expect(WS_BASE_URL).toBe('ws://elsewhere:1');
+  });
+});
+
 describe('config/api – production derives from the page origin (#5886)', () => {
   // A production page is served by the backend on whatever port --port bound;
   // a hard-coded :8765 (or a "localhost && port >= 3000" dev guess) sent REST

@@ -12,7 +12,8 @@
  * and the WS URL was picked by "localhost and port >= 3000", which a
  * production page on :9000 also matched.
  *
- * VITE_API_URL / VITE_WS_URL override both (#4468). Same `??` semantics as the
+ * VITE_API_URL / VITE_WS_URL override both (#4468); an absolute VITE_API_URL alone also
+ * moves the WebSocket (#5654), and VITE_WS_URL still wins. Same `??` semantics as the
  * retired services/api client (now cacheShapeGuards.ts): only an undefined
  * override falls through to the default, so an explicit empty string still
  * selects the relative URL.
@@ -23,11 +24,22 @@ export function sameOriginWsBase(location: Pick<Location, 'protocol' | 'host'>):
   return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
 }
 
+/**
+ * The WebSocket base of an absolute `VITE_API_URL` (`http://h:9` -> `ws://h:9`), so moving
+ * the backend with one variable moves both transports (#5654). Undefined for a relative
+ * or empty value, which names no host to derive from.
+ */
+export function wsBaseFromApiBase(apiBase: string | undefined): string | undefined {
+  if (!apiBase || !/^https?:\/\//.test(apiBase)) return undefined;
+  return apiBase.replace(/^http/, 'ws').replace(/\/+$/, '');
+}
+
 // Relative in both modes: the Vite proxy in dev, the backend's own origin in production.
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 export const WS_BASE_URL =
   import.meta.env.VITE_WS_URL ??
+  wsBaseFromApiBase(import.meta.env.VITE_API_URL) ??
   (import.meta.env.DEV ? 'ws://localhost:8765' : sameOriginWsBase(window.location));
 
 /**
