@@ -39,12 +39,15 @@ const queueSlice = createSlice({
       reducer(state, action: PayloadAction<Track, string, { timestamp: number; position?: number }>) {
         const pos = action.meta.position;
         if (pos !== undefined && pos >= 0 && pos <= state.tracks.length) {
+          const wasEmpty = state.tracks.length === 0;
           state.tracks.splice(pos, 0, action.payload);
           // Mirror reorderTrack/removeTrack (#4927): everything from `pos`
           // onward just shifted right one slot, so currentIndex must too or
           // it silently points at the newly inserted track instead of the
-          // track that was actually playing.
-          if (pos <= state.currentIndex) {
+          // track that was actually playing. Not for the first track into an
+          // empty queue: nothing was playing, and currentIndex 0 already is
+          // that track - shifting it to 1 pointed past the end (#6038).
+          if (!wasEmpty && pos <= state.currentIndex) {
             state.currentIndex += 1;
           }
         } else {

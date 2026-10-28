@@ -70,6 +70,20 @@ describe('queueSlice', () => {
     expect(state.currentIndex).toBe(1);
   });
 
+  it('addTrack at a position into an empty queue keeps currentIndex in range (#6038)', () => {
+    const state = reducer(initialState, addTrack(mockTrack(7), 0));
+    expect(state.tracks).toHaveLength(1);
+    expect(state.currentIndex).toBe(0);
+    expect(selectCurrentQueueTrack({ queue: state } as never)?.id).toBe(7);
+  });
+
+  it('addTrack at position 0 still shifts a non-empty queue whose currentIndex is 0 (#4927)', () => {
+    let state = reducer(initialState, addTracks([mockTrack(1), mockTrack(2)]));
+    state = reducer(state, addTrack(mockTrack(99), 0));
+    expect(state.currentIndex).toBe(1);
+    expect(selectCurrentQueueTrack({ queue: state } as never)?.id).toBe(1);
+  });
+
   it('addTrack inserts mid-queue in order and bumps lastUpdated (#4483)', () => {
     // The #4927 pair above does not pin this: its "after it" case inserts at
     // position 5 into a 3-track queue, which is out of range and takes the
