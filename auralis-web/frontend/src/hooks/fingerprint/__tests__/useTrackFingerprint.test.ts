@@ -247,6 +247,32 @@ describe('useTrackFingerprint', () => {
   });
 });
 
+describe('bounded polling of a missing fingerprint (#5893)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('stops polling after maxPendingPolls answers and stops reporting pending', async () => {
+    setupFetch({ detail: 'Not queued' }, 404);
+
+    const { result } = renderHook(
+      () => useTrackFingerprint(1, { retryInterval: 5, maxPendingPolls: 3 }),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isPending).toBe(false);
+      expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(3);
+    });
+
+    // No further polls once it has given up.
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(3);
+    expect(result.current.fingerprint).toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+});
+
 /**
  * #5019: both fingerprint fetchers used a bare fetch() with no signal and no
  * timeout, so a stalled backend left the query loading forever — and an album

@@ -12,6 +12,7 @@
  * - Auto-polling when fingerprint not ready
  */
 
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { APIRequestError, getOrNullOn404 } from '@/utils/apiRequest';
@@ -24,6 +25,9 @@ import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from '@/config/timing';
  * plain 500 or any other 4xx stops polling and surfaces the error once (#4847).
  */
 const TRANSIENT_OUTAGE_STATUSES: ReadonlySet<number> = new Set([0, 408, 429, 502, 503, 504]);
+
+/** ~3 minutes of polling at the default 5 s interval before giving up (#5893). */
+const DEFAULT_MAX_PENDING_POLLS = 36;
 
 interface TrackFingerprintResponse {
   track_id: number;
@@ -77,15 +81,37 @@ export function useTrackFingerprint(
     enabled?: boolean;
     /** Retry interval in ms when fingerprint not ready (default: 5000) */
     retryInterval?: number;
+    /**
+     * Stop polling a still-missing fingerprint after this many answers (default: 36,
+     * ~3 minutes at the default interval). Every poll re-enqueues the track, so a
+     * file that can never be fingerprinted (unreadable, DSP missing, timeout) was
+     * retried every 5 s for as long as the pane stayed open (#5893).
+     */
+    maxPendingPolls?: number;
   }
 ) {
   const enabled = (options?.enabled ?? true) && trackId != null && trackId > 0;
   const retryInterval = options?.retryInterval ?? 5000;
+  const maxPendingPolls = options?.maxPendingPolls ?? DEFAULT_MAX_PENDING_POLLS;
+
+  // Answers received for this track (a new track starts again). Kept here rather
+  // than read off the query because the observer result does not expose a count.
+  const answersRef = useRef({ trackId, answers: 0 });
+  if (answersRef.current.trackId !== trackId) answersRef.current = { trackId, answers: 0 };
+  // State, not just the ref: giving up changes nothing in the query result, so
+  // without it the hook would never re-render to stop reporting "pending".
+  const [gaveUpOn, setGaveUpOn] = useState<number | null | undefined>(null);
 
   const query = useQuery({
     queryKey: ['track-fingerprint', trackId],
     // { signal } forwarded so unmount / key change aborts the in-flight request (#5650).
-    queryFn: ({ signal }) => trackId ? fetchTrackFingerprint(trackId, signal) : null,
+    queryFn: async ({ signal }) => {
+      if (!trackId) return null;
+      const response = await fetchTrackFingerprint(trackId, signal);
+      answersRef.current.answers += 1;
+      if (response === null && answersRef.current.answers >= maxPendingPolls) setGaveUpOn(trackId);
+      return response;
+    },
     staleTime: QUERY_STALE_TIME_MS, // fingerprints don't change
     gcTime: QUERY_GC_TIME_MS,   // 30 minutes cache retention
     enabled,
@@ -107,7 +133,7 @@ export function useTrackFingerprint(
       }
       // If we got null (not ready), poll every 5 seconds
       if (query.state.data === null) {
-        return retryInterval;
+        return answersRef.current.answers >= maxPendingPolls ? false : retryInterval;
       }
       return false; // Stop polling once we have data
     },
@@ -123,7 +149,7 @@ export function useTrackFingerprint(
     isLoading: query.isLoading,
     // Fingerprint queued but not ready — distinct from a genuine error
     // (#4847), which used to look identical to this state.
-    isPending: query.data === null && !query.isError,
+    isPending: query.data === null && !query.isError && gaveUpOn !== trackId,
     error: query.error,
     refetch: query.refetch,
   };
