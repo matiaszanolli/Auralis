@@ -17,12 +17,13 @@ namespace.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import math
 from dataclasses import dataclass
 
 from .mastering_presets import MasteringPresetDefaults
 from ..dsp.utils.loudness_targets import LOUD_MASTER_TARGET_LUFS
 
-__all__ = ["SimpleMasteringConfig", "MasteringPresetDefaults"]
+__all__ = ["SimpleMasteringConfig", "MasteringPresetDefaults", "validate_intensity"]
 
 # Chunk-seam safety ratio (#5339): a one-pole envelope is ~99.3% settled after
 # 5 time constants, and the 4x margin on top leaves room for the equal-power
@@ -30,6 +31,23 @@ __all__ = ["SimpleMasteringConfig", "MasteringPresetDefaults"]
 # — 2.5x headroom over this floor.
 _SEAM_SETTLE_TAUS = 5.0
 _SEAM_SAFETY_FACTOR = 4.0
+
+
+def validate_intensity(value: float) -> float:
+    """Return *value* as a float if it is a finite intensity in [0.0, 1.0].
+
+    The one range check for offline mastering (#6137): out-of-range values used
+    to flow into the stages (``-i 20`` rendered at an effective 17.5) and a NaN
+    only failed deep inside chunk 0, after fingerprinting. Same range as the
+    backend's enhancement intensity.
+
+    Raises:
+        ValueError: if *value* is NaN/inf or outside [0.0, 1.0].
+    """
+    intensity = float(value)
+    if not math.isfinite(intensity) or not 0.0 <= intensity <= 1.0:
+        raise ValueError(f"intensity must be a finite number in [0.0, 1.0], got {value!r}")
+    return intensity
 
 
 @dataclass

@@ -27,10 +27,19 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from auralis.core.mastering_config import validate_intensity
 from auralis.core.simple_mastering import SimpleMasteringPipeline
 
 # Supported audio formats
 AUDIO_EXTENSIONS = {'.flac', '.wav', '.mp3', '.ogg', '.m4a', '.aac'}
+
+
+def _intensity_arg(text: str) -> float:
+    """argparse type for --intensity: a finite number in [0.0, 1.0] (#6137)."""
+    try:
+        return validate_intensity(float(text))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def _unsafe_output_reason(input_path: Path, output_path: Path) -> str | None:
@@ -147,11 +156,22 @@ def master_folder(
 
     success_count = 0
     failed_files: list[tuple[str, str]] = []
+    claimed_outputs: dict[Path, Path] = {}  # output file -> the input that owns it
 
     for idx, input_file in enumerate(audio_files, 1):
         # Calculate relative path and create output directory structure
         relative_path = input_file.relative_to(input_path)
         output_file = output_path / relative_path.parent / f"{relative_path.stem}_mastered.flac"
+
+        # Outputs are named from the stem, so `Track.mp3` and `Track.wav` (or
+        # `.flac`/`.FLAC`) map to one file; the later render would silently
+        # replace the earlier master (#6135). Refuse it up front and say why.
+        owner = claimed_outputs.setdefault(output_file, relative_path)
+        if owner != relative_path:
+            failed_files.append((str(relative_path), f"output name collides with {owner}; not rendered"))
+            if not quiet:
+                print(f"[{idx}/{len(audio_files)}] ✗ {relative_path}: output name collides with {owner}")
+            continue
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -177,11 +197,13 @@ def master_folder(
     if not quiet:
         print(f"\n{'=' * 60}")
         print(f"✨ Completed: {success_count}/{len(audio_files)} files processed")
-        if failed_files:
-            print(f"\n⚠️  Failed files ({len(failed_files)}):")
-            for file_path, error in failed_files:
-                print(f"  - {file_path}: {error}")
         print(f"📂 Output folder: {output_path}")
+    if failed_files:
+        # stderr and regardless of -q: a script running quietly still needs to
+        # see which files did not get mastered (#6136).
+        print(f"\n⚠️  Failed files ({len(failed_files)}):", file=sys.stderr)
+        for file_path, error in failed_files:
+            print(f"  - {file_path}: {error}", file=sys.stderr)
 
     return {
         "count": success_count,
@@ -197,7 +219,7 @@ def main() -> int:
     )
     parser.add_argument('input', help='Input audio file or folder')
     parser.add_argument('-o', '--output', help='Output WAV file (file mode) or output folder (folder mode)')
-    parser.add_argument('-i', '--intensity', type=float, default=1.0,
+    parser.add_argument('-i', '--intensity', type=_intensity_arg, default=1.0,
                         help='Processing intensity 0.0-1.0')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Suppress progress output')
@@ -247,7 +269,8 @@ def main() -> int:
                 clean=args.clean,
             )
 
-            if result["count"] == 0:
+            # Any failure is a failure: a partial batch must not look like success (#6136).
+            if result["count"] == 0 or result["failed"]:
                 return 1
             return 0
 

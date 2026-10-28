@@ -36,7 +36,7 @@ import numpy as np
 from ..analysis.fingerprint.fingerprint_service import FingerprintService
 from . import mastering_chunk_loop, mastering_diagnostics, mastering_prepare
 from .dsp import Notch
-from .mastering_config import SimpleMasteringConfig
+from .mastering_config import SimpleMasteringConfig, validate_intensity
 from .mastering_process_chunk import process_chunk
 from .mastering_stage_delegates import StageDelegatesMixin
 
@@ -128,6 +128,7 @@ class SimpleMasteringPipeline(StageDelegatesMixin):
         Returns:
             Dict with processing info
         """
+        intensity = validate_intensity(intensity)  # #6137
         # #3715: hold `_process_lock` across the entire master_file
         # invocation. The per-file `_notches` instance attribute is
         # written by mastering_prepare.prepare_file and read by
@@ -156,10 +157,9 @@ class SimpleMasteringPipeline(StageDelegatesMixin):
         if not orig_path.exists():
             raise FileNotFoundError(f"Input not found: {orig_path}")
 
-        # Pre-convert FFmpeg-only formats (mp3, m4a, aac …) to a temporary
-        # WAV so sf.SoundFile calls work without modification throughout.
-        # We keep orig_path for fingerprint cache lookups (the cache key is
-        # the original file path, not the transient temp WAV).
+        # Pre-convert FFmpeg-only formats (mp3, m4a, aac …) to a temporary WAV
+        # so sf.SoundFile works throughout. orig_path stays the fingerprint
+        # cache key (not the transient temp WAV).
         from ..io.formats import FFMPEG_FORMATS
         _tmp_dir: _tempfile.TemporaryDirectory[str] | None = None
         # Temp dirs are created inside this try so its finally removes them on every failure (#5710).
