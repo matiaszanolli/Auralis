@@ -195,7 +195,7 @@ class MetadataExtractor:
         """
         track_info: dict[str, Any] = {
             'filepath': audio_info.filepath,
-            'title': audio_info.filename,  # Default to filename
+            'title': Path(audio_info.filepath).stem,  # Default: filename without extension (#6148)
             'duration': audio_info.duration,
             'sample_rate': audio_info.sample_rate,
             'channels': audio_info.channels,
@@ -210,9 +210,6 @@ class MetadataExtractor:
             # Map metadata to track_info
             if 'title' in metadata:
                 track_info['title'] = metadata['title']
-            else:
-                # Use filename without extension as title
-                track_info['title'] = Path(audio_info.filepath).stem
 
             if 'artist' in metadata:
                 # Handle multiple artists and parse featured artists

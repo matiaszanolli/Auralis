@@ -65,21 +65,31 @@ class TrackRepositoryLookupMixin(BaseRepository):
             return track
 
     def get_by_paths(self, filepaths: list[str]) -> dict[str, Track]:
-        """Get tracks by filepath using bounded ``WHERE IN`` queries."""
+        """Get tracks by filepath using bounded ``WHERE IN`` queries.
+
+        Keyed by the path the caller REQUESTED, not the stored spelling: the
+        query matches on the normalised ``filepath_key`` (case-folded on
+        Windows/macOS), so a differently-cased request found its row but then
+        missed it in the result (#6149). Two requested spellings sharing one
+        key both map to the track.
+        """
         if not filepaths:
             return {}
-        unique_paths = list(dict.fromkeys(filepaths))
+        requested_by_key: dict[str, list[str]] = {}
+        for path in dict.fromkeys(filepaths):
+            requested_by_key.setdefault(make_filepath_key(path), []).append(path)
         with self._session_scope() as session:
             result: dict[str, Track] = {}
-            for batch in _iter_in_batches(unique_paths):
+            for batch in _iter_in_batches(list(requested_by_key)):
                 tracks = session.execute(
                     select(Track)
                     .options(*_track_eager_options())
-                    .where(Track.filepath_key.in_([make_filepath_key(p) for p in batch]))
+                    .where(Track.filepath_key.in_(batch))
                 ).scalars().unique().all()
                 for track in tracks:
                     session.expunge(track)
-                    result[track.filepath] = track
+                    for requested in requested_by_key.get(track.filepath_key or "", ()):
+                        result[requested] = track
             return result
 
     def get_id_by_filepath(self, filepath: str) -> int | None:
