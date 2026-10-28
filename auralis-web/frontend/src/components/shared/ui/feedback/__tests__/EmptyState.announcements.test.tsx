@@ -7,8 +7,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@/test/test-utils';
-import { EmptyState, NoSearchResults, EmptyQueue } from '../EmptyState';
+import { render, screen, waitFor } from '@/test/test-utils';
+import { EmptyState, EmptyLibrary, NoSearchResults, EmptyQueue } from '../EmptyState';
 import { TrackRowSkeleton } from '@/components/shared/ui/loaders/TrackRowSkeleton';
 import { LibraryGridSkeleton } from '@/components/shared/ui/loaders/LibraryGridSkeleton';
 
@@ -46,3 +46,20 @@ describe('loading skeletons (#5668)', () => {
     expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument();
   });
 });
+
+describe('EmptyLibrary DropZone identity (#6033)', () => {
+  // lazy() inside the component body made a new component type per render, so
+  // every re-render unmounted DropZone and showed the Loading fallback again.
+  it('keeps the DropZone mounted across re-renders instead of re-suspending', async () => {
+    const onFolderDrop = () => {};
+    const { rerender } = render(<EmptyLibrary onFolderDrop={onFolderDrop} scanning={false} />);
+    await waitFor(() => expect(screen.queryByText('Loading...')).not.toBeInTheDocument());
+    const dropZone = screen.getByRole('button', { name: /music folder/i });
+
+    rerender(<EmptyLibrary onFolderDrop={onFolderDrop} scanning={true} />);
+
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /music folder/i })).toBe(dropZone);
+  });
+});
+

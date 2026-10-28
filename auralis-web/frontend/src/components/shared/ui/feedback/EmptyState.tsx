@@ -66,15 +66,18 @@ export const EmptyState = ({
   );
 };
 
+// Module scope on purpose: a lazy() declared in the component body is a NEW
+// component type on every render, which unmounted DropZone (losing its drag
+// state) and re-flashed the Loading fallback each time (#6033). Still only
+// fetched when first rendered.
+const DropZone = lazy(() => import('@/components/shared/DropZone/DropZone').then(m => ({ default: m.DropZone })));
+
 // Predefined empty states for common scenarios
 export const EmptyLibrary = ({ onScanFolder, onFolderDrop, scanning = false }: {
   onScanFolder?: () => void;
   onFolderDrop?: (path: string) => void;
   scanning?: boolean;
 }) => {
-  // Only import DropZone if needed
-  const DropZone = lazy(() => import('@/components/shared/DropZone/DropZone').then(m => ({ default: m.DropZone })));
-
   return (
     <Container>
       {onFolderDrop ? (

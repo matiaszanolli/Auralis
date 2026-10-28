@@ -44,3 +44,17 @@ describe('MediaCardOverlay visibility', () => {
     expect(overlay).toHaveStyle({ opacity: '1' });
   });
 });
+
+describe('MediaCardOverlay badge contrast (#6020)', () => {
+  // The badge fill is a fixed dark colour over arbitrary artwork. Theme-aware ink
+  // (themeVars.textPrimary) resolves to dark navy in light mode: dark on dark.
+  it('pairs the fixed dark fill with fixed light ink', () => {
+    render(<MediaCardOverlay isHovered onPlay={vi.fn()} title="Album" badgeContent="12 tracks" />);
+
+    const badge = screen.getByText('12 tracks');
+
+    expect(badge).toHaveStyle({ color: '#FFFFFF' });
+    expect(badge.style.color + getComputedStyle(badge).color).not.toContain('var(--app-text-primary)');
+  });
+});
+
