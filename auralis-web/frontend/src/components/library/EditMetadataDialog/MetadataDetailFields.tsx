@@ -2,7 +2,7 @@
  * MetadataDetailFields - Detail metadata fields (genre, year, track, disc, composer)
  */
 
-import Grid2 from '@mui/material/Grid';
+import Grid from '@mui/material/Grid';
 import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import type { MetadataFields } from './useMetadataForm';
 
@@ -18,7 +18,7 @@ export const MetadataDetailFields = ({
   return (
     <>
       {/* Genre & Year */}
-      <Grid2
+      <Grid
         size={{
           xs: 12,
           sm: 6
@@ -30,8 +30,8 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('genre', e.target.value)}
           variant="outlined"
         />
-      </Grid2>
-      <Grid2
+      </Grid>
+      <Grid
         size={{
           xs: 12,
           sm: 6
@@ -44,9 +44,9 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('year', e.target.value)}
           variant="outlined"
         />
-      </Grid2>
+      </Grid>
       {/* Track & Disc Numbers */}
-      <Grid2
+      <Grid
         size={{
           xs: 6,
           sm: 3
@@ -59,8 +59,8 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('track', e.target.value)}
           variant="outlined"
         />
-      </Grid2>
-      <Grid2
+      </Grid>
+      <Grid
         size={{
           xs: 6,
           sm: 3
@@ -73,9 +73,9 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('disc', e.target.value)}
           variant="outlined"
         />
-      </Grid2>
+      </Grid>
       {/* Composer */}
-      <Grid2
+      <Grid
         size={{
           xs: 12,
           sm: 6
@@ -87,7 +87,7 @@ export const MetadataDetailFields = ({
           onChange={(e) => onChange('composer', e.target.value)}
           variant="outlined"
         />
-      </Grid2>
+      </Grid>
     </>
   );
 };

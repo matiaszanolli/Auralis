@@ -4,7 +4,7 @@ import {
   Paper,
   Typography
 } from '@mui/material';
-import Grid2 from '@mui/material/Grid';
+import Grid from '@mui/material/Grid';
 import { tokens } from '@/design-system';
 import AlbumCard from '@/components/album/AlbumCard/AlbumCard';
 import { themeVars } from '@/theme/semanticTheme';
@@ -83,9 +83,9 @@ export const AlbumsTab = ({
         </Typography>
       </Box>
       {/* Albums grid */}
-      <Grid2 container spacing={3}>
+      <Grid container spacing={3}>
         {albums.map((album) => (
-          <Grid2
+          <Grid
             key={album.id}
             size={{
               xs: 12,
@@ -109,9 +109,9 @@ export const AlbumsTab = ({
               year={album.year}
               onClick={onAlbumClick}
             />
-          </Grid2>
+          </Grid>
         ))}
-      </Grid2>
+      </Grid>
     </Box>
   );
 };

@@ -2,7 +2,7 @@
  * MetadataBasicFields - Basic metadata fields (title, artist, album)
  */
 
-import Grid2 from '@mui/material/Grid';
+import Grid from '@mui/material/Grid';
 import { StyledTextField } from '@/components/library/Styles/FormFields.styles';
 import type { MetadataFields } from './useMetadataForm';
 
@@ -18,7 +18,7 @@ export const MetadataBasicFields = ({
   return (
     <>
       {/* Title */}
-      <Grid2 size={12}>
+      <Grid size={12}>
         <StyledTextField
           fullWidth
           label="Title"
@@ -26,9 +26,9 @@ export const MetadataBasicFields = ({
           onChange={(e) => onChange('title', e.target.value)}
           variant="outlined"
         />
-      </Grid2>
+      </Grid>
       {/* Artist & Album Artist */}
-      <Grid2
+      <Grid
         size={{
           xs: 12,
           sm: 6
@@ -40,8 +40,8 @@ export const MetadataBasicFields = ({
           onChange={(e) => onChange('artist', e.target.value)}
           variant="outlined"
         />
-      </Grid2>
-      <Grid2
+      </Grid>
+      <Grid
         size={{
           xs: 12,
           sm: 6
@@ -53,9 +53,9 @@ export const MetadataBasicFields = ({
           onChange={(e) => onChange('albumartist', e.target.value)}
           variant="outlined"
         />
-      </Grid2>
+      </Grid>
       {/* Album */}
-      <Grid2 size={12}>
+      <Grid size={12}>
         <StyledTextField
           fullWidth
           label="Album"
@@ -63,7 +63,7 @@ export const MetadataBasicFields = ({
           onChange={(e) => onChange('album', e.target.value)}
           variant="outlined"
         />
-      </Grid2>
+      </Grid>
     </>
   );
 };

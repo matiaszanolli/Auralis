@@ -1,5 +1,5 @@
 
-import Grid2 from '@mui/material/Grid';
+import Grid from '@mui/material/Grid';
 import { AlbumCardSkeleton } from './AlbumCardSkeleton';
 
 interface LibraryGridSkeletonProps {
@@ -17,9 +17,9 @@ export const LibraryGridSkeleton = ({
   count = 12,
 }: LibraryGridSkeletonProps) => {
   return (
-    <Grid2 container spacing={3} aria-busy="true">
+    <Grid container spacing={3} aria-busy="true">
       {Array.from({ length: count }).map((_, index) => (
-        <Grid2
+        <Grid
           key={index}
           size={{
             xs: 12,
@@ -28,9 +28,9 @@ export const LibraryGridSkeleton = ({
             lg: 3
           }}>
           <AlbumCardSkeleton />
-        </Grid2>
+        </Grid>
       ))}
-    </Grid2>
+    </Grid>
   );
 };
 
