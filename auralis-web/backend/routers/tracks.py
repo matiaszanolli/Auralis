@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, Field
 
 from schemas import TrackListResponse, TrackResponse
+from services.lyrics_extraction import extract_embedded_lyrics, lyrics_format
 
 from .dependencies import with_error_handling
 from .errors import NotFoundError
@@ -144,7 +145,7 @@ async def get_track_lyrics(
         return {
             "track_id": track_id,
             "lyrics": track.lyrics,
-            "format": "lrc" if "[" in track.lyrics and "]" in track.lyrics else "plain",
+            "format": lyrics_format(track.lyrics),
         }
 
     # Try to extract from file
@@ -153,33 +154,13 @@ async def get_track_lyrics(
         validate_file_path(str(track.filepath))
         import mutagen
         audio_file = await asyncio.to_thread(mutagen.File, track.filepath)
-        lyrics_text = None
-
-        if audio_file:
-            from mutagen.mp4 import MP4
-            if isinstance(audio_file, MP4):
-                # MP4/M4A: iTunes '©lyr' atom — must check before Vorbis branch
-                # because MP4Tags implements .get() and would match incorrectly
-                # (fixes #2383).
-                try:
-                    lyrics_text = audio_file.get('\xa9lyr', [None])[0]  # type: ignore[no-untyped-call]
-                except Exception as _lyr_exc:
-                    logger.debug("Failed to read MP4 lyrics tag: %s", _lyr_exc)
-            elif hasattr(audio_file, 'tags') and audio_file.tags:
-                if 'USLT::eng' in audio_file.tags:
-                    lyrics_text = str(audio_file.tags['USLT::eng'])
-                elif 'USLT' in audio_file.tags:
-                    lyrics_text = str(audio_file.tags['USLT'])
-                elif 'LYRICS' in audio_file.tags:
-                    lyrics_text = str(audio_file.tags['LYRICS'])
-            elif hasattr(audio_file, 'get'):
-                lyrics_text = audio_file.get('LYRICS', [None])[0] or audio_file.get('UNSYNCEDLYRICS', [None])[0]
+        lyrics_text = extract_embedded_lyrics(audio_file) if audio_file else None
 
         if lyrics_text:
             result = {
                 "track_id": track_id,
                 "lyrics": lyrics_text,
-                "format": "lrc" if "[" in lyrics_text and "]" in lyrics_text else "plain",
+                "format": lyrics_format(lyrics_text),
             }
             try:
                 await asyncio.to_thread(repos.tracks.update_metadata, track_id, lyrics=lyrics_text)

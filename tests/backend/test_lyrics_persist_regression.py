@@ -25,13 +25,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 
 class _FakeAudioFile:
-    """Minimal mutagen-File stand-in: no `.tags`, so the route takes the
-    generic `.get(...)` branch (not the MP4 or ID3/Vorbis branches)."""
+    """Minimal mutagen-File stand-in shaped like a Vorbis-comment file: a `.tags`
+    mapping whose values are lists (the old fake had no `.tags`, a branch no real
+    tagged file reaches, #5939)."""
 
-    def get(self, key, default=None):
-        if key == "LYRICS":
-            return ["Extracted lyric text"]
-        return default
+    tags = {"LYRICS": ["Extracted lyric text"]}
 
 
 @pytest.fixture
