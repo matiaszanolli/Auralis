@@ -221,7 +221,7 @@ class TestRemoveFavorite:
 class TestGetLyrics:
     """Test GET /api/library/tracks/{track_id}/lyrics"""
 
-    @patch('routers.library.require_repository_factory')
+    @patch('routers.repo_deps.require_repository_factory')
     def test_get_lyrics_track_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting lyrics for non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -230,6 +230,7 @@ class TestGetLyrics:
         response = client.get("/api/library/tracks/999/lyrics")
 
         assert response.status_code == 404
+        mock_repos.tracks.get_by_id.assert_called_once_with(999)  # the patch is live (#5998)
 
     @patch('routers.repo_deps.require_repository_factory')
     def test_get_lyrics_structure(self, mock_require_repos, client, mock_repos):
@@ -438,7 +439,7 @@ class TestFingerprintStatus:
 class TestGetTrackFingerprint:
     """Test GET /api/tracks/{track_id}/fingerprint"""
 
-    @patch('routers.library.require_repository_factory')
+    @patch('routers.repo_deps.require_repository_factory')
     def test_get_fingerprint_track_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting fingerprint for non-existent track"""
         mock_require_repos.return_value = mock_repos
@@ -447,6 +448,7 @@ class TestGetTrackFingerprint:
         response = client.get("/api/tracks/999/fingerprint")
 
         assert response.status_code == 404
+        mock_repos.tracks.get_by_id.assert_called_once_with(999)  # the patch is live (#5998)
 
     @patch('routers.repo_deps.require_repository_factory')
     def test_get_fingerprint_structure(self, mock_require_repos, client, mock_repos):
