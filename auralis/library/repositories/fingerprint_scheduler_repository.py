@@ -97,6 +97,9 @@ class FingerprintSchedulerRepository(BaseRepository):
             row = find(0)
         return row
 
+    # Races one claim call will lose and retry before giving up (#6080).
+    _MAX_CLAIM_RACES = 50
+
     def _advance_cursor(self, queue: str, track_id: int) -> None:
         with self._cursor_lock:
             if track_id > self._cursors[queue]:
@@ -108,7 +111,7 @@ class FingerprintSchedulerRepository(BaseRepository):
         CRITICAL FIX FOR RACE CONDITION: Prevents multiple workers from processing
         the same track. Uses a placeholder fingerprint row (lufs=-100.0 sentinel)
         to atomically mark a track as in-progress. If the INSERT fails on UNIQUE
-        constraint, another worker got there first — return None.
+        constraint, another worker got there first — try the next track.
 
         Returns:
             Track object if successfully claimed, None if none available or race lost.
@@ -128,52 +131,58 @@ class FingerprintSchedulerRepository(BaseRepository):
                     ).order_by(Track.id).limit(1)
                 ).first()
 
-            unfingerprinted = self._find_after_cursor(self._UNFINGERPRINTED, find)
+            # Workers start together and find() the same row; the IntegrityError loser used to
+            # get None, which the worker reads as "queue empty" and quits for good, so a pool
+            # of 8 collapsed to ~3 (#6080). Losing a race moves the cursor past that track and
+            # looks for the next one instead.
+            for _ in range(self._MAX_CLAIM_RACES):
+                unfingerprinted = self._find_after_cursor(self._UNFINGERPRINTED, find)
 
-            if not unfingerprinted:
-                return None
+                if not unfingerprinted:
+                    return None
 
-            # Save track ID and filepath BEFORE creating placeholder (minimize transaction time)
-            track_id = int(unfingerprinted[0])
-            filepath = unfingerprinted[1]
+                # Save track ID and filepath BEFORE creating placeholder (minimize transaction time)
+                track_id = int(unfingerprinted[0])
+                filepath = unfingerprinted[1]
 
-            # Try to "claim" this track by creating a placeholder fingerprint.
-            # Minimal initialization — only required fields set, rest will be
-            # overwritten during upsert.
-            try:
-                placeholder = TrackFingerprint(
-                    track_id=track_id,
-                    # Initialize all 25 dimensions with zeros (will be overwritten)
-                    sub_bass_pct=0.0, bass_pct=0.0, low_mid_pct=0.0, mid_pct=0.0,
-                    upper_mid_pct=0.0, presence_pct=0.0, air_pct=0.0,
-                    lufs=PLACEHOLDER_LUFS_SENTINEL, crest_db=0.0,
-                    bass_mid_ratio=0.0,
-                    tempo_bpm=0.0, rhythm_stability=0.0, transient_density=0.0, silence_ratio=0.0,
-                    spectral_centroid=0.0, spectral_rolloff=0.0, spectral_flatness=0.0,
-                    harmonic_ratio=0.0, pitch_stability=0.0, chroma_energy=0.0,
-                    dynamic_range_variation=0.0, loudness_variation_std=0.0, peak_consistency=0.0,
-                    stereo_width=0.0, phase_correlation=0.0,
-                    fingerprint_version=FINGERPRINT_ALGORITHM_VERSION,
-                )
-                session.add(placeholder)
-                session.commit()
-                session.expunge_all()  # Clear session immediately after commit
-                self._advance_cursor(self._UNFINGERPRINTED, track_id)
+                # Try to "claim" this track by creating a placeholder fingerprint.
+                # Minimal initialization — only required fields set, rest will be
+                # overwritten during upsert.
+                try:
+                    placeholder = TrackFingerprint(
+                        track_id=track_id,
+                        # Initialize all 25 dimensions with zeros (will be overwritten)
+                        sub_bass_pct=0.0, bass_pct=0.0, low_mid_pct=0.0, mid_pct=0.0,
+                        upper_mid_pct=0.0, presence_pct=0.0, air_pct=0.0,
+                        lufs=PLACEHOLDER_LUFS_SENTINEL, crest_db=0.0,
+                        bass_mid_ratio=0.0,
+                        tempo_bpm=0.0, rhythm_stability=0.0, transient_density=0.0, silence_ratio=0.0,
+                        spectral_centroid=0.0, spectral_rolloff=0.0, spectral_flatness=0.0,
+                        harmonic_ratio=0.0, pitch_stability=0.0, chroma_energy=0.0,
+                        dynamic_range_variation=0.0, loudness_variation_std=0.0, peak_consistency=0.0,
+                        stereo_width=0.0, phase_correlation=0.0,
+                        fingerprint_version=FINGERPRINT_ALGORITHM_VERSION,
+                    )
+                    session.add(placeholder)
+                    session.commit()
+                    session.expunge_all()  # Clear session immediately after commit
+                    self._advance_cursor(self._UNFINGERPRINTED, track_id)
 
-                # Create a simple Track object with just the essential fields
-                # (avoid keeping session references that slow down claiming)
-                claimed_track = Track()
-                claimed_track.id = track_id
-                claimed_track.filepath = filepath
+                    # Create a simple Track object with just the essential fields
+                    # (avoid keeping session references that slow down claiming)
+                    claimed_track = Track()
+                    claimed_track.id = track_id
+                    claimed_track.filepath = filepath
 
-                debug(f"Track {track_id} claimed by worker")
-                return claimed_track
+                    debug(f"Track {track_id} claimed by worker")
+                    return claimed_track
 
-            except IntegrityError:
-                # Another worker already claimed this track (UNIQUE constraint)
-                session.rollback()
-                debug(f"Track {track_id} already claimed by another worker")
-                return None
+                except IntegrityError:
+                    # Another worker already claimed this track (UNIQUE constraint):
+                    # step past it and try the next one.
+                    session.rollback()
+                    debug(f"Track {track_id} already claimed by another worker")
+                    self._advance_cursor(self._UNFINGERPRINTED, track_id)
         return None
 
     def claim_next_outdated_fingerprint(self, current_version: int) -> Track | None:
