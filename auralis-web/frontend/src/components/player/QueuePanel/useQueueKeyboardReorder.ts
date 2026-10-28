@@ -14,12 +14,16 @@ import type { Track, QueueTrack } from '@/types/domain';
 export interface UseQueueKeyboardReorderOptions {
   queue: (Track | QueueTrack)[];
   reorderTrack: (fromIndex: number, toIndex: number) => Promise<void>;
+  removeTrack: (index: number) => Promise<void>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
 }
 
 export interface UseQueueKeyboardReorderReturn {
   handleKeyboardReorder: (fromIndex: number, toIndex: number) => Promise<void>;
+  /** Removes a row; if focus was inside the list, hands it to the neighbouring
+   *  row and announces the removal (#6028). */
+  handleRemove: (index: number) => Promise<void>;
   /** Message for the live region announcing the result of a keyboard move. */
   announcement: string;
 }
@@ -27,6 +31,7 @@ export interface UseQueueKeyboardReorderReturn {
 export function useQueueKeyboardReorder({
   queue,
   reorderTrack,
+  removeTrack,
   scrollElementRef,
   virtualizer,
 }: UseQueueKeyboardReorderOptions): UseQueueKeyboardReorderReturn {
@@ -86,6 +91,29 @@ export function useQueueKeyboardReorder({
     [reorderTrack],
   );
 
+  const handleRemove = useCallback(
+    async (index: number) => {
+      const track = queueRef.current[index];
+      if (!track) return;
+      const lengthBefore = queueRef.current.length;
+      // Only follow focus when it was in the list: a mouse click on a Remove
+      // button elsewhere should not pull focus into the queue. The removed row
+      // (and a focused Remove button inside it) unmounts, so without a handoff
+      // focus falls to <body>.
+      const hadFocus = scrollElementRef.current?.contains(document.activeElement) ?? false;
+      try {
+        await removeTrack(index);
+        setAnnouncement(`${track.title} removed from the queue`);
+        // The row now at `index`, or the previous one when the last was removed.
+        if (hadFocus && lengthBefore > 1) setPendingFocusIndex(Math.min(index, lengthBefore - 2));
+      } catch (err) {
+        console.error('Failed to remove track from queue:', err);
+        setAnnouncement(`Could not remove ${track.title}`);
+      }
+    },
+    [removeTrack, scrollElementRef],
+  );
+
   // Restore focus to the moved row once it has re-rendered at its new index.
   // Done in an effect rather than inline after the await because the row's
   // `data-queue-index` attribute (queried below) only updates once React
@@ -112,5 +140,5 @@ export function useQueueKeyboardReorder({
     setPendingFocusIndex(null);
   }, [pendingFocusIndex, queue, scrollElementRef, virtualizer]);
 
-  return { handleKeyboardReorder, announcement };
+  return { handleKeyboardReorder, handleRemove, announcement };
 }

@@ -100,20 +100,13 @@ export const QueuePanelExpanded = ({
     }
   }, [reorderTrack]);
 
-  const { handleKeyboardReorder, announcement } = useQueueKeyboardReorder({
+  const { handleKeyboardReorder, handleRemove: handleRemoveTrack, announcement } = useQueueKeyboardReorder({
     queue,
     reorderTrack,
+    removeTrack,
     scrollElementRef: queueScrollRef,
     virtualizer,
   });
-
-  const handleRemoveTrack = useCallback(async (index: number) => {
-    try {
-      await removeTrack(index);
-    } catch (err) {
-      console.error('Failed to remove track from queue:', err);
-    }
-  }, [removeTrack]);
 
   const handleToggleShuffle = useCallback(async () => {
     try {
