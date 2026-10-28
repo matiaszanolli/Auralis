@@ -16,14 +16,14 @@ import {
   selectIsShuffled,
   selectRepeatMode,
 } from '@/store/slices/queueSlice';
-import type { Track, QueueTrack } from '@/types/domain';
+import type { QueueTrack, RepeatMode, Track } from '@/types/domain';
 import type { RootState } from '@/store';
 
 export interface RollbackState {
   tracks: (Track | QueueTrack)[];
   currentIndex: number;
   isShuffled: boolean;
-  repeatMode: 'off' | 'all' | 'one';
+  repeatMode: RepeatMode;
 }
 
 export type MutationField = 'queue' | 'shuffle' | 'repeat';

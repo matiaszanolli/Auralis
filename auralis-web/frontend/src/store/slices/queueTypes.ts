@@ -6,7 +6,9 @@
 
 import type { QueueTrack as Track } from '@/types/domain';
 
-export type RepeatMode = 'off' | 'all' | 'one';
+import type { RepeatMode } from '@/types/domain';
+
+export type { RepeatMode };
 
 /** Allowlist for repeat_mode coming off the wire (#4159). An invalid value
  *  would enter queue.repeatMode and silently halt next/previous advancement. */

@@ -6,7 +6,7 @@
 
 
 import type { WebSocketMessage } from './base';
-import type { EnhancementPreset } from '@/types/domain';
+import type { EnhancementPreset, StreamType } from '@/types/domain';
 
 /** Message-type literals owned by the enhancement domain. */
 export type EnhancementMessageType =
@@ -95,6 +95,6 @@ export interface FingerprintProgressMessage extends WebSocketMessage {
     track_id: number;
     status: 'analyzing' | 'complete' | 'failed' | 'error' | 'cached' | 'queued';
     message: string;
-    stream_type?: 'enhanced' | 'normal';
+    stream_type?: StreamType;
   };
 }

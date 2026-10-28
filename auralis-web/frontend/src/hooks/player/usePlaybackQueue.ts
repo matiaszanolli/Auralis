@@ -49,7 +49,7 @@ import {
   selectLastUpdated,
 } from '@/store/slices/queueSlice';
 import { selectCurrentQueueTrack } from '@/store/selectors';
-import type { Track, QueueTrack } from '@/types/domain';
+import type { QueueTrack, RepeatMode, Track } from '@/types/domain';
 import type { ApiError } from '@/types/api';
 
 /**
@@ -66,7 +66,7 @@ export interface QueueState {
   isShuffled: boolean;
 
   /** Repeat mode: 'off' | 'all' | 'one' */
-  repeatMode: 'off' | 'all' | 'one';
+  repeatMode: RepeatMode;
 
   /** Last update timestamp */
   lastUpdated: number;
@@ -92,7 +92,7 @@ export interface PlaybackQueueActions {
   isShuffled: boolean;
 
   /** Current repeat mode */
-  repeatMode: 'off' | 'all' | 'one';
+  repeatMode: RepeatMode;
 
   /** Set entire queue and optional start position */
   setQueue: (tracks: Track[], startIndex?: number) => Promise<void>;
@@ -113,7 +113,7 @@ export interface PlaybackQueueActions {
   toggleShuffle: () => Promise<void>;
 
   /** Set repeat mode */
-  setRepeatMode: (mode: 'off' | 'all' | 'one') => Promise<void>;
+  setRepeatMode: (mode: RepeatMode) => Promise<void>;
 
   /** Clear entire queue */
   clearQueue: () => Promise<void>;

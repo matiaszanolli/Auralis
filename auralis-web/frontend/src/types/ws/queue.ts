@@ -5,6 +5,7 @@
  */
 
 
+import type { RepeatMode } from '@/types/domain';
 import type { WebSocketMessage, TrackInfo } from './base';
 
 /** Message-type literals owned by the queue domain. */
@@ -70,7 +71,7 @@ export interface QueueShuffledMessage extends WebSocketMessage {
 export interface RepeatModeChangedMessage extends WebSocketMessage {
   type: 'repeat_mode_changed';
   data: {
-    repeat_mode?: 'off' | 'all' | 'one';
-    repeatMode?: 'off' | 'all' | 'one';
+    repeat_mode?: RepeatMode;
+    repeatMode?: RepeatMode;
   };
 }

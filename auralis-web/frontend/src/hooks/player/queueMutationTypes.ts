@@ -6,7 +6,7 @@
  * @module hooks/player/queueMutationTypes
  */
 
-import type { Track } from '@/types/domain';
+import type { RepeatMode, Track } from '@/types/domain';
 import type { ApiError } from '@/types/api';
 
 export interface QueueMutations {
@@ -29,7 +29,7 @@ export interface QueueMutations {
   /** Toggle shuffle mode */
   toggleShuffle: () => Promise<void>;
   /** Set repeat mode */
-  setRepeatMode: (mode: 'off' | 'all' | 'one') => Promise<void>;
+  setRepeatMode: (mode: RepeatMode) => Promise<void>;
   /** Clear entire queue */
   clearQueue: () => Promise<void>;
   /** True while a command is executing */

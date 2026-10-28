@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { Track, QueueTrack } from '@/types/domain';
+import type { QueueTrack, RepeatMode, Track } from '@/types/domain';
 import type { ApiError } from '@/types/api';
 import { QueueTrackItem } from './QueueTrackItem';
 import { QueueControlBar } from './QueueControlBar';
@@ -14,13 +14,13 @@ interface QueuePanelExpandedProps {
   queue: (Track | QueueTrack)[];
   currentIndex: number;
   isShuffled: boolean;
-  repeatMode: 'off' | 'all' | 'one';
+  repeatMode: RepeatMode;
   isLoading: boolean;
   error: ApiError | null;
   removeTrack: (index: number) => Promise<void>;
   reorderTrack: (fromIndex: number, toIndex: number) => Promise<void>;
   toggleShuffle: () => Promise<void>;
-  setRepeatMode: (mode: 'off' | 'all' | 'one') => Promise<void>;
+  setRepeatMode: (mode: RepeatMode) => Promise<void>;
   clearQueue: () => Promise<void>;
   onToggleCollapse?: () => void;
 }
@@ -123,7 +123,7 @@ export const QueuePanelExpanded = ({
     }
   }, [toggleShuffle]);
 
-  const handleSetRepeatMode = useCallback(async (mode: 'off' | 'all' | 'one') => {
+  const handleSetRepeatMode = useCallback(async (mode: RepeatMode) => {
     try {
       await setRepeatMode(mode);
     } catch (err) {

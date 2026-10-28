@@ -23,10 +23,11 @@
  */
 
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { StreamType } from '@/types/domain';
 
 export type StreamingState = 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
 
-export type StreamType = 'normal' | 'enhanced';
+export type { StreamType };
 
 export interface StreamingInfo {
   state: StreamingState;

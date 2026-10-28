@@ -16,6 +16,7 @@
 
 const DEBUG = import.meta.env.DEV;
 
+import type { StreamType } from '@/types/domain';
 import { useCallback } from 'react';
 import type { MutableRefObject } from 'react';
 import type { AppDispatch } from '@/store';
@@ -48,7 +49,7 @@ export interface UseEnhancedPlayCommandParams {
   resetFingerprint: (trackId: number) => void;
 }
 
-export type PlaybackWireType = 'enhanced' | 'normal';
+export type PlaybackWireType = StreamType;
 
 export type StartPlayback = (
   trackId: number,

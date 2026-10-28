@@ -7,6 +7,7 @@
  * initial fetch through useQueueFetch, so this module carries none of them.
  */
 
+import type { RepeatMode } from '@/types/domain';
 import { ENDPOINTS } from '@/config/api';
 import { post } from '@/utils/apiRequest';
 import type { TrackInfo } from '@/types/websocket';
@@ -33,7 +34,7 @@ export interface QueueResponse {
   // is_shuffled/isShuffled were phantom keys the backend never sent.
   shuffle_enabled?: boolean | null;
   // repeat_mode, not the engine's repeat_enabled bool (#3896).
-  repeat_mode?: 'off' | 'all' | 'one' | null;
+  repeat_mode?: RepeatMode | null;
 }
 
 /**

@@ -5,7 +5,7 @@
  */
 
 
-import type { EnhancementPreset } from '@/types/domain';
+import type { EnhancementPreset, StreamType } from '@/types/domain';
 import type { WebSocketMessage } from './base';
 
 /** Message-type literals owned by the streaming domain.
@@ -44,7 +44,7 @@ export interface AudioStreamStartMessage extends WebSocketMessage {
     total_chunks: number;
     chunk_duration: number;
     total_duration: number;
-    stream_type?: 'enhanced' | 'normal';
+    stream_type?: StreamType;
     /**
      * Monotonic id for this stream (#4563). Record it on stream start and drop
      * any `audio_chunk` whose `stream_epoch` differs: cancelling a superseded
@@ -75,7 +75,7 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
     track_id: number;
     total_samples?: number;
     duration?: number;
-    stream_type?: 'enhanced' | 'normal';
+    stream_type?: StreamType;
     /** Owning stream epoch (#5861) — a late end from a superseded stream is
      *  dropped by the subscriber. See AudioChunkMessage.stream_epoch. */
     stream_epoch?: number;
@@ -126,7 +126,7 @@ export interface AudioChunkMessage extends WebSocketMessage {
     frame_index: number;
     frame_count: number;
     sample_count: number;
-    stream_type?: 'enhanced' | 'normal';
+    stream_type?: StreamType;
     /** Raw float32 PCM ArrayBuffer. Injected at runtime by WebSocketContext
      *  when a binary frame follows audio_chunk_meta (fixes #2764). */
     pcm_binary?: ArrayBuffer;
@@ -161,7 +161,7 @@ export interface AudioChunkMetaMessage {
     frame_index: number;
     frame_count: number;
     sample_count: number;
-    stream_type?: 'enhanced' | 'normal';
+    stream_type?: StreamType;
   };
 }
 
@@ -172,7 +172,7 @@ export interface AudioStreamErrorMessage extends WebSocketMessage {
     track_id: number;
     error: string;
     code?: string;
-    stream_type?: 'enhanced' | 'normal';
+    stream_type?: StreamType;
     /** Owning stream epoch (#5861) — a late error from a superseded stream must
      *  not tear down the live one. See AudioChunkMessage.stream_epoch. */
     stream_epoch?: number;

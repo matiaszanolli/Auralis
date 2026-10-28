@@ -6,7 +6,7 @@
 
 
 import type { WebSocketMessage, TrackInfo } from './base';
-import type { EnhancementPreset } from '@/types/domain';
+import type { EnhancementPreset, RepeatMode } from '@/types/domain';
 
 /** Message-type literals owned by the player domain. */
 export type PlayerMessageType =
@@ -53,7 +53,7 @@ export interface RawPlayerStateData {
   queue_index: number;
   queue_size: number;
   shuffle_enabled: boolean;
-  repeat_mode: 'off' | 'all' | 'one';
+  repeat_mode: RepeatMode;
   mastering_enabled: boolean;
   // The backend's PlayerStatePayload types this EnhancementPresetLiteral;
   // #5610 mirrors that here instead of a plain string. usePlayerStateSync's

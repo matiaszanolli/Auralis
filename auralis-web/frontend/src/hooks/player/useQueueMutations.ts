@@ -23,7 +23,7 @@ import {
   removeTrack as reduxRemoveTrack,
   reorderTrack as reduxReorderTrack,
 } from '@/store/slices/queueSlice';
-import type { Track } from '@/types/domain';
+import type { RepeatMode, Track } from '@/types/domain';
 import type { ApiError } from '@/types/api';
 import { ApiErrorHandler } from '@/types/api';
 import type { AppDispatch } from '@/store';
@@ -216,7 +216,7 @@ export function useQueueMutations(): QueueMutations {
   }, [post, dispatch, beginMutation, isNewestMutation, beginInFlight, endInFlight, snapshot]);
 
   const setRepeatMode = useCallback(
-    async (mode: 'off' | 'all' | 'one'): Promise<void> => {
+    async (mode: RepeatMode): Promise<void> => {
       // Validate before flipping isLoading: the old order set isLoading true
       // and then threw on an invalid mode without ever clearing it, wedging
       // every queue control behind a permanent loading state.

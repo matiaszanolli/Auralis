@@ -119,6 +119,12 @@ export const ENHANCEMENT_PRESETS: EnhancementPreset[] = [
 export const isEnhancementPreset = (value: unknown): value is EnhancementPreset =>
   ENHANCEMENT_PRESETS.includes(value as EnhancementPreset);
 
+/** Queue repeat behaviour. The store, the wire types and the UI all use this one union (#6048). */
+export type RepeatMode = 'off' | 'all' | 'one';
+
+/** Which streaming path serves a track; also the `stream_type` / `play_*` wire value (#6048). */
+export type StreamType = 'normal' | 'enhanced';
+
 // ============================================================================
 // Audio Fingerprint
 // ============================================================================

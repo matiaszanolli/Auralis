@@ -8,6 +8,7 @@
  */
 
 import type PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
+import type { StreamType } from '@/types/domain';
 import type AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import type {
   AudioStreamStartMessage,
@@ -23,7 +24,7 @@ export interface StreamingMetadata {
   processedChunks: number;
 }
 
-export type StreamType = 'normal' | 'enhanced';
+export type { StreamType };
 
 export interface StreamingCoreOptions {
   /** Redux streaming slice this stream drives ('normal' | 'enhanced'). */

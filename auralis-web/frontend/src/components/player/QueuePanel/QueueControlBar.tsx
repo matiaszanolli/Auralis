@@ -1,13 +1,14 @@
 
+import type { RepeatMode } from '@/types/domain';
 import { styles } from './styles';
 
 interface QueueControlBarProps {
   isShuffled: boolean;
-  repeatMode: 'off' | 'all' | 'one';
+  repeatMode: RepeatMode;
   isLoading: boolean;
   queueLength: number;
   onToggleShuffle: () => void;
-  onSetRepeatMode: (mode: 'off' | 'all' | 'one') => void;
+  onSetRepeatMode: (mode: RepeatMode) => void;
   onClearQueue: () => void;
 }
 
