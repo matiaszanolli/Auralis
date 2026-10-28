@@ -65,19 +65,7 @@ async def build_similarity_graph(
     clear_existing: bool = Query(True, description="Clear existing graph before building"),
     graph_builder: KNNGraphBuilder | None = Depends(_get_graph_builder),
 ) -> GraphStatsResponse:
-    """
-    Build K-nearest neighbors similarity graph
-
-    Pre-computes similarity relationships for fast queries.
-    This can take several minutes for large libraries.
-
-    Args:
-        k: Number of similar tracks to find for each track
-        clear_existing: Whether to clear existing graph
-
-    Returns:
-        Graph build statistics
-    """
+    """Build the K-nearest-neighbours similarity graph (minutes for large libraries); returns its stats."""
     if graph_builder is None:
         raise ServiceUnavailableError("Graph builder not ready: fit via POST /api/similarity/fit if needed; it appears within a few minutes of the fit")
 
