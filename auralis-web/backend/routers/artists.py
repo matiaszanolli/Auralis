@@ -210,7 +210,7 @@ def create_artists_router(
     Returns:
         Configured APIRouter instance
     """
-    router = APIRouter(dependencies=[Depends(_repo_deps.bind(get_repository_factory))])
+    router = APIRouter(tags=["library"], dependencies=[Depends(_repo_deps.bind(get_repository_factory))])
     router.add_api_route(
         "/api/artists",
         get_artists,

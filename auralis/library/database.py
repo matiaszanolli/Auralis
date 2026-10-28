@@ -15,7 +15,6 @@ the repositories on top of it.
 """
 
 import atexit
-import threading
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -105,9 +104,6 @@ class LibraryDatabase(RepositoryAccessorsMixin):
             self.repositories.tracks.backfill_filepath_keys()
         except Exception as e:  # noqa: BLE001 - never block startup on a backfill
             warning(f"filepath_key backfill skipped: {e}")
-
-        # Thread-safe locking for delete operations (prevents race conditions)
-        self._delete_lock = threading.RLock()
 
         # Scan slots, per-directory dedup and destructive-operation exclusion
         # live on one coordinator (#2438, #3455, #4509, #4816). It must hang off

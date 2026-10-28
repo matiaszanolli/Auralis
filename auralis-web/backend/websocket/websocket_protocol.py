@@ -70,14 +70,6 @@ class HeartbeatManager:
         """
         self.last_heartbeat[connection_id] = datetime.now(timezone.utc)
 
-    def is_alive(self, connection_id: str) -> bool:
-        """Check if connection is alive (has recent activity)."""
-        if connection_id not in self.last_heartbeat:
-            return False
-
-        elapsed = (datetime.now(timezone.utc) - self.last_heartbeat[connection_id]).total_seconds()
-        return elapsed < (self.interval_seconds * 2)  # Allow 2 intervals before timeout
-
     def is_stale(self, connection_id: str) -> bool:
         """Check if connection has pending pong for too long."""
         if connection_id not in self.pending_pongs:

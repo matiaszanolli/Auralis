@@ -204,7 +204,7 @@ def create_albums_router(
 
     Note:
     """
-    router = APIRouter(dependencies=[Depends(_repo_deps.bind(get_repository_factory))])
+    router = APIRouter(tags=["library"], dependencies=[Depends(_repo_deps.bind(get_repository_factory))])
 
     # Starlette matches in registration order, so the literal
     # `/api/albums/fingerprints` (#5873) goes ahead of `/api/albums/{album_id}`,

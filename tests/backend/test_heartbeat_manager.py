@@ -13,6 +13,7 @@ those are removed here, leaving only the valid HeartbeatManager tests.
 
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
@@ -60,16 +61,6 @@ class TestHeartbeatManager:
 
         assert result is False
 
-    def test_heartbeat_is_alive(self):
-        """Test checking if connection is alive."""
-        hb = HeartbeatManager(interval_seconds=30)
-        conn_id = "test-conn"
-
-        hb.mark_ping(conn_id)
-        hb.mark_pong(conn_id)
-
-        assert hb.is_alive(conn_id) is True
-
     def test_heartbeat_is_stale(self):
         """Test detecting stale heartbeat."""
         hb = HeartbeatManager(timeout_seconds=1)
@@ -102,13 +93,15 @@ class TestMarkAlive:
     """mark_alive records liveness but must not mask an outstanding ping."""
 
     def test_mark_alive_updates_last_heartbeat(self):
-        """mark_alive must update last_heartbeat so is_alive() returns True."""
+        """mark_alive must record the connection in last_heartbeat."""
         hb = HeartbeatManager(interval_seconds=30)
         conn_id = "test-alive"
+        assert conn_id not in hb.last_heartbeat
 
         hb.mark_alive(conn_id)
 
-        assert hb.is_alive(conn_id) is True
+        assert conn_id in hb.last_heartbeat
+        assert (datetime.now(timezone.utc) - hb.last_heartbeat[conn_id]).total_seconds() < 5
 
     def test_mark_alive_does_not_clear_pending_pongs(self):
         """
