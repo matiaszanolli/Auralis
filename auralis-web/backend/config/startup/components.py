@@ -29,16 +29,10 @@ def _init_library_database(globals_dict: dict[str, Any]) -> None:
     """
     from auralis.library import LibraryDatabase
 
-    # Ensure database directory exists before opening the library DB
-    music_dir = Path.home() / "Music" / "Auralis"
-    music_dir.mkdir(parents=True, exist_ok=True)
-    # Absolute home/database paths are sensitive and persist to the
-    # on-disk electron-log, so they log at DEBUG — consistent with the
-    # #3844 demotion of the sibling path-validation logs (#4376).
-    logger.debug(f"📁 Database directory ready: {music_dir}")
-
-    # Open the library database. LibraryDatabase owns the migration, engine,
-    # session factory, scan slots and shutdown.
+    # Open the library database. LibraryDatabase owns its own directory
+    # (~/.auralis), the migration, engine, session factory, scan slots and
+    # shutdown. A ~/Music/Auralis directory used to be created here, unused by
+    # anything, and a failure creating it rolled back the whole init (#5988).
     globals_dict['library_database'] = LibraryDatabase()
     # Crash recovery for fingerprint claims is the backend's job alone (#6099).
     globals_dict['library_database'].cleanup_incomplete_fingerprints()

@@ -21,8 +21,9 @@ STARTUP = (
     / "auralis-web" / "backend" / "config" / "startup" / "components.py"
 )
 
-# The two path-logging call sites, keyed by a distinctive substring.
-PATH_LOG_MARKERS = ("Database directory ready", "Database location")
+# The path-logging call site, keyed by a distinctive substring.
+# "Database directory ready" went with the unused ~/Music/Auralis mkdir (#5988).
+PATH_LOG_MARKERS = ("Database location",)
 
 
 def _logger_calls() -> list[tuple[str, str]]:
@@ -53,7 +54,7 @@ def _logger_calls() -> list[tuple[str, str]]:
     return found
 
 
-def test_both_path_markers_present():
+def test_path_marker_present():
     """Guard the markers still exist (renamed messages would silently pass)."""
     calls = _logger_calls()
     texts = " ".join(t for _, t in calls)

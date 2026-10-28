@@ -98,7 +98,8 @@ def _client(scanner_cls, monkeypatch) -> tuple[TestClient, _CapturingManager]:
 
 
 def test_timeout_broadcasts_scan_error_before_504(monkeypatch, tmp_path) -> None:
-    monkeypatch.setenv("AURALIS_SCAN_TIMEOUT", "0.05")
+    # The timeout is resolved once at import (#5991), so patch the constant.
+    monkeypatch.setattr("routers.library_scan.SCAN_TIMEOUT_S", 0.05)
     client, manager = _client(_TimeoutScanner, monkeypatch)
 
     resp = client.post("/api/library/scan", json={"directories": [str(tmp_path)]})

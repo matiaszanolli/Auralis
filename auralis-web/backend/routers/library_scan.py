@@ -13,10 +13,10 @@ Endpoints:
 
 import asyncio
 import logging
-import os
 from collections.abc import Callable
 from typing import Any
 
+from config.limits import SCAN_TIMEOUT_S
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from schemas import LibraryScanRequest, ScanResultResponse
@@ -137,7 +137,7 @@ async def scan_library(
                 make_progress_callback(asyncio.get_running_loop(), connection_manager, request.directories)
             )
 
-        scan_timeout = float(os.environ.get("AURALIS_SCAN_TIMEOUT", "3600"))
+        scan_timeout = float(SCAN_TIMEOUT_S)
         # #3710: capture the to_thread future so we can signal the scanner
         # to stop on cancellation/timeout/disconnect — asyncio.wait_for
         # cancels the awaitable but cannot terminate the underlying thread

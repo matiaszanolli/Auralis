@@ -96,7 +96,14 @@ def _stream_pool_size() -> int:
 # the 11th concurrent session-holding worker blocks for SQLAlchemy's 30s
 # pool_timeout and then surfaces as a 500 rather than back-pressure (#4810).
 # 8 leaves headroom for the non-repository work sharing this pool.
-IO_POOL_SIZE: int = get_int_env("AURALIS_IO_POOL_WORKERS", 8)
+_DB_POOL_CEILING = 10
+_requested_io_workers = get_int_env("AURALIS_IO_POOL_WORKERS", 8)
+if _requested_io_workers > _DB_POOL_CEILING:
+    logger.warning(
+        f"AURALIS_IO_POOL_WORKERS={_requested_io_workers} exceeds the DB pool ceiling "
+        f"({_DB_POOL_CEILING}); using {_DB_POOL_CEILING} (#5991)"
+    )
+IO_POOL_SIZE: int = min(_DB_POOL_CEILING, _requested_io_workers)
 
 # Mastering-job DSP (#5335). Matches ProcessingEngine(max_concurrent_jobs=2) in
 # config/startup.py: the job semaphore already admits at most that many jobs,

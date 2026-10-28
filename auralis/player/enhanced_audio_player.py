@@ -194,10 +194,9 @@ class AudioPlayer(
         # #3713: hold `_audio_lock` across the ENTIRE seek, including the
         # `playback.seek()` call. The original #3357 fix only snapshotted
         # `max_samples` and `sample_rate` atomically — but a gapless
-        # `advance_with_prebuffer` could still swap to a shorter track
-        # between the snapshot and the seek, leaving the clamp using the
-        # old (larger) length. The new track would then receive a
-        # position > its own length → empty slice → silence + immediate
+        # `advance_with_prebuffer` could still swap to a shorter track in
+        # between, leaving the clamp using the old (larger) length: the new
+        # track got a position > its length → silence + immediate
         # auto-advance. PlaybackController.seek() takes only its own
         # `_lock`; the canonical nesting `_audio_lock → PlaybackController._lock`
         # is already used by `get_audio_chunk` so no inversion risk.
@@ -214,7 +213,8 @@ class AudioPlayer(
                 return False
             max_samples = self.file_manager.get_total_samples()
             sample_rate = self.file_manager.sample_rate
-            position_samples = int(position_seconds * sample_rate)
+            # Clamp as a float before int(): int(inf) raised OverflowError (#6130).
+            position_samples = int(min(max(position_seconds * sample_rate, 0.0), float(max_samples)))
             return self.playback.seek(position_samples, max_samples)
 
     @property

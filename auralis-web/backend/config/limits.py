@@ -172,6 +172,11 @@ def owning_pid_from_stream_temp_name(name: str) -> int | None:
 # to raise a limit tuned for a "typical" session — the 2/minute scan limit in
 # particular is awkward: a user re-triggering a scan after seeing an error is
 # one click from a 429.
+# Upper bound on a manual library scan request, in seconds (#5991). Read once
+# here like every other tunable, so a malformed value falls back with a warning
+# instead of raising ValueError inside the request handler.
+SCAN_TIMEOUT_S: int = get_int_env("AURALIS_SCAN_TIMEOUT", 3600)
+
 RATE_LIMIT_UPLOAD_MAX: int = get_int_env("AURALIS_RATE_LIMIT_UPLOAD_MAX", 5)
 RATE_LIMIT_UPLOAD_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_UPLOAD_WINDOW", 60)
 RATE_LIMIT_PROCESSING_MAX: int = get_int_env("AURALIS_RATE_LIMIT_PROCESSING_MAX", 10)
