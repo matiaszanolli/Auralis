@@ -2,9 +2,10 @@
 
 Verifies that LoudnessMeter uses the correct ITU-R BS.1770-4 parameters:
   - High-shelf at 1681.974 Hz +3.999843 dB  (was 1500 Hz +4 dB)
-  - 2nd-order HP at 38.135 Hz               (was 1st-order 40 Hz)
+  - 2nd-order RLB HP at 38.135 Hz, Q ~ 0.5003 (was 1st-order 40 Hz, then a Butterworth, #5593)
 """
 import numpy as np
+import pytest
 from scipy import signal as scipy_signal
 
 SR = 48000  # Use 48 kHz — BS.1770-4 reference sample rate
@@ -38,17 +39,14 @@ class TestKWeightingCoefficients:
         assert len(m.pre_filter_b) == 3
         assert len(m.pre_filter_a) == 3
 
-    def test_hp_corner_near_38hz(self):
-        """HP -3 dB point must be near 38 Hz, not 40 Hz."""
+    def test_hp_is_the_rlb_filter_not_a_butterworth(self):
+        """The RLB high-pass is critically damped (Q ~ 0.5003): -6 dB at 38 Hz, not the
+        Butterworth's -3 dB (#5593). Its poles must sit where the standard puts them."""
         m = _make_meter()
-        freqs, h = scipy_signal.freqz(m.pre_filter_b, m.pre_filter_a, worN=4096, fs=SR)
-        mag = 20 * np.log10(np.abs(h) + 1e-12)
-        # At 38 Hz should be close to -3 dB; at 40 Hz should be above -3 dB
-        idx_38 = np.argmin(np.abs(freqs - 38.0))
-        idx_40 = np.argmin(np.abs(freqs - 40.0))
-        assert -5.0 < mag[idx_38] < -1.0, f"Expected HP near -3 dB at 38 Hz, got {mag[idx_38]:.2f} dB"
-        # At 40 Hz (old cutoff), response should now be above -3 dB (i.e. not the edge)
-        assert mag[idx_40] > -3.0, f"HP should pass 40 Hz above -3 dB, got {mag[idx_40]:.2f} dB"
+        _, h = scipy_signal.freqz(m.pre_filter_b, m.pre_filter_a, worN=[38.135], fs=SR)
+        assert 20 * np.log10(abs(h[0])) == pytest.approx(-6.02, abs=0.15)
+        poles = np.roots(m.pre_filter_a)
+        assert poles[0].imag == pytest.approx(0.0, abs=1e-3)  # a double real pole, not a conjugate pair
 
     def test_shelf_gain_near_zero_at_1khz(self):
         """RLB shelf must be ~0 dB at 1 kHz (below the shelf frequency)."""
@@ -66,35 +64,40 @@ class TestKWeightingCoefficients:
         idx_20k = np.argmin(np.abs(freqs - 20000.0))
         assert 3.0 < mag[idx_20k] < 5.0, f"Shelf at 20kHz must be ~+4 dB, got {mag[idx_20k]:.2f} dB"
 
-    def test_shelf_midpoint_near_1681hz(self):
-        """Shelf midpoint (-3 dB from passband to shelf) must be near 1681.974 Hz."""
-        m = _make_meter()
-        freqs, h = scipy_signal.freqz(m.rlb_filter_b, m.rlb_filter_a, worN=8192, fs=SR)
-        mag = 20 * np.log10(np.abs(h) + 1e-12)
-        # Shelf midpoint is where gain = half_gain = ~2 dB
-        half_gain = 3.999843 / 2
-        idx = np.argmin(np.abs(mag - half_gain))
-        shelf_mid_hz = freqs[idx]
-        assert 1500.0 < shelf_mid_hz < 1900.0, (
-            f"Shelf midpoint must be near 1681 Hz, got {shelf_mid_hz:.1f} Hz. "
-            f"Old code would give ~1500 Hz."
+    def test_coefficients_match_the_standard_at_48khz(self):
+        """BS.1770-4 Annex 1 tabulates the 48 kHz coefficients (#5593)."""
+        m = _make_meter(sr=48000)
+        np.testing.assert_allclose(
+            m.rlb_filter_b, [1.53512485958697, -2.69169618940638, 1.19839281085285], atol=1e-9
         )
+        np.testing.assert_allclose(m.rlb_filter_a, [1.0, -1.69065929318241, 0.73248077421585], atol=1e-9)
+        np.testing.assert_allclose(m.pre_filter_b, [1.0, -2.0, 1.0], atol=1e-12)
+        np.testing.assert_allclose(m.pre_filter_a, [1.0, -1.99004745483398, 0.99007225036621], atol=1e-9)
+
+    def test_chain_gain_at_1khz_is_the_standards_0_691_db(self):
+        """The -0.691 LUFS offset exists to cancel the chain's +0.691 dB at ~1 kHz.
+        Other rates are the bilinear transform of the same prototype, so they agree to a few
+        hundredths of a dB."""
+        for sr in (44100, 48000, 96000):
+            m = _make_meter(sr=sr)
+            _, h_hp = scipy_signal.freqz(m.pre_filter_b, m.pre_filter_a, worN=[997.0], fs=sr)
+            _, h_sh = scipy_signal.freqz(m.rlb_filter_b, m.rlb_filter_a, worN=[997.0], fs=sr)
+            assert 20 * np.log10(abs(h_hp[0] * h_sh[0])) == pytest.approx(0.691, abs=0.03)
 
 
 class TestLufsIntegration:
     def test_997hz_sine_measures_expected_lufs(self):
         """997 Hz sine at known level must measure expected LUFS within ±0.5 LU."""
-        # Target: -23 LUFS. K-weighting ≈ 0 dB at 997 Hz.
-        # LUFS = -0.691 + 10*log10(mean_sq) => mean_sq = 10^((-23+0.691)/10)
+        # BS.1770 calibration: the K-weighting chain gains +0.691 dB at 997 Hz and the
+        # -0.691 offset cancels it, so a 997 Hz sine reads its own RMS level in LUFS.
         target_lufs = -23.0
-        mean_sq = 10 ** ((target_lufs + 0.691) / 10)
-        target_rms = float(np.sqrt(mean_sq))
+        target_rms = 10 ** (target_lufs / 20)
 
         m = _make_meter(sr=48000)
         audio = _sine(997.0, rms=target_rms, duration=10.0, sr=48000)
         result = _feed_and_finalize(m, audio)
 
         assert np.isfinite(result.integrated_lufs), "LUFS should be finite"
-        assert abs(result.integrated_lufs - target_lufs) < 0.5, (
+        assert abs(result.integrated_lufs - target_lufs) < 0.05, (
             f"Expected ~{target_lufs} LUFS, got {result.integrated_lufs:.2f}"
         )

@@ -10,6 +10,33 @@ import numpy as np
 from scipy import signal
 
 
+# BS.1770-4 Annex 1 filter parameters, the values the 48 kHz tables in the standard were
+# derived from (also what pyloudnorm and ffmpeg's ebur128 use).
+_SHELF_GAIN_DB = 3.999843853973347
+_SHELF_Q = 0.7071752369554196
+_SHELF_FC_HZ = 1681.9744509555319
+_RLB_Q = 0.5003270373253953
+_RLB_FC_HZ = 38.13547087613982
+
+
+def _head_shelf(fs: float) -> tuple[np.ndarray, np.ndarray]:
+    """Stage-1 high-shelf biquad (+4 dB above ~1.7 kHz), normalised to a0 = 1."""
+    k = np.tan(np.pi * _SHELF_FC_HZ / fs)
+    vh = 10 ** (_SHELF_GAIN_DB / 20)
+    vb = vh ** 0.4996667741545416
+    a0 = 1 + k / _SHELF_Q + k * k
+    b = np.array([vh + vb * k / _SHELF_Q + k * k, 2 * (k * k - vh), vh - vb * k / _SHELF_Q + k * k]) / a0
+    a = np.array([1.0, 2 * (k * k - 1) / a0, (1 - k / _SHELF_Q + k * k) / a0])
+    return b, a
+
+
+def _rlb_highpass(fs: float) -> tuple[np.ndarray, np.ndarray]:
+    """Stage-2 RLB high-pass: a double zero at DC and Q ~ 0.5003 (not a Butterworth 0.707)."""
+    k = np.tan(np.pi * _RLB_FC_HZ / fs)
+    a0 = 1 + k / _RLB_Q + k * k
+    return np.array([1.0, -2.0, 1.0]), np.array([1.0, 2 * (k * k - 1) / a0, (1 - k / _RLB_Q + k * k) / a0])
+
+
 class KWeightingMixin:
     """Filter state lives on the meter; ``__init__`` there calls the ``_init_*`` methods."""
 
@@ -25,35 +52,16 @@ class KWeightingMixin:
     rlb_filter_zi: Any
 
     def _init_k_weighting_filter(self) -> None:
-        """Initialize K-weighting filter (ITU-R BS.1770-4 pre-filter + RLB)"""
-        # Stage 1: 2nd-order Butterworth high-pass at 38.135 Hz (BS.1770-4 Annex 1)
-        # Previously: 1st-order at 40 Hz (wrong order and wrong corner frequency)
-        self.pre_filter_b, self.pre_filter_a = signal.butter(
-            2, 38.13475657, btype='high', fs=self.sample_rate
-        )
+        """Initialize the BS.1770-4 K-weighting chain at ``self.sample_rate``.
 
-        # Stage 2: High-shelf at 1681.974 Hz +3.999843 dB (BS.1770-4 Annex 1)
-        # Previously: 1500 Hz +4 dB (shelf freq off by ~1.8 semitones)
-        f0 = 1681.974450955533   # ITU-R BS.1770-4 pre-filter shelf frequency
-        db_gain = 3.999843853973347  # BS.1770-4 shelf gain
-        q = 1 / np.sqrt(2)
-
-        w0 = 2 * np.pi * f0 / self.sample_rate
-        cos_w0 = np.cos(w0)
-        sin_w0 = np.sin(w0)
-        A = 10**(db_gain / 40)
-        alpha = sin_w0 / (2 * q)
-
-        # High shelf filter coefficients
-        b0 = A * ((A + 1) + (A - 1) * cos_w0 + 2 * np.sqrt(A) * alpha)
-        b1 = -2 * A * ((A - 1) + (A + 1) * cos_w0)
-        b2 = A * ((A + 1) + (A - 1) * cos_w0 - 2 * np.sqrt(A) * alpha)
-        a0 = (A + 1) - (A - 1) * cos_w0 + 2 * np.sqrt(A) * alpha
-        a1 = 2 * ((A - 1) - (A + 1) * cos_w0)
-        a2 = (A + 1) - (A - 1) * cos_w0 - 2 * np.sqrt(A) * alpha
-
-        self.rlb_filter_b = np.array([b0, b1, b2]) / a0
-        self.rlb_filter_a = np.array([a0, a1, a2]) / a0
+        ``pre_filter_*`` is the 2nd-order RLB high-pass and ``rlb_filter_*`` the
+        high-shelf (the names predate the standard's stage numbering; the chain
+        is linear, so the order does not matter). Both are derived from the
+        analog prototypes with the bilinear transform (#5593), which reproduces
+        the standard's 48 kHz coefficients exactly and extends them to any rate.
+        """
+        self.pre_filter_b, self.pre_filter_a = _rlb_highpass(self.sample_rate)
+        self.rlb_filter_b, self.rlb_filter_a = _head_shelf(self.sample_rate)
 
         # Initialize filter states
         self.pre_filter_zi: Any | None = None
