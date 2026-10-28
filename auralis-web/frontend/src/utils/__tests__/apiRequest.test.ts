@@ -17,6 +17,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { apiRequest, get, post, del, getOrNullOn404, APIRequestError } from '../apiRequest';
+import { isRetryableError } from '../queryRetry';
 
 // ----------------------------------------------------------------------------
 // Fetch mocking helpers
@@ -167,6 +168,58 @@ describe('apiRequest (#4452)', () => {
     expect(error.message).toBe('Network error: Failed to fetch');
     expect(error.statusCode).toBe(0);
     expect(error.detail).toBe('Failed to fetch');
+  });
+
+  // A 2xx whose body is not JSON is a response, not a transport failure (#6065).
+  it('reports a malformed 2xx body with the real status, not as a status-0 network error', async () => {
+    mockedFetch().mockResolvedValue(
+      makeResponse({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError('Unexpected token < in JSON at position 0');
+        },
+      })
+    );
+
+    const error = (await apiRequest('/html-error-page').catch((e) => e)) as APIRequestError;
+
+    expect(error).toBeInstanceOf(APIRequestError);
+    expect(error.statusCode).toBe(200);
+    expect(error.message).toBe('Invalid response body from /html-error-page');
+    expect(error.message).not.toMatch(/network/i);
+  });
+
+  it('does not retry a malformed 2xx body (it is not a transport failure)', async () => {
+    mockedFetch().mockResolvedValue(
+      makeResponse({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError('Unexpected end of JSON input');
+        },
+      })
+    );
+
+    const error = (await apiRequest('/empty').catch((e) => e)) as Error;
+
+    expect(isRetryableError(error)).toBe(false);
+  });
+
+  it('still maps a body read aborted by the caller to the transport case', async () => {
+    mockedFetch().mockResolvedValue(
+      makeResponse({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new DOMException('aborted', 'AbortError');
+        },
+      })
+    );
+
+    const error = (await apiRequest('/aborted').catch((e) => e)) as APIRequestError;
+
+    expect(error.statusCode).toBe(0);
   });
 
   it('does not double-wrap an APIRequestError raised in the try block', async () => {

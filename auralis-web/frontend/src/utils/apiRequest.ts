@@ -157,7 +157,25 @@ export async function apiRequest<T = unknown>(
         return undefined as T;
       }
 
-      const parsed: unknown = await response.json();
+      let parsed: unknown;
+      try {
+        parsed = await response.json();
+      } catch (parseError) {
+        // A caller abort while the body streams is still an abort/transport case.
+        if (parseError instanceof DOMException && parseError.name === 'AbortError') {
+          throw parseError;
+        }
+        // The server DID answer: an empty or non-JSON 2xx body is not a transport
+        // failure. Reporting it as status 0 ("Network error") made queryRetry
+        // retry it and the UI say "Failed to connect" (#6065). It carries the
+        // real status, so the "anything but 0/408/429/5xx is not retryable"
+        // rule applies.
+        throw new APIRequestError(
+          `Invalid response body from ${endpoint}`,
+          response.status,
+          'The server answered with a body that is not valid JSON.'
+        );
+      }
 
       // Runtime shape check at the boundary, when the caller supplied one.
       // Turns silent field drift into a loud, located failure (#4607).
