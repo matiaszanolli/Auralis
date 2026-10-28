@@ -45,6 +45,19 @@ export const SearchContainer = styled(Box, {
   })
 );
 
+/** Text for assistive tech only (clip-path, not the deprecated `clip`; see ProgressBar #3651). */
+export const VisuallyHidden = styled('span')({
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  overflow: 'hidden',
+  clipPath: 'inset(50%)',
+  whiteSpace: 'nowrap',
+  border: 0,
+  padding: 0,
+  margin: -1,
+});
+
 export const StatusIndicator = styled(Box)<{ color: string }>(({ color }) => ({
   width: tokens.spacing.md,                             // 12px - indicator size
   height: tokens.spacing.md,                            // 12px - indicator size

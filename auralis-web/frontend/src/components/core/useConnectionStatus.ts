@@ -29,3 +29,22 @@ export const useConnectionStatus = (status: ConnectionStatusType) => {
 
   return statusColor;
 };
+
+/**
+ * Text for the status dot, so state is not carried by colour alone (WCAG 1.4.1,
+ * 4.1.3; #6025). 'disconnected' and 'error' share the red but not the words: one
+ * is still retrying, the other has given up (#5469).
+ */
+export const connectionStatusLabel = (status: ConnectionStatusType): string => {
+  switch (status) {
+    case 'connected':
+      return 'Connected';
+    case 'connecting':
+      return 'Connecting';
+    case 'error':
+      return 'Connection lost';
+    default:
+      return 'Disconnected';
+  }
+};
+

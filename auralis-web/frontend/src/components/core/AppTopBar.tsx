@@ -145,7 +145,7 @@ export const AppTopBar = ({
           <ViewToggle value={viewMode} onChange={onViewModeChange} />
         )}
 
-        <AppTopBarStatusIndicator color={statusColor} />
+        <AppTopBarStatusIndicator color={statusColor} status={connectionStatus} />
       </RightSection>
     </TopBarContainer>
   );
