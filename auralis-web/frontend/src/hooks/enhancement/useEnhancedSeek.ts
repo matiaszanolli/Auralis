@@ -79,8 +79,9 @@ export function useEnhancedSeek({
 
     // preset/intensity are deliberately OMITTED (#5604): the backend resolves
     // them from this connection's active_stream_settings (#4742), which the
-    // live preset/intensity reissue path (useEnhancementControl) keeps
-    // current. The play-time snapshot in currentTrackInfoRef is stale the
+    // preset/intensity reissue in useEnhancementControl keeps current — for
+    // local commands and for Settings saves via the broadcast (#5874). The
+    // play-time snapshot in currentTrackInfoRef is stale the
     // moment the user moves a slider — sending it here re-mastered the seek
     // stream with the old values and un-did the live change.
     wsContext.send({

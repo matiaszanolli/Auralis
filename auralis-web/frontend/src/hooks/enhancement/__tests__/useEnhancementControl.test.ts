@@ -25,6 +25,7 @@ import {
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
+import { LOCAL_COMMAND_SUPPRESS_MS } from '@/hooks/enhancement/enhancementBroadcastReissue';
 
 // Mock hooks
 vi.mock('@/hooks/api/useRestAPI');
@@ -38,7 +39,18 @@ describe('useEnhancementControl', () => {
   // #5864: Settings-originated enabled changes arrive only as the
   // enhancement_settings_changed broadcast; the hook must re-issue the active
   // stream (the backend loop stops itself when it re-reads enabled=false).
-  describe('external enhancement_settings_changed re-issue (#5864)', () => {
+  describe('external enhancement_settings_changed re-issue (#5864, #5874)', () => {
+    // The local-command suppression window is module state: start each test
+    // past the previous test's window so a broadcast reads as external.
+    const realNow = Date.now.bind(Date);
+    let clockOffset = 0;
+    let clock: ReturnType<typeof vi.spyOn> | undefined;
+    beforeEach(() => {
+      clockOffset += LOCAL_COMMAND_SUPPRESS_MS + 1;
+      clock = vi.spyOn(Date, 'now').mockImplementation(() => realNow() + clockOffset);
+    });
+    afterEach(() => clock?.mockRestore());
+
     function setupWsCapture() {
       const reissue = vi.fn().mockReturnValue(false);
       vi.mocked(WebSocketContextModule, true);
@@ -102,6 +114,68 @@ describe('useEnhancementControl', () => {
         getHandler()({
           type: 'enhancement_settings_changed',
           data: { enabled: false, preset: 'adaptive', intensity: 0.8 },
+        });
+      });
+      await act(async () => {});
+
+      expect(reissue).not.toHaveBeenCalled();
+    });
+
+    // #5874: the Settings dialog is the only intensity/preset control and saves
+    // through PUT /api/settings, so its change also arrives only as this
+    // broadcast. Without a re-issue the running stream — and every seek, which
+    // resolves from the play-time snapshot — kept the old intensity.
+    it('re-issues play_enhanced with the new intensity when enhanced', async () => {
+      const { reissue, getHandler } = setupWsCapture();
+      renderHook(() => useEnhancementControl());
+      await act(async () => {}); // initial fetch: enabled, 0.8
+
+      act(() => {
+        getHandler()({
+          type: 'enhancement_settings_changed',
+          data: { enabled: true, preset: 'adaptive', intensity: 0.4 },
+        });
+      });
+      await act(async () => {});
+
+      expect(reissue).toHaveBeenCalledTimes(1);
+      expect(reissue).toHaveBeenCalledWith('play_enhanced', { preset: 'adaptive', intensity: 0.4 });
+    });
+
+    it('does not re-issue when the broadcast changes nothing that reaches the audio', async () => {
+      const { reissue, getHandler } = setupWsCapture();
+      renderHook(() => useEnhancementControl());
+      await act(async () => {});
+
+      act(() => {
+        getHandler()({
+          type: 'enhancement_settings_changed',
+          data: { enabled: true, preset: 'adaptive', intensity: 0.8 },
+        });
+      });
+      await act(async () => {});
+
+      expect(reissue).not.toHaveBeenCalled();
+    });
+
+    it('does not re-issue an intensity change while enhancement is off', async () => {
+      const { reissue, getHandler } = setupWsCapture();
+      renderHook(() => useEnhancementControl());
+      await act(async () => {});
+      act(() => {
+        getHandler()({
+          type: 'enhancement_settings_changed',
+          data: { enabled: false, preset: 'adaptive', intensity: 0.8 },
+        });
+      });
+      await act(async () => {});
+      reissue.mockClear();
+
+      // play_normal ignores intensity; the next play_enhanced sends the new value.
+      act(() => {
+        getHandler()({
+          type: 'enhancement_settings_changed',
+          data: { enabled: false, preset: 'adaptive', intensity: 0.3 },
         });
       });
       await act(async () => {});

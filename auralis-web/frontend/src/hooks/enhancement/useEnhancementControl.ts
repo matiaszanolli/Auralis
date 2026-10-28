@@ -37,7 +37,7 @@
 
 import { useCallback, useState, useRef } from 'react';
 import { useEnhancementCommands } from './useEnhancementCommands';
-import { useEnhancementStatusSync } from './useEnhancementStatusSync';
+import { useEnhancementStatusSync, type EnhancementSettingsChange } from './useEnhancementStatusSync';
 import { INITIAL_STATE, type EnhancementState } from './enhancementState';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { ApiError } from '@/types/api';
@@ -133,23 +133,27 @@ export function useEnhancementControl(): EnhancementControlActions {
   const intensityRef = useRef(state.intensity);
   intensityRef.current = state.intensity;
 
-  // #5864: Settings-originated enabled changes reach the client only as the
-  // enhancement_settings_changed broadcast; the running stream loop stops
-  // itself when it re-reads enabled=false, so this re-issues as the
-  // appropriate type — same shape as toggleEnabled's own re-issue.
-  const handleExternalEnabledChange = useCallback((enabled: boolean) => {
-    if (enabled === enabledRef.current) return; // already in the target mode
-    if (enabled) {
-      reissueRef.current('play_enhanced', {
-        preset: presetRef.current,
-        intensity: intensityRef.current,
-      });
-    } else {
-      reissueRef.current('play_normal');
+  // Settings-originated changes reach the client only as the
+  // enhancement_settings_changed broadcast, so this re-issues the active
+  // stream the way the local commands do: as the new type when `enabled`
+  // flips (the running loop stops itself on enabled=false, #5864), and as
+  // play_enhanced with the new values when preset/intensity change while
+  // enhanced — they are bound when the stream starts, and seek resolves them
+  // from the snapshot that play_enhanced records (#5874). Off, they only
+  // matter at the next play_enhanced, which sends the then-current values.
+  const handleExternalChange = useCallback((change: EnhancementSettingsChange) => {
+    const enabled = change.enabled ?? enabledRef.current;
+    const preset = change.preset ?? presetRef.current;
+    const intensity = change.intensity ?? intensityRef.current;
+    if (enabled !== enabledRef.current) {
+      if (enabled) reissueRef.current('play_enhanced', { preset, intensity });
+      else reissueRef.current('play_normal');
+    } else if (enabled && (preset !== presetRef.current || intensity !== intensityRef.current)) {
+      reissueRef.current('play_enhanced', { preset, intensity });
     }
   }, [reissueRef, enabledRef, presetRef, intensityRef]);
 
-  useEnhancementStatusSync(setState, handleExternalEnabledChange);
+  useEnhancementStatusSync(setState, handleExternalChange);
 
   const { toggleEnabled, setEnabled, setPreset, setIntensity } = useEnhancementCommands({
     setState, setIsLoading, setError, enabledRef, presetRef, intensityRef, reissueRef,

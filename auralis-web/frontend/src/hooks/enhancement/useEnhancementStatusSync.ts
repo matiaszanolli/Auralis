@@ -41,16 +41,20 @@ function _fetchEnhancementStatusOnce(
   return promise;
 }
 
+/** The broadcast's settings, as `onExternalChange` receives them. */
+export type EnhancementSettingsChange = Partial<Pick<EnhancementState, 'enabled' | 'preset' | 'intensity'>>;
+
 /**
- * `onExternalEnabledChange` (#5864): invoked when the broadcast flips
- * `enabled` and the change did NOT originate from this client's own REST
- * commands (Settings saves, another client). The stream loop stops when
- * `enabled` flips false, so without a re-issue the audio silently dies
- * after the buffer plays out.
+ * `onExternalChange`: invoked with the broadcast's settings when the change
+ * did NOT originate from this client's own REST commands (Settings saves,
+ * another client). Both kinds of change need the active stream re-issued:
+ * the loop stops when `enabled` flips false (#5864), and preset/intensity
+ * are bound when the stream starts, so without a re-issue the running stream
+ * and every later seek keep the old values (#5874).
  */
 export function useEnhancementStatusSync(
   setState: Dispatch<SetStateAction<EnhancementState>>,
-  onExternalEnabledChange?: (enabled: boolean) => void,
+  onExternalChange?: (change: EnhancementSettingsChange) => void,
 ): void {
   const { get } = useRestAPI();
   const getRef = useRef(get);
@@ -64,19 +68,15 @@ export function useEnhancementStatusSync(
     (message) => {
       const enhancementMsg = message; // narrowed to EnhancementSettingsChangedMessage (#5636)
 
-      // #5864: an externally-originated enabled flip (Settings save) must
-      // re-issue the active stream — the running loop stops itself when it
-      // re-reads enabled=false. Local commands re-issue on their own, so
-      // their confirmation broadcast is suppressed; several mounted
+      // An externally-originated change (Settings save) must re-issue the
+      // active stream (#5864, #5874). Local commands re-issue on their own,
+      // so their confirmation broadcast is suppressed; several mounted
       // subscribers share one message instance, so the guard is once-per-
-      // message. Runs BEFORE setState so the callback can read the prior
-      // state through its own refs if needed.
-      if (
-        onExternalEnabledChange &&
-        enhancementMsg.data.enabled !== undefined &&
-        isExternalChange()
-      ) {
-        oncePerMessage(message, () => onExternalEnabledChange(enhancementMsg.data.enabled!));
+      // message. Runs BEFORE setState so the callback compares against the
+      // prior state through its own refs.
+      if (onExternalChange && isExternalChange()) {
+        const { enabled, preset, intensity } = enhancementMsg.data;
+        oncePerMessage(message, () => onExternalChange({ enabled, preset, intensity }));
       }
 
       setState((prevState) => ({
