@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { failureMessage } from '@/utils/errorGuards';
 import * as playlistService from '@/services/playlistService';
 import { useToast } from '@/components/shared/Toast';
 
@@ -31,7 +32,7 @@ export const usePlaylistActions = ({
         success(`Added to "${playlistName}"`);
         onClose();
       } catch (err) {
-        error(`Failed to add to playlist: ${err}`);
+        error(failureMessage('Failed to add to playlist', err));
       }
     },
     [onAddToPlaylist, success, error, onClose]
@@ -49,7 +50,7 @@ export const usePlaylistActions = ({
         await onCreatePlaylist(playlist);
         success(`Added to "${playlist.name}"`);
       } catch (err) {
-        error(`Failed to add to playlist: ${err}`);
+        error(failureMessage('Failed to add to playlist', err));
       }
     },
     [onCreatePlaylist, success, error]

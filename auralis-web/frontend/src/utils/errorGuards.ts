@@ -51,3 +51,17 @@ export function toError(value: unknown): Error {
   const error = new Error(typeof value === 'string' ? value : String(value));
   return Object.assign(error, { cause: value });
 }
+
+/**
+ * User-facing failure text: `"<prefix>: <reason>"`, or just `<prefix>` when the caught
+ * value carries no message (#5652).
+ *
+ * The transport already puts the backend's `detail` into `APIRequestError.message`, so this
+ * shows "Failed to delete playlist: Playlist not found" where interpolating the error object
+ * gave "Failed to delete playlist: APIRequestError: Playlist not found", and a fixed literal
+ * dropped the reason altogether.
+ */
+export function failureMessage(prefix: string, err: unknown): string {
+  const reason = err instanceof Error ? err.message.trim() : typeof err === 'string' ? err.trim() : '';
+  return reason ? `${prefix}: ${reason}` : prefix;
+}

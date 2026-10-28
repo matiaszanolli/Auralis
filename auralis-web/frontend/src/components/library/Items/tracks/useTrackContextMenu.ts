@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { failureMessage } from '@/utils/errorGuards';
 import { getTrackContextActions } from '@/components/shared/ContextMenu';
 import { useToast } from '@/components/shared/Toast';
 import * as playlistService from '@/services/playlistService';
@@ -67,7 +68,7 @@ export const useTrackContextMenu = ({
         await playlistService.addTracksToPlaylist(playlistId, [track.id]);
         success(`Added to "${playlistName}"`);
       } catch (err) {
-        error(`Failed to add to playlist: ${err}`);
+        error(failureMessage('Failed to add to playlist', err));
       }
     },
     [track.id, success, error]
@@ -79,7 +80,7 @@ export const useTrackContextMenu = ({
         await playlistService.addTracksToPlaylist(playlist.id, [track.id]);
         success(`Added to "${playlist.name}"`);
       } catch (err) {
-        error(`Failed to add to playlist: ${err}`);
+        error(failureMessage('Failed to add to playlist', err));
       }
     },
     [track.id, success, error]

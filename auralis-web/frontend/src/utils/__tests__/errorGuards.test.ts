@@ -9,7 +9,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { isAbortError, toError } from '../errorGuards';
+import { failureMessage, isAbortError, toError } from '../errorGuards';
+import { APIRequestError } from '../apiRequest';
 
 describe('isAbortError', () => {
   it('recognises a real DOMException abort', () => {
@@ -75,4 +76,25 @@ describe('toError', () => {
   it.each([[undefined], [null], [0]])('never returns a non-Error (%s)', (value) => {
     expect(toError(value)).toBeInstanceOf(Error);
   });
+});
+
+describe('failureMessage (#5652)', () => {
+  it("shows the backend's reason without the class name", () => {
+    const err = new APIRequestError('Playlist not found', 404, 'Playlist not found');
+
+    expect(failureMessage('Failed to delete playlist', err)).toBe('Failed to delete playlist: Playlist not found');
+    // The interpolation it replaces.
+    expect(`Failed to delete playlist: ${err}`).toContain('APIRequestError');
+  });
+
+  it('accepts a thrown string and trims it', () => {
+    expect(failureMessage('Failed to save', '  disk full ')).toBe('Failed to save: disk full');
+  });
+
+  it.each([[undefined], [null], [{ code: 500 }], [new Error('   ')]])(
+    'falls back to the bare prefix when there is no message (%s)',
+    (value) => {
+      expect(failureMessage('Failed to add scan folder', value)).toBe('Failed to add scan folder');
+    },
+  );
 });

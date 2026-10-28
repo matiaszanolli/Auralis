@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { failureMessage } from '@/utils/errorGuards';
 import { useToast } from '@/components/shared/Toast';
 import * as playlistService from '@/services/playlistService';
 
@@ -35,7 +36,7 @@ export const usePlaylistOperations = ({
         }
         return true;
       } catch (err) {
-        error(`Failed to delete playlist: ${err}`);
+        error(failureMessage('Failed to delete playlist', err));
         return false;
       }
     },

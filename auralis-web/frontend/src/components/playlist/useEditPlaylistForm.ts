@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { failureMessage } from '@/utils/errorGuards';
 import * as playlistService from '@/services/playlistService';
 import { useToast } from '@/components/shared/Toast';
 
@@ -49,7 +50,7 @@ export const useEditPlaylistForm = ({
 
       onClose();
     } catch (err) {
-      error(`Failed to update playlist: ${err}`);
+      error(failureMessage('Failed to update playlist', err));
     } finally {
       setLoading(false);
     }

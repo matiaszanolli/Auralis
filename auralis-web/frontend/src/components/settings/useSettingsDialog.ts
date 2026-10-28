@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { failureMessage } from '@/utils/errorGuards';
 import { settingsService, UserSettings, SettingsUpdate, type OnSettingChange } from '@/services/settingsService';
 import { getElectronAPI } from '@/utils/electron';
 import { describeScanError } from '@/utils/scanErrors';
@@ -37,7 +38,7 @@ export const useSettingsDialog = ({ open, onSettingsChange, onSettingsReset }: U
       setSettings(data);
     } catch (err) {
       console.error('Failed to load settings:', err);
-      setError('Failed to load settings');
+      setError(failureMessage('Failed to load settings', err));
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,7 @@ export const useSettingsDialog = ({ open, onSettingsChange, onSettingsReset }: U
         onClose();
       } catch (err) {
         console.error('Failed to save settings:', err);
-        setError('Failed to save settings');
+        setError(failureMessage('Failed to save settings', err));
       } finally {
         setIsSaving(false);
       }
@@ -97,7 +98,7 @@ export const useSettingsDialog = ({ open, onSettingsChange, onSettingsReset }: U
       onSettingsReset?.(result.settings);
     } catch (err) {
       console.error('Failed to reset settings:', err);
-      setError('Failed to reset settings');
+      setError(failureMessage('Failed to reset settings', err));
     }
   }, [onSettingsReset]);
 
@@ -127,7 +128,7 @@ export const useSettingsDialog = ({ open, onSettingsChange, onSettingsReset }: U
       // Auto-scanner wakes up via reload_config() on the backend — no manual scan trigger needed
     } catch (err) {
       console.error('Failed to add scan folder:', err);
-      setError('Failed to add scan folder');
+      setError(failureMessage('Failed to add scan folder', err));
     }
   }, [onSettingsChange]);
 
@@ -148,7 +149,7 @@ export const useSettingsDialog = ({ open, onSettingsChange, onSettingsReset }: U
       onSettingsChange?.(result.settings);
     } catch (err) {
       console.error('Failed to remove scan folder:', err);
-      setError('Failed to remove scan folder');
+      setError(failureMessage('Failed to remove scan folder', err));
     }
   }, [removeConfirmFolder, onSettingsChange]);
 

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { failureMessage } from '@/utils/errorGuards';
 import * as playlistService from '@/services/playlistService';
 import { useToast } from '@/components/shared/Toast';
 
@@ -43,7 +44,7 @@ export const useCreatePlaylistForm = ({
       setDescription('');
       onClose();
     } catch (err) {
-      error(`Failed to create playlist: ${err}`);
+      error(failureMessage('Failed to create playlist', err));
     } finally {
       setLoading(false);
     }
