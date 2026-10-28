@@ -32,6 +32,10 @@ EXPANSION_REQUIRED_KEYS = frozenset({'target_crest_increase', 'amount'})
 # Peaks below this are treated as silence by the clip-blend compressor.
 _SILENCE_PEAK = 1e-6
 
+# The clip-blend threshold is 0.8 - (ratio - 1) * 0.1 of the reference level: it reaches 0 at 9:1
+# and goes negative beyond, so the ratio is held to 8:1 (threshold 0.1) (#6117).
+_MAX_CLIP_BLEND_RATIO = 8.0
+
 
 class CompressionStrategies:
     """
@@ -124,8 +128,11 @@ class CompressionStrategies:
         audio = audio.copy()
         before = MeasurementUtilities.measure_audio(audio)
 
-        ratio = comp_params['ratio']
-        amount = comp_params['amount']
+        # Plain Python floats (a numpy scalar is strongly typed under NEP 50 and promotes a float32
+        # blend to float64), clamped to the range the formula is valid on: ratio past ~9 drives the
+        # soft-clip threshold below zero and inverts small samples' sign (#6117).
+        ratio = min(max(float(comp_params['ratio']), 1.0), _MAX_CLIP_BLEND_RATIO)
+        amount = min(max(float(comp_params['amount']), 0.0), 1.0)
 
         peak = float(np.max(np.abs(audio))) if audio.size else 0.0
         if not np.isfinite(peak) or peak < _SILENCE_PEAK:

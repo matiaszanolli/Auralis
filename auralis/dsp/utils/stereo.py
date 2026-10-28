@@ -107,7 +107,8 @@ def adjust_stereo_width(stereo_audio: np.ndarray, width_factor: float) -> np.nda
 
     # Adjust side component based on width factor
     # width_factor of 0.5 = no change, 0 = mono, 1 = maximum width
-    side_gain = width_factor * 2.0
+    # float(): a numpy-scalar factor would promote a float32 side signal to float64 (#6117)
+    side_gain = float(width_factor) * 2.0
     adjusted_side = side * side_gain
 
     # Convert back to stereo
