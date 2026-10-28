@@ -31,20 +31,28 @@ _TRUE_PEAK_OVERSHOOT_RATIO = db_to_amplitude(0.27)
 MIN_FINAL_CHUNK_SAMPLES = 1024
 
 
-def next_core_samples(read_pos: int, total_frames: int, chunk_size: int) -> int:
-    """Core length of the chunk starting at *read_pos*; never leaves a tiny remainder."""
+def next_core_samples(
+    read_pos: int, total_frames: int, chunk_size: int, crossfade_samples: int = 0
+) -> int:
+    """Core length of the chunk starting at *read_pos*; never leaves a short remainder.
+
+    A remainder under ``max(MIN_FINAL_CHUNK_SAMPLES, crossfade_samples)`` is folded
+    into this chunk. Below the crossfade length the final chunk would be a
+    cold-start render crossfaded over only its own length, so the last seam would
+    be shorter than the crossfade the mastering guarantees (#6139).
+    """
     remaining = total_frames - read_pos
     core = min(chunk_size, remaining)
-    if 0 < remaining - core < MIN_FINAL_CHUNK_SAMPLES:
+    if 0 < remaining - core < max(MIN_FINAL_CHUNK_SAMPLES, crossfade_samples):
         return remaining
     return core
 
 
-def count_chunks(total_frames: int, chunk_size: int) -> int:
+def count_chunks(total_frames: int, chunk_size: int, crossfade_samples: int = 0) -> int:
     """How many chunks the loop renders for *total_frames* (matches next_core_samples)."""
     count, read_pos = 0, 0
     while read_pos < total_frames:
-        read_pos += next_core_samples(read_pos, total_frames, chunk_size)
+        read_pos += next_core_samples(read_pos, total_frames, chunk_size, crossfade_samples)
         count += 1
     return count
 

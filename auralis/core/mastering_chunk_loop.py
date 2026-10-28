@@ -159,13 +159,13 @@ def _render_to_sink(
             )
         ) as output_file:
             chunks_processed = 0
-            total_chunks = count_chunks(total_frames, chunk_size)
+            total_chunks = count_chunks(total_frames, chunk_size, crossfade_samples)
 
             prev_tail = None  # Previous chunk's processed overlap tail
             read_pos = 0
 
             while read_pos < total_frames:
-                core_samples = next_core_samples(read_pos, total_frames, chunk_size)
+                core_samples = next_core_samples(read_pos, total_frames, chunk_size, crossfade_samples)
                 is_last = (read_pos + core_samples >= total_frames)
 
                 chunk = read_chunk(
