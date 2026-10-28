@@ -247,7 +247,7 @@ class QueueController(QueueLockedStateMixin, QueueLoadingMixin):
     def unshuffle(self) -> bool:
         """Restore the pre-shuffle queue order. Returns True if restored."""
         restored: bool = self.queue.unshuffle()
-        if restored:
+        if restored or self.shuffle_enabled:  # an edit drops the snapshot, not the user's "shuffle off" (#5936)
             self.shuffle_enabled = False
             self._notify_changed()
         return restored

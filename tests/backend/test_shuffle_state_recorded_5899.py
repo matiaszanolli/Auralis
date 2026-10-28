@@ -57,3 +57,20 @@ async def test_a_failing_state_update_does_not_fail_the_shuffle():
     result = await service.shuffle_queue()
 
     assert result["message"] == "Queue shuffled successfully"
+
+
+async def test_unshuffle_after_an_edit_still_turns_the_flag_off_5936():
+    """#5936: an intervening edit drops the pre-shuffle snapshot; 'No shuffle to undo' used to
+    leave the engine flag True while the UI had already flipped it off."""
+    service, state_manager = _service()
+    await service.shuffle_queue()
+    controller = service.audio_player.queue
+    assert controller.shuffle_enabled is True
+    controller.queue.remove_track(0)  # any shape edit drops the snapshot
+    state_manager.update_state.reset_mock()
+
+    result = await service.unshuffle_queue()
+
+    assert result["message"] == "No shuffle to undo"
+    assert controller.shuffle_enabled is False
+    state_manager.update_state.assert_awaited_with(shuffle_enabled=False)

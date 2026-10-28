@@ -213,6 +213,9 @@ class QueueOrderMixin(QueueServiceBase):
 
             async with self._queue_mutation():
                 if not queue_manager.unshuffle():
+                    # The snapshot is gone (an edit dropped it) but shuffle is off now, and the
+                    # UI has already flipped; keep PlayerState in step (#5936).
+                    await self._record_shuffle_state(False)
                     return {
                         "message": "No shuffle to undo",
                         "queue_size": queue_manager.get_queue_size()
