@@ -37,6 +37,15 @@ import type { StreamingCoreReturn } from './useAudioStreamingCore';
  *  seek omits them and handle_seek reads this connection's
  *  active_stream_settings, which the live-change reissue path keeps current.
  *  A client-side snapshot of them is stale the moment a slider moves. */
+/**
+ * Numerator offset for a stream that begins mid-track (#5931). `total_chunks` is the whole
+ * track's count while a seek stream delivers only `start_chunk` onwards, so counting from 0
+ * drew the buffered bar as 0→(remaining/total) instead of reaching its true edge.
+ */
+export function startChunkOffset(startChunk: number | undefined): number {
+  return Number.isFinite(startChunk) && (startChunk as number) > 0 ? Math.floor(startChunk as number) : 0;
+}
+
 export interface CurrentTrackInfo {
   trackId: number;
 }
@@ -127,7 +136,7 @@ export function useEnhancedStreamStart({
         DEBUG && console.log('[usePlayEnhanced] Resuming stream into existing buffer');
         if (core.streamingMetadataRef.current) {
           core.streamingMetadataRef.current.totalChunks = message.data.total_chunks;
-          core.streamingMetadataRef.current.processedChunks = 0;
+          core.streamingMetadataRef.current.processedChunks = startChunkOffset(message.data.start_chunk);
         }
         core.pendingChunksRef.current = [];
         dispatch(startStreaming({
@@ -226,7 +235,7 @@ export function useEnhancedStreamStart({
         sampleRate: message.data.sample_rate,
         channels: message.data.channels,
         totalChunks: message.data.total_chunks,
-        processedChunks: 0,
+        processedChunks: startChunkOffset(message.data.start_chunk),
       };
 
       // Reset chunk tracking for new stream
