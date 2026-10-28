@@ -6,6 +6,7 @@ GET by the time the final URL was rejected. Redirects are now followed by hand,
 and each hop is validated before its request.
 """
 
+import json
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
@@ -22,17 +23,20 @@ MB_SEARCH = "https://musicbrainz.org/ws/2/release/"
 CAA_FRONT = "https://coverartarchive.org/release/rel-1/front"
 
 
+async def _chunks(body, size):
+    for start in range(0, len(body), size):
+        yield body[start:start + size]
+
+
 class _Response:
     def __init__(self, *, status=200, location=None, json_data=None, content=b"image-bytes"):
         self.status = status
         self.headers = {"Location": location} if location else {}
-        self.content_length = len(content)
-        self._json_data = json_data
+        # Bodies are read in bounded chunks (#6190), JSON included (#6191).
+        body = json.dumps(json_data).encode() if json_data is not None else content
+        self.content_length = len(body)
         self.content = Mock()
-        self.content.read = AsyncMock(return_value=content)
-
-    async def json(self):
-        return self._json_data
+        self.content.iter_chunked = Mock(side_effect=lambda size: _chunks(body, size))
 
     async def __aenter__(self):
         return self
@@ -97,7 +101,7 @@ async def test_loopback_redirect_is_never_requested(tmp_path):
 
     assert session.requested == [ITUNES_SEARCH, ITUNES_ART]
     assert session.redirect_flags == [False, False]
-    art.content.read.assert_not_awaited()
+    art.content.iter_chunked.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -140,7 +144,7 @@ async def test_trusted_chain_is_followed_one_hop_at_a_time(tmp_path):
 
     assert session.requested == [MB_SEARCH, CAA_FRONT, archive, mirror]
     assert session.redirect_flags[1:] == [False, False, False]
-    image.content.read.assert_awaited_once()
+    image.content.iter_chunked.assert_called_once()
     downloader._save_artwork.assert_awaited_once_with(b"image-bytes", 1, "jpg")
 
 
@@ -179,4 +183,4 @@ async def test_non_200_final_status_yields_nothing(tmp_path):
     downloader = _downloader(tmp_path, session)
 
     assert await downloader._try_itunes("Artist", "Album", 1) is None
-    missing.content.read.assert_not_awaited()
+    missing.content.iter_chunked.assert_not_called()

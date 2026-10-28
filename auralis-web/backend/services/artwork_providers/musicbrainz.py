@@ -20,6 +20,7 @@ import aiohttp
 from auralis.utils.artwork_security import (
     MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES,
 )
+from services.artwork_providers.bounded_read import read_bounded, read_bounded_json
 from services.artwork_providers.trust import _get_trusted_artwork
 
 if TYPE_CHECKING:
@@ -64,7 +65,10 @@ async def try_musicbrainz(
             if resp.status != 200:
                 return None
 
-            data = await resp.json()
+            data = await read_bounded_json(resp, _MAX_ARTWORK_BYTES)
+            if data is None:
+                logger.warning(f"MusicBrainz search response exceeded {_MAX_ARTWORK_BYTES} byte limit")
+                return None
             releases = data.get("releases", [])
 
             if not releases:
@@ -87,8 +91,8 @@ async def try_musicbrainz(
             if content_length > _MAX_ARTWORK_BYTES:
                 logger.warning(f"MusicBrainz artwork too large: {content_length} bytes")
                 return None
-            artwork_data = await resp.content.read(_MAX_ARTWORK_BYTES + 1)
-            if len(artwork_data) > _MAX_ARTWORK_BYTES:
+            artwork_data = await read_bounded(resp, _MAX_ARTWORK_BYTES)
+            if artwork_data is None:
                 logger.warning(f"MusicBrainz artwork exceeded {_MAX_ARTWORK_BYTES} byte limit")
                 return None
             return await downloader._save_artwork(artwork_data, album_id, "jpg")
