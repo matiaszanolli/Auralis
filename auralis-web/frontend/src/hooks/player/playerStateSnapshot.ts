@@ -60,7 +60,20 @@ export function applyPlayerStateSnapshot(
     }
   }
 
-  if ('is_playing' in state && state.is_playing !== undefined) {
+  // #5898: while this browser session is playing a track it owns is_playing, duration,
+  // current_time, volume and mute. The backend manager is never told about local
+  // pause/resume/skip/volume, so its copy is whatever the last set_queue left (playing, 80 %,
+  // first track's duration, a wall-clock position) - and any full snapshot (a repeat toggle,
+  // Clear Queue, a reconnect push) overwrote the live values: volume jumped back to 80 %, a
+  // paused session flipped to playing, the previous track's duration landed on the current one.
+  // A cold start (no local track) adopts the snapshot as before.
+  const sessionOwnsPlayback = playingTrackId != null;
+  // A duration correction for the track being played is still welcome (#4580); one that comes with
+  // another track's snapshot is the stale pointer speaking and would land on the wrong track.
+  const durationIsForPlayingTrack =
+    !sessionOwnsPlayback || !state.current_track || state.current_track.id === playingTrackId;
+
+  if (!sessionOwnsPlayback && 'is_playing' in state && state.is_playing !== undefined) {
     dispatch(setIsPlaying(state.is_playing));
   }
 
@@ -71,7 +84,7 @@ export function applyPlayerStateSnapshot(
   // Number.isFinite (not typeof === 'number', which admits NaN): a single
   // NaN duration permanently NaNs all progress/time UI until reload.
   // Matches the position_changed guard (#4158).
-  if ('duration' in state && typeof state.duration === 'number' && Number.isFinite(state.duration)) {
+  if (durationIsForPlayingTrack && 'duration' in state && typeof state.duration === 'number' && Number.isFinite(state.duration)) {
     // #4580: the thunk patches the queue's copy of the same track too.
     // setDuration alone reaches only player.currentTrack, so a duration
     // correction that arrives without a fresh queue array left the two
@@ -79,15 +92,15 @@ export function applyPlayerStateSnapshot(
     dispatch(setDurationAndSyncQueue(state.duration));
   }
 
-  if ('current_time' in state && typeof state.current_time === 'number' && Number.isFinite(state.current_time)) {
+  if (!sessionOwnsPlayback && 'current_time' in state && typeof state.current_time === 'number' && Number.isFinite(state.current_time)) {
     dispatch(setCurrentTime(state.current_time));
   }
 
-  if ('volume' in state && typeof state.volume === 'number' && Number.isFinite(state.volume)) {
+  if (!sessionOwnsPlayback && 'volume' in state && typeof state.volume === 'number' && Number.isFinite(state.volume)) {
     dispatch(setVolume(state.volume));
   }
 
-  if ('is_muted' in state && state.is_muted !== undefined) {
+  if (!sessionOwnsPlayback && 'is_muted' in state && state.is_muted !== undefined) {
     dispatch(setMuted(state.is_muted));
   }
 

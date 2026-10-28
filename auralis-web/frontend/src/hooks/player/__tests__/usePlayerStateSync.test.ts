@@ -21,7 +21,7 @@ import { ReactNode, createElement } from 'react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePlayerStateSync } from '../usePlayerStateSync';
-import playerReducer, { setCurrentTrack } from '@/store/slices/playerSlice';
+import playerReducer, { setCurrentTrack, setIsPlaying, setMuted, setVolume } from '@/store/slices/playerSlice';
 import queueReducer, { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
 import cacheReducer from '@/store/slices/cacheSlice';
 import connectionReducer from '@/store/slices/connectionSlice';
@@ -1404,5 +1404,60 @@ describe('usePlayerStateSync - duration/queue divergence (#4580)', () => {
     // setQueue runs after setDuration in the hook, so the server-supplied
     // array is authoritative — the sync must not fight it.
     expect(store.getState().queue.tracks[0].duration).toBe(175);
+  });
+});
+
+describe('player_state does not overwrite what the playing session owns (#5898)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupWebSocketMock();
+    store = createTestStore();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const seedPlaying = () => {
+    const track = { id: 5, title: 'B', artist: 'X', album: 'Al', duration: 240, artworkUrl: null };
+    store.dispatch(setCurrentTrack(track));
+    store.dispatch(setVolume(35));
+    store.dispatch(setMuted(true));
+    store.dispatch(setIsPlaying(false));
+  };
+
+  it('keeps the live volume, mute and play state against a snapshot that never heard of them', () => {
+    seedPlaying();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    firePlayerState({ volume: 80, is_muted: false, is_playing: true, current_time: 12 });
+
+    const player = store.getState().player;
+    expect(player.volume).toBe(35);
+    expect(player.isMuted).toBe(true);
+    expect(player.isPlaying).toBe(false);
+  });
+
+  it("does not put another track's duration on the playing track", () => {
+    seedPlaying();
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    firePlayerState({
+      current_track: { id: 9, title: 'A', artist: 'X', album: 'Al', duration: 111, artwork_url: null },
+      duration: 111,
+    });
+
+    expect(store.getState().player.currentTrack?.id).toBe(5);
+    expect(store.getState().player.currentTrack?.duration).toBe(240);
+  });
+
+  it('adopts the snapshot on a cold start (no local track)', () => {
+    renderHook(() => usePlayerStateSync(), { wrapper: makeWrapper(store) });
+
+    firePlayerState({ volume: 64, is_muted: true });
+
+    expect(store.getState().player.volume).toBe(64);
+    expect(store.getState().player.isMuted).toBe(true);
   });
 });
