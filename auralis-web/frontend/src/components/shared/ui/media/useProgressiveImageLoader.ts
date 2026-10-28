@@ -5,7 +5,7 @@
  * and state management for loaded/error states.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface UseProgressiveImageLoaderProps {
   src: string;
@@ -25,52 +25,71 @@ export const useProgressiveImageLoader = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
+
+  // Callbacks live in refs so an inline arrow from the caller does not restart
+  // the load (and its retry budget) on every render.
+  const onLoadRef = useRef(onLoad);
+  const onErrorRef = useRef(onError);
+  onLoadRef.current = onLoad;
+  onErrorRef.current = onError;
 
   useEffect(() => {
     // Reset states when src changes
     setImageLoaded(false);
     setImageError(false);
     setImageSrc(null);
-    setRetryCount(0);
 
     if (!src) {
       setImageError(true);
       return;
     }
 
-    // Preload image
-    const img = new Image();
+    // The retry count is local to this run of the effect. It used to be React
+    // state that the effect both depended on and reset to 0 at its top, so every
+    // retry restarted the sequence and a permanently failing image retried
+    // forever (#5353); the backoff timer was also never cleared on unmount/src change.
+    let attempt = 0;
+    let img: HTMLImageElement | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-    img.onload = () => {
-      setImageSrc(src);
-      setImageLoaded(true);
-      onLoad?.();
+    const load = () => {
+      const current = new Image();
+      img = current;
+
+      current.onload = () => {
+        setImageSrc(src);
+        setImageLoaded(true);
+        onLoadRef.current?.();
+      };
+
+      current.onerror = () => {
+        // Retry logic with exponential backoff
+        if (retryOnError && attempt < maxRetries) {
+          const retryDelay = Math.min(1000 * Math.pow(2, attempt), 3000);
+          attempt += 1;
+          retryTimer = setTimeout(load, retryDelay);
+        } else {
+          setImageError(true);
+          onErrorRef.current?.();
+        }
+      };
+
+      // Add cache busting for retries
+      const retrySeparator = src.includes('?') ? '&' : '?';
+      current.src = attempt > 0 ? `${src}${retrySeparator}retry=${attempt}` : src;
     };
 
-    img.onerror = () => {
-      // Retry logic with exponential backoff
-      if (retryOnError && retryCount < maxRetries) {
-        const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 3000);
-        setTimeout(() => {
-          setRetryCount((prev) => prev + 1);
-        }, retryDelay);
-      } else {
-        setImageError(true);
-        onError?.();
-      }
-    };
-
-    // Add cache busting for retries
-    const retrySeparator = src.includes('?') ? '&' : '?';
-    img.src = retryCount > 0 ? `${src}${retrySeparator}retry=${retryCount}` : src;
+    load();
 
     // Cleanup
     return () => {
-      img.onload = null;
-      img.onerror = null;
+      clearTimeout(retryTimer);
+      if (img) {
+        img.onload = null;
+        img.onerror = null;
+      }
     };
-  }, [src, onLoad, onError, retryCount, retryOnError, maxRetries]);
+  }, [src, retryOnError, maxRetries]);
 
   return {
     imageLoaded,
