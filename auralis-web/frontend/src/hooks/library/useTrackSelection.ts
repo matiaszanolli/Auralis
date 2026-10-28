@@ -24,7 +24,7 @@
  * - Efficient Set-based selection tracking
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { TrackRef } from '@/types/domain';
 
 type Track = TrackRef;
@@ -56,6 +56,18 @@ export const useTrackSelection = (tracks: Track[]): UseTrackSelectionReturn => {
   tracksRef.current = tracks;
   const lastSelectedIdRef = useRef(lastSelectedId);
   lastSelectedIdRef.current = lastSelectedId;
+
+  // Drop selected ids that are no longer in the list (a search narrowed it, a
+  // track was removed): the toolbar's count and every bulk action read this set,
+  // and they must not act on tracks the user cannot see (#6010).
+  useEffect(() => {
+    setSelectedTracks((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(tracks.map((t) => t.id));
+      const kept = new Set([...prev].filter((id) => visible.has(id)));
+      return kept.size === prev.size ? prev : kept;
+    });
+  }, [tracks]);
 
   // Check if a track is selected
   const isSelected = useCallback(

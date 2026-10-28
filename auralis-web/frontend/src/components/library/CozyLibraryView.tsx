@@ -182,9 +182,21 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     tracks,
   });
 
-  // Keyboard shortcuts
+  // The track list is on screen only for songs/favourites; albums, artists,
+  // playlists and the detail views route elsewhere.
+  const showsTrackList = playlistId === null && view !== 'albums' && view !== 'artists'
+    && selectedAlbumId === null && selectedArtistId === null;
+
+  // One mounted instance serves every view, so a selection made in one would
+  // otherwise survive into another where bulk actions hit tracks the user can no
+  // longer see (#6010). (useTrackSelection also drops ids a search filtered out.)
+  useEffect(() => {
+    clearSelection();
+  }, [view, playlistId, clearSelection]);
+
+  // Keyboard shortcuts: Ctrl+A must not silently select the hidden track list.
   useLibraryKeyboardShortcuts({
-    filteredTracksCount: filteredTracks.length,
+    filteredTracksCount: showsTrackList ? filteredTracks.length : 0,
     hasSelection,
     onSelectAll: selectAll,
     onClearSelection: clearSelection,
@@ -195,7 +207,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
   // Playlist details arrive as `playlist-<id>` view ids (#6007) and must
   // route before the track-list fall-through, which used to paginate the
   // entire library under a "Songs" heading for them.
-  if (playlistId !== null || view === 'albums' || view === 'artists' || selectedAlbumId !== null || selectedArtistId !== null) {
+  if (!showsTrackList) {
     return (
       <LibraryViewRouter
         view={view}

@@ -287,4 +287,31 @@ describe('useTrackSelection', () => {
       expect(result.current.selectedCount).toBe(2);
     });
   });
+
+  describe('pruning against the visible list (#6010)', () => {
+    it('drops selected ids that a narrower list no longer contains', () => {
+      const { result, rerender } = renderHook(({ list }) => useTrackSelection(list), {
+        initialProps: { list: tracks },
+      });
+      act(() => { result.current.selectAll(); });
+      expect(result.current.selectedCount).toBe(5);
+
+      rerender({ list: [{ id: 2 }, { id: 4 }] }); // a search narrowed the list
+
+      expect(result.current.selectedCount).toBe(2);
+      expect(result.current.isSelected(2)).toBe(true);
+      expect(result.current.isSelected(1)).toBe(false);
+    });
+
+    it('keeps the selection when the list only grows (pagination)', () => {
+      const { result, rerender } = renderHook(({ list }) => useTrackSelection(list), {
+        initialProps: { list: tracks.slice(0, 3) },
+      });
+      act(() => { result.current.selectAll(); });
+
+      rerender({ list: tracks });
+
+      expect(result.current.selectedCount).toBe(3);
+    });
+  });
 });
