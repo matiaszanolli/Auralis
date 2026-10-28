@@ -152,13 +152,8 @@ class ConnectionManager:
             self.active_connections.append(websocket)
         client = websocket.client
         client_id = f"{client.host}:{client.port}" if client else "unknown"
-        # DEBUG, not INFO (#3903): a routine, once-per-connection event with
-        # no anomaly to flag -- rejections already log at WARNING above, so
-        # this doesn't need to compete with genuinely important INFO events
-        # for attention in the dev console (BE-MW-6's path-validation INFOs
-        # are the sibling complaint). Every non-browser tool that opens a
-        # loopback WebSocket (wscat, test scripts) used to log one of these
-        # per connection.
+        # DEBUG, not INFO (#3903): routine once-per-connection traffic (every
+        # wscat/test-script socket logged one); rejections log at WARNING above.
         logger.debug(f"WebSocket connected from {client_id}. Total connections: {len(self.active_connections)}")
 
     async def disconnect(self, websocket: WebSocket) -> None:
@@ -193,6 +188,21 @@ class ConnectionManager:
             connection.send_text(message_json),
             timeout=BROADCAST_SEND_TIMEOUT,
         )
+
+    @staticmethod
+    async def _close_evicted(connection: WebSocket) -> None:
+        """Close a socket broadcast() stopped sending to (#5884).
+
+        Eviction only unsubscribed it, while its receive loop, heartbeat and
+        stream task kept it looking healthy, so the tab never heard another
+        broadcast and never reconnected. 1013 (Try Again Later) is a transient
+        code to the client, whose reconnect resyncs via setup_connection. The
+        close frame is subject to the same backpressure, hence the timeout.
+        """
+        try:
+            await asyncio.wait_for(connection.close(code=1013), timeout=BROADCAST_SEND_TIMEOUT)
+        except Exception as exc:  # already gone, or still wedged
+            logger.debug(f"Closing evicted WebSocket failed: {exc!r}")
 
     async def broadcast(self, message: dict[str, Any]) -> None:
         """
@@ -237,14 +247,16 @@ class ConnectionManager:
                 logger.debug(f"Marking stale connection for removal: {result}")
 
         if stale_connections:
+            from helpers import spawn_background_task
             async with self._lock:
                 for stale in stale_connections:
                     if stale in self.active_connections:
                         self.active_connections.remove(stale)
-            # Deliberately kept at INFO, unlike connect()/disconnect() above
-            # (#3903 sibling check): this only fires when a connection died
-            # without a clean disconnect -- an anomaly worth surfacing, not
-            # per-connection routine traffic competing for attention.
+            for stale in stale_connections:
+                # Off the broadcast path: callers may hold _playback_lock (#4581).
+                spawn_background_task(self._close_evicted(stale), name="ws_close_evicted")
+            # INFO, unlike connect()/disconnect() (#3903): a connection that died
+            # without a clean disconnect is an anomaly worth surfacing.
             logger.info(f"Removed {len(stale_connections)} stale connection(s). Active: {len(self.active_connections)}")
 
 
