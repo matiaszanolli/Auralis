@@ -366,7 +366,7 @@ class TestNaNPropagationPrevention:
             _song_peak_db = None
 
             def _process(self, audio, fp, peak_db, intensity, sample_rate, verbose):
-                return audio.copy(), {'stages': ['stub']}
+                return audio.copy(), {'stages': [{'stage': 'stub'}]}
 
         def _make_wav(tmp_path):
             duration_s = 5.0

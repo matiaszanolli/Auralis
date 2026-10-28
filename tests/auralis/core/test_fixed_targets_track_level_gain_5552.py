@@ -116,10 +116,14 @@ def test_legacy_sidecar_targets_are_rederived_from_the_fingerprint(
     assert targets['target_lufs'] == pytest.approx(-21.0 * 0.4 + -14.0 * 0.6)
 
 
-def test_empty_sidecar_targets_stay_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_empty_sidecar_targets_are_derived_from_the_fingerprint(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The player's FingerprintService writes sidecars with `{}` targets. #5951: those are
+    re-derived (they used to pass through as "fixed targets" and master with all-default
+    parameters), and they carry the track-level source_lufs this file's gain depends on."""
     import core.mastering_target_service as mts
     from auralis.analysis.fingerprint import FingerprintStorage
 
     monkeypatch.setattr(FingerprintStorage, 'load', staticmethod(lambda _p: ({'lufs': -21.0, 'fingerprint_version': 99}, {})))
     _fingerprint, targets = mts.MasteringTargetService().load_fingerprint_from_file(str(tmp_path / 'a.flac'))
-    assert targets == {}
+    assert targets
+    assert targets['source_lufs'] == pytest.approx(-21.0)

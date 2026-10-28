@@ -8,7 +8,11 @@ from auralis.dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS, STREAMING_TA
 
 def test_every_unpacker_property_reads_the_shared_table():
     empty = FingerprintUnpacker.from_dict({})
-    for key, value in FINGERPRINT_DEFAULTS.items():
+    # The table also carries `spectral_centroid_hz` (#6219), a unit alias of the normalised
+    # centroid for EQ-curve adapters rather than a 25th dimension, so it has no property.
+    dimensions = {key: value for key, value in FINGERPRINT_DEFAULTS.items() if key != 'spectral_centroid_hz'}
+    assert len(dimensions) == 25
+    for key, value in dimensions.items():
         assert getattr(empty, key) == value
 
 
