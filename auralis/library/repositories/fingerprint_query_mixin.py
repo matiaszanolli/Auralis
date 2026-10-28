@@ -53,6 +53,29 @@ class FingerprintQueryMixin(BaseRepository):
                 session.expunge(fp)
             return list(fingerprints)
 
+    def get_by_album_ids(self, album_ids: list[int]) -> dict[int, list[TrackFingerprint]]:
+        """Current fingerprints of each album's tracks, from one join (#5873).
+
+        The album fingerprint routes needed only track ids, yet loaded the full
+        album detail (every track with its genres, artists and album) to get
+        them, once per album tile. Albums with no fingerprinted track are
+        absent from the result. Callers bound the id list (the batch route caps
+        it at the page size), so it stays well under SQLite's variable limit.
+        """
+        by_album: dict[int, list[TrackFingerprint]] = {}
+        if not album_ids:
+            return by_album
+        with self._session_scope() as session:
+            rows = session.execute(
+                select(Track.album_id, TrackFingerprint)
+                .join(Track, Track.id == TrackFingerprint.track_id)
+                .where(Track.album_id.in_(album_ids), _current_fingerprint_clause())
+            ).all()
+            for album_id, fingerprint in rows:
+                session.expunge(fingerprint)
+                by_album.setdefault(album_id, []).append(fingerprint)
+        return by_album
+
     def get_by_track_id(self, track_id: int) -> TrackFingerprint | None:
         """
         Get fingerprint by track ID

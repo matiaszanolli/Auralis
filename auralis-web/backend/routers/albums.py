@@ -25,11 +25,9 @@ from .dependencies import with_error_handling
 from .errors import NotFoundError
 from .pagination import SortOrder, limit_query, offset_query, paginated
 from .serializers_library import serialize_album, serialize_albums, serialize_tracks
-from .albums_models import AlbumFingerprintResponse, AlbumTracksResponse
+from .albums_models import AlbumFingerprintResponse, AlbumFingerprintsResponse, AlbumTracksResponse
 from .albums_deps import _repo_deps
-from .albums_fingerprint import (
-    get_album_fingerprint,
-)
+from .albums_fingerprint import get_album_fingerprint, get_album_fingerprints
 
 logger = logging.getLogger(__name__)
 
@@ -208,11 +206,11 @@ def create_albums_router(
     """
     router = APIRouter(dependencies=[Depends(_repo_deps.bind(get_repository_factory))])
 
-    # Registration order matches the original decorator order: the literal-free
-    # `/api/albums/{album_id}` must stay ahead of its `/tracks` and
-    # `/fingerprint` children exactly as it did, since Starlette matches in
-    # registration order.
+    # Starlette matches in registration order, so the literal
+    # `/api/albums/fingerprints` (#5873) goes ahead of `/api/albums/{album_id}`,
+    # which would otherwise claim it and 422 on the non-integer id.
     router.add_api_route("/api/albums", get_albums, methods=["GET"], response_model=AlbumListResponse)
+    router.add_api_route("/api/albums/fingerprints", get_album_fingerprints, methods=["GET"], response_model=AlbumFingerprintsResponse)
     router.add_api_route("/api/albums/{album_id}", get_album, methods=["GET"], response_model=AlbumResponse)
     router.add_api_route("/api/albums/{album_id}/tracks", get_album_tracks, methods=["GET"], response_model=AlbumTracksResponse)
     router.add_api_route("/api/albums/{album_id}/fingerprint", get_album_fingerprint, methods=["GET"], response_model=AlbumFingerprintResponse)

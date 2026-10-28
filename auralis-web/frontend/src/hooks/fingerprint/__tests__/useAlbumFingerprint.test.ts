@@ -38,6 +38,19 @@ const mockAlbumFpResponse = {
   },
 };
 
+/** `GET /api/albums/fingerprints` answering every requested id (#5873). */
+const batchFetch = () =>
+  vi.fn().mockImplementation((url: string) => {
+    const ids = new URL(String(url), 'http://x').searchParams.getAll('ids').map(Number);
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({
+        albums: ids.map((id) => ({ album_id: id, fingerprint: mockAlbumFpResponse.fingerprint })),
+      }),
+    });
+  });
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -97,12 +110,9 @@ describe('useAlbumFingerprints (batch)', () => {
     vi.clearAllMocks();
   });
 
-  it('should fetch multiple album fingerprints', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(mockAlbumFpResponse),
-    });
+  it('fetches a page of albums in one batched request (#5873)', async () => {
+    const fetchMock = batchFetch();
+    global.fetch = fetchMock;
 
     const { result } = renderHook(() => useAlbumFingerprints([1, 2, 3]), {
       wrapper: createWrapper(),
@@ -112,7 +122,12 @@ describe('useAlbumFingerprints (batch)', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current.fingerprints).toBeInstanceOf(Map);
+    // One request for the page, not one per tile.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const url = new URL(String(fetchMock.mock.calls[0][0]), 'http://x');
+    expect(url.pathname).toBe('/api/albums/fingerprints');
+    expect(url.searchParams.getAll('ids')).toEqual(['1', '2', '3']);
+    expect(result.current.fingerprints.get(2)).toEqual(mockAlbumFpResponse.fingerprint);
     expect(result.current.error).toBeNull();
   });
 
@@ -142,11 +157,7 @@ describe('useAlbumFingerprints (batch)', () => {
   });
 
   it('adds a scroll page without refetching cached albums or blanking the map (#5611)', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(mockAlbumFpResponse),
-    });
+    const fetchMock = batchFetch();
     global.fetch = fetchMock;
 
     const { result, rerender } = renderHook(
@@ -157,7 +168,7 @@ describe('useAlbumFingerprints (batch)', () => {
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     // Infinite scroll delivers two more albums. Cached albums must neither be
     // refetched nor vanish from the map while the new queries run — the old
@@ -171,7 +182,10 @@ describe('useAlbumFingerprints (batch)', () => {
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    // The new page is one more request, carrying only the uncached ids.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new URL(String(fetchMock.mock.calls[1][0]), 'http://x').searchParams.getAll('ids'))
+      .toEqual(['4', '5']);
     expect(result.current.fingerprints.get(4)).toBeTruthy();
     expect(result.current.fingerprints.get(5)).toBeTruthy();
   });
@@ -245,26 +259,25 @@ describe('useAlbumFingerprints batch tolerance (#5122)', () => {
     vi.clearAllMocks();
   });
 
-  it('returns the successes when one album fails', async () => {
-    global.fetch = vi.fn().mockImplementation((url: string) =>
-      Promise.resolve(
-        String(url).includes('/2/') ? failure(500, 'boom') : {
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(mockAlbumFpResponse),
-        }
-      )
-    );
+  it('an album absent from the batch answer is null, not an error (#5873)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({
+        albums: [1, 3].map((id) => ({ album_id: id, fingerprint: mockAlbumFpResponse.fingerprint })),
+      }),
+    });
 
     const { result } = renderHook(() => useAlbumFingerprints([1, 2, 3]), {
       wrapper: createWrapper(),
     });
 
-    // One bad album must not empty the grid — every tile still gets an entry,
-    // and the failed one falls back to the hash gradient via null.
+    // Album 2 has no fingerprint yet: the hash-gradient fallback, like a 404
+    // on the single-album route.
     await waitFor(() => expect(result.current.fingerprints.get(1)).toBeTruthy());
     expect(result.current.fingerprints.get(2)).toBeNull();
     expect(result.current.fingerprints.get(3)).toBeTruthy();
+    expect(result.current.error).toBeNull();
   });
 
   it('surfaces a failing album as an error without taking down the map (#5611)', async () => {
@@ -275,9 +288,9 @@ describe('useAlbumFingerprints batch tolerance (#5122)', () => {
     });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    // Per-album queries make failures independent by construction: the error
-    // is visible on the hook, and the map still carries every requested id
-    // (failed albums as null → hash-gradient fallback per tile).
+    // A failed batch fails each album's query: the error is visible on the
+    // hook, and the map still carries every requested id (failed albums as
+    // null → hash-gradient fallback per tile).
     expect(result.current.error).not.toBeNull();
     expect(result.current.fingerprints.size).toBe(2);
     expect(result.current.fingerprints.get(1)).toBeNull();
@@ -300,19 +313,6 @@ describe('useAlbumFingerprints batch tolerance (#5122)', () => {
     warn.mockRestore();
   });
 
-  it('still resolves 404s to null without warning', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    global.fetch = vi.fn().mockResolvedValue(failure(404));
-
-    const { result } = renderHook(() => useAlbumFingerprints([1, 2]), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => expect(result.current.fingerprints.size).toBe(2));
-    expect(result.current.fingerprints.get(1)).toBeNull();
-    expect(warn).not.toHaveBeenCalled();
-    warn.mockRestore();
-  });
 });
 
 /**
@@ -400,12 +400,8 @@ describe('useAlbumFingerprint signal forwarding (#6221)', () => {
 });
 
 describe('useAlbumFingerprints cancellation (#5650)', () => {
-  it('issues no request for queries cancelled while they waited for a slot', async () => {
-    // 14 albums against a 10-request gate: 10 requests start and hang until
-    // aborted, 4 queries wait for a slot. Unmounting cancels all of them; the
-    // waiting ones must wake, see the abort, and never reach fetch.
-    const signals: AbortSignal[] = [];
-    global.fetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+  const hangingFetch = (signals: AbortSignal[]) =>
+    vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
       const signal = init?.signal;
       if (signal) signals.push(signal);
       return new Promise<Response>((_resolve, reject) => {
@@ -415,16 +411,37 @@ describe('useAlbumFingerprints cancellation (#5650)', () => {
       });
     });
 
+  it('aborts the batch request once every album in it is cancelled (#5873)', async () => {
+    const signals: AbortSignal[] = [];
+    global.fetch = hangingFetch(signals);
+
     const ids = Array.from({ length: 14 }, (_, i) => 1000 + i);
     const { unmount } = renderHook(() => useAlbumFingerprints(ids), { wrapper: createWrapper() });
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(10));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    expect(signals[0].aborted).toBe(false);
+
+    unmount();
+    await waitFor(() => expect(signals[0].aborted).toBe(true));
+  });
+
+  it('issues no request for batches cancelled while they waited for a slot', async () => {
+    // 450 albums = 5 batches of <=100 against a 4-request gate: 4 start and
+    // hang until aborted, 1 waits for a slot. Unmounting cancels all of them;
+    // the waiting batch must wake, see the abort, and never reach fetch.
+    const signals: AbortSignal[] = [];
+    global.fetch = hangingFetch(signals);
+
+    const ids = Array.from({ length: 450 }, (_, i) => 2000 + i);
+    const { unmount } = renderHook(() => useAlbumFingerprints(ids), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
 
     unmount();
     await waitFor(() => expect(signals.every((s) => s.aborted)).toBe(true));
-    // Let the released slots wake the waiters.
+    // Let the released slots wake the waiter.
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    expect(global.fetch).toHaveBeenCalledTimes(10);
+    expect(global.fetch).toHaveBeenCalledTimes(4);
   });
 });

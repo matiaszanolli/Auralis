@@ -40,7 +40,7 @@ class AlbumFingerprintResponse(BaseModel):
     """Median 25D fingerprint aggregated across an album's fingerprinted tracks.
 
     `fingerprint` keys are the API-side dimension names, which differ from the
-    DB column names for five dimensions (#2477) — see the `db_to_api` map below.
+    DB column names for five dimensions (#2477) — see `_DB_TO_API` in albums_fingerprint.py.
     """
     album_id: int = Field(description="Album database ID")
     album_title: str | None = Field(default=None, description="Album title")
@@ -50,3 +50,19 @@ class AlbumFingerprintResponse(BaseModel):
         default_factory=FingerprintVectorResponse,
         description="Median value per fingerprint dimension (25 entries)",
     )
+
+
+class AlbumFingerprintEntry(BaseModel):
+    """One album of ``GET /api/albums/fingerprints``."""
+    album_id: int = Field(description="Album database ID")
+    fingerprinted_track_count: int = Field(description="Tracks that actually had a fingerprint")
+    fingerprint: FingerprintVectorResponse = Field(
+        default_factory=FingerprintVectorResponse,
+        description="Median value per fingerprint dimension (25 entries)",
+    )
+
+
+class AlbumFingerprintsResponse(BaseModel):
+    """Batch album fingerprints (#5873). Requested albums with no fingerprinted
+    track are absent, not 404s."""
+    albums: list[AlbumFingerprintEntry] = Field(default_factory=list)

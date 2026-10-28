@@ -14,7 +14,7 @@
 
 import { useQuery, useQueries } from '@tanstack/react-query';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
-import { getOrNullOn404 } from '@/utils/apiRequest';
+import { get, getOrNullOn404 } from '@/utils/apiRequest';
 import { QUERY_GC_TIME_MS, QUERY_STALE_TIME_MS } from '@/config/timing';
 
 interface AlbumFingerprintResponse {
@@ -104,12 +104,14 @@ export function useAlbumFingerprint(
 
 /**
  * #3644: concurrency cap. The Electron-local FastAPI serves all requests
- * serially in the ASGI loop, so firing 200 requests at once starves
- * audio-streaming requests of I/O time. A promise-pool gate (rather than the
- * old chunk-sequential loop) keeps at most N requests in flight while letting
- * per-album queries start in any order (#5611).
+ * serially in the ASGI loop, so firing many requests at once starves
+ * audio-streaming requests of I/O time. A promise-pool gate keeps at most N
+ * batch requests in flight (#5611).
  */
-const FINGERPRINT_BATCH_CONCURRENCY = 10;
+const FINGERPRINT_BATCH_CONCURRENCY = 4;
+
+/** Ids per `GET /api/albums/fingerprints`; the route caps the list at 200. */
+const FINGERPRINT_BATCH_MAX_IDS = 100;
 
 let fingerprintSlotsInUse = 0;
 const fingerprintSlotWaiters: Array<() => void> = [];
@@ -120,14 +122,88 @@ async function withFingerprintSlot<T>(fn: () => Promise<T>, signal?: AbortSignal
   }
   fingerprintSlotsInUse++;
   try {
-    // #5650: a query cancelled (unmount, key change, scrolled away) while it
-    // waited for a slot must not then issue its request.
+    // #5650: a batch whose queries were all cancelled (unmount, key change,
+    // scrolled away) while it waited for a slot must not then be requested.
     signal?.throwIfAborted();
     return await fn();
   } finally {
     fingerprintSlotsInUse--;
     fingerprintSlotWaiters.shift()?.();
   }
+}
+
+interface AlbumFingerprintsResponse {
+  albums: Array<{ album_id: number; fingerprint: AudioFingerprint }>;
+}
+
+interface PendingFingerprint {
+  albumId: number;
+  signal?: AbortSignal;
+  resolve: (fingerprint: AudioFingerprint | null) => void;
+  reject: (reason: unknown) => void;
+}
+
+let pendingFingerprints: PendingFingerprint[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * #5873: the grid issued one `/api/albums/{id}/fingerprint` per loaded album
+ * (each hydrating the full album server-side), thousands over a long scroll.
+ * Every per-album queryFn started in the same tick (a new page mounting its
+ * tiles) now joins one `/api/albums/fingerprints?ids=…` request. An album
+ * absent from the answer has no fingerprint yet and resolves to null, which
+ * the tile renders as the hash gradient — the batch route's equivalent of the
+ * single route's 404.
+ */
+function flushFingerprintBatch(): void {
+  flushTimer = null;
+  const waiting = pendingFingerprints;
+  pendingFingerprints = [];
+  const live = waiting.filter((entry) => {
+    // #5650: a query cancelled (unmount, key change) before the request was
+    // built must not then be fetched.
+    if (entry.signal?.aborted) entry.reject(entry.signal.reason);
+    return !entry.signal?.aborted;
+  });
+  for (let start = 0; start < live.length; start += FINGERPRINT_BATCH_MAX_IDS) {
+    const batch = live.slice(start, start + FINGERPRINT_BATCH_MAX_IDS);
+    const params = new URLSearchParams();
+    new Set(batch.map((entry) => entry.albumId)).forEach((id) => params.append('ids', String(id)));
+    const signal = abortWhenAllAbort(batch);
+    withFingerprintSlot(
+      () => get<AlbumFingerprintsResponse>(`/api/albums/fingerprints?${params}`, { signal }),
+      signal,
+    )
+      .then((data) => {
+        const byId = new Map(data.albums.map((album) => [album.album_id, album.fingerprint]));
+        batch.forEach((entry) => entry.resolve(byId.get(entry.albumId) ?? null));
+      })
+      .catch((error: unknown) => batch.forEach((entry) => entry.reject(error)));
+  }
+}
+
+/** A signal that aborts once every query in *batch* has been cancelled. */
+function abortWhenAllAbort(batch: PendingFingerprint[]): AbortSignal {
+  const controller = new AbortController();
+  let remaining = batch.length;
+  batch.forEach(({ signal }) => {
+    if (!signal) return;
+    signal.addEventListener('abort', () => {
+      remaining -= 1;
+      if (remaining === 0) controller.abort(signal.reason);
+    }, { once: true });
+  });
+  return controller.signal;
+}
+
+function fetchAlbumFingerprintBatched(
+  albumId: number,
+  signal?: AbortSignal
+): Promise<AudioFingerprint | null> {
+  return new Promise((resolve, reject) => {
+    pendingFingerprints.push({ albumId, signal, resolve, reject });
+    flushTimer ??= setTimeout(flushFingerprintBatch, 0);
+  });
 }
 
 export function useAlbumFingerprints(albumIds: number[]) {
@@ -137,13 +213,13 @@ export function useAlbumFingerprints(albumIds: number[]) {
   // refetched every album from scratch (O(N²/50) requests over a scroll) and
   // the hook returned an empty Map while it ran, blanking every tile's
   // fingerprint colouring. Per-album keys are stable under any list growth:
-  // scrolling only starts queries for albums not already cached. Each query
-  // still goes through the #3644 gate, so the concurrency cap survives.
+  // scrolling only starts queries for albums not already cached, and those
+  // share one request per page through the batcher above (#5873).
   const queries = useQueries({
     queries: albumIds.map((albumId) => ({
       queryKey: ['album-fingerprint', albumId],
       queryFn: ({ signal }: { signal?: AbortSignal }) =>
-        withFingerprintSlot(() => fetchAlbumFingerprint(albumId, signal), signal),
+        fetchAlbumFingerprintBatched(albumId, signal),
       staleTime: QUERY_STALE_TIME_MS,
       gcTime: QUERY_GC_TIME_MS,
       // Same settled decision as the single-album hook: album art is

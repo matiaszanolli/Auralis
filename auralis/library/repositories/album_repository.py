@@ -85,6 +85,13 @@ class AlbumRepository(AlbumArtworkMixin):
             )
             return album
 
+    def get_summary(self, album_id: int) -> Album | None:
+        """One album with the list aggregates and artist, never its tracks (#5873)."""
+        with self._session_scope() as session:
+            return self._first_detached(
+                session, select(Album).options(*_ALBUM_LIST_OPTIONS).where(Album.id == album_id),
+            )
+
     def get_all(
         self, limit: int = 50, offset: int = 0, order_by: str = 'title', order: str | None = None
     ) -> tuple[list[Album], int]:
@@ -101,11 +108,7 @@ class AlbumRepository(AlbumArtworkMixin):
             Tuple of (albums list, total count)
         """
         with self._session_scope() as session:
-            # Get total count
-            total = session.execute(
-                select(func.count()).select_from(Album)
-            ).scalar_one()
-
+            total = session.execute(select(func.count()).select_from(Album)).scalar_one()
             albums = self._all_detached(
                 session,
                 select(Album)

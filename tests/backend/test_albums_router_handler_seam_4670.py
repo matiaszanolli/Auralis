@@ -114,7 +114,9 @@ async def test_get_album_tracks_derives_genre_and_sorts():
 
 async def test_get_album_fingerprint_without_tracks_raises_404():
     repos = MagicMock()
-    repos.albums.get_by_id.return_value = _stub_album(tracks=[])
+    album = _stub_album(tracks=[])
+    album.track_count_expr = 0  # get_summary() counts in SQL (#5873)
+    repos.albums.get_summary.return_value = album
 
     with pytest.raises(HTTPException) as exc_info:
         await get_album_fingerprint(1, repos=repos)

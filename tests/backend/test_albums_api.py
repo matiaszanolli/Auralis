@@ -383,11 +383,9 @@ class TestGetAlbumFingerprint:
 
     def test_fingerprint_success(self, client, album_row, mock_repos):
         """Known album with fingerprinted tracks returns 200 with fingerprint"""
-        # Album with tracks that have fingerprints
-        track = Track(id=1)
-        track.id = 1
-        album_row.tracks = [track]
-        mock_repos.albums.get_by_id.return_value = album_row
+        # get_summary() supplies the SQL track count, never Album.tracks (#5873)
+        album_row.track_count_expr = 1
+        mock_repos.albums.get_summary.return_value = album_row
 
         fp = Mock()
         # Set all 25 DB columns to known values
@@ -402,11 +400,9 @@ class TestGetAlbumFingerprint:
             setattr(fp, col, 0.5)
 
         mock_repos.fingerprints = Mock()
-        # get_album_fingerprint() calls get_by_track_ids() (plural) with the
-        # full list of track ids, not get_by_track_id() -- the mock method
-        # name was stale (pre-existing, unrelated to #5470) and left this
-        # test throwing a 500 before it ever reached the assertions below.
-        mock_repos.fingerprints.get_by_track_ids.return_value = [fp]
+        # One join by album id (#5873) instead of a track-id list built from
+        # the hydrated album.
+        mock_repos.fingerprints.get_by_album_ids.return_value = {1: [fp]}
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/fingerprint")
@@ -425,7 +421,7 @@ class TestGetAlbumFingerprint:
 
     def test_fingerprint_album_not_found(self, client, mock_repos):
         """Unknown album ID returns 404"""
-        mock_repos.albums.get_by_id.return_value = None
+        mock_repos.albums.get_summary.return_value = None
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/999/fingerprint")
@@ -434,13 +430,11 @@ class TestGetAlbumFingerprint:
 
     def test_fingerprint_no_fingerprints(self, client, album_row, mock_repos):
         """Album with tracks but no fingerprints returns 404"""
-        track = Track(id=1)
-        track.id = 1
-        album_row.tracks = [track]
-        mock_repos.albums.get_by_id.return_value = album_row
+        album_row.track_count_expr = 1
+        mock_repos.albums.get_summary.return_value = album_row
 
         mock_repos.fingerprints = Mock()
-        mock_repos.fingerprints.get_by_track_ids.return_value = []
+        mock_repos.fingerprints.get_by_album_ids.return_value = {}
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/fingerprint")
