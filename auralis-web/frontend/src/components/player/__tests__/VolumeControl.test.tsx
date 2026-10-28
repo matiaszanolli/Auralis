@@ -466,4 +466,27 @@ describe('VolumeControl', () => {
       expect(onMuteToggle).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('Keyboard focus indicator (#6029)', () => {
+    // focusRing is a 30%-alpha halo colour (~1.4:1); an outline must be solid accent.
+    it('draws a solid accent outline on the focused mute button', () => {
+      render(<VolumeControl volume={0.5} onVolumeChange={vi.fn()} />);
+      const mute = screen.getByTestId('volume-control-mute');
+
+      fireEvent.focus(mute);
+
+      expect(mute.style.outline).toContain('var(--app-accent)');
+      expect(mute.style.outline).not.toContain('focus-ring');
+    });
+
+    it('draws a solid accent outline on the focused slider', () => {
+      render(<VolumeControl volume={0.5} onVolumeChange={vi.fn()} />);
+      const slider = screen.getByTestId('volume-control-slider');
+
+      fireEvent.focus(slider);
+
+      expect(slider.style.outline).toContain('var(--app-accent)');
+      expect(slider.style.outline).not.toContain('focus-ring');
+    });
+  });
 });

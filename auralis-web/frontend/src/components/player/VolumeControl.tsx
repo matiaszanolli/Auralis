@@ -146,7 +146,9 @@ const VolumeControlComponent = ({
           opacity: disabled ? 0.7 : 1,
           outline: 'none',
           ...(isMuteButtonFocused && !disabled && {
-            outline: `3px solid ${themeVars.focusRing}`,
+            // Solid accent, like every other player control: focusRing is a 30%-alpha
+            // halo colour (~1.4:1), too faint for a keyboard focus outline (#6029).
+            outline: `3px solid ${themeVars.accent}`,
             outlineOffset: '2px',
             background: themeVars.surfaceSecondary,
           }),
@@ -208,7 +210,7 @@ const VolumeControlComponent = ({
             WebkitAppearance: 'none',
             borderRadius: tokens.borderRadius.full,
             border: 'none',
-            outline: isSliderFocused && !disabled ? `3px solid ${themeVars.focusRing}` : 'none',
+            outline: isSliderFocused && !disabled ? `3px solid ${themeVars.accent}` : 'none',
             outlineOffset: isSliderFocused && !disabled ? '2px' : '0',
             background: `linear-gradient(to right, ${themeVars.accent} 0%, ${themeVars.accent} ${clampedVolume * 100}%, ${themeVars.surfaceRaised} ${clampedVolume * 100}%, ${themeVars.surfaceRaised} 100%)`,
             opacity: disabled ? 0.5 : 1,

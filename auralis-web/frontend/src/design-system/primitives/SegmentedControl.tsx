@@ -130,6 +130,13 @@ const SegmentButton = styled('button')<{
   '&:active': !disabled ? {
     transform: 'scale(0.98)',
   } : {},
+
+  // The reset above removes the outline, so the keyboard ring is restored here;
+  // the global :focus-visible rule cannot win against a component class (#6030).
+  '&:focus-visible': {
+    outline: `2px solid ${themeVars.accent}`,
+    outlineOffset: '2px',
+  },
 }));
 
 export const SegmentedControl = ({
