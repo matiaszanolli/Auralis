@@ -89,3 +89,15 @@ def test_get_track_rows_is_column_narrow_and_sorted_in_sql(session_factory, arti
 def test_missing_artist(artist_repository):
     assert artist_repository.get_page(999_999) is None
     assert artist_repository.get_track_rows(999_999) is None
+
+
+def test_serializing_the_page_albums_logs_no_detached_instance_warning(artist_repository, artist_id, caplog):
+    """#5961: get_by_id left Album.artist unloaded, so every album on the page
+    logged a detached-instance WARNING and reported its artist as None."""
+    artist = artist_repository.get_page(artist_id)
+
+    with caplog.at_level("WARNING"):
+        serialized = [album.to_dict() for album in artist.albums]
+
+    assert {album["artist"] for album in serialized} == {"Various"}
+    assert "could not be loaded" not in caplog.text

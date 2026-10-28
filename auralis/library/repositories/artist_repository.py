@@ -245,7 +245,6 @@ class ArtistRepository(ArtistPageMixin):
                     # does need Artist.albums -> Album.tracks.
                     .options(
                         selectinload(Artist.tracks).selectinload(Track.album),
-                        selectinload(Artist.tracks),
                         selectinload(Artist.albums).selectinload(Album.tracks),
                     )
                 ).scalars().all()
