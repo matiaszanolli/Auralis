@@ -24,7 +24,8 @@ class" check when composed together on the facade.
 
 from typing import Any, cast
 
-from sqlalchemy import text
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
 from sqlalchemy.engine import CursorResult
 
 from ...utils.logging import info, warning
@@ -33,6 +34,15 @@ from ..fingerprint_quantizer import FingerprintQuantizer
 from ..models import TrackFingerprint
 from .base import BaseRepository
 from .fingerprint_shared import _validate_fingerprint_columns
+
+
+def _persisted_row(session: Session, track_id: int) -> TrackFingerprint | None:
+    """The row as stored, detached: the id, timestamps, fingerprint_blob and fingerprint_version
+    the raw INSERT/ON CONFLICT wrote, not a transient object that has none of them (#5539)."""
+    row = session.scalars(select(TrackFingerprint).filter_by(track_id=track_id)).one_or_none()
+    if row is not None:
+        session.expunge(row)
+    return row
 
 
 class FingerprintUpsertMixin(BaseRepository):
@@ -134,7 +144,7 @@ class FingerprintUpsertMixin(BaseRepository):
                 )
                 return None
 
-            fingerprint = TrackFingerprint(track_id=track_id, **fingerprint_data)
+            fingerprint = _persisted_row(session, track_id)
             info(f"Upserted fingerprint for track {track_id}")
             return fingerprint
         return None
@@ -218,7 +228,7 @@ class FingerprintUpsertMixin(BaseRepository):
             )
             session.commit()
 
-            fingerprint = TrackFingerprint(track_id=track_id, **fingerprint_dict)
+            fingerprint = _persisted_row(session, track_id)
             info(f"Stored fingerprint for track {track_id} (quantized blob: 25 bytes)")
             return fingerprint
         return None

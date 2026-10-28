@@ -19,6 +19,8 @@ Key invariants verified:
 """
 
 import pytest
+
+from auralis.library.models import TrackFingerprint
 from unittest.mock import MagicMock
 
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
@@ -137,7 +139,9 @@ class TestStoreFingerprintUsesSession:
         session.commit.assert_called_once()
 
     def test_returns_fingerprint_on_success(self, repo):
-        r, _ = repo
+        r, session = repo
+        # The row is read back after the commit (#5539); the mocked session returns it.
+        session.scalars.return_value.one_or_none.return_value = TrackFingerprint(track_id=2)
         fingerprint = self._call(r)
         assert fingerprint is not None
         assert fingerprint.track_id == 2
