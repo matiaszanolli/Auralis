@@ -143,3 +143,23 @@ class TestFrontendUsesPnpmNotNpm:
         """Regression guard: `npm` must not reappear as a subprocess call."""
         source = LAUNCH_SCRIPT.read_text()
         assert '"npm"' not in source and "'npm'" not in source
+
+
+class TestMissingDependenciesAreNotAutoInstalled:
+    """#6173: check_dependencies() pip-installed fastapi and uvicorn[standard] unpinned, unhashed
+    and unprompted into whichever interpreter ran the script."""
+
+    def test_a_missing_backend_dependency_exits_with_instructions_and_installs_nothing(
+        self, launch_module, capsys
+    ):
+        with patch.dict("sys.modules", {"fastapi": None}), patch.object(
+            launch_module.subprocess, "check_call"
+        ) as check_call, pytest.raises(SystemExit) as exit_info:
+            launch_module.check_dependencies()
+
+        assert exit_info.value.code == 1
+        check_call.assert_not_called()
+        assert "uv pip install -r requirements.txt" in capsys.readouterr().out
+
+    def test_the_launcher_has_no_pip_install_left(self):
+        assert '"pip", "install"' not in LAUNCH_SCRIPT.read_text()

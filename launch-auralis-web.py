@@ -34,8 +34,13 @@ def check_dependencies():
         import uvicorn
         print("✅ FastAPI and Uvicorn available")
     except ImportError:
-        print("❌ FastAPI/Uvicorn not found. Installing...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "fastapi", "uvicorn[standard]"])
+        # Never pip-install here: unpinned, unhashed and unprompted into whichever interpreter
+        # happened to run this script (#6173). The pinned set is requirements.txt.
+        print("❌ FastAPI/Uvicorn not found in this Python environment.")
+        print("   Install the project's pinned requirements, then run this again:")
+        print("     uv venv --python-preference only-managed && source .venv/bin/activate")
+        print("     uv pip install -r requirements.txt")
+        sys.exit(1)
 
     # Check if Node.js is available for development
     try:
