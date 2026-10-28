@@ -55,6 +55,10 @@ def _json_nesting_exceeds(data: str, max_depth: int) -> bool:
     return False
 
 
+#: Every this many checks, per-IP buckets with no message inside the window are dropped.
+IP_LOG_SWEEP_INTERVAL = 256
+
+
 class WebSocketRateLimiter:
     """
     Per-connection rate limiter for WebSocket messages.
@@ -99,6 +103,7 @@ class WebSocketRateLimiter:
         # Track message timestamps per client IP — NOT cleared per-connection
         # cleanup, so it persists across a close/reopen cycle (#3811).
         self.ip_message_log: dict[str, list[float]] = {}
+        self._checks = 0
         # Lock to protect message_log during concurrent access (#2442)
         self._lock = threading.Lock()
 
@@ -126,6 +131,13 @@ class WebSocketRateLimiter:
             client_ip = self._client_ip(websocket)
             now = time.time()
             cutoff = now - self.window_seconds
+
+            # An IP key outlives its connections on purpose (#3811) but must not outlive its
+            # window: sweep the idle ones so distinct client addresses cannot accumulate (#6171).
+            self._checks += 1
+            if self._checks % IP_LOG_SWEEP_INTERVAL == 0:
+                for ip in [ip for ip, log in self.ip_message_log.items() if not log or log[-1] <= cutoff]:
+                    del self.ip_message_log[ip]
 
             # Initialize logs for this connection/IP if needed
             if ws_id not in self.message_log:
