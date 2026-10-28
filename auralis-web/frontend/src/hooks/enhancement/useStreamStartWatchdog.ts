@@ -23,6 +23,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
+import { endActiveStream } from '@/hooks/websocket/websocketConnectionState';
 
 // #6232: derived from the mirrored backend chunk timing (30 s chunk
 // processing + 5 s stream semaphore + one 10 s chunk interval = 45 s), not a
@@ -61,6 +62,8 @@ export function useStreamStartWatchdog(
     clear();
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
+      // A stream that never started is no session to resume or re-issue (#5876).
+      endActiveStream();
       onTimeoutRef.current();
     }, timeoutMs);
   }, [clear, timeoutMs]);

@@ -63,6 +63,7 @@ describe('useWebSocketConnection.reissueActiveStreamAs — startPositionOverride
     // Seed an active stream command directly, mirroring what send() does
     // for a real play_enhanced/play_normal message (#3185 plumbing).
     connState.lastStreamCommand = { type: 'play_enhanced', data: { track_id: 7 } };
+    connState.streamActive = true;
     // A live resumeGetters entry that must NOT win when an override is given.
     result.current.setResumePositionGetter('play_enhanced', () => 999);
 

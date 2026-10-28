@@ -40,8 +40,13 @@ export function useOutgoingChannel(
       // reconnect and must not be re-issued a second time via this mechanism.
       if (message?.type === 'play_enhanced' || message?.type === 'play_normal') {
         connState.lastStreamCommand = message;
+        connState.streamActive = true;
+      } else if (message?.type === 'seek') {
+        // A seek restarts the tracked track's stream, even after it ended (#5876).
+        connState.streamActive = connState.lastStreamCommand !== null;
       } else if (message?.type === 'stop' || message?.type === 'pause') {
         connState.lastStreamCommand = null;
+        connState.streamActive = false;
       }
       wsManagerRef.current.send(JSON.stringify(message));
     } else {
@@ -51,6 +56,7 @@ export function useOutgoingChannel(
       // so that reconnect does not silently restart stopped/paused playback (issue #2385).
       if (message?.type === 'stop' || message?.type === 'pause') {
         connState.lastStreamCommand = null;
+        connState.streamActive = false;
       }
       messageQueueRef.current.push(message);
     }
@@ -85,8 +91,11 @@ export function useOutgoingChannel(
       // from a mid-stream error the client hasn't played up to yet.
       startPositionOverride?: number
     ): boolean => {
+      // Nothing to re-issue once the session ended (#5876): flipping
+      // enhancement while stopped or after the track finished must not start
+      // the last track again.
       const last = connState.lastStreamCommand;
-      if (!last) return false;
+      if (!last || !connState.streamActive) return false;
       const prevData = (last.data ?? {}) as Record<string, unknown>;
       const trackId = prevData.track_id;
       if (trackId == null) return false;

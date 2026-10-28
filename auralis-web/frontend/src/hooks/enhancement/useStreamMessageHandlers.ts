@@ -16,6 +16,7 @@ const DEBUG = import.meta.env.DEV;
 import { useCallback } from 'react';
 import { updateStreamingProgress, setStreamingError, completeStreaming } from '@/store/slices/playerSlice';
 import type { AppDispatch } from '@/store';
+import { endActiveStream } from '@/hooks/websocket/websocketConnectionState';
 import type { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { classifyChunk, ingestChunk, isOutOfSequence, shouldDispatchProgress } from './audioChunkIngest';
 import type {
@@ -204,6 +205,10 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     // stream, whose engine is replaced or reset anyway.
     if (reason === 'completed' || reason === 'errored') {
       playbackEngineRef.current?.markStreamEnded();
+      // The backend has sent all it will, so neither a reconnect nor an
+      // enhancement toggle may restart this track (#5876). The buffered tail
+      // keeps playing in its current mode.
+      endActiveStream(trackId);
     }
 
     // #5462: only a stream that delivered the whole track is complete. Marking
@@ -259,8 +264,11 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
         DEBUG && console.log(
           `${logPrefix} Auto-resuming from recovery_position=${recoveryPosition}s after chunk failure`
         );
+        return;
       }
     }
+    // Terminal: no recovery point, or it was already tried (#5876).
+    endActiveStream(trackId);
   }, [dispatch, streamType, logPrefix, cleanupStreaming, acceptsStreamType, wsContext, lastRecoveryAttemptRef]);
 
   return { handleChunk, handleStreamEnd, handleStreamError };

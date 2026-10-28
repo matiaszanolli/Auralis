@@ -49,6 +49,11 @@ export type DispatchMessage = (message: AnyWebSocketMessage | WebSocketMessage) 
  * - `pendingMeta`: an audio_chunk_meta text frame awaiting its binary PCM frame.
  * - `lastStreamCommand`: last play_enhanced/play_normal, re-issued on reconnect
  *   (#2385); cleared on explicit stop/pause.
+ * - `streamActive`: whether that command's stream is still live (#5876). The
+ *   client never sends WS stop/pause — stop and track end are client-side —
+ *   so `lastStreamCommand` alone outlived every session and a reconnect or an
+ *   enhancement toggle re-issued a finished/stopped track. Set by play_* and
+ *   seek; cleared by `endActiveStream()`.
  * - `resumeGetters`: per-stream-type playback-position getters (#3185/#3373).
  * - `expectedSeq` / `seqStreamEpoch`: audio_chunk_meta.seq desync detection
  *   (#3774). `seqStreamEpoch` tracks which stream_epoch `expectedSeq` applies
@@ -62,6 +67,7 @@ export interface ConnectionState {
   refCount: number;
   pendingMeta: AudioChunkMetaMessage | null;
   lastStreamCommand: OutgoingWebSocketMessage | null;
+  streamActive: boolean;
   resumeGetters: Record<string, () => number>;
   expectedSeq: number | null;
   seqStreamEpoch: number | null;
@@ -74,6 +80,7 @@ export const connState: ConnectionState = {
   refCount: 0,
   pendingMeta: null,
   lastStreamCommand: null,
+  streamActive: false,
   resumeGetters: {},
   expectedSeq: null,
   seqStreamEpoch: null,
@@ -129,8 +136,22 @@ export function resetConnectionSingletons(): void {
   closeCurrentManager();
   connState.refCount = 0;
   connState.lastStreamCommand = null;
+  connState.streamActive = false;
   for (const key of Object.keys(connState.resumeGetters)) {
     delete connState.resumeGetters[key];
   }
   resetStreamFrameTracking();
+}
+
+/**
+ * The playback session ended: client-side stop, the track's stream finishing,
+ * a terminal stream error or a stream that never started (#5876). Neither a
+ * reconnect nor an enhancement toggle may re-issue it afterwards. A `trackId`
+ * makes it a no-op when a newer track's command is tracked, so a superseded
+ * track's late end frame cannot end the current stream.
+ */
+export function endActiveStream(trackId?: number): void {
+  const tracked = (connState.lastStreamCommand?.data as { track_id?: unknown } | undefined)?.track_id;
+  if (trackId !== undefined && tracked !== trackId) return;
+  connState.streamActive = false;
 }

@@ -44,15 +44,19 @@ export function replayQueueAndResume(
     const message = queue.shift();
     if (message?.type === 'play_enhanced' || message?.type === 'play_normal') {
       connState.lastStreamCommand = message;
+      connState.streamActive = true;
       queueHadStreamCommand = true;
     } else if (message?.type === 'stop' || message?.type === 'pause') {
       connState.lastStreamCommand = null;
+      connState.streamActive = false;
       queueHadStreamCommand = true;
     }
     manager.send(JSON.stringify(message));
   }
 
-  if (connState.lastStreamCommand && !queueHadStreamCommand) {
+  // Only a stream still live when the socket dropped resumes: a track that
+  // finished, was stopped or failed must not restart on reconnect (#5876).
+  if (connState.lastStreamCommand && connState.streamActive && !queueHadStreamCommand) {
     const resumePos = connState.resumeGetters[connState.lastStreamCommand.type]?.() ?? 0;
     const resumeCommand = {
       ...connState.lastStreamCommand,

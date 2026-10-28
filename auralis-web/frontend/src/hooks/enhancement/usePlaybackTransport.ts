@@ -19,6 +19,7 @@ const DEBUG = import.meta.env.DEV;
 import { useCallback, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch } from '@/store';
+import { endActiveStream } from '@/hooks/websocket/websocketConnectionState';
 import type { useWebSocketContext } from '@/contexts/WebSocketContext';
 import {
   resetStreaming,
@@ -75,6 +76,9 @@ export function usePlaybackTransport(deps: PlaybackTransportDeps) {
 
   const stopPlayback = useCallback(() => {
     pauseHoldRef.current = false;
+    // Stop is client-side only (no WS stop), so end the tracked stream here or
+    // a reconnect / enhancement toggle would start the track again (#5876).
+    endActiveStream();
     playbackEngineRef.current?.stopPlayback();
     dispatch(resetStreaming(streamType));
     cleanupStreaming();
