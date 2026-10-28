@@ -8,6 +8,7 @@ Recursive directory scanning and audio file discovery
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import errno
 import os
 import threading
 from pathlib import Path
@@ -169,13 +170,26 @@ class FileDiscovery:
         depth: int,
     ) -> Generator[str]:
         """Yield the audio paths under one scandir entry (recursing into
-        directories). Stat errors propagate to ``_walk_directory``'s handlers."""
+        directories). An entry that cannot be classified is skipped on its own
+        (#6116); errors from the recursion are handled by the nested walk."""
         entry_path = Path(entry.path)
 
-        if entry.is_dir(follow_symlinks=True):
+        try:
+            is_dir = entry.is_dir(follow_symlinks=True)
+            is_file = not is_dir and entry.is_file(follow_symlinks=True)
+        except OSError as e:
+            # DirEntry.is_dir/is_file swallow only FileNotFoundError; a looping
+            # or unreadable symlink raised here and aborted the whole directory
+            # walk, taking every later sibling and subdirectory with it.
+            warning(f"Skipping unreadable entry {entry_path}: {e.strerror or type(e).__name__}")
+            if e.errno != errno.ELOOP:  # a symlink loop holds no files, so nothing went unscanned
+                self._directory_error(entry_path, f"could not be read ({e.strerror or type(e).__name__})")
+            return
+
+        if is_dir:
             if self._claim_subdirectory(entry, entry_path, visited_inodes):
                 yield from self._walk_directory(entry_path, visited_inodes, depth + 1)
-        elif entry.is_file(follow_symlinks=True) and self._is_wanted_file(entry_path):
+        elif is_file and self._is_wanted_file(entry_path):
             yield str(entry_path)
 
     @staticmethod
