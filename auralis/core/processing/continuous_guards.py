@@ -57,6 +57,27 @@ def _quick_3band(audio: np.ndarray, sample_rate: int) -> tuple[float, float, flo
     return _compute_3band_energy(audio, sample_rate)
 
 
+def tilt_correction_db(bass_shift: float, high_shift: float) -> tuple[float, float]:
+    """Spectral-tilt correction for a dynamics-stage energy shift: ``(dB, gate)``.
+
+    The tilt is the DIFFERENCE of the two shifts: bass up or highs down both read
+    as "more bass-heavy", and a shift of both in the same direction (the mid band
+    changed) is no tilt at all. This used to pick whichever shift was larger by
+    ``abs()``, so near a tie the correction jumped between the two drivers' values
+    and flipped sign (#6121). A lone bass or high shift gives exactly the result it
+    always did. Positive dB boosts bass / cuts highs; capped at ±2 dB.
+    """
+    # Call-time import: cross_dimensional_guard pulls in stage_snapshot -> base,
+    # which import this module's package, so a module-level import is a cycle.
+    from .cross_dimensional_guard import smooth_gate
+
+    gate = smooth_gate(
+        max(abs(bass_shift), abs(high_shift)), TILT_SHIFT_KNEE_START, TILT_SHIFT_KNEE_END
+    )
+    tilt_db = max(-2.0, min(2.0, -(bass_shift - high_shift) * 10.0))
+    return tilt_db * gate, gate
+
+
 def _apply_spectral_tilt_correction(
     audio: np.ndarray, tilt_db: float, sample_rate: int
 ) -> np.ndarray:

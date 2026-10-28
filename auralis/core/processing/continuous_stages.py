@@ -39,10 +39,9 @@ from .continuous_guards import (
     PHASE_DROP_KNEE_START,
     PHASE_LEVEL_KNEE_END,
     PHASE_LEVEL_KNEE_START,
-    TILT_SHIFT_KNEE_END,
-    TILT_SHIFT_KNEE_START,
     _apply_spectral_tilt_correction,
     _quick_3band,
+    tilt_correction_db,
 )
 from .cross_dimensional_guard import (
     STAGE_DYNAMICS,
@@ -156,18 +155,12 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
             )
             bass_shift = post_dyn_bass - pre_dyn_snap.bass_energy_pct
             high_shift = post_dyn_high - pre_dyn_snap.high_energy_pct
-            dominant_shift = bass_shift if abs(bass_shift) >= abs(high_shift) else -high_shift
             # Two hard gates lived here: the 0.10 shift trigger and a second
             # `abs(tilt) > 0.3` cutoff, each its own discontinuity. The first
             # becomes a knee centred on 0.10; the second is replaced by
             # GUARD_EPSILON_DB, which only skips corrections small enough to be
             # numerically pointless rather than gating an audible one (#4860).
-            gate = smooth_gate(
-                max(abs(bass_shift), abs(high_shift)),
-                TILT_SHIFT_KNEE_START,
-                TILT_SHIFT_KNEE_END,
-            )
-            tilt_correction = max(-2.0, min(2.0, -dominant_shift * 10.0)) * gate
+            tilt_correction, gate = tilt_correction_db(bass_shift, high_shift)
             if abs(tilt_correction) > GUARD_EPSILON_DB:
                 processed_audio = _apply_spectral_tilt_correction(
                     processed_audio, tilt_correction, self.config.internal_sample_rate

@@ -31,8 +31,8 @@ import pytest
 from auralis.core.processing import continuous_guards as cm
 from auralis.core.processing.cross_dimensional_guard import smooth_gate
 
-# The correction formulas exactly as _stage_eq / _stage_dynamics /
-# _stage_stereo_width compute them.
+# The correction formulas as _stage_eq / _stage_stereo_width compute them;
+# the tilt correction is the stage's own function.
 
 
 def eq_correction(lufs_drift: float) -> float:
@@ -41,13 +41,8 @@ def eq_correction(lufs_drift: float) -> float:
 
 
 def tilt_correction(bass_shift: float, high_shift: float = 0.0) -> float:
-    dominant = bass_shift if abs(bass_shift) >= abs(high_shift) else -high_shift
-    gate = smooth_gate(
-        max(abs(bass_shift), abs(high_shift)),
-        cm.TILT_SHIFT_KNEE_START,
-        cm.TILT_SHIFT_KNEE_END,
-    )
-    return max(-2.0, min(2.0, -dominant * 10.0)) * gate
+    # The stage's own function, not a copy of its formula (#6121).
+    return cm.tilt_correction_db(bass_shift, high_shift)[0]
 
 
 def phase_blend(phase_drop: float, post_phase: float) -> float:
@@ -182,3 +177,38 @@ class TestKneesBracketTheOldThresholds:
         # These exist to skip pointless work, not to gate audible corrections.
         assert cm.GUARD_EPSILON_DB <= 0.01
         assert cm.GUARD_EPSILON_BLEND <= 0.001
+
+
+class TestTiltDriverContinuity6121:
+    """The tilt used to follow whichever shift was larger by abs(), so across a
+    tie the correction jumped between the two drivers and flipped sign."""
+
+    def test_no_jump_when_bass_and_high_shifts_cross_a_tie(self):
+        # high moves 0.20 in the SAME direction as bass (mid band dropped); sweep
+        # bass through the tie at 0.20.
+        below = tilt_correction(0.199, 0.20)
+        above = tilt_correction(0.201, 0.20)
+        assert abs(above - below) < 0.05
+
+    def test_shifts_in_the_same_direction_are_no_tilt(self):
+        assert tilt_correction(0.20, 0.20) == pytest.approx(0.0)
+        assert tilt_correction(-0.15, -0.15) == pytest.approx(0.0)
+
+    def test_a_lone_shift_is_unchanged_from_the_old_behaviour(self):
+        assert tilt_correction(0.12, 0.0) == pytest.approx(-1.2 * smooth_gate(0.12, cm.TILT_SHIFT_KNEE_START, cm.TILT_SHIFT_KNEE_END))
+        assert tilt_correction(0.0, 0.12) == pytest.approx(+1.2 * smooth_gate(0.12, cm.TILT_SHIFT_KNEE_START, cm.TILT_SHIFT_KNEE_END))
+
+    def test_opposite_shifts_add_up_as_a_real_tilt(self):
+        # bass up and highs down: a genuine tilt, stronger than either alone.
+        assert tilt_correction(0.10, -0.10) < tilt_correction(0.10, 0.0) <= 0.0
+
+    def test_cap_is_still_2db(self):
+        assert tilt_correction(0.5, -0.5) == pytest.approx(-2.0)
+        assert tilt_correction(-0.5, 0.5) == pytest.approx(2.0)
+
+    def test_correction_is_continuous_in_both_arguments(self):
+        for high in (-0.3, -0.1, 0.0, 0.1, 0.3):
+            assert max_adjacent_jump(lambda b, h=high: tilt_correction(b, h), -0.4, 0.4) < self.MAX_ALLOWED_JUMP
+
+    MAX_ALLOWED_JUMP = 0.15
+
