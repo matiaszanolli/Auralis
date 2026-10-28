@@ -153,7 +153,7 @@ async def test_fit_endpoint_refits_when_library_outgrew_the_fit():
         get_similarity_system=lambda: similarity,
     )
 
-    similarity.fit.assert_called_once_with()
+    similarity.fit.assert_called_once_with(10)  # min_samples is forwarded (#5889)
     assert result["fitted"] is True
 
 
@@ -185,3 +185,34 @@ async def test_fit_endpoint_counts_current_rows_only():
     )
 
     repos.fingerprints.get_count.assert_called_with(True)
+
+
+async def test_fit_endpoint_forwards_the_callers_min_samples():
+    """#5889: the engine's own default is 10, so a caller's 5 used to be raised."""
+    similarity = MagicMock()
+    similarity.is_fitted.return_value = False
+
+    await fit_similarity_system(
+        min_samples=5,
+        get_repository_factory=lambda: _repos(),
+        get_similarity_system=lambda: similarity,
+    )
+
+    similarity.fit.assert_called_once_with(5)
+
+
+async def test_fit_endpoint_does_not_report_success_when_fit_declines():
+    from fastapi import HTTPException
+
+    similarity = MagicMock()
+    similarity.is_fitted.return_value = False
+    similarity.fit.return_value = False  # the engine declined or failed
+
+    with pytest.raises(HTTPException) as excinfo:
+        await fit_similarity_system(
+            min_samples=10,
+            get_repository_factory=lambda: _repos(),
+            get_similarity_system=lambda: similarity,
+        )
+
+    assert excinfo.value.status_code == 503

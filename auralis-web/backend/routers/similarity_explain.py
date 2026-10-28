@@ -12,7 +12,7 @@ from typing import Annotated, Any
 import asyncio
 
 from . import dependencies
-from .errors import BadRequestError, NotFoundError
+from .errors import BadRequestError, NotFoundError, ServiceUnavailableError
 from .similarity_common import _with_similarity_error_handling, require_fingerprinted_tracks, require_fitted, require_similarity_system
 from .similarity_deps import _get_repository_factory_getter, _get_similarity_system_getter, _repository_factory_getter, _similarity_system_getter
 from .similarity_models import EXPLAINABLE_DIMENSIONS, SimilarityExplanation
@@ -121,7 +121,12 @@ async def fit_similarity_system(
 
     # Fit the similarity system — CPU-bound O(N²); offload to thread
     # so the event loop stays responsive (fixes #2738).
-    await asyncio.to_thread(similarity.fit)
+    # min_samples is forwarded (the engine's own default is 10, so a caller's 5 was
+    # silently raised), and fit()'s result is honoured: it returns False when it
+    # declines or fails, which used to be reported as a success (#5889).
+    fitted = await asyncio.to_thread(similarity.fit, min_samples)
+    if not fitted:
+        raise ServiceUnavailableError("Similarity system could not be fitted from the library fingerprints")
 
     return {
         "fitted": True,

@@ -558,6 +558,6 @@ class TestBlockingCallsOffloaded:
 
             await handler(min_samples=10)
 
-            mock_to_thread.assert_any_call(mock_similarity.fit)
+            mock_to_thread.assert_any_call(mock_similarity.fit, 10)  # min_samples forwarded (#5889)
 
 
