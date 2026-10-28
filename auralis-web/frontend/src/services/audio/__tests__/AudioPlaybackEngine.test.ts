@@ -128,6 +128,71 @@ describe('AudioPlaybackEngine', () => {
     expect(gainNode.gain.value).toBeCloseTo(0.42);
   });
 
+  describe('startPlayback re-entrancy and teardown (#6043)', () => {
+    /** A context whose resume() the test releases, to hold startPlayback inside its await. */
+    function suspendedContext() {
+      const made = createMockAudioContext();
+      let release!: () => void;
+      made.ctx.state = 'suspended';
+      made.ctx.resume = vi.fn(() => new Promise<void>((resolve) => { release = () => resolve(); }));
+      return { ...made, release: () => release() };
+    }
+
+    it('chunks landing during the resume share one start attempt', async () => {
+      const { ctx, release } = suspendedContext();
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(10));
+
+      const first = engine.startPlayback();
+      const second = engine.startPlayback();
+      const third = engine.startPlayback();
+      release();
+      await Promise.all([first, second, third]);
+
+      expect(ctx.resume).toHaveBeenCalledOnce();
+      expect(ctx.createScriptProcessor).toHaveBeenCalledOnce();
+      expect(engine.isPlaying()).toBe(true);
+    });
+
+    it('a stop inside the window is not overtaken by the pending start', async () => {
+      const { ctx, release } = suspendedContext();
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(10));
+
+      const start = engine.startPlayback();
+      engine.stopPlayback();
+      release();
+      await start;
+
+      expect(ctx.createScriptProcessor).not.toHaveBeenCalled();
+      expect(engine.isPlaying()).toBe(false);
+    });
+
+    it('a dispose inside the window creates no processor on the disposed engine', async () => {
+      const { ctx, release } = suspendedContext();
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(10));
+
+      const start = engine.startPlayback();
+      engine.dispose();
+      release();
+      await start;
+
+      expect(ctx.createScriptProcessor).not.toHaveBeenCalled();
+    });
+
+    it('an engine can start again after a cancelled attempt', async () => {
+      const { ctx, release } = suspendedContext();
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(10));
+      const cancelled = engine.startPlayback();
+      engine.stopPlayback();
+      release();
+      await cancelled;
+      ctx.state = 'running';
+
+      await engine.startPlayback();
+
+      expect(engine.isPlaying()).toBe(true);
+    });
+  });
+
   describe('startPlayback', () => {
     it('sets error state and fires the underrun callback when the buffer has too few samples', async () => {
       const { ctx } = createMockAudioContext();

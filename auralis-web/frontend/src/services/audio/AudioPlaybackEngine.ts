@@ -41,6 +41,9 @@ export class AudioPlaybackEngine {
   private bufferScheduler: BufferScheduler;
   private positionTracker: PlaybackPositionTracker;
   private volume: number = 1.0;
+  // startPlayback() awaits a context resume and a worklet load; see startPlayback (#6043).
+  private startAttempt = 0;
+  private starting: Promise<void> | null = null;
 
   // Callbacks
   private onBufferUnderrun: () => void = () => {};
@@ -74,24 +77,23 @@ export class AudioPlaybackEngine {
     console.log('[AudioPlaybackEngine] Audio chain connected with visualization analyser');
   }
 
-  /**
-   * Expose the engine-level minimum buffer threshold so callers can align their
-   * own pre-checks with the gate enforced inside startPlayback() (#2478).
-   */
+  /** The minimum-buffer gate startPlayback() enforces, so callers can pre-check it (#2478). */
   getMinBufferSamples(): number {
     return this.bufferScheduler.getMinBufferSamples();
   }
 
   /**
-   * Start playback from buffer
-   * Requires sufficient samples in buffer (minBufferSamples)
-   * Note: This is now async to properly handle AudioContext resume
+   * Start playback from buffer (needs minBufferSamples). Async: it awaits an AudioContext resume
+   * and the worklet load. Chunks landing inside that window each ask to start, so they share one
+   * attempt; a stop/dispose inside it cancels the attempt instead of being overtaken by it (#6043).
    */
-  async startPlayback(): Promise<void> {
-    if (this.positionTracker.isPlaying()) {
-      return; // Already playing
-    }
+  startPlayback(): Promise<void> {
+    if (this.positionTracker.isPlaying()) return Promise.resolve();
+    this.starting ??= this.start(this.startAttempt).finally(() => { this.starting = null; });
+    return this.starting;
+  }
 
+  private async start(attempt: number): Promise<void> {
     const availableSamples = this.buffer.getAvailableSamples();
     const minBufferSamples = this.bufferScheduler.getMinBufferSamples();
     // A finished stream can never refill the buffer, so what it delivered is all there will be:
@@ -114,6 +116,7 @@ export class AudioPlaybackEngine {
         try {
           await this.audioContext.resume();
           console.log('[AudioPlaybackEngine] AudioContext resumed successfully');
+          if (attempt !== this.startAttempt) return;
         } catch (err) {
           console.error('[AudioPlaybackEngine] Failed to resume AudioContext:', err);
           this.positionTracker.setState('error');
@@ -123,6 +126,7 @@ export class AudioPlaybackEngine {
 
       // Try AudioWorklet (off-main-thread), fall back to ScriptProcessorNode
       await this.bufferScheduler.ensureReady();
+      if (attempt !== this.startAttempt) return; // stopped or disposed while the worklet loaded
       this.bufferScheduler.createProcessor();
 
       // Record timing
@@ -195,6 +199,7 @@ export class AudioPlaybackEngine {
 
   /** Stop playback completely */
   stopPlayback(): void {
+    this.startAttempt += 1;
     this.bufferScheduler.disconnectProcessor();
     this.bufferScheduler.resetStreamEnded();
 
@@ -213,6 +218,7 @@ export class AudioPlaybackEngine {
    * Idempotent; safe after the context has closed.
    */
   dispose(): void {
+    this.startAttempt += 1;
     this.bufferScheduler.disconnectProcessor();
     try {
       this.gainNode.disconnect();
@@ -221,33 +227,24 @@ export class AudioPlaybackEngine {
     }
   }
 
-  /**
-   * Set playback volume (0.0 - 1.0)
-   */
+  /** Set playback volume (0.0 - 1.0) */
   setVolume(volume: number): void {
     const clipped = Math.max(0, Math.min(1, volume));
     this.volume = clipped;
     this.gainNode.gain.value = clipped;
   }
 
-  /**
-   * Set a seek offset so the reported playback position starts from the seek
-   * point rather than 0:00 (fixes #2259).  Call before startPlayback().
-   */
+  /** Report playback position from the seek point, not 0:00 (#2259). Call before startPlayback(). */
   setSeekOffset(offsetSeconds: number): void {
     this.positionTracker.setSeekOffset(offsetSeconds);
   }
 
-  /**
-   * Get current playback time in seconds
-   */
+  /** Get current playback time in seconds */
   getCurrentPlaybackTime(): number {
     return this.positionTracker.getCurrentPlaybackTime(this.buffer.getMetadata().sampleRate);
   }
 
-  /**
-   * Get playback statistics
-   */
+  /** Get playback statistics */
   getStats(): PlaybackStats {
     return {
       isPlaying: this.positionTracker.isPlaying(),
