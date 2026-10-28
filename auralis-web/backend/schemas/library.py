@@ -134,13 +134,17 @@ class TrackResponse(BaseModel):
     updated_at: str | None = Field(default=None, description="Row update timestamp (ISO 8601)")
 
 
-class TrackListResponse(BaseModel):
+class PaginatedResponse(BaseModel):
+    """The paging envelope shared by every list endpoint (#5499); a subclass adds its items list."""
+    total: int = Field(description="Total matching items in the library")
+    limit: int = Field(description="Requested page size")
+    offset: int = Field(description="Number of items skipped")
+    has_more: bool = Field(description="True when further pages exist")
+
+
+class TrackListResponse(PaginatedResponse):
     """Paginated track listing."""
     tracks: list[TrackResponse] = Field(default_factory=list, description="Tracks in this page")
-    total: int = Field(description="Total matching tracks in the library")
-    limit: int = Field(description="Requested page size")
-    offset: int = Field(description="Number of tracks skipped")
-    has_more: bool = Field(description="True when further pages exist")
 
 
 class AlbumResponse(BaseModel):
@@ -166,13 +170,9 @@ class AlbumResponse(BaseModel):
     updated_at: str | None = Field(default=None, description="Row update timestamp (ISO 8601)")
 
 
-class AlbumListResponse(BaseModel):
+class AlbumListResponse(PaginatedResponse):
     """Paginated album listing."""
     albums: list[AlbumResponse] = Field(default_factory=list, description="Albums in this page")
-    total: int = Field(description="Total matching albums in the library")
-    limit: int = Field(description="Requested page size")
-    offset: int = Field(description="Number of albums skipped")
-    has_more: bool = Field(description="True when further pages exist")
 
 
 class PlaylistResponse(BaseModel):

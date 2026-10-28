@@ -6,6 +6,7 @@ Artists router response bodies (split from artists.py, #5831).
 """
 
 from pydantic import BaseModel
+from schemas.library import PaginatedResponse
 
 
 # Response models
@@ -33,13 +34,9 @@ class ArtistResponse(BaseModel):
     updated_at: str | None = None
 
 
-class ArtistsListResponse(BaseModel):
+class ArtistsListResponse(PaginatedResponse):
     """Paginated artists list response"""
     artists: list[ArtistResponse]
-    total: int
-    offset: int
-    limit: int
-    has_more: bool
 
 
 class TrackInArtist(BaseModel):
