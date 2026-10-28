@@ -128,60 +128,49 @@ describe('BufferingIndicator', () => {
   });
 
   describe('Accessibility', () => {
-    it('should have status role and aria-live', () => {
-      render(
-        <BufferingIndicator
-          bufferedPercentage={50}
-          isBuffering={false}
-        />
-      );
+    it('keeps the live region on the transitions only, not on the whole indicator (#6071)', () => {
+      render(<BufferingIndicator bufferedPercentage={50} isBuffering={false} />);
 
       const indicator = screen.getByTestId('buffering-indicator');
-      expect(indicator).toHaveAttribute('role', 'status');
-      expect(indicator).toHaveAttribute('aria-live', 'polite');
+      expect(indicator).not.toHaveAttribute('role');
+      expect(indicator).not.toHaveAttribute('aria-live');
+      const region = screen.getByTestId('buffering-live-region');
+      expect(region).toHaveAttribute('role', 'status');
+      expect(region).toHaveAttribute('aria-live', 'polite');
+      expect(region).not.toHaveTextContent('%'); // idle: nothing to announce
     });
 
-    it('should have descriptive aria-label for percentage', () => {
-      render(
-        <BufferingIndicator
-          bufferedPercentage={75}
-          isBuffering={false}
-        />
-      );
+    it('a new percentage changes the progressbar value, never the live text (#6071)', () => {
+      const { rerender } = render(<BufferingIndicator bufferedPercentage={25} isBuffering={true} />);
+      const textBefore = screen.getByTestId('buffering-live-region').textContent;
 
-      expect(screen.getByTestId('buffering-indicator')).toHaveAttribute(
-        'aria-label',
-        expect.stringContaining('75%')
-      );
+      rerender(<BufferingIndicator bufferedPercentage={80} isBuffering={true} />);
+
+      expect(screen.getByTestId('buffering-live-region').textContent).toBe(textBefore);
+      const bar = screen.getByRole('progressbar');
+      expect(bar).toHaveAttribute('aria-valuenow', '80');
+      expect(bar).toHaveAttribute('aria-valuetext', '80%');
+      expect(bar).toHaveAttribute('aria-label', 'Buffered content');
     });
 
-    it('should have aria-label for buffering state', () => {
-      render(
-        <BufferingIndicator
-          bufferedPercentage={25}
-          isBuffering={true}
-        />
-      );
-
-      expect(screen.getByTestId('buffering-indicator')).toHaveAttribute(
-        'aria-label',
-        expect.stringContaining('Buffering')
-      );
+    it('hides the visual percentage from assistive tech', () => {
+      render(<BufferingIndicator bufferedPercentage={75} isBuffering={false} />);
+      expect(screen.getByTestId('buffered-percentage')).toHaveAttribute('aria-hidden', 'true');
     });
 
-    it('should support custom aria-label', () => {
-      render(
-        <BufferingIndicator
-          bufferedPercentage={50}
-          isBuffering={false}
-          ariaLabel="Custom label"
-        />
-      );
+    it('announces buffering and error through the live region', () => {
+      const { rerender } = render(<BufferingIndicator bufferedPercentage={25} isBuffering={true} />);
+      expect(screen.getByTestId('buffering-live-region')).toHaveTextContent('Buffering');
 
-      expect(screen.getByTestId('buffering-indicator')).toHaveAttribute(
-        'aria-label',
-        'Custom label'
+      rerender(
+        <BufferingIndicator bufferedPercentage={25} isBuffering={false} isError={true} errorMessage="Stream failed" />
       );
+      expect(screen.getByTestId('buffering-live-region')).toHaveTextContent('Stream failed');
+    });
+
+    it('should support custom aria-label on the progressbar', () => {
+      render(<BufferingIndicator bufferedPercentage={50} isBuffering={false} ariaLabel="Custom label" />);
+      expect(screen.getByRole('progressbar')).toHaveAttribute('aria-label', 'Custom label');
     });
   });
 

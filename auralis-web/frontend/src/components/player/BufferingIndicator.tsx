@@ -91,30 +91,15 @@ const BufferingIndicatorComponent = ({
     return `Buffered: ${percentageStr}`;
   }, [isError, isBuffering, errorMessage, percentageStr]);
 
-  // Aria label
-  const finalAriaLabel = useMemo(() => {
-    if (ariaLabel) {
-      return ariaLabel;
-    }
-
-    if (isError) {
-      return errorMessage || 'Playback error';
-    }
-
-    if (isBuffering) {
-      return 'Buffering content, please wait';
-    }
-
-    return `${percentageStr} of content buffered`;
-  }, [ariaLabel, isError, isBuffering, errorMessage, percentageStr]);
+  // The bar's accessible name. The value is aria-valuetext's job, and the
+  // buffering/error transitions are the live region's: a name that embedded the
+  // percentage, on a live root, was re-announced on every processed chunk (#6071).
+  const finalAriaLabel = ariaLabel || 'Buffered content';
 
   return (
     <div
       className={className}
       data-testid="buffering-indicator"
-      role="status"
-      aria-label={finalAriaLabel}
-      aria-live="polite"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -130,6 +115,12 @@ const BufferingIndicatorComponent = ({
         }}
       >
         <div
+          role="progressbar"
+          aria-label={finalAriaLabel}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(clampedPercentage)}
+          aria-valuetext={percentageStr}
           style={{
             flex: 1,
             height: '4px',
@@ -150,8 +141,9 @@ const BufferingIndicatorComponent = ({
           />
         </div>
 
-        {/* Percentage label */}
+        {/* Percentage label: visual duplicate of the progressbar's value */}
         <span
+          aria-hidden="true"
           style={{
             minWidth: '35px',
             textAlign: 'right',
@@ -165,35 +157,39 @@ const BufferingIndicatorComponent = ({
         </span>
       </div>
 
-      {/* Buffering spinner or error message */}
-      {(isBuffering || isError) && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: tokens.spacing.xs,
-            fontSize: tokens.typography.fontSize.xs,
-            color: isError ? themeVars.error : themeVars.textSecondary,
-          }}
-          data-testid="buffering-status"
-        >
-          {isBuffering && !isError && (
-            <div
-              style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                border: `2px solid ${themeVars.accent}`,
-                borderTopColor: themeVars.accentHover,
-                animation: 'spin 1s linear infinite',
-              }}
-              data-testid="buffering-spinner"
-            />
-          )}
+      {/* Buffering spinner or error message. The live region is always mounted
+          (a region added together with its content is often not announced) and
+          holds only the transitions worth announcing. */}
+      <div role="status" aria-live="polite" data-testid="buffering-live-region">
+        {(isBuffering || isError) && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: tokens.spacing.xs,
+              fontSize: tokens.typography.fontSize.xs,
+              color: isError ? themeVars.error : themeVars.textSecondary,
+            }}
+            data-testid="buffering-status"
+          >
+            {isBuffering && !isError && (
+              <div
+                style={{
+                  width: '12px',
+                  height: '12px',
+                  borderRadius: '50%',
+                  border: `2px solid ${themeVars.accent}`,
+                  borderTopColor: themeVars.accentHover,
+                  animation: 'spin 1s linear infinite',
+                }}
+                data-testid="buffering-spinner"
+              />
+            )}
 
-          <span>{statusText}</span>
-        </div>
-      )}
+            <span>{statusText}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
