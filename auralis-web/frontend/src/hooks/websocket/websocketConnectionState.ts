@@ -73,6 +73,14 @@ export interface ConnectionState {
   seqStreamEpoch: number | null;
 }
 
+/**
+ * Re-issued stream commands queued while disconnected whose start_position is only a placeholder
+ * (#6044). The player keeps playing buffered audio during an outage, so the position read when the
+ * command was queued lags the real one by the outage length; replay re-reads it. An explicit
+ * recovery position (#4655) is deliberately not registered here.
+ */
+export const positionRefreshedOnReplay = new WeakSet<object>();
+
 export const connState: ConnectionState = {
   manager: null,
   url: null,

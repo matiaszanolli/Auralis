@@ -13,6 +13,7 @@
 import type { WebSocketManager } from '@/utils/errorHandling';
 import {
   connState,
+  positionRefreshedOnReplay,
   resetStreamFrameTracking,
   type OutgoingWebSocketMessage,
 } from './websocketConnectionState';
@@ -41,7 +42,11 @@ export function replayQueueAndResume(
   // stale play after reconnect (#3345).
   let queueHadStreamCommand = false;
   while (queue.length > 0) {
-    const message = queue.shift();
+    let message = queue.shift();
+    if (message && positionRefreshedOnReplay.has(message)) {
+      const resumePos = connState.resumeGetters[message.type]?.() ?? 0;
+      message = { ...message, data: { ...(message.data ?? {}), start_position: resumePos } };
+    }
     if (message?.type === 'play_enhanced' || message?.type === 'play_normal') {
       connState.lastStreamCommand = message;
       connState.streamActive = true;

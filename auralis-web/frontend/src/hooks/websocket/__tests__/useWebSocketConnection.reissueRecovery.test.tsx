@@ -106,4 +106,40 @@ describe('useWebSocketConnection.reissueActiveStreamAs — startPositionOverride
     const payload = JSON.parse(mgr.send.mock.calls[0][0]);
     expect(payload.data.start_position).toBe(0);
   });
+
+  // #6044: queued while the socket is down, the position must be re-read at replay.
+  it('queues a disconnected re-issue whose position is refreshed when the queue replays', async () => {
+    const { mgr, result } = await connectWithActiveStream();
+    mgr.isConnected.mockReturnValue(false);
+
+    act(() => {
+      result.current.reissueActiveStreamAs('play_enhanced');
+    });
+    expect(mgr.send).not.toHaveBeenCalled();
+
+    // The outage passes while the engine keeps playing buffered audio.
+    result.current.setResumePositionGetter('play_enhanced', () => 1234);
+    mgr.isConnected.mockReturnValue(true);
+    const { replayQueueAndResume } = await import('../websocketConnectionCore');
+    const queue = [connState.lastStreamCommand!];
+    replayQueueAndResume(mgr as never, queue);
+
+    const payload = JSON.parse(mgr.send.mock.calls[0][0]);
+    expect(payload.data.start_position).toBe(1234);
+  });
+
+  it('keeps an explicit recovery position when it was queued while disconnected', async () => {
+    const { mgr, result } = await connectWithActiveStream();
+    mgr.isConnected.mockReturnValue(false);
+
+    act(() => {
+      result.current.reissueActiveStreamAs('play_enhanced', {}, 42.5);
+    });
+    result.current.setResumePositionGetter('play_enhanced', () => 1234);
+    const { replayQueueAndResume } = await import('../websocketConnectionCore');
+    replayQueueAndResume(mgr as never, [connState.lastStreamCommand!]);
+
+    const payload = JSON.parse(mgr.send.mock.calls[0][0]);
+    expect(payload.data.start_position).toBe(42.5);
+  });
 });

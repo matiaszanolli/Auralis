@@ -13,6 +13,7 @@ import { useCallback, type MutableRefObject } from 'react';
 import type { WebSocketManager } from '@/utils/errorHandling';
 import {
   connState,
+  positionRefreshedOnReplay,
   type OutgoingWebSocketMessage,
 } from '@/hooks/websocket/websocketConnectionCore';
 
@@ -118,6 +119,7 @@ export function useOutgoingChannel(
         // most-recent config; update the tracked command so we don't
         // double-send on reconnect.
         connState.lastStreamCommand = next;
+        if (startPositionOverride === undefined) positionRefreshedOnReplay.add(next);
         messageQueueRef.current.push(next);
       }
       return true;
