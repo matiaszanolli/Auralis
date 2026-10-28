@@ -37,8 +37,8 @@ interface AlbumTracksResponse {
   album_id: number;
   album_title: string;
   artist: string | null; // null when the album has no artist (#5905)
-  year?: number;
-  genre?: string;
+  year?: number | null;
+  genre?: string | null;
   total_tracks: number;
   tracks?: TrackApiResponse[];
 }
@@ -88,11 +88,11 @@ export const useAlbumDetails = (albumId: number) => {
           title: data.album_title,
           artist: data.artist ?? UNKNOWN_ARTIST_LABEL,
           artist_name: data.artist ?? UNKNOWN_ARTIST_LABEL,
-          year: data.year,
+          year: data.year ?? undefined,
           // #5170: genre is derived server-side (modal genre across the
           // album's tracks — Album has no genre column). Without this line
           // AlbumMetadata's "Genre:" row was unreachable.
-          genre: data.genre,
+          genre: data.genre ?? undefined,
           track_count: data.total_tracks,
           total_duration: tracks.reduce((sum, t) => sum + (t.duration || 0), 0),
           tracks,

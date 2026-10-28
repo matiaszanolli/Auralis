@@ -79,6 +79,20 @@ describe('useAlbumDetails', () => {
     return result;
   };
 
+  // #6049: the backend sends null (not an absent key) for an album with no year or genre.
+  it('treats a null year and genre from the wire as absent', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...ALBUM_TRACKS_RESPONSE, year: null, genre: null }),
+    }) as unknown as typeof fetch;
+
+    const result = await load();
+
+    expect(result.current.album?.year).toBeUndefined();
+    expect(result.current.album?.genre).toBeUndefined();
+    expect(result.current.album?.title).toBe('Reign in Blood');
+  });
+
   // #5118: the backend exposes favorites as POST (set true) / DELETE (set
   // false), with no toggle semantic. The hook used to always POST and then
   // negate a local boolean that started `false` unconditionally — so the heart

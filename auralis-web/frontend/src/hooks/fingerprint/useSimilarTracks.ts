@@ -39,10 +39,10 @@ interface RawSimilarTrack {
   track_id: number;
   distance: number;
   similarity_score: number;
-  rank: number;
-  title: string;
-  artist: string;
-  album: string;
+  rank: number | null;
+  title: string | null;
+  artist: string | null;
+  album: string | null;
 }
 
 /**
@@ -205,10 +205,12 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
           trackId: item.track_id,
           distance: item.distance,
           similarityScore: item.similarity_score,
-          rank: item.rank,
-          title: item.title,
-          artist: item.artist,
-          album: item.album,
+          // The wire carries null for a detail the backend did not include; the domain type
+          // models that as absent (#6049).
+          rank: item.rank ?? undefined,
+          title: item.title ?? undefined,
+          artist: item.artist ?? undefined,
+          album: item.album ?? undefined,
         }));
 
         // Check if this is still the current request (prevent race condition)

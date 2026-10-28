@@ -72,6 +72,24 @@ describe('useSimilarTracks', () => {
     expect(result.current.loading).toBe(false);
   });
 
+  // #6049: details the backend left out arrive as null, and the domain type models absent.
+  it('maps null rank/title/artist/album from the wire to undefined', async () => {
+    mockFetchResponse([
+      { track_id: 9, distance: 0.2, similarity_score: 0.8, rank: null, title: null, artist: null, album: null },
+    ]);
+    const { result } = renderHook(() => useSimilarTracks());
+
+    let tracks: any;
+    await act(async () => {
+      tracks = await result.current.findSimilar(4242); // an id no other spec cached results for
+    });
+
+    expect(tracks[0]).toEqual({
+      trackId: 9, distance: 0.2, similarityScore: 0.8,
+      rank: undefined, title: undefined, artist: undefined, album: undefined,
+    });
+  });
+
   it('should return cached results on second call with same params', async () => {
     mockFetchResponse(mockSimilarResponse);
 
