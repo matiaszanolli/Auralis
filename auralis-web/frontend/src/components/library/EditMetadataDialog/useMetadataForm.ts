@@ -59,6 +59,12 @@ export const useMetadataForm = (
   // setSuccess/setSaving/setError on a dead hook (and a reopened dialog can't
   // race a stale save). Mirrors the GET path's controller (#3601).
   const saveAbortRef = useRef<AbortController | null>(null);
+
+  // What the server returned, so save can tell an untouched field from an edited
+  // one. year and bpm arrive as raw tag text ("2020-05-01", "128.5") but the PUT
+  // contract only carries integers, so re-sending an untouched one rewrote the
+  // tag in the audio file as "2020" / "128" on every save (#5953).
+  const loadedRef = useRef<MetadataFields>({});
   useEffect(() => () => saveAbortRef.current?.abort(), []);
 
   // #3601: AbortController on metadata fetch so unmount cancels the request
@@ -68,6 +74,7 @@ export const useMetadataForm = (
   useEffect(() => {
     if (!trackId) return;
     if (initialMetadata) {
+      loadedRef.current = initialMetadata;
       setMetadata(initialMetadata);
       return;
     }
@@ -92,7 +99,9 @@ export const useMetadataForm = (
         ) {
           throw new Error('Invalid metadata response from server');
         }
-        setMetadata((data as { metadata: MetadataFields }).metadata || {});
+        const loaded = (data as { metadata: MetadataFields }).metadata || {};
+        loadedRef.current = loaded;
+        setMetadata(loaded);
       } catch (err) {
         // get() wraps a caller-triggered abort into an APIRequestError rather
         // than preserving AbortError's `.name`, so check the signal too.
@@ -131,6 +140,16 @@ export const useMetadataForm = (
         if (value !== undefined && value !== '') {
           // Convert numeric fields
           if (['year', 'track', 'disc', 'bpm'].includes(key)) {
+            // An untouched year/bpm the integer contract cannot carry (a full
+            // date, a fractional BPM) stays as it is in the file (#5953).
+            const original = loadedRef.current[key as keyof MetadataFields];
+            if (
+              (key === 'year' || key === 'bpm') &&
+              String(value) === String(original ?? '') &&
+              !/^\d+$/.test(String(value).trim())
+            ) {
+              return;
+            }
             const num = parseInt(String(value), 10);
             if (!isNaN(num)) {
               (updates as Record<string, any>)[key] = num;

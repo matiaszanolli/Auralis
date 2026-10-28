@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { render } from '@/test/test-utils';
+import { themeVars } from '@/theme/semanticTheme';
 import { MediaCardOverlay } from '../MediaCardOverlay';
 
 describe('MediaCardOverlay visibility', () => {
@@ -53,8 +54,9 @@ describe('MediaCardOverlay badge contrast (#6020)', () => {
 
     const badge = screen.getByText('12 tracks');
 
-    expect(badge).toHaveStyle({ color: '#FFFFFF' });
-    expect(badge.style.color + getComputedStyle(badge).color).not.toContain('var(--app-text-primary)');
+    // onAccent is white in both palettes; textPrimary is dark navy in light mode.
+    expect(getComputedStyle(badge).color).toBe(themeVars.onAccent);
+    expect(getComputedStyle(badge).color).not.toContain('--app-text-primary');
   });
 });
 

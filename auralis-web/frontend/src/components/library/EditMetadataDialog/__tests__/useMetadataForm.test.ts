@@ -146,3 +146,47 @@ describe('useMetadataForm.saveMetadata (#4175)', () => {
     expect(result.current.success).toBe(false);
   });
 });
+
+describe('useMetadataForm.saveMetadata year/bpm round trip (#5953)', () => {
+  const sentBody = () => JSON.parse(mockFetch.mock.calls.find(([, init]) => init?.method === 'PUT')![1].body);
+
+  it('does not rewrite an untouched full-date year or fractional bpm as integers', async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+    const loaded = { title: 'Song', year: '2020-05-01', bpm: '128.5' };
+
+    const { result } = renderHook(() => useMetadataForm(1, loaded as never));
+    await act(async () => {
+      await result.current.saveMetadata();
+    });
+
+    expect(sentBody()).toEqual({ title: 'Song' });
+  });
+
+  it('sends year and bpm once the user edits them', async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+    const loaded = { title: 'Song', year: '2020-05-01', bpm: '128.5' };
+
+    const { result } = renderHook(() => useMetadataForm(1, loaded as never));
+    act(() => {
+      result.current.updateField('year', '1999');
+      result.current.updateField('bpm', '140');
+    });
+    await act(async () => {
+      await result.current.saveMetadata();
+    });
+
+    expect(sentBody()).toEqual({ title: 'Song', year: 1999, bpm: 140 });
+  });
+
+  it('still sends plain integer year and bpm unchanged', async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+    const loaded = { title: 'Song', year: '2020', bpm: '128' };
+
+    const { result } = renderHook(() => useMetadataForm(1, loaded as never));
+    await act(async () => {
+      await result.current.saveMetadata();
+    });
+
+    expect(sentBody()).toEqual({ title: 'Song', year: 2020, bpm: 128 });
+  });
+});

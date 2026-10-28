@@ -111,7 +111,7 @@ export const MediaCardOverlay = ({
             backdropFilter: 'blur(8px)',
             // Fixed ink for the fixed dark fill (#6020): the badge sits on arbitrary
             // artwork, and theme-aware ink turned dark-on-dark in light mode.
-            color: tokens.colors.text.primaryFull,
+            color: themeVars.onAccent,
             fontSize: tokens.typography.fontSize.xs,
             fontWeight: tokens.typography.fontWeight.medium,
           }}
