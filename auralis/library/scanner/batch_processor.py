@@ -196,12 +196,20 @@ class BatchProcessor:
                 if track:
                     return 'updated', track, None
                 return 'failed', None, 'Database update failed'
-            else:
-                # Add new track
-                track = tracks_repo.add(track_info)
-                if track:
-                    return 'added', track, None
-                return 'failed', None, 'Database insert failed'
+            if skip_existing:
+                # A path new to the library may be a moved/renamed file: keep
+                # that row (id, playlists, favorite, play count, fingerprint)
+                # instead of adding a twin the post-scan prune then orphans (#5880).
+                moved = tracks_repo.relocate_missing_track(
+                    file_path, track_info.get('filesize'), track_info.get('duration')
+                )
+                if moved:
+                    return 'updated', tracks_repo.update_by_filepath(file_path, track_info) or moved, None
+            # Add new track
+            track = tracks_repo.add(track_info)
+            if track:
+                return 'added', track, None
+            return 'failed', None, 'Database insert failed'
 
         except Exception as e:
             # #4841: warning, not debug. This is the more common of the two

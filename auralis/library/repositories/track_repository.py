@@ -4,12 +4,13 @@ Track Repository
 
 Data access layer for track operations.
 
-``TrackRepository`` is a thin facade over five per-concern mixins, split out
+``TrackRepository`` is a thin facade over six per-concern mixins, split out
 of a single 1082-line module (#4511) the same way ``AudioPlayer`` composes
 its ``player_*_mixin.py`` modules:
 
 - ``track_repository_lifecycle.py``   — create/delete + artist/genre/album resolution
 - ``track_repository_mutation.py``    — field/metadata updates on an existing track
+- ``track_repository_relocation.py``  — re-point a moved/renamed file's row (#5880)
 - ``track_repository_maintenance.py`` — play/favorite tracking, backfill, cleanup
 - ``track_repository_lookup.py``      — fetch by id/filepath, singly or batched
 - ``track_repository_search.py``      — free-text search, browsing, similarity
@@ -129,19 +130,21 @@ from .track_repository_lifecycle import TrackRepositoryLifecycleMixin  # noqa: E
 from .track_repository_lookup import TrackRepositoryLookupMixin  # noqa: E402
 from .track_repository_maintenance import TrackRepositoryMaintenanceMixin  # noqa: E402
 from .track_repository_mutation import TrackRepositoryMutationMixin  # noqa: E402
+from .track_repository_relocation import TrackRepositoryRelocationMixin  # noqa: E402
 from .track_repository_search import TrackRepositorySearchMixin  # noqa: E402
 
 
 class TrackRepository(
     TrackRepositoryLifecycleMixin,
     TrackRepositoryMutationMixin,
+    TrackRepositoryRelocationMixin,
     TrackRepositoryMaintenanceMixin,
     TrackRepositoryLookupMixin,
     TrackRepositorySearchMixin,
 ):
     """Repository for track database operations.
 
-    Public facade only — every method body lives in one of the five mixins
+    Public facade only — every method body lives in one of the six mixins
     listed in the module docstring, selected by the concern it serves.
     """
 

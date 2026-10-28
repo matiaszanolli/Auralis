@@ -73,6 +73,8 @@ class TestScanResultRecordsFailures:
 def _processor(*, extract_returns=None, extract_raises=None, add_returns=None):
     library_database = MagicMock()
     library_database.tracks.get_by_path.return_value = None
+    # A new path, and not a moved file either (#5880).
+    library_database.tracks.relocate_missing_track.return_value = None
     library_database.tracks.add.return_value = add_returns
 
     audio_analyzer = MagicMock()
