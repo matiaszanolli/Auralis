@@ -21,7 +21,7 @@
  * - useMediaCardState: Hover state management
  */
 
-import { MouseEvent, memo } from 'react';
+import { FocusEvent, MouseEvent, memo } from 'react';
 import { Box } from '@mui/material';
 import { Card } from '@/design-system';
 import { tokens } from '@/design-system';
@@ -123,6 +123,13 @@ export const MediaCard = memo(function MediaCard(props: MediaCardProps) {
     }
   };
 
+  // Keyboard and touch users never fire mouseenter: the same enter/leave callbacks run when focus
+  // moves into the card and when it leaves it entirely (#6074).
+  const handleFocus = () => props.onHoverEnter?.(props.id);
+  const handleBlur = (e: FocusEvent<HTMLElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) props.onHoverLeave?.();
+  };
+
   return (
     <Card
       sx={{
@@ -184,6 +191,8 @@ export const MediaCard = memo(function MediaCard(props: MediaCardProps) {
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
     >
       {/*
         The card is a plain container, not a role="button": it holds the play
