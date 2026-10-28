@@ -28,7 +28,7 @@ interface ScanStatusCardProps {
 }
 
 export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardProps) => {
-  const { isScanning, current, total, percentage, currentFile, phase, lastResult } = useScanProgress();
+  const { isScanning, current, total, percentage, currentFile, phase, lastResult, lastError } = useScanProgress();
 
   // --- No folders configured ---
   if (disabled) {
@@ -129,6 +129,12 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
       ) : (
         /* Idle state */
         <Box sx={{ p: tokens.spacing.md }}>
+          {/* #5877: a failed scan used to look like an ordinary idle state. */}
+          {lastError && (
+            <Typography role="alert" variant="body2" sx={{ color: tokens.colors.semantic.error, mb: 1 }}>
+              Last scan failed: {lastError}
+            </Typography>
+          )}
           {lastResult ? (
             <Box
               sx={{
@@ -157,6 +163,18 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
                 >
                   <Typography variant="body2" sx={{ color: tokens.colors.semantic.error }}>
                     {lastResult.filesFailed} failed
+                  </Typography>
+                </Tooltip>
+              )}
+              {/* #5877: files in these folders are in none of the counts. */}
+              {lastResult.unreadableFolders.length > 0 && (
+                <Tooltip
+                  title={describeFailures(lastResult.unreadableFolders, lastResult.unreadableFolders.length) || undefined}
+                  placement="bottom-start"
+                >
+                  <Typography variant="body2" sx={{ color: tokens.colors.semantic.error }}>
+                    {lastResult.unreadableFolders.length} folder
+                    {lastResult.unreadableFolders.length === 1 ? '' : 's'} unreadable
                   </Typography>
                 </Tooltip>
               )}

@@ -557,18 +557,25 @@ Broadcast during library scanning operations.
 ```
 
 #### `scan_complete`
-Broadcast when library scan finishes.
+Broadcast when library scan finishes. A scan that aborted on an unexpected
+error sends `library_scan_error` instead (#5877).
 
 **Trigger**: Scan completion
 
-**Payload**:
+**Payload** (`ScanCompletePayload` in `websocket/outbound/library.py`):
 ```typescript
 {
   "type": "scan_complete",
   "data": {
     "files_processed": number,
-    "tracks_added": number,
-    "duration": number  // Seconds
+    "files_added": number,
+    "files_updated": number,
+    "files_skipped": number,
+    "files_failed": number,
+    "failures": { "filename": string, "reason": string }[],          // capped
+    "directory_errors": { "filename": string, "reason": string }[],  // unreadable folders (#5877)
+    "duration": number,  // Seconds
+    "directories_scanned": number
   }
 }
 ```

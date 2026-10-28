@@ -14,6 +14,8 @@ interface ScanSummary {
   files_failed?: number;
   files_skipped?: number;
   failures?: ScanFailure[];
+  /** Folders the scan could not read (#5877). */
+  directory_errors?: ScanFailure[];
 }
 
 export interface UseLibraryScanOptions {
@@ -128,17 +130,23 @@ export const useLibraryScan = ({
       const added = result?.files_added || 0;
       const failed = result?.files_failed || 0;
       const skipped = result?.files_skipped || 0;
+      const unreadable = result?.directory_errors ?? [];
       const extras = [
         failed > 0 ? `${failed} failed` : null,
         skipped > 0 ? `${skipped} skipped` : null,
+        unreadable.length > 0 ? `${unreadable.length} folder${unreadable.length === 1 ? '' : 's'} unreadable` : null,
       ].filter(Boolean).join(', ');
       const summary = `Scan complete! Added ${added} tracks${extras ? ` (${extras})` : ''}`;
       // #4841: name the files that failed. "3 failed" told the user something
       // was wrong but gave them no way to find out what, short of reading
       // backend logs a desktop end user generally cannot see. The backend caps
       // the list, so it may be shorter than `failed`.
-      if (failed > 0) toastRef.current.toastError(`${summary}${describeFailures(result?.failures, failed)}`);
-      else toastRef.current.success(summary);
+      // #5877: an unreadable folder means tracks are missing, not "complete".
+      if (failed > 0 || unreadable.length > 0) {
+        toastRef.current.toastError(
+          `${summary}${describeFailures(result?.failures, failed)}${describeFailures(unreadable, unreadable.length)}`
+        );
+      } else toastRef.current.success(summary);
       await fetchTracks();
       if (includeStats) await refetchStats();
     } catch (err) {

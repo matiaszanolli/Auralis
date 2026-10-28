@@ -41,6 +41,7 @@ if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
 from routers import library_scan  # noqa: E402
+from auralis.library.scan_models import ScanResult  # noqa: E402
 from routers.library_scan import create_library_scan_router  # noqa: E402
 from schemas import LibraryScanRequest  # noqa: E402
 
@@ -77,13 +78,9 @@ class _RejectingScanner(_BaseScanner):
     """A scan the concurrency guard rejects — reports NO start event."""
 
     def scan_directories(self, directories=(), **_kwargs):
-        return SimpleNamespace(
-            rejected=True, added_tracks=[], files_found=0, files_processed=0,
-            files_added=0, files_updated=0, files_skipped=0, files_failed=0,
-            scan_time=0.0, directories_scanned=0,
-            # #4841: the router serialises result.failures.
-            failures=[],
-        )
+        # A real ScanResult, so a field the router starts reading (#4841's
+        # failures, #5719's updated_tracks, #5877's error) has its default.
+        return ScanResult(rejected=True)
 
 
 class _AcceptingScanner(_BaseScanner):
@@ -92,11 +89,9 @@ class _AcceptingScanner(_BaseScanner):
     def scan_directories(self, directories=(), **_kwargs):
         self._report({'stage': 'started', 'directories': list(directories)})
         self._report({'stage': 'processing', 'processed': 3, 'total_found': 10})
-        return SimpleNamespace(
-            rejected=False, added_tracks=[], files_found=10, files_processed=10,
-            files_added=2, files_updated=0, files_skipped=8, files_failed=0,
+        return ScanResult(
+            files_found=10, files_processed=10, files_added=2, files_skipped=8,
             scan_time=1.5, directories_scanned=1,
-            failures=[],
         )
 
 
@@ -116,7 +111,7 @@ class _CancelledScanner(_BaseScanner):
     def scan_directories(self, directories=(), **_kwargs):
         self._report({'stage': 'started', 'directories': list(directories)})
         self._stop.wait(timeout=10)
-        return SimpleNamespace(rejected=False, added_tracks=[])
+        return ScanResult()
 
     def stop_scan(self) -> None:
         self.stopped = True

@@ -210,8 +210,27 @@ describe('useScanProgress', () => {
         filesFailed: 0,
         filesSkipped: 0,
         failures: [],
+        unreadableFolders: [],
         duration: 3.5,
       });
+    });
+
+    it('carries the folders the scan could not read (#5877)', () => {
+      const { result } = renderHook(() => useScanProgress());
+
+      act(() => {
+        manager.deliver({
+          type: 'scan_complete',
+          data: {
+            files_added: 1, duration: 1,
+            directory_errors: [{ filename: 'Locked Album', reason: 'permission denied' }],
+          },
+        } as unknown as WebSocketMessage);
+      });
+
+      expect(result.current.lastResult?.unreadableFolders).toEqual([
+        { filename: 'Locked Album', reason: 'permission denied' },
+      ]);
     });
 
     it('surfaces files_failed / files_skipped from scan_complete (#4412)', () => {
@@ -318,6 +337,7 @@ describe('useScanProgress', () => {
         filesFailed: 0,
         filesSkipped: 0,
         failures: [],
+        unreadableFolders: [],
         duration: 1,
       });
     });
@@ -338,6 +358,7 @@ describe('useScanProgress', () => {
         filesFailed: 0,
         filesSkipped: 0,
         failures: [],
+        unreadableFolders: [],
         duration: 0,
       });
     });
@@ -676,6 +697,27 @@ describe('useScanProgress', () => {
       });
 
       expect(() => renderHook(() => useScanProgress())).not.toThrow();
+    });
+  });
+
+  describe('library_scan_error (#5877)', () => {
+    it('keeps the error until the next scan starts', () => {
+      const { result } = renderHook(() => useScanProgress());
+
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+        manager.deliver({
+          type: 'library_scan_error',
+          data: { error: 'RuntimeError during library scan' },
+        } as unknown as WebSocketMessage);
+      });
+      expect(result.current.isScanning).toBe(false);
+      expect(result.current.lastError).toBe('RuntimeError during library scan');
+
+      act(() => {
+        manager.deliver({ type: 'library_scan_started' } as WebSocketMessage);
+      });
+      expect(result.current.lastError).toBeNull();
     });
   });
 });

@@ -138,6 +138,10 @@ export interface ScanCompleteMessage extends WebSocketMessage {
     // #4841: which files failed and why, capped backend-side. `files_failed`
     // remains the exact count, so this can be shorter than that number.
     failures?: ScanFailure[];
+    // #5877: folders the scan could not read (missing root, permission
+    // denied, a share that dropped). Same {filename, reason} shape, the
+    // folder's name. Their files are absent from every count above.
+    directory_errors?: ScanFailure[];
     directories_scanned?: number;
     duration: number; // Seconds
   };

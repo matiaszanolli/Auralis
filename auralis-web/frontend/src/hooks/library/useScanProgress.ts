@@ -49,11 +49,15 @@ export interface ScanResult {
    * toast already does). Can be shorter than `filesFailed`.
    */
   failures: ScanFailure[];
+  /** Folders the scan could not read (#5877); their files are not counted. */
+  unreadableFolders: ScanFailure[];
   duration: number;
 }
 
 export interface ScanStatus extends ScanProgress {
   lastResult: ScanResult | null;
+  /** The last scan's library_scan_error, until the next scan starts (#5877). */
+  lastError: string | null;
 }
 
 const INITIAL_STATE: ScanStatus = {
@@ -67,6 +71,7 @@ const INITIAL_STATE: ScanStatus = {
   currentFile: null,
   phase: 'processing',
   lastResult: null,
+  lastError: null,
 };
 
 // ----- Module-level shared status store (#5622) -----
@@ -140,14 +145,17 @@ function handleScanMessage(raw: MessageOf<ScanMessageType>): void {
         filesFailed: msg.data.files_failed ?? 0,
         filesSkipped: msg.data.files_skipped ?? 0,
         failures: msg.data.failures ?? [],
+        unreadableFolders: msg.data.directory_errors ?? [],
         duration: msg.data.duration,
       },
     }));
   } else if (raw.type === 'library_scan_error') {
-    // Reset scanning state so the UI doesn't stay stuck (#2869)
+    // Reset scanning state so the UI doesn't stay stuck (#2869), and say the
+    // scan failed: it used to look like an ordinary idle state (#5877).
     setSharedState((prev) => ({
       ...INITIAL_STATE,
       lastResult: prev.lastResult,
+      lastError: raw.data.error,
     }));
   } else if (isLibraryTracksRemovedMessage(raw)) {
     removedReceivedInScan = true;
@@ -155,7 +163,10 @@ function handleScanMessage(raw: MessageOf<ScanMessageType>): void {
       ...prev,
       lastResult: prev.lastResult
         ? { ...prev.lastResult, filesRemoved: raw.data.count }
-        : { filesAdded: 0, filesRemoved: raw.data.count, filesFailed: 0, filesSkipped: 0, failures: [], duration: 0 },
+        : {
+          filesAdded: 0, filesRemoved: raw.data.count, filesFailed: 0, filesSkipped: 0,
+          failures: [], unreadableFolders: [], duration: 0,
+        },
     }));
   }
 }
@@ -210,7 +221,7 @@ function resyncScanStatus(): void {
         // deliberately left untouched: this endpoint only knows the current
         // is_scanning state, not final counts, so overwriting it here would
         // discard real data with nothing.
-        return prev.isScanning ? { ...INITIAL_STATE, lastResult: prev.lastResult } : prev;
+        return prev.isScanning ? { ...INITIAL_STATE, lastResult: prev.lastResult, lastError: prev.lastError } : prev;
       });
     })
     .catch(() => {

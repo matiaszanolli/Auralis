@@ -70,12 +70,32 @@ class ScanResult:
     updated_tracks: list[Any] = field(default_factory=list)
     # Bounded to MAX_RECORDED_FAILURES; `files_failed` remains the exact count.
     failures: list[ScanFailure] = field(default_factory=list)
+    # Folders the walk could not read (#5877): a missing or unreadable root, a
+    # permission-denied or vanished subfolder. Their files are absent from the
+    # counts above, so a scan with any is incomplete. Bounded like `failures`.
+    directory_errors: list[ScanFailure] = field(default_factory=list)
+    # Set when the scan aborted on an unexpected exception (#5877); the
+    # emitters then send library_scan_error instead of scan_complete.
+    error: str | None = None
 
     def record_failure(self, filepath: str, reason: str) -> None:
         """Count a failed file, retaining its path/reason up to the cap (#4841)."""
         self.files_failed += 1
         if len(self.failures) < MAX_RECORDED_FAILURES:
             self.failures.append(ScanFailure(filepath=filepath, reason=reason))
+
+    def record_directory_error(self, path: str, reason: str) -> None:
+        """Record an unreadable folder once (the walk can run twice, #4840)."""
+        if len(self.directory_errors) >= MAX_RECORDED_FAILURES:
+            return
+        if all(existing.filepath != path for existing in self.directory_errors):
+            self.directory_errors.append(ScanFailure(filepath=path, reason=reason))
+
+    @property
+    def walk_complete(self) -> bool:
+        """Every folder was read. When False, a file that looks missing may only
+        be unreachable, so callers must not prune tracks on this scan (#5877)."""
+        return not self.directory_errors and self.error is None
 
     def __str__(self) -> str:
         return (f"Scan Results: {self.files_found} found, {self.files_added} added, "

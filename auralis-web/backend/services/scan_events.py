@@ -114,6 +114,13 @@ def scan_complete_payload(scan_result: Any) -> ScanCompletePayload:
         ]
         if scan_result
         else [],
+        # #5877: unreadable folders, named the same way.
+        "directory_errors": [
+            cast(ScanFailurePayload, failure.to_dict())
+            for failure in scan_result.directory_errors
+        ]
+        if scan_result
+        else [],
         "duration": scan_result.scan_time if scan_result else 0,
         "directories_scanned": scan_result.directories_scanned if scan_result else 0,
     }

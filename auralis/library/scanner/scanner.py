@@ -146,13 +146,11 @@ class LibraryScanner:
 
         info(f"Starting library scan of {len(directories)} directories")
 
-        # Announce the start from HERE — after both rejection guards have passed
-        # (#4602). Callers used to broadcast `library_scan_started` on entry,
-        # before `rejected` was known, so a 409'd second request had already
-        # told the UI a scan began; its handler resets every counter, wiping the
-        # live progress of the scan that was actually running. Emitting through
-        # the progress callback fixes both emitters (manual route + auto-scanner)
-        # at once, since both bridge it to the WebSocket.
+        # Announce the start only after both rejection guards passed (#4602): a
+        # 409'd request that already said "started" reset the UI's counters and
+        # wiped the live progress of the scan actually running. Both emitters
+        # bridge this callback to the WebSocket.
+        self.file_discovery.on_directory_error = result.record_directory_error  # #5877
         self._report_progress({
             'stage': 'started',
             'directories': normalized,
@@ -240,6 +238,9 @@ class LibraryScanner:
 
         except Exception as e:
             warning(f"Library scan failed: {e}")
+            # #5877: returned as a normal result, this read as "nothing new".
+            # Class name only: the message can name server paths (#3543).
+            result.error = f"{type(e).__name__} during library scan"
             result.scan_time = time.time() - start_time
             return result
 

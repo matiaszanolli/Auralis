@@ -26,7 +26,8 @@ from helpers import spawn_background_task
 from websocket.outbound_messages import broadcast_typed
 
 from .missing_tracks import prune_missing_tracks
-from .scan_events import enqueue_scanned_for_fingerprinting, make_progress_callback, scan_complete_payload
+from .scan_events import make_progress_callback, scan_complete_payload
+from .scan_fingerprint_enqueue import enqueue_scanned_for_fingerprinting
 from .scanner_stop import stop_scanner
 from .scanner_watchdog import HAS_WATCHDOG, WatchdogMixin
 
@@ -199,26 +200,22 @@ class LibraryAutoScanner(WatchdogMixin):
             await stop_scanner(scanner, scan_future, label="Auto-scanner")
             raise
         except Exception as exc:
-            # Log full detail server-side; surface a class-based summary
-            # on the wire so OS paths / mount points / permission detail
-            # don't leak to every connected client (#3543 / BE-NEW-85).
+            # Full detail server-side, a class-based summary on the wire (#3543).
             logger.error(f"scan_directories failed: {exc}", exc_info=True)
+            scan_error: str | None = f"{type(exc).__name__} during library scan"
+        else:
+            # The scanner's own catch-all reports the same way (#5877).
+            scan_error = scan_result.error
+        if scan_error:
             await broadcast_typed(
-                self._connection_manager,
-                "library_scan_error",
-                {"error": f"{type(exc).__name__} during library scan"},
-                suppress_errors=True,
+                self._connection_manager, "library_scan_error", {"error": scan_error}, suppress_errors=True,
             )
             return
 
         if scan_result.rejected:
-            # Lost the scan-slot race to a concurrent scan (manual or another
-            # auto-scan cycle) — that scan owns the slot and will broadcast
-            # its own truthful scan_complete when it finishes. Broadcasting
-            # one here too would reset the UI's view of the scan that is
-            # actually still running with an all-zero result (#5465). Mirrors
-            # the manual router's `if result.rejected: raise HTTPException(409)`
-            # and scanner.py's `not result.rejected` guard.
+            # Lost the scan-slot race: the scan holding the slot broadcasts its
+            # own scan_complete, and an all-zero one from here would reset the
+            # UI's view of it (#5465). Mirrors the manual router's 409.
             logger.debug("Auto-scan cycle rejected (scan slot held elsewhere); skipping this cycle")
             return
 
@@ -229,8 +226,11 @@ class LibraryAutoScanner(WatchdogMixin):
             await enqueue_scanned_for_fingerprinting(scan_result)
 
         # Remove tracks whose files no longer exist on disk (shared with the
-        # manual scan route, #5458).
-        removed = await prune_missing_tracks(self._library_database, self._connection_manager)
+        # manual scan route, #5458) — unless a folder was unreadable: a
+        # configured folder on an unplugged drive would lose every track (#5877).
+        removed = 0
+        if scan_result.walk_complete:
+            removed = await prune_missing_tracks(self._library_database, self._connection_manager)
 
         await broadcast_typed(
             self._connection_manager,

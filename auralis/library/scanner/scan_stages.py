@@ -139,7 +139,7 @@ def count_audio_files(
                     # until this pass finishes.
                     'progress': None,
                 })
-        directories_counted += 1
+        directories_counted += file_discovery.last_root_failed is not True  # #5877
 
     return PathCensus(total_expected, cached_paths, directories_counted)
 
@@ -249,7 +249,7 @@ def feed_from_walk(
                 break
             feeder.feed(filepath)
 
-        result.directories_scanned += 1
+        result.directories_scanned += file_discovery.last_root_failed is not True  # #5877
         report({
             'stage': 'discovering',
             'directory': directory,

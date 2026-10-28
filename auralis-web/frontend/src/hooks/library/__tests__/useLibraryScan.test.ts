@@ -173,6 +173,26 @@ describe('useLibraryScan (#4185)', () => {
     expect(mockSuccess).not.toHaveBeenCalled();
   });
 
+  it('an unreadable folder makes the toast an error that names it (#5877)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        files_added: 2,
+        directory_errors: [{ filename: 'Locked Album', reason: 'permission denied' }],
+      }),
+    });
+
+    const { result } = setup();
+    act(() => result.current.setWebFolderPath('/music'));
+    await act(async () => {
+      await result.current.handleScanFolder();
+    });
+
+    expect(mockError).toHaveBeenCalledWith(expect.stringContaining('1 folder unreadable'));
+    expect(mockError).toHaveBeenCalledWith(expect.stringContaining('Locked Album'));
+    expect(mockSuccess).not.toHaveBeenCalled();
+  });
+
   it('stops scanning with an error toast when the request times out (#5019)', async () => {
     // Pre-#5019 the POST went through a bare fetch(): its AbortController only
     // fired on unmount or supersede, so a hung backend left `scanning` true

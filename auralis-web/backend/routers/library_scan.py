@@ -21,11 +21,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from schemas import LibraryScanRequest, ScanResultResponse
 
-from services.missing_tracks import prune_missing_tracks
-from services.scan_events import enqueue_scanned_for_fingerprinting, make_progress_callback
+from services.scan_events import make_progress_callback
 
 from .errors import LibraryUnavailableError, handle_query_error
-from .library_scan_events import broadcast_scan_complete, broadcast_scan_error
+from .library_scan_events import broadcast_scan_error, publish_scan_result
 from .library_scan_lifecycle import (
     HTTP_CLIENT_CLOSED_REQUEST,
     ScanClientGone,
@@ -156,20 +155,10 @@ async def scan_library(
         if result.rejected:
             raise HTTPException(status_code=409, detail="Scan already in progress")
 
-        await enqueue_scanned_for_fingerprinting(result)
-
-        # #5458: prune tracks whose files are gone, exactly as the
-        # auto-scanner does. Only it used to, so users with auto_scan off
-        # (or rescanning by hand after moving files) kept dead entries.
-        # Before scan_complete: useScanProgress counts a removal frame only
-        # while the scan is still in progress. The count is folded into the
-        # library_updated condition below (#5515) — a prune-only rescan
-        # (files deleted on disk, none added/updated) must still refresh the
-        # open library view, same as the auto-scanner's `files_added or
-        # removed` guard.
-        removed = await prune_missing_tracks(library_database, connection_manager)
-
-        await broadcast_scan_complete(connection_manager, result, removed)
+        await publish_scan_result(connection_manager, library_database, result)
+        if result.error:
+            # The scan aborted (#5877): not a 200 that reads as "Added 0 tracks".
+            raise HTTPException(status_code=500, detail=result.error)
 
         return ScanResultResponse(
             files_found=result.files_found,
@@ -178,6 +167,7 @@ async def scan_library(
             files_skipped=result.files_skipped,
             files_failed=result.files_failed,
             failures=[f.to_dict() for f in result.failures],
+            directory_errors=[f.to_dict() for f in result.directory_errors],
             duration=result.scan_time,
             directories_scanned=result.directories_scanned,
         )

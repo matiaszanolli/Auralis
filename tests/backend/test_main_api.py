@@ -203,6 +203,12 @@ class TestLibraryEndpoints:
         # observable now that the request reaches the route at all -- it used
         # to be rejected on the missing Origin header first (#5089).
         mock_result.failures = []
+        # #5719 / #5877: the route also enqueues refreshed tracks and checks
+        # for an aborted or incomplete walk before pruning.
+        mock_result.updated_tracks = []
+        mock_result.directory_errors = []
+        mock_result.error = None
+        mock_result.walk_complete = True
 
         with patch.dict('main.globals_dict', {'library_database': mock_library}), \
              patch('auralis.library.scanner.LibraryScanner') as mock_scanner_class:

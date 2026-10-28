@@ -14,7 +14,6 @@ Both now fold the prune count into a library_updated broadcast, matching
 the auto-scanner's ``files_added or removed`` guard.
 """
 
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -31,6 +30,7 @@ from tests.backend.test_scan_start_and_cancel_frames import (
 )
 
 import auralis.library.scanner as scanner_mod
+from auralis.library.scan_models import ScanResult
 
 
 class _PruneOnlyScanner(_AcceptingScanner):
@@ -38,11 +38,8 @@ class _PruneOnlyScanner(_AcceptingScanner):
 
     def scan_directories(self, directories=(), **_kwargs):
         self._report({'stage': 'started', 'directories': list(directories)})
-        return SimpleNamespace(
-            rejected=False, added_tracks=[], files_found=10, files_processed=10,
-            files_added=0, files_updated=0, files_skipped=10, files_failed=0,
-            scan_time=1.5, directories_scanned=1,
-            failures=[],
+        return ScanResult(
+            files_found=10, files_processed=10, files_skipped=10, scan_time=1.5, directories_scanned=1,
         )
 
 

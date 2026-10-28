@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 # tests/backend/conftest.py puts auralis-web/backend on sys.path.
-from routers import library_scan
+from routers import library_scan_events
 from routers.library_scan import create_library_scan_router
 from services import library_auto_scanner
 from services.missing_tracks import prune_missing_tracks
@@ -112,7 +112,8 @@ async def test_prune_broadcasts_the_auto_scanner_payload_shape():
 
 def test_both_scan_paths_prune_through_the_shared_helper():
     """WIRING: neither path keeps its own copy of the prune logic."""
-    for module in (library_scan, library_auto_scanner):
+    # The manual route's post-scan sequence lives in library_scan_events (#5877).
+    for module in (library_scan_events, library_auto_scanner):
         source = inspect.getsource(module)
         assert "prune_missing_tracks(" in source, module.__name__
         assert "cleanup_missing_files" not in source, module.__name__

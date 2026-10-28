@@ -61,6 +61,9 @@ class ScanResultResponse(BaseModel):
     # `files_failed` stays the exact count; this names the first N so the UI can
     # tell the user *which* files to look at instead of only how many.
     failures: list[dict[str, str]] = Field(default_factory=list)
+    # #5877: folders the scan could not read, same {filename, reason} shape
+    # (the folder's name). Their files are missing from every count above.
+    directory_errors: list[dict[str, str]] = Field(default_factory=list)
 
 
 # ============================================================================

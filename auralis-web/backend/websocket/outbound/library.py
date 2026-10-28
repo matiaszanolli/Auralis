@@ -86,6 +86,7 @@ class ScanCompletePayload(TypedDict):
     files_skipped: int
     files_failed: int
     failures: list[ScanFailurePayload]
+    directory_errors: list[ScanFailurePayload]  # #5877
     duration: float
     directories_scanned: int
 

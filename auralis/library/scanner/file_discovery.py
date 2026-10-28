@@ -11,7 +11,7 @@ Recursive directory scanning and audio file discovery
 import os
 import threading
 from pathlib import Path
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 
 from ...utils.logging import debug, error, warning
 from .config import AUDIO_EXTENSIONS, SKIP_DIRECTORIES
@@ -40,6 +40,18 @@ class FileDiscovery:
                 under free-threaded CPython).
         """
         self.should_stop = should_stop if should_stop is not None else threading.Event()
+        # #5877: every unreadable directory was a log line only, so a scan of a
+        # missing root, a permission-denied album folder or a share that
+        # dropped mid-walk reported a normal completion. The owner wires this
+        # to ScanResult.record_directory_error; the reason never names a path.
+        self.on_directory_error: Callable[[str, str], None] | None = None
+        # Whether the last discover_audio_files() root could not be read at
+        # all, so the caller does not count it in directories_scanned.
+        self.last_root_failed = False
+
+    def _directory_error(self, path: str | Path, reason: str) -> None:
+        if self.on_directory_error is not None:
+            self.on_directory_error(str(path), reason)
 
     def stop(self) -> None:
         """Signal discovery to stop"""
@@ -56,14 +68,17 @@ class FileDiscovery:
         Yields:
             Absolute file paths of discovered audio files
         """
+        self.last_root_failed = False
         try:
             directory_path = Path(directory)
             if not directory_path.exists():
                 warning(f"Directory does not exist: {directory}")
+                self._root_failed(directory, "folder not found")
                 return
 
             if not directory_path.is_dir():
                 warning(f"Path is not a directory: {directory}")
+                self._root_failed(directory, "not a folder")
                 return
 
             debug(f"Scanning directory: {directory}")
@@ -88,8 +103,14 @@ class FileDiscovery:
 
         except PermissionError:
             warning(f"Permission denied accessing directory: {directory}")
+            self._root_failed(directory, "permission denied")
         except Exception as e:
             error(f"Error scanning directory {directory}: {e}")
+            self._root_failed(directory, f"could not be read ({type(e).__name__})")
+
+    def _root_failed(self, directory: str, reason: str) -> None:
+        self.last_root_failed = True
+        self._directory_error(directory, reason)
 
     def _walk_directory(
         self,
@@ -123,6 +144,7 @@ class FileDiscovery:
         """
         if depth > MAX_SCAN_DEPTH:
             warning(f"Max scan depth ({MAX_SCAN_DEPTH}) exceeded at: {directory}")
+            self._directory_error(directory, f"nested deeper than {MAX_SCAN_DEPTH} folders, not scanned")
             return
 
         try:
@@ -134,8 +156,11 @@ class FileDiscovery:
 
         except PermissionError:
             warning(f"Permission denied accessing directory: {directory}")
+            self._directory_error(directory, "permission denied")
         except OSError as e:
             error(f"Error scanning directory {directory}: {e}")
+            # strerror, not str(e): the latter embeds the path.
+            self._directory_error(directory, f"could not be read ({e.strerror or type(e).__name__})")
 
     def _walk_entry(
         self,

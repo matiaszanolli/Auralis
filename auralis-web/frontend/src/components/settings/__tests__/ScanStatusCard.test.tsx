@@ -26,6 +26,7 @@ const scanStatus = (overrides: Record<string, unknown> = {}) => ({
   currentFile: null,
   phase: 'processing' as const,
   lastResult: null,
+  lastError: null,
   ...overrides,
 });
 
@@ -40,7 +41,7 @@ describe('ScanStatusCard', () => {
       scanStatus({
         lastResult: {
           filesAdded: 10, filesRemoved: 0, filesFailed: 0, filesSkipped: 0,
-          failures: [], duration: 2.0,
+          failures: [], unreadableFolders: [], duration: 2.0,
         },
       })
     );
@@ -60,6 +61,7 @@ describe('ScanStatusCard', () => {
           filesFailed: 3,
           filesSkipped: 2,
           failures: [{ filename: 'bad.flac', reason: 'decode error' }],
+          unreadableFolders: [],
           duration: 1.5,
         },
       })
@@ -69,6 +71,28 @@ describe('ScanStatusCard', () => {
     expect(screen.getByText('+4 added')).toBeInTheDocument();
     expect(screen.getByText('3 failed')).toBeInTheDocument();
     expect(screen.getByText('2 skipped')).toBeInTheDocument();
+  });
+
+  it('names the folders a scan could not read (#5877)', () => {
+    mockUseScanProgress.mockReturnValue(
+      scanStatus({
+        lastResult: {
+          filesAdded: 3, filesRemoved: 0, filesFailed: 0, filesSkipped: 0, failures: [],
+          unreadableFolders: [{ filename: 'Locked Album', reason: 'permission denied' }],
+          duration: 1.0,
+        },
+      })
+    );
+    render(<ScanStatusCard onScanNow={vi.fn()} />);
+
+    expect(screen.getByText('1 folder unreadable')).toBeInTheDocument();
+  });
+
+  it('says the last scan failed instead of showing an ordinary idle state (#5877)', () => {
+    mockUseScanProgress.mockReturnValue(scanStatus({ lastError: 'RuntimeError during library scan' }));
+    render(<ScanStatusCard onScanNow={vi.fn()} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Last scan failed: RuntimeError during library scan');
   });
 
   it('still shows "No scans yet" when nothing has run', () => {

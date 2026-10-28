@@ -46,8 +46,9 @@ class _StubBatchProcessor:
             files_skipped=0,
             files_failed=0,
             added_tracks=[],
-            # #4841: the scanner now carries per-file failures up from each
-            # batch, so a double standing in for ScanResult has to model it.
+            # #4841 / #5719: the scanner carries per-file failures and the
+            # refreshed tracks up from each batch, so the double models both.
+            updated_tracks=[],
             failures=[],
         )
 
