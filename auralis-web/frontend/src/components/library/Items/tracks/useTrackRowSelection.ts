@@ -16,6 +16,9 @@ export const useTrackRowSelection = ({ onToggleSelect }: UseTrackRowSelectionPro
    */
   const handleContainerClick = useCallback((event: MouseEvent) => {
     const target = event.target as HTMLElement;
+    // A click inside the portalled ContextMenu (or its backdrop) bubbles here
+    // through the React tree; it is not a click on the row (#6024).
+    if (!event.currentTarget.contains(target)) return;
     const isActionButton = target.closest('button') || target.closest('[role="button"]');
 
     if (!isActionButton) {

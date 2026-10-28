@@ -149,6 +149,10 @@ export const TrackListViewContent = ({
 
   const handleListboxKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
     if (tracks.length === 0) return;
+    // React bubbles along the React tree, not the DOM: a row's ContextMenu is a
+    // portalled MUI Menu rendered inside this listbox's component tree, so its
+    // arrow keys arrive here. Only keys from inside the listbox DOM count (#6024).
+    if (!e.currentTarget.contains(e.target as Node)) return;
     let next = activeIndex;
     switch (e.key) {
       case 'ArrowDown':
