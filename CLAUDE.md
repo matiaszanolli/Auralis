@@ -96,7 +96,7 @@ auralis/                          Core Python audio engine
 ├── dsp/                          Signal processing
 │   ├── basic.py                    DSP primitives
 │   ├── eq/                         Psychoacoustic EQ (psychoacoustic_eq.py)
-├── analysis/                     Audio analysis (largest module, 62 files)
+├── analysis/                     Audio analysis (largest module, 65 files)
 │   ├── fingerprint/                25D fingerprinting system (audio_fingerprint_analyzer,
 │   │   ├── metrics/                  rust_fingerprint, windowed_compute, schema, distance,
 │   │                                 similarity, knn_graph, normalizer)
