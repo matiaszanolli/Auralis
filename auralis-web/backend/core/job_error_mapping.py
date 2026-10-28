@@ -18,6 +18,7 @@ there.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import soundfile as sf
 from auralis.utils.logging import Code, ModuleError
 from core.encoding import WAVEncoderError
 
@@ -65,6 +66,26 @@ _MODULE_ERROR_CATEGORIES: list[tuple[str, str]] = [
 ]
 
 
+# libsndfile error codes (sndfile.h SF_ERR_*): 1 unrecognised format, 2 system
+# error (open failed: missing or unreadable), 4 unsupported encoding. Anything
+# else is a format-specific "malformed" code (e.g. 71, no WAV 'data' chunk).
+_LIBSNDFILE_SYSTEM_ERROR = 2
+_LIBSNDFILE_UNSUPPORTED_ENCODING = 4
+
+
+def _libsndfile_message(exc: "sf.LibsndfileError") -> str:
+    """Category for a libsndfile failure. The normal-stream path opens FLAC/WAV/AIFF
+    with ``sf.SoundFile`` directly (no unified loader), and LibsndfileError is a
+    RuntimeError, so it matched no category and every corrupt, empty or missing file
+    read as the generic default (#5957)."""
+    code = getattr(exc, "code", None)
+    if code == _LIBSNDFILE_SYSTEM_ERROR:
+        return "Audio file not found or could not be opened"
+    if code == _LIBSNDFILE_UNSUPPORTED_ENCODING:
+        return "Unsupported audio format"
+    return "Audio file is corrupted or unsupported"
+
+
 def _safe_error_message(
     exc: Exception,
     default: str = "An unexpected error occurred during processing",
@@ -85,6 +106,8 @@ def _safe_error_message(
             if code.startswith(prefix):
                 return message
         return "Audio file could not be processed"
+    if isinstance(exc, sf.LibsndfileError):
+        return _libsndfile_message(exc)
     for exc_type, message in _ERROR_CATEGORIES:
         if isinstance(exc, exc_type):
             return message

@@ -51,3 +51,42 @@ def test_raw_exception_text_is_never_returned():
     secret = "/home/user/private/path/track.wav: permission denied by uid 1000"
     message = _safe_error_message(PermissionError(secret))
     assert secret not in message
+
+
+# --- libsndfile failures on the normal-stream path (#5957) ---------------------------------
+# stream_normal opens FLAC/WAV/AIFF with sf.SoundFile directly. LibsndfileError is a
+# RuntimeError, so it used to fall through to the generic default for every bad file.
+
+
+def _real_libsndfile_error(tmp_path, name, content):
+    import soundfile as sf
+
+    path = tmp_path / name
+    if content is not None:
+        path.write_bytes(content)
+    try:
+        sf.SoundFile(str(path))
+    except sf.LibsndfileError as exc:
+        return exc
+    raise AssertionError("expected libsndfile to reject the file")
+
+
+def test_missing_file_is_reported_as_not_found_or_unopenable(tmp_path):
+    exc = _real_libsndfile_error(tmp_path, "gone.flac", None)
+    assert _safe_error_message(exc, default="Audio streaming failed") == "Audio file not found or could not be opened"
+
+
+def test_empty_and_garbage_files_are_reported_as_corrupted(tmp_path):
+    for name, content in (("empty.flac", b""), ("junk.flac", b"not audio at all" * 40)):
+        exc = _real_libsndfile_error(tmp_path, name, content)
+        assert _safe_error_message(exc, default="Audio streaming failed") == "Audio file is corrupted or unsupported"
+
+
+def test_malformed_wav_is_reported_as_corrupted(tmp_path):
+    exc = _real_libsndfile_error(tmp_path, "bad.wav", b"RIFF\x00\x00\x00\x00WAVEjunk" * 3)
+    assert _safe_error_message(exc, default="Audio streaming failed") == "Audio file is corrupted or unsupported"
+
+
+def test_libsndfile_message_never_leaks_the_path(tmp_path):
+    exc = _real_libsndfile_error(tmp_path, "secret_name.flac", None)
+    assert str(tmp_path) not in _safe_error_message(exc)
