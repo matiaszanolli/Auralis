@@ -75,7 +75,7 @@ export const AlbumsTab = ({
         pb: tokens.spacing.md,
         borderBottom: `1px solid ${tokens.colors.border.light}`,
       }}>
-        <Typography variant="h6" sx={{
+        <Typography variant="h6" component="h2" sx={{
           fontSize: tokens.typography.fontSize.lg,
           fontWeight: tokens.typography.fontWeight.semibold,
           color: themeVars.textSecondary,

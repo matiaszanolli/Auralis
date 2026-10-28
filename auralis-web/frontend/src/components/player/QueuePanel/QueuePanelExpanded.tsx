@@ -173,7 +173,7 @@ export const QueuePanelExpanded = ({
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h3 style={styles.title}>Queue ({queue.length})</h3>
+        <h2 style={styles.title}>Queue ({queue.length})</h2>
         <button
           style={styles.toggleButton}
           onClick={onToggleCollapse}

@@ -105,6 +105,7 @@ export const RecentlyTouchedSection = ({
       {/* Section Header */}
       <Typography
         variant="h6"
+        component="h2"
         sx={{
           fontSize: tokens.typography.fontSize.md,
           fontWeight: tokens.typography.fontWeight.semibold,

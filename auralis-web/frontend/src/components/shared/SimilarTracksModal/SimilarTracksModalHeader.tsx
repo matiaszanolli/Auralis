@@ -31,7 +31,9 @@ export const SimilarTracksModalHeader = ({ trackTitle, onClose }: SimilarTracksM
     <Box sx={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.md }}>
       <Explore sx={{ color: tokens.colors.accent.primary, fontSize: tokens.typography.fontSize['2xl'] }} />
       <Box>
-        <Typography variant="h6" sx={{
+        {/* DialogTitle is already the dialog's <h2>; a nested heading or paragraph is invalid (#5671). */}
+        <Typography component="span" variant="h6" sx={{
+          display: 'block',
           fontFamily: tokens.typography.fontFamily.header,  // Manrope for headers
           fontWeight: tokens.typography.fontWeight.semibold,
           fontSize: tokens.typography.fontSize.xl,          // 24px
@@ -39,7 +41,8 @@ export const SimilarTracksModalHeader = ({ trackTitle, onClose }: SimilarTracksM
         }}>
           Similar Tracks
         </Typography>
-        <Typography variant="body2" sx={{
+        <Typography component="span" variant="body2" sx={{
+          display: 'block',
           fontSize: tokens.typography.fontSize.sm,          // 13px
           color: themeVars.textSecondary,
           marginTop: tokens.spacing.xs,                     // 4px

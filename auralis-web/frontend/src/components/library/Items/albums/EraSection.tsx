@@ -130,6 +130,7 @@ export const EraSection = ({
       {/* Era Header */}
       <Typography
         variant="h6"
+        component="h2"
         sx={{
           fontSize: tokens.typography.fontSize.lg,
           fontWeight: tokens.typography.fontWeight.semibold,

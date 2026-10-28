@@ -216,6 +216,7 @@ export const AlbumCharacterPane = ({
       <Box sx={{ mb: tokens.spacing.xl, position: 'relative', zIndex: tokens.zIndex.content }}>
         <Typography
           variant="h6"
+          component="h2"
           sx={{
             fontSize: tokens.typography.fontSize.lg,
             fontWeight: tokens.typography.fontWeight.semibold,
