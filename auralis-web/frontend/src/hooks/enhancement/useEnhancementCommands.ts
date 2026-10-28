@@ -57,13 +57,24 @@ export function useEnhancementCommands({
   // dispatched LAST, not whichever *resolves* last (fixes #4339 — unlike
   // isTogglingRef, these must allow overlap, so a counter rather than a
   // boolean guard).
+  // Overlapping commands share one isLoading flag: it clears when the LAST one settles, not when
+  // a superseded call's finally runs while a newer POST is still in flight (#6042).
+  const pendingCommandsRef = useRef(0);
+  const beginLoading = useCallback(() => {
+    pendingCommandsRef.current += 1;
+    setIsLoading(true);
+  }, [setIsLoading]);
+  const endLoading = useCallback(() => {
+    pendingCommandsRef.current = Math.max(0, pendingCommandsRef.current - 1);
+    if (pendingCommandsRef.current === 0) setIsLoading(false);
+  }, [setIsLoading]);
   const presetRequestIdRef = useRef(0);
   const intensityRequestIdRef = useRef(0);
 
   const toggleEnabled = useCallback(async (): Promise<void> => {
     if (isTogglingRef.current) return;
     isTogglingRef.current = true;
-    setIsLoading(true);
+    beginLoading();
     setError(null);
 
     const newEnabled = !enabledRef.current;
@@ -105,9 +116,9 @@ export function useEnhancementCommands({
       throw apiError;
     } finally {
       isTogglingRef.current = false;
-      setIsLoading(false);
+      endLoading();
     }
-  }, [post]);
+  }, [post, beginLoading, endLoading]);
 
   /**
    * Set enhancement enabled/disabled explicitly
@@ -125,7 +136,7 @@ export function useEnhancementCommands({
    * @throws Error if preset change fails
    */
   const setPreset = useCallback(async (preset: EnhancementPreset): Promise<void> => {
-    setIsLoading(true);
+    beginLoading();
     setError(null);
 
     // Validate preset. EnhancementPreset is now a single-member literal type
@@ -139,6 +150,7 @@ export function useEnhancementCommands({
         status: 400,
       };
       setError(apiError);
+      endLoading();
       throw apiError;
     }
 
@@ -182,9 +194,9 @@ export function useEnhancementCommands({
       setError(apiError);
       throw apiError;
     } finally {
-      setIsLoading(false);
+      endLoading();
     }
-  }, [post]);
+  }, [post, beginLoading, endLoading]);
 
   /**
    * Adjust enhancement intensity
@@ -193,7 +205,7 @@ export function useEnhancementCommands({
    * @throws Error if intensity change fails
    */
   const setIntensity = useCallback(async (intensity: number): Promise<void> => {
-    setIsLoading(true);
+    beginLoading();
     setError(null);
 
     // Clamp intensity to valid range. Reject non-finite input outright (#4600):
@@ -208,7 +220,7 @@ export function useEnhancementCommands({
         code: 'INVALID_INTENSITY',
       };
       setError(apiError);
-      setIsLoading(false);
+      endLoading();
       throw apiError;
     }
     const validIntensity = Math.max(0.0, Math.min(1.0, intensity));
@@ -249,9 +261,9 @@ export function useEnhancementCommands({
       setError(apiError);
       throw apiError;
     } finally {
-      setIsLoading(false);
+      endLoading();
     }
-  }, [post]);
+  }, [post, beginLoading, endLoading]);
 
   return { toggleEnabled, setEnabled, setPreset, setIntensity };
 }

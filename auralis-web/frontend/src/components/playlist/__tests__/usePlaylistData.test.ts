@@ -97,3 +97,50 @@ describe('usePlaylistData (#5645)', () => {
     expect(result.current.playlists).toEqual([focus]);
   });
 });
+
+describe('usePlaylistData overlapping refreshes (#6042)', () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+
+  it('the newest request wins even when an older one resolves last', async () => {
+    vi.mocked(getPlaylists).mockResolvedValueOnce(page(focus));
+    const { result } = renderHook(() => usePlaylistData());
+    await waitFor(() => expect(result.current.playlists).toEqual([focus]));
+
+    const older = deferred<ReturnType<typeof page>>();
+    const newer = deferred<ReturnType<typeof page>>();
+    vi.mocked(getPlaylists).mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+
+    let first!: Promise<void>;
+    let second!: Promise<void>;
+    act(() => {
+      first = result.current.refresh();
+      second = result.current.refresh();
+    });
+    await act(async () => { newer.resolve(page(focus, night)); await second; });
+    await act(async () => { older.resolve(page(focus)); await first; });
+
+    expect(result.current.playlists).toEqual([focus, night]);
+  });
+
+  it('a stale failure does not set the error after a newer request succeeded', async () => {
+    vi.mocked(getPlaylists).mockResolvedValueOnce(page(focus));
+    const { result } = renderHook(() => usePlaylistData());
+    await waitFor(() => expect(result.current.playlists).toEqual([focus]));
+
+    const older = deferred<ReturnType<typeof page>>();
+    vi.mocked(getPlaylists).mockReturnValueOnce(older.promise).mockResolvedValueOnce(page(focus, night));
+
+    let first!: Promise<void>;
+    act(() => { first = result.current.refresh(); });
+    await act(async () => { await result.current.refresh(); });
+    await act(async () => { older.reject(new Error('timeout')); await first; });
+
+    expect(result.current.playlists).toEqual([focus, night]);
+    expect(result.current.error).toBeNull();
+  });
+});

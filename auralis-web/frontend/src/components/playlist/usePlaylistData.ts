@@ -32,15 +32,21 @@ export const usePlaylistData = () => {
     };
   }, []);
 
+  // Two events in quick succession (adding two tracks) start two overlapping fetches; only the
+  // newest one may write, or an older response resolving last would overwrite the fresher list
+  // (#6042).
+  const latestRequestRef = useRef(0);
+
   const refresh = useCallback(async () => {
+    const requestId = ++latestRequestRef.current;
     try {
       const response = await playlistService.getPlaylists();
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || requestId !== latestRequestRef.current) return;
       setPlaylists(response.playlists);
       setError(null);
     } catch (fetchError) {
       console.error('Failed to load playlists:', fetchError);
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || requestId !== latestRequestRef.current) return;
       setError(LOAD_ERROR);
     }
   }, []);

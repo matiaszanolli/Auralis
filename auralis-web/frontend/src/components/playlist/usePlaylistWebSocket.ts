@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { PlaylistUpdatedMessage } from '@/types/websocket';
 
@@ -33,7 +33,15 @@ export const usePlaylistWebSocket = ({
   onPlaylistDeleted,
   onPlaylistsRefresh,
 }: UsePlaylistWebSocketProps) => {
-  const { subscribe } = useWebSocketContext();
+  const { subscribe, isConnected } = useWebSocketContext();
+
+  // playlist_* events missed while the socket was down are never replayed: re-read the list when
+  // the connection comes back (#6042).
+  const wasConnectedRef = useRef(isConnected);
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) onPlaylistsRefresh();
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, onPlaylistsRefresh]);
 
   useEffect(() => {
     console.log('📝 PlaylistList: Setting up WebSocket subscriptions');
