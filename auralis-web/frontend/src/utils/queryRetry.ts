@@ -7,7 +7,7 @@
  */
 
 import { APIRequestError } from '@/utils/apiRequest';
-import { toError } from '@/utils/errorGuards';
+import { isAbortError, toError } from '@/utils/errorGuards';
 import type { HttpStatusError } from '@/utils/httpError';
 
 /** The HTTP-status half of the retry rule (see isRetryableError). */
@@ -37,6 +37,8 @@ function isRetryableStatus(status: number): boolean {
  * falls back to message wording, restricted to transport-failure words.
  */
 export function isRetryableError(error: Error): boolean {
+  // A cancelled request (unmount, supersession) is never worth repeating (#5653).
+  if (isAbortError(error)) return false;
   if (error instanceof APIRequestError) {
     return isRetryableStatus(error.statusCode);
   }

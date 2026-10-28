@@ -83,11 +83,8 @@ export const useArtistDetailsData = (artistId: number) => {
         };
         setArtist(artistData);
       } catch (err) {
-        // #4643: get() wraps even a caller-triggered abort into an
-        // APIRequestError rather than preserving the original AbortError's
-        // `.name` — see useAlbumDetails.ts for the full rationale. Check the
-        // signal first; it is authoritative regardless of how the shared
-        // transport happens to shape an abort.
+        // get() rethrows a caller abort as the raw AbortError (#5653); the signal
+        // also covers a request that failed some other way after being cancelled.
         if (controller.signal.aborted || isAbortError(err)) return;
         console.error('Error fetching artist details:', err);
         setError(ApiErrorHandler.parse(err));

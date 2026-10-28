@@ -155,8 +155,8 @@ export const useLibraryScan = ({
       if (includeStats) await refetchStats();
     } catch (err) {
       // Swallow abort errors (unmount / superseded scan) — not user-facing.
-      // post() wraps an abort into an APIRequestError rather than preserving
-      // AbortError's `.name`, so the signal is checked first.
+      // post() rethrows a caller abort as the raw AbortError (#5653); the signal
+      // also covers a request that failed some other way after being cancelled.
       if (controller.signal.aborted || isAbortError(err)) return;
       // post() throws on non-2xx instead of returning a response to branch on.
       const { message, informational } = describeScanError(err);

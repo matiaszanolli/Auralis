@@ -12,6 +12,7 @@
  * @module hooks/library/libraryQueryRequest
  */
 
+import { isAbortError } from '@/utils/errorGuards';
 import { ENDPOINTS, LIBRARY_PAGE_LIMIT } from '@/config/api';
 import { transformAlbums, transformArtists, transformTracks } from '@/api/transformers';
 import type { AlbumApiResponse, ArtistApiResponse, TrackApiResponse } from '@/api/transformers';
@@ -175,7 +176,7 @@ export async function fetchLibraryPage(deps: {
 
     return { kind: 'ok', response };
   } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
+    if (isAbortError(err)) {
       // Request was cancelled - don't update state
       return { kind: 'aborted' };
     }

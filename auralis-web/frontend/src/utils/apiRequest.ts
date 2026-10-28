@@ -32,6 +32,7 @@
  */
 
 import { getApiUrl } from '@/config/api';
+import { isAbortError } from '@/utils/errorGuards';
 import { readHttpErrorBody } from '@/utils/httpError';
 import { DEFAULT_TIMEOUT_MS, APIRequestError, type RequestOptions } from './apiRequestTypes';
 
@@ -67,7 +68,7 @@ export function buildUrl(endpoint: string, queryParams?: QueryParams): string {
  * pattern in the retired standardized client so all HTTP layers behave the same.
  *
  * On timeout it throws an {@link APIRequestError} (status 0); a caller-triggered
- * abort propagates as the underlying AbortError for the caller-visible catch.
+ * abort propagates as the underlying AbortError (apiRequest rethrows it unchanged, #5653).
  */
 export async function fetchWithTimeout(
   url: string,
@@ -162,7 +163,7 @@ export async function apiRequest<T = unknown>(
         parsed = await response.json();
       } catch (parseError) {
         // A caller abort while the body streams is still an abort/transport case.
-        if (parseError instanceof DOMException && parseError.name === 'AbortError') {
+        if (isAbortError(parseError)) {
           throw parseError;
         }
         // The server DID answer: an empty or non-JSON 2xx body is not a transport
@@ -205,8 +206,13 @@ export async function apiRequest<T = unknown>(
 
     throw new APIRequestError(errorMessage, response.status, errorDetail);
   } catch (error) {
-    // Network error or parsing error
     if (error instanceof APIRequestError) {
+      throw error;
+    }
+    // A caller-initiated abort (unmount, supersession) is not a network failure: rethrow
+    // it untouched so callers recognise it with isAbortError and never toast it (#5653).
+    // The internal timeout already surfaced above as an APIRequestError.
+    if (isAbortError(error)) {
       throw error;
     }
 

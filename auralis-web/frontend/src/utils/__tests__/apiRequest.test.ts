@@ -18,6 +18,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { apiRequest, get, post, del, getOrNullOn404, APIRequestError } from '../apiRequest';
 import { isRetryableError } from '../queryRetry';
+import { isAbortError } from '../errorGuards';
 
 // ----------------------------------------------------------------------------
 // Fetch mocking helpers
@@ -206,7 +207,7 @@ describe('apiRequest (#4452)', () => {
     expect(isRetryableError(error)).toBe(false);
   });
 
-  it('still maps a body read aborted by the caller to the transport case', async () => {
+  it('rethrows a body read aborted by the caller as the AbortError (#5653)', async () => {
     mockedFetch().mockResolvedValue(
       makeResponse({
         ok: true,
@@ -217,9 +218,14 @@ describe('apiRequest (#4452)', () => {
       })
     );
 
-    const error = (await apiRequest('/aborted').catch((e) => e)) as APIRequestError;
+    const error = await apiRequest('/aborted').catch((e) => e);
 
-    expect(error.statusCode).toBe(0);
+    expect(isAbortError(error)).toBe(true);
+    expect(error).not.toBeInstanceOf(APIRequestError);
+  });
+
+  it('never treats a cancelled request as retryable (#5653)', () => {
+    expect(isRetryableError(new DOMException('The operation was aborted.', 'AbortError'))).toBe(false);
   });
 
   it('does not double-wrap an APIRequestError raised in the try block', async () => {
@@ -311,16 +317,16 @@ describe('apiRequest timeout (#4442)', () => {
     const settled = apiRequest('/slow', {
       timeoutMs: 30000,
       signal: controller.signal,
-    }).catch((e) => e as APIRequestError);
+    }).catch((e) => e);
 
     controller.abort();
     await vi.advanceTimersByTimeAsync(0);
 
-    const error = (await settled) as APIRequestError;
-    // Caller abort surfaces as a wrapped network error (not the timeout message).
-    expect(error).toBeInstanceOf(APIRequestError);
-    expect(error.statusCode).toBe(0);
-    expect(error.message).not.toMatch(/timed out/i);
+    const error = await settled;
+    // A caller abort is rethrown untouched (#5653): recognised by isAbortError, never a
+    // 'Network error' toast and never the timeout message.
+    expect(isAbortError(error)).toBe(true);
+    expect(error).not.toBeInstanceOf(APIRequestError);
   });
 });
 

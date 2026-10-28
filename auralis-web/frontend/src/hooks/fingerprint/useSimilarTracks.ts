@@ -222,8 +222,8 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
 
         return results;
       } catch (err) {
-        // get() wraps a caller-triggered abort into an APIRequestError rather
-        // than preserving AbortError's `.name`, so the signal is authoritative.
+        // get() rethrows a caller abort as the raw AbortError (#5653); the signal
+        // also covers a request that failed some other way after being cancelled.
         if (controller.signal.aborted || isAbortError(err)) {
           // Caller cancelled — no state to update, no error to surface.
           throw err;

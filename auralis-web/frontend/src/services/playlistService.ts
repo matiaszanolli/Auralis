@@ -145,8 +145,8 @@ const MAX_PLAYLIST_PAGES = 1000;
  *
  * @param signal - Optional AbortSignal for cancelling the request (#4614),
  *   e.g. from a `useEffect` cleanup. An aborted request rejects with
- *   `AbortError`, which `apiRequest` re-throws without surfacing it as a
- *   user-facing error — callers should ignore it rather than render it.
+ *   the raw `AbortError` (`apiRequest` rethrows caller aborts unchanged, #5653);
+ *   test it with `isAbortError` and ignore it rather than render it.
  */
 export async function getPlaylists(
   params?: PlaylistListParams,

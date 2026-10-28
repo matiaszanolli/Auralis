@@ -103,8 +103,8 @@ export const useMetadataForm = (
         loadedRef.current = loaded;
         setMetadata(loaded);
       } catch (err) {
-        // get() wraps a caller-triggered abort into an APIRequestError rather
-        // than preserving AbortError's `.name`, so check the signal too.
+        // get() rethrows a caller abort as the raw AbortError (#5653); the signal
+        // also covers a request that failed some other way after being cancelled.
         if (controller.signal.aborted || isAbortError(err)) return;
         console.error('Error fetching metadata:', err);
         setError(messageFor(err, 'Failed to fetch metadata'));

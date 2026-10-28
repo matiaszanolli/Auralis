@@ -8,6 +8,7 @@
  * @module hooks/enhancement/useEnhancementStatusSync
  */
 
+import { isAbortError } from '@/utils/errorGuards';
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
@@ -104,7 +105,7 @@ export function useEnhancementStatusSync(
         try {
           response = await _fetchEnhancementStatusOnce(getRef.current);
         } catch (err) {
-          if (cancelled || !(err instanceof Error) || err.name !== 'AbortError') throw err;
+          if (cancelled || !isAbortError(err)) throw err;
           response = await _fetchEnhancementStatusOnce(getRef.current);
         }
 

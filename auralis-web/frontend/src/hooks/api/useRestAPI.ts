@@ -10,6 +10,7 @@
  *   await api.post('/api/player/queue', { tracks: ['/music/song.wav'], start_index: 0 });
  */
 
+import { isAbortError } from '@/utils/errorGuards';
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { ApiError } from '@/types/api';
 import { ApiErrorHandler } from '@/types/api';
@@ -179,7 +180,7 @@ export function useRestAPI() {
         return data as T;
       } catch (err) {
         // AbortError from unmount cleanup or StaleRequestError — don't surface as API error (fixes #2467, #2439)
-        if (err instanceof Error && (err.name === 'AbortError' || err.name === 'StaleRequestError')) {
+        if (isAbortError(err) || (err instanceof Error && err.name === 'StaleRequestError')) {
           throw err;
         }
         const apiError = ApiErrorHandler.parse(err);
