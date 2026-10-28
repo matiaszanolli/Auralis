@@ -86,6 +86,7 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
   const {
     tracks,
     loading,
+    error,
     scanning,
     refreshTracks,
     handleScanFolder,
@@ -257,6 +258,8 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
             searchQuery={searchQuery}
             scanning={scanning}
             onScanFolder={handleScanFolder}
+            error={tracks.length === 0 ? error : null}
+            onRetry={refreshTracks}
           />
         ) : (
           <TrackListView
