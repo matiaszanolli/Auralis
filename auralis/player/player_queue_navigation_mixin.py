@@ -49,6 +49,7 @@ class PlayerQueueNavigationMixin:
     integration: IntegrationManager
     _stop_requested: threading.Event
     _pause_requested: threading.Event
+    _cleanup_in_progress: threading.Event
     # Provided by PlayerFileLoadingMixin.
     load_file: Callable[[str], bool]
     load_track_from_library: Callable[[int], bool]
@@ -108,7 +109,7 @@ class PlayerQueueNavigationMixin:
         with self.playback.defer_notifications():
             was_playing = self.playback.is_playing()
             advanced = self.gapless.advance_with_prebuffer(
-                on_swap=_on_swap
+                on_swap=_on_swap, abort=self._cleanup_in_progress.is_set
             )
 
         if not advanced:

@@ -202,13 +202,14 @@ def session_factory(temp_test_db):
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    from auralis.library.models import Base
+    from auralis.library.migration_manager import MigrationManager
 
-    # Create engine with in-memory or file-based SQLite
+    # A versioned fresh schema, so a LibraryDatabase opened on the same file by a test that
+    # also asks for `library_database` finds a current library rather than a pre-versioning one.
+    with MigrationManager(db_path) as manager:
+        manager.initialize_fresh_database()
+
     engine = create_engine(f'sqlite:///{db_path}', connect_args={'check_same_thread': False})
-
-    # Create all tables
-    Base.metadata.create_all(engine)
 
     # Create session factory
     SessionLocal = sessionmaker(bind=engine)

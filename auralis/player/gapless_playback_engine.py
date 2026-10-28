@@ -74,6 +74,7 @@ class GaplessPlaybackEngine(PrebufferMixin):
     def advance_with_prebuffer(
         self,
         on_swap: Callable[[], None] | None = None,
+        abort: Callable[[], bool] | None = None,
     ) -> bool:
         """
         Advance to next track using prebuffered audio if available.
@@ -85,14 +86,11 @@ class GaplessPlaybackEngine(PrebufferMixin):
         `file_manager` is mutated last — once, under a single `_audio_lock`
         acquisition shared with ``on_swap``.
 
-        That ordering is what keeps the blocking disk read off the real-time
-        path. `next_track()` used to wrap this whole call in `_audio_lock` so
-        the prebuffer swap stayed atomic with `get_audio_chunk()` (#3717), but
-        on the fallback branches that meant `load_file()`'s disk read ran
-        inside the critical section — `_audio_lock` is an RLock, so re-entry
-        from the same thread succeeded silently and the audio callback blocked
-        for the whole read. That is the exact dropout #3656 fixed for
-        `add_to_queue`, at a sibling this fix never reached.
+        That ordering keeps the blocking disk read off the real-time path:
+        `next_track()` used to wrap this whole call in `_audio_lock` (#3717), so on
+        the fallback branches `load_file()`'s read ran inside the critical section
+        and the audio callback blocked for all of it -- the dropout #3656 fixed
+        for `add_to_queue`.
 
         Committing the queue advance *before* the swap also removes the need
         for the #4100/#4212 rollback machinery: nothing has been mutated when
@@ -104,6 +102,8 @@ class GaplessPlaybackEngine(PrebufferMixin):
                 position reset here so it is atomic with the swap (#3717,
                 #2283). Lock nesting is `_audio_lock → PlaybackController._lock`,
                 the same order `get_audio_chunk()` uses, so no inversion risk.
+            abort: Polled after the blocking decode, before the queue advance is
+                committed; when true nothing is advanced or installed (#6127).
 
         Returns:
             bool: True if successfully advanced, False if no next track
@@ -175,18 +175,17 @@ class GaplessPlaybackEngine(PrebufferMixin):
                 else:
                     info(f"Prebuffer not available, loading: {file_path}")
 
-                # #5105: THE blocking disk read. It runs here — before any lock
-                # is taken and before the queue is touched — so the audio
-                # callback, seek() and cleanup() can all keep acquiring
-                # `_audio_lock` while it is in flight. Reading into a local also
-                # means a failure or a mid-flight queue mutation leaves
-                # `file_manager` completely untouched, which is what makes the
-                # old rollback blocks (#4100/#4212) unnecessary rather than
-                # merely relocated.
+                # #5105: THE blocking disk read, before any lock is taken and before the
+                # queue is touched, so the audio callback, seek() and cleanup() keep
+                # acquiring `_audio_lock` while it runs. A failure or mid-flight queue
+                # mutation leaves `file_manager` untouched, so no rollback is needed.
                 audio_data, sample_rate = self._load_track_audio(file_path)
                 if audio_data is None or sample_rate is None:
                     return False
                 used_prebuffer = False
+
+            if abort is not None and abort():
+                return False
 
             # #3352 (PTS-9): commit via the atomic peek+match operation so a
             # queue mutation between the peek above and this commit cannot leave
