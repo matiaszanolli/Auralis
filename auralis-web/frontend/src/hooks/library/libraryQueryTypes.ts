@@ -79,8 +79,11 @@ export interface UseLibraryQueryResult<T> {
   /** True while fetchMore pagination request is in progress */
   isLoadingMore: boolean;
 
-  /** Last error from query */
+  /** Last error from the initial/refetch query */
   error: ApiError | null;
+
+  /** Last fetchMore() failure; the loaded `data` is kept (#5870) */
+  loadMoreError: ApiError | null;
 
   /** Current offset in pagination */
   offset: number;

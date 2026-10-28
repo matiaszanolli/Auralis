@@ -2,6 +2,7 @@ import { MouseEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, u
 import { Typography } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ContextMenu, ContextMenuAction } from '@/components/shared/ContextMenu';
+import { LoadMoreError } from '@/components/shared/ui/feedback';
 import { ArtistListLoadingIndicator } from './ArtistListLoadingIndicator';
 import { ArtistListHeader } from './ArtistListHeader';
 import { ArtistListItem } from './ArtistListItem';
@@ -29,6 +30,8 @@ interface ArtistListContentProps {
   isLoadingMore: boolean;
   hasMore: boolean;
   fetchMore: () => Promise<void>;
+  /** Set when the last page failed; auto-loading pauses until Retry (#5870). */
+  loadMoreFailed?: boolean;
   groupedArtists: Record<string, ArtistItem[]>;
   sortedLetters: string[];
   contextMenuState: ArtistContextMenuState;
@@ -67,6 +70,7 @@ export const ArtistListContent = ({
   isLoadingMore,
   hasMore,
   fetchMore,
+  loadMoreFailed = false,
   groupedArtists,
   sortedLetters,
   contextMenuState,
@@ -135,12 +139,14 @@ export const ArtistListContent = ({
   useEffect(() => {
     const last = virtualRows[virtualRows.length - 1];
     if (!last) return;
-    if (last.index >= rows.length - 1 && hasMore && !isLoadingMore) {
+    // Not after a failure: the effect re-runs as isLoadingMore drops, which
+    // would hammer a backend answering 503 (e.g. locked during a scan).
+    if (last.index >= rows.length - 1 && hasMore && !isLoadingMore && !loadMoreFailed) {
       fetchMore().catch((err) =>
         console.error('Failed to fetch more artists:', err)
       );
     }
-  }, [virtualRows, rows.length, hasMore, isLoadingMore, fetchMore]);
+  }, [virtualRows, rows.length, hasMore, isLoadingMore, loadMoreFailed, fetchMore]);
 
   const renderRow = (row: FlatRow) =>
     row.kind === 'header' ? (
@@ -194,6 +200,10 @@ export const ArtistListContent = ({
           </div>
         )}
       </div>
+
+      {loadMoreFailed && !isLoadingMore && (
+        <LoadMoreError noun="artists" onRetry={() => void fetchMore()} />
+      )}
 
       {isLoadingMore && (
         <ArtistListLoadingIndicator

@@ -597,9 +597,42 @@ describe('useLibraryQuery', () => {
         await result.current.fetchMore();
       });
 
-      // Error should be captured
-      expect(result.current.error).not.toBeNull();
-      expect(result.current.error?.message).toContain('Network error');
+      // A failed page is loadMoreError, not the list's error: the loaded rows
+      // stay and the list is not replaced by an error state (#5870).
+      expect(result.current.loadMoreError?.message).toContain('Network error');
+      expect(result.current.error).toBeNull();
+      expect(result.current.data).toHaveLength(1);
+      expect(result.current.hasMore).toBe(true);
+    });
+
+    it('a retried fetchMore clears loadMoreError and appends the page (#5870)', async () => {
+      const mockGet = vi
+        .fn()
+        .mockResolvedValueOnce({ tracks: [mockTrackApi], total: 2, offset: 0, limit: 1, has_more: true })
+        .mockRejectedValueOnce(new Error('Library database is locked'))
+        .mockResolvedValueOnce({
+          tracks: [{ ...mockTrackApi, id: 2 }], total: 2, offset: 1, limit: 1, has_more: false,
+        });
+
+      vi.mocked(useRestAPI).mockReturnValue({
+        get: mockGet, post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(),
+      } as any);
+
+      const { result } = renderHook(() => useLibraryQuery('tracks', { limit: 1 }));
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.fetchMore();
+      });
+      expect(result.current.loadMoreError).not.toBeNull();
+
+      await act(async () => {
+        await result.current.fetchMore();
+      });
+      expect(result.current.loadMoreError).toBeNull();
+      expect(result.current.data.map((track) => track.id)).toEqual([1, 2]);
+      // The retry asked for the page that failed, not the one after it.
+      expect(mockGet.mock.calls[2][0]).toContain('offset=1');
     });
   });
 

@@ -27,6 +27,7 @@ const mockResult: UseLibraryQueryResult<Track | Album | Artist> = {
   isLoading: false,
   isLoadingMore: false,
   error: null,
+  loadMoreError: null,
   offset: 0,
   hasMore: false,
   fetchMore: vi.fn(),

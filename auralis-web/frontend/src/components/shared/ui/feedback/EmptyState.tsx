@@ -23,6 +23,8 @@ interface EmptyStateProps {
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** 'alert' for a failed load, so assistive tech announces it as an error (#5870). */
+  role?: 'status' | 'alert';
 }
 
 const iconMap = {
@@ -39,13 +41,14 @@ export const EmptyState = ({
   description,
   actionLabel,
   onAction,
+  role = 'status',
 }: EmptyStateProps) => {
   const IconComponent = iconMap[icon];
 
   return (
     // role="status" announces the empty state when it appears (#5668) — the
     // "no results" / "no favorites" transitions were previously silent.
-    <Container role="status">
+    <Container role={role}>
       <IconContainer>
         {customIcon || <IconComponent />}
       </IconContainer>

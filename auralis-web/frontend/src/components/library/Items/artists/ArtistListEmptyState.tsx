@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/shared/ui/feedback';
 interface ArtistListEmptyStateProps {
   loading: boolean;
   error: string | null;
+  onRetry?: () => void;
 }
 
 /**
@@ -14,11 +15,12 @@ interface ArtistListEmptyStateProps {
  * Returns null if data is loaded and available.
  *
  * @example
- * <ArtistListEmptyState loading={loading} error={error} />
+ * <ArtistListEmptyState loading={loading} error={error} onRetry={refetch} />
  */
 export const ArtistListEmptyState = ({
   loading,
   error,
+  onRetry,
 }: ArtistListEmptyStateProps) => {
   if (loading) {
     return null; // Show loading skeleton in parent
@@ -27,8 +29,11 @@ export const ArtistListEmptyState = ({
   if (error) {
     return (
       <EmptyState
+        role="alert"
         title="Error Loading Artists"
         description={error}
+        actionLabel={onRetry ? 'Retry' : undefined}
+        onAction={onRetry}
       />
     );
   }

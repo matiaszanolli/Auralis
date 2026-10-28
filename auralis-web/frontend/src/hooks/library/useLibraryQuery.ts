@@ -46,7 +46,6 @@ export type {
   LibraryItemByQuery,
 } from '@/hooks/library/libraryQueryTypes';
 
-
 /**
  * Hook for querying library (tracks, albums, artists)
  *
@@ -77,6 +76,9 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
   const [isLoading, setIsLoading] = useState(!options.skip);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  // A failed page 2+ is not a failed list: kept apart from `error` so the
+  // loaded rows stay on screen behind an inline Retry (#5870).
+  const [loadMoreError, setLoadMoreError] = useState<ApiError | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
   // Refs for tracking ongoing requests and query stability
@@ -140,6 +142,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
 
       setIsLoading(true);
       setError(null);
+      setLoadMoreError(null);
 
       try {
         const result = await fetchLibraryPage({
@@ -196,9 +199,10 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
       return;
     }
 
-    // Mark as fetching to prevent concurrent calls
+    // Mark as fetching to prevent concurrent calls; a retry clears the last failure.
     isFetchingMoreRef.current = true;
     setIsLoadingMore(true);
+    setLoadMoreError(null);
 
     // Claim a request id the same way executeQuery does (#4885). The
     // in-flight/has-more checks above only cover the moment this call
@@ -224,7 +228,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
       });
 
       if (result.kind === 'error') {
-        setError(result.error);
+        setLoadMoreError(result.error);
         return;
       }
       if (result.kind !== 'ok' || !result.response) return; // stale/aborted/no page
@@ -251,25 +255,20 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
     }
   }, [get, offset, limit, hasMore, queryType, endpointOptions, claimRequest]);
 
-  /**
-   * Refetch - Reset and fetch from beginning
-   */
+  /** Refetch - Reset and fetch from beginning */
   const refetch = useCallback(async (): Promise<void> => {
     setOffset(0);
     setData([]);
     await executeQuery(0, false);
   }, [executeQuery]);
 
-  /**
-   * Clear error
-   */
+  /** Clear error */
   const clearError = useCallback(() => {
     setError(null);
+    setLoadMoreError(null);
   }, []);
 
-  /**
-   * Auto-fetch on mount or when query parameters change
-   */
+  /** Auto-fetch on mount or when query parameters change */
   useEffect(() => {
     if (skip) return;
 
@@ -286,6 +285,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
     isLoading,
     isLoadingMore,
     error,
+    loadMoreError,
     offset,
     hasMore,
     fetchMore,
@@ -294,7 +294,6 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
   };
 }
 
-// Convenience hooks (useTracksQuery / useAlbumsQuery / useArtistsQuery /
-// useInfiniteScroll) live in ./useLibraryQueries (#5478); re-exported here so
+// Convenience hooks live in ./useLibraryQueries (#5478); re-exported here so
 // existing `from './useLibraryQuery'` imports keep working.
 export { useTracksQuery, useAlbumsQuery, useArtistsQuery, useInfiniteScroll } from './useLibraryQueries';

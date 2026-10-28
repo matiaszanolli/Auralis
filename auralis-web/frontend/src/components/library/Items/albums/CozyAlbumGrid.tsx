@@ -21,7 +21,7 @@
  */
 
 import { useMemo } from 'react';
-import { EmptyState } from '@/components/shared/ui/feedback';
+import { EmptyState, LoadMoreError } from '@/components/shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { VirtualizedAlbumGrid } from './VirtualizedAlbumGrid';
 import { EraGroupedAlbums } from './EraGroupedAlbums';
@@ -82,6 +82,9 @@ export const CozyAlbumGrid = ({
     error,
     fetchNextPage,
     hasNextPage,
+    isFetchNextPageError,
+    isFetchingNextPage,
+    refetch,
   } = useInfiniteAlbums({ limit: 50, search, ...SERVER_ORDER[sortBy] });
 
   // Flatten all pages into single array
@@ -104,15 +107,23 @@ export const CozyAlbumGrid = ({
     return <AlbumGridLoadingState />;
   }
 
-  // Error state
-  if (error) {
+  // Error state — only with nothing loaded. TanStack keeps `data` when a
+  // later page fails; replacing it threw away the user's rows and scroll
+  // position on one transient 503 (#5870), so that case is an inline row.
+  if (error && albums.length === 0) {
     return (
       <EmptyState
+        role="alert"
         title="Error Loading Albums"
         description={error.message || 'Failed to load albums'}
+        actionLabel="Retry"
+        onAction={() => void refetch()}
       />
     );
   }
+
+  // Auto-loading pauses while a failed page waits for Retry.
+  const canLoadMore = (hasNextPage ?? false) && !isFetchNextPageError;
 
   // Empty state
   if (albums.length === 0) {
@@ -128,29 +139,35 @@ export const CozyAlbumGrid = ({
   // keyboard navigation; a complete grid→row→gridcell chain isn't needed. Each
   // AlbumCard is wrapped in role="listitem" below (#3962).
   return (
-    <div role="list" aria-label="Albums" style={{ padding: tokens.spacing.group }}>
-      {sortBy === 'era' ? (
-        <EraGroupedAlbums
-          eraGroups={eraGroups}
-          fingerprints={fingerprints}
-          hasNextPage={hasNextPage ?? false}
-          onLoadMore={fetchNextPage}
-          onAlbumClick={onAlbumClick}
-          onAlbumHover={onAlbumHover}
-          onAlbumHoverEnd={onAlbumHoverEnd}
-        />
-      ) : (
-        <VirtualizedAlbumGrid
-          albums={albums}
-          fingerprints={fingerprints}
-          hasNextPage={hasNextPage ?? false}
-          onLoadMore={fetchNextPage}
-          onAlbumClick={onAlbumClick}
-          onAlbumHover={onAlbumHover}
-          onAlbumHoverEnd={onAlbumHoverEnd}
-        />
+    <>
+      <div role="list" aria-label="Albums" style={{ padding: tokens.spacing.group }}>
+        {sortBy === 'era' ? (
+          <EraGroupedAlbums
+            eraGroups={eraGroups}
+            fingerprints={fingerprints}
+            hasNextPage={canLoadMore}
+            onLoadMore={fetchNextPage}
+            onAlbumClick={onAlbumClick}
+            onAlbumHover={onAlbumHover}
+            onAlbumHoverEnd={onAlbumHoverEnd}
+          />
+        ) : (
+          <VirtualizedAlbumGrid
+            albums={albums}
+            fingerprints={fingerprints}
+            hasNextPage={canLoadMore}
+            onLoadMore={fetchNextPage}
+            onAlbumClick={onAlbumClick}
+            onAlbumHover={onAlbumHover}
+            onAlbumHoverEnd={onAlbumHoverEnd}
+          />
+        )}
+      </div>
+      {/* Outside role="list", whose children must be list items. */}
+      {isFetchNextPageError && !isFetchingNextPage && (
+        <LoadMoreError noun="albums" onRetry={() => void fetchNextPage()} />
       )}
-    </div>
+    </>
   );
 };
 

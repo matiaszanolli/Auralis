@@ -49,10 +49,13 @@ export const CozyArtistList = ({ onArtistClick, search }: CozyArtistListProps) =
   const {
     data: artists,
     isLoading,
+    isLoadingMore,
     error,
+    loadMoreError,
     total: totalArtists,
     hasMore,
     fetchMore,
+    refetch,
   } = useArtistsQuery({ limit: 50, search });
 
   // Artist grouping by first letter
@@ -90,12 +93,17 @@ export const CozyArtistList = ({ onArtistClick, search }: CozyArtistListProps) =
     return <ArtistListLoading />;
   }
 
-  const emptyState = (
-    <ArtistListEmptyState loading={isLoading} error={error?.message ?? null} />
-  );
-
+  // `error` is the current query's own failure (stale rows from a previous
+  // search must not stay up); a failed later page is `loadMoreError` instead,
+  // which keeps the loaded rows behind an inline Retry (#5870).
   if (error || artists.length === 0) {
-    return emptyState;
+    return (
+      <ArtistListEmptyState
+        loading={isLoading}
+        error={error?.message ?? null}
+        onRetry={() => void refetch()}
+      />
+    );
   }
 
   return (
@@ -103,9 +111,10 @@ export const CozyArtistList = ({ onArtistClick, search }: CozyArtistListProps) =
       <ArtistListContent
         artists={artists}
         totalArtists={totalArtists}
-        isLoadingMore={isLoading && artists.length > 0}
+        isLoadingMore={isLoadingMore}
         hasMore={hasMore}
         fetchMore={fetchMore}
+        loadMoreFailed={loadMoreError !== null}
         groupedArtists={groupedArtists}
         sortedLetters={sortedLetters}
         contextMenuState={contextMenuState}
