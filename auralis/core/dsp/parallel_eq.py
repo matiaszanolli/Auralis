@@ -51,10 +51,16 @@ class ParallelEQUtilities:
         three by hand). axis=-1 is the sample axis for both 1-D input and
         the (channels, samples) chunk layout, so the ndim branch the copies
         carried is unnecessary. sosfiltfilt_safe returns the input dtype
-        contract with the #2158 cast and degrades to passthrough on chunks
-        shorter than padlen (#5116). Never modifies `audio` in place.
+        contract with the #2158 cast and yields an empty band on chunks
+        shorter than padlen (#5116, #6120). Never modifies `audio` in place.
         """
-        band = sosfiltfilt_safe(sos, audio, axis=-1, context=context).astype(audio.dtype)
+        # on_too_short="zeros": this is BAND EXTRACTION, so a buffer shorter than
+        # padlen holds no extractable band and nothing is added. The default
+        # passthrough returned the whole signal as the "band", turning the
+        # parallel add into a broadband gain of +boost_db on short chunks (#6120).
+        band = sosfiltfilt_safe(
+            sos, audio, axis=-1, context=context, on_too_short="zeros"
+        ).astype(audio.dtype)
 
         # boost_linear = 1.0 -> no change; 2.0 -> +6 dB. boost_diff is what
         # gets ADDED. A Python float never promotes an array's dtype (NEP 50),
