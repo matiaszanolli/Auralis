@@ -8,7 +8,7 @@ reducing boilerplate and ensuring consistency.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastapi import Query
 
@@ -95,6 +95,18 @@ def offset_query(description: str | None = None) -> Any:
             description=description,
         )
     return Query(PaginationParams.DEFAULT_OFFSET, ge=PaginationParams.MIN_OFFSET)
+
+
+# The ``order`` Query parameter of the album/artist/track lists (#5868).
+# ``order_by`` alone could only ascend, so "newest first" was impossible and
+# the frontend re-sorted whatever pages it had loaded. Omitted (None), each
+# field keeps its natural direction (A-Z, oldest first; artist counts
+# most-first). Annotated rather than a ``Query()`` default so a handler called
+# directly (the #4670 seam) still receives a plain None.
+SortOrder = Annotated[
+    Literal['asc', 'desc'] | None,
+    Query(description="Sort direction for order_by: asc or desc"),
+]
 
 
 def paginated(key: str, items: Any, total: int, offset: int, limit: int) -> dict[str, Any]:

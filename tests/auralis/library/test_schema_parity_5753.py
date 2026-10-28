@@ -62,7 +62,6 @@ ACCEPTED_DIFFERENCES: dict[str, str] = {
     "column tracks.play_count: notnull differs": _COUNTER_COLUMN,
     "column tracks.skip_count: default differs": _COUNTER_COLUMN,
     "column tracks.skip_count: notnull differs": _COUNTER_COLUMN,
-    "index artists.idx_artists_name: only on upgraded databases": _EXTRA_UPGRADED_INDEX,
     "index artists.idx_artists_normalized_name: only on upgraded databases": (
         "Same column as ix_artists_normalized_name under the migration's older name."
     ),

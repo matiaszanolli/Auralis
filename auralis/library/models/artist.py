@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from .album import Album
     from .track import Track
 
-from sqlalchemy import DateTime, Float, Integer, String, Text
+from sqlalchemy import DateTime, Float, Index, Integer, String, Text, collate
 from sqlalchemy.orm import Mapped, mapped_column, query_expression, relationship
 
 from ._helpers import _safe_collection
@@ -29,6 +29,12 @@ class Artist(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     normalized_name: Mapped[str | None] = mapped_column(String, index=True)  # Canonical form for duplicate detection
+
+    # Backs the case-insensitive browse order (#5869), like idx_albums_title.
+    # The UNIQUE autoindex on name is BINARY, so ORDER BY name COLLATE NOCASE
+    # cannot use it. Migration v3 created this on upgraded databases only;
+    # declaring it lets create_all and the declared-index repair build it too.
+    __table_args__ = (Index('idx_artists_name', collate(name, 'NOCASE')),)
 
     # Artist statistics
     total_plays: Mapped[int] = mapped_column(Integer, default=0)

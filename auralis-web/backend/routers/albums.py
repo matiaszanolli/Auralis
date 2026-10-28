@@ -23,7 +23,7 @@ from schemas import (
 
 from .dependencies import with_error_handling
 from .errors import NotFoundError
-from .pagination import limit_query, offset_query, paginated
+from .pagination import SortOrder, limit_query, offset_query, paginated
 from .serializers_library import serialize_album, serialize_albums, serialize_tracks
 from .albums_models import AlbumFingerprintResponse, AlbumTracksResponse
 from .albums_deps import _repo_deps
@@ -93,6 +93,7 @@ async def get_albums(
     offset: int = offset_query(),
     search: str | None = None,
     order_by: Literal['title', 'year', 'created_at'] = 'title',
+    order: SortOrder = None,
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> Any:
     """
@@ -103,23 +104,19 @@ async def get_albums(
         offset: Number of albums to skip (default: 0)
         search: Optional search query (searches title and artist)
         order_by: Column to order by (default: 'title', options: 'title', 'year', 'created_at')
+        order: 'asc' (default) or 'desc'; undated albums sort last either way
 
     Returns:
-        dict: List of albums with pagination info including:
-            - albums: List of album objects
-            - total: Total number of albums in library
-            - limit: Requested limit
-            - offset: Current offset
-            - has_more: Boolean indicating if more albums are available
+        dict: albums plus the paginated() envelope (total, offset, limit, has_more)
 
     Raises:
         HTTPException: If the library is not available or query fails
     """
-    # Get albums with pagination
+    page = dict(limit=limit, offset=offset, order_by=order_by, order=order)
     if search:
-        albums, total = await asyncio.to_thread(repos.albums.search, search, limit=limit, offset=offset, order_by=order_by)
+        albums, total = await asyncio.to_thread(repos.albums.search, search, **page)
     else:
-        albums, total = await asyncio.to_thread(repos.albums.get_all, limit=limit, offset=offset, order_by=order_by)
+        albums, total = await asyncio.to_thread(repos.albums.get_all, **page)
     return paginated("albums", serialize_albums(albums), total, offset, limit)
 
 

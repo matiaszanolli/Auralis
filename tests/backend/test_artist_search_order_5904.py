@@ -62,4 +62,4 @@ def test_router_forwards_order_by_to_search(order_by):
     # The handler takes its dependencies as plain arguments, so call it directly.
     asyncio.run(get_artists(limit=10, offset=0, search="x", order_by=order_by, repos=repos))
 
-    repos.artists.search.assert_called_once_with("x", limit=10, offset=0, order_by=order_by)
+    repos.artists.search.assert_called_once_with("x", limit=10, offset=0, order_by=order_by, order=None)

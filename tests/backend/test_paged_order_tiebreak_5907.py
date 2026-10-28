@@ -65,7 +65,9 @@ def test_artist_orders_end_in_id(artist_repository, monkeypatch, order_by):
     )
     assert len(statements) == 2
     for sql in statements:
-        assert _order_by_clauses(sql)[-1] == "artists.id ASC"
+        # The tie-breaker follows the primary direction (#5868), so the
+        # most-first count orders end in id DESC; either is a total order.
+        assert _order_by_clauses(sql)[-1] in ("artists.id ASC", "artists.id DESC")
 
 
 def test_album_pages_end_in_id(album_repository, monkeypatch):

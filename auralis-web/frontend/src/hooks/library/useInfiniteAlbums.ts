@@ -15,9 +15,15 @@ import { transformAlbumsResponse } from '@/api/transformers';
 import type { AlbumsApiResponse } from '@/api/transformers';
 import { get } from '@/utils/apiRequest';
 
+/** Server-side sort column and direction (`GET /api/albums` order_by/order, #5868). */
+export type AlbumOrderBy = 'title' | 'year' | 'created_at';
+export type SortDirection = 'asc' | 'desc';
+
 interface UseInfiniteAlbumsOptions {
   limit?: number;
   search?: string;
+  orderBy?: AlbumOrderBy;
+  order?: SortDirection;
   enabled?: boolean;
 }
 
@@ -29,14 +35,22 @@ async function fetchAlbums({
   pageParam = 0,
   limit = LIBRARY_PAGE_LIMIT,
   search,
+  orderBy = 'title',
+  order = 'asc',
 }: {
   pageParam?: number;
   limit?: number;
   search?: string;
+  orderBy?: AlbumOrderBy;
+  order?: SortDirection;
 }): Promise<AlbumsApiResponse> {
+  // The sort is the server's (#5868): every page continues one global order,
+  // so loading page N never inserts albums above rows already rendered.
   const params = new URLSearchParams({
     offset: pageParam.toString(),
     limit: limit.toString(),
+    order_by: orderBy,
+    order,
   });
 
   if (search) {
@@ -77,16 +91,20 @@ async function fetchAlbums({
  * ```
  */
 export function useInfiniteAlbums(options: UseInfiniteAlbumsOptions = {}) {
-  const { limit = LIBRARY_PAGE_LIMIT, search, enabled = true } = options;
+  const {
+    limit = LIBRARY_PAGE_LIMIT, search, orderBy = 'title', order = 'asc', enabled = true,
+  } = options;
 
   return useInfiniteQuery({
-    queryKey: ['albums', { search, limit }],
+    queryKey: ['albums', { search, limit, orderBy, order }],
     queryFn: async ({ pageParam }) => {
       // Fetch raw API response (snake_case)
       const apiResponse = await fetchAlbums({
         pageParam,
         limit,
         search,
+        orderBy,
+        order,
       });
 
       // Transform to domain model (camelCase)

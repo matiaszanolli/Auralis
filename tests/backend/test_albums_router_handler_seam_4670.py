@@ -49,7 +49,7 @@ async def test_get_albums_callable_with_a_bare_stub_repos():
 
     result = await get_albums(limit=10, offset=0, search=None, order_by='title', repos=repos)
 
-    repos.albums.get_all.assert_called_once_with(limit=10, offset=0, order_by='title')
+    repos.albums.get_all.assert_called_once_with(limit=10, offset=0, order_by='title', order=None)
     repos.albums.search.assert_not_called()
     assert result == {
         "albums": [],
@@ -65,9 +65,10 @@ async def test_get_albums_routes_a_search_to_the_search_repo():
     repos = MagicMock()
     repos.albums.search.return_value = ([], 0)
 
-    await get_albums(limit=5, offset=0, search="dark", order_by='year', repos=repos)
+    await get_albums(limit=5, offset=0, search="dark", order_by='year', order='desc', repos=repos)
 
-    repos.albums.search.assert_called_once_with("dark", limit=5, offset=0, order_by='year')
+    # order reaches the repository (#5868): "newest first" is a server order.
+    repos.albums.search.assert_called_once_with("dark", limit=5, offset=0, order_by='year', order='desc')
     repos.albums.get_all.assert_not_called()
 
 

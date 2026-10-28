@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Path, Query
 from .dependencies import with_error_handling
 from .errors import NotFoundError
 from .repo_deps import RepositoryFactoryDeps
-from .pagination import compute_has_more, limit_query, offset_query
+from .pagination import SortOrder, compute_has_more, limit_query, offset_query
 from .serializers_library import serialize_album, serialize_artist
 from .artists_models import (  # noqa: F401
     AlbumInArtist,
@@ -72,6 +72,7 @@ async def get_artists(
     order_by: Literal['name', 'album_count', 'track_count'] = Query(
         'name', description="Sort by: name, album_count, track_count"
     ),  # fixes #3559 / BE-NEW-101 (sibling of #2727 for /api/library/tracks)
+    order: SortOrder = None,
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> ArtistsListResponse:
     """Get paginated list of artists
@@ -79,17 +80,11 @@ async def get_artists(
     Returns artists with album and track counts, supporting pagination,
     search, and multiple sort options.
     """
+    page = dict(limit=limit, offset=offset, order_by=order_by, order=order)
     if search:
-        # Search artists by name (now returns tuple with count)
-        artists, total = await asyncio.to_thread(repos.artists.search, search, limit=limit, offset=offset, order_by=order_by)
+        artists, total = await asyncio.to_thread(repos.artists.search, search, **page)
     else:
-        # Get paginated artists
-        artists, total = await asyncio.to_thread(
-            repos.artists.get_all,
-            limit=limit,
-            offset=offset,
-            order_by=order_by
-        )
+        artists, total = await asyncio.to_thread(repos.artists.get_all, **page)
 
     # Transform to response format
     artist_responses = []

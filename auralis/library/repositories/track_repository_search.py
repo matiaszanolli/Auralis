@@ -10,17 +10,30 @@ recent/popular/favorites/all listings, and simple similarity lookups.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from typing import Any
+
 from sqlalchemy import func, or_, select
 
 from ..models import Album, Artist, Genre, Track
-from .base import BaseRepository, escape_like
+from .base import BaseRepository, escape_like, sort_terms
 from .track_repository import _VALID_TRACK_ORDER_COLUMNS, _track_eager_options
+
+
+def _track_order_by(order_by: str, order: str | None) -> tuple[Any, ...]:
+    """ORDER BY shared by search() and get_all(); the whitelist keeps getattr
+    off arbitrary attributes, and sort_terms() supplies collation, NULL
+    placement and the id tie-breaker (#5868, #5869)."""
+    if order_by not in _VALID_TRACK_ORDER_COLUMNS:
+        order_by = 'title'
+    return sort_terms(getattr(Track, order_by), Track.id, descending=order == 'desc')
 
 
 class TrackRepositorySearchMixin(BaseRepository):
     """Search, filter, and browse tracks."""
 
-    def search(self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Track], int]:
+    def search(
+        self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title', order: str | None = None
+    ) -> tuple[list[Track], int]:
         """
         Search tracks by title, artist, album, or genre
 
@@ -29,6 +42,7 @@ class TrackRepositorySearchMixin(BaseRepository):
             limit: Maximum number of results
             offset: Number of results to skip (for pagination)
             order_by: Column name to order by ('title', 'created_at', 'play_count', etc.)
+            order: 'asc' (default) or 'desc'
 
         Returns:
             Tuple of (matching tracks, total count)
@@ -54,16 +68,11 @@ class TrackRepositorySearchMixin(BaseRepository):
                 .where(search_filter)
             ).scalar_one()
 
-            # Whitelist to prevent arbitrary attribute access
-            if order_by not in _VALID_TRACK_ORDER_COLUMNS:
-                order_by = 'title'
-            order_column = getattr(Track, order_by, Track.title)
-
             # Get paginated results. LIMIT/OFFSET has implementation-defined row
             # order without ORDER BY — especially with .distinct() after an
             # outer join — so two calls with the same query/offset can return
             # duplicate or skipped rows across pages (fixes #4796). Track.id is
-            # a stable tiebreaker since order_column alone may not be unique.
+            # a stable tiebreaker since the sort column alone may not be unique.
             results = session.execute(
                 select(Track)
                 .join(Track.artists, isouter=True)
@@ -71,7 +80,7 @@ class TrackRepositorySearchMixin(BaseRepository):
                 .options(*_track_eager_options(collections_via_selectin=True, list_read=True))
                 .where(search_filter)
                 .distinct()
-                .order_by(order_column.asc(), Track.id.asc())
+                .order_by(*_track_order_by(order_by, order))
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()
@@ -149,7 +158,7 @@ class TrackRepositorySearchMixin(BaseRepository):
                 select(Track)
                 .options(*_track_eager_options(list_read=True))
                 .where(Track.favorite == True)
-                .order_by(Track.title.asc(), Track.id.asc())
+                .order_by(*sort_terms(Track.title, Track.id))
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()
@@ -158,13 +167,16 @@ class TrackRepositorySearchMixin(BaseRepository):
                 session.expunge(track)
             return list(results), total
 
-    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Track], int]:
+    def get_all(
+        self, limit: int = 50, offset: int = 0, order_by: str = 'title', order: str | None = None
+    ) -> tuple[list[Track], int]:
         """Get all tracks with pagination and total count
 
         Args:
             limit: Maximum number of tracks to return
             offset: Number of tracks to skip (for pagination)
             order_by: Column name to order by ('title', 'created_at', 'play_count', etc.)
+            order: 'asc' (default) or 'desc'
 
         Returns:
             Tuple of (list of Track objects, total count)
@@ -175,14 +187,10 @@ class TrackRepositorySearchMixin(BaseRepository):
                 select(func.count()).select_from(Track)
             ).scalar_one()
 
-            # Get tracks for current page (whitelist to prevent arbitrary attribute access)
-            if order_by not in _VALID_TRACK_ORDER_COLUMNS:
-                order_by = 'title'
-            order_column = getattr(Track, order_by, Track.title)
             tracks = session.execute(
                 select(Track)
                 .options(*_track_eager_options(list_read=True))
-                .order_by(order_column.asc(), Track.id.asc())
+                .order_by(*_track_order_by(order_by, order))
                 .limit(limit)
                 .offset(offset)
             ).scalars().unique().all()

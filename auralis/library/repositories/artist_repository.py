@@ -16,38 +16,27 @@ from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session, selectinload, with_expression
 
 from ..models import Album, Artist, Genre, Track, track_artist, track_genre
-from .base import BaseRepository, correlated_count, escape_like
+from .base import BaseRepository, correlated_count, escape_like, sort_terms
 
 
-def _artist_order_by(order_by: str) -> tuple[ColumnElement[Any], ...]:
+def _artist_order_by(order_by: str, order: str | None = None) -> tuple[ColumnElement[Any], ...]:
     """ORDER BY clause shared by get_all() and search() (#5904).
 
-    Ends with Artist.id so equal sort keys (every artist with the same count)
-    keep a total order across LIMIT/OFFSET pages (#5907).
+    Counts default to most-first and the name to A-Z; *order* ('asc'/'desc')
+    overrides either (#5868). sort_terms() makes the name sort case-insensitive
+    and ends with Artist.id so equal sort keys keep a total order across
+    LIMIT/OFFSET pages (#5907, #5869).
     """
-    primary: ColumnElement[Any]
+    primary: Any
     if order_by == 'album_count':
         # Correlated subquery: no JOIN needed — evaluated per row by the DB engine.
         # Artists with no albums yield COUNT=0 (not NULL), so no COALESCE required.
-        primary = (
-            select(func.count(Album.id))
-            .where(Album.artist_id == Artist.id)
-            .correlate(Artist)
-            .scalar_subquery()
-            .desc()
-        )
+        primary = correlated_count(Album, Album.artist_id, Artist)
     elif order_by == 'track_count':
-        primary = (
-            select(func.count())
-            .select_from(track_artist)
-            .where(track_artist.c.artist_id == Artist.id)
-            .correlate(Artist)
-            .scalar_subquery()
-            .desc()
-        )
+        primary = correlated_count(track_artist, track_artist.c.artist_id, Artist)
     else:
-        primary = Artist.name.asc()
-    return (primary, Artist.id.asc())
+        return sort_terms(Artist.name, Artist.id, descending=order == 'desc')
+    return sort_terms(primary, Artist.id, descending=order != 'asc')
 
 
 def _attach_genre_names(session: Session, artists: Sequence[Artist]) -> None:
@@ -152,13 +141,16 @@ class ArtistRepository(BaseRepository):
             )
             return artist
 
-    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[list[Artist], int]:
+    def get_all(
+        self, limit: int = 50, offset: int = 0, order_by: str = 'name', order: str | None = None
+    ) -> tuple[list[Artist], int]:
         """Get all artists with pagination and relationships loaded
 
         Args:
             limit: Maximum number of artists to return
             offset: Number of artists to skip
             order_by: Field to sort by ('name', 'album_count', 'track_count')
+            order: 'asc' or 'desc'; omitted, counts sort most-first and names A-Z
 
         Returns:
             Tuple of (artists list, total count)
@@ -173,7 +165,7 @@ class ArtistRepository(BaseRepository):
                 session.execute(
                     select(Artist)
                     .options(*_ARTIST_LIST_OPTIONS)
-                    .order_by(*_artist_order_by(order_by))
+                    .order_by(*_artist_order_by(order_by, order))
                     .limit(limit)
                     .offset(offset)
                 ).scalars().all()
@@ -186,7 +178,8 @@ class ArtistRepository(BaseRepository):
             return list(artists), total
 
     def search(
-        self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'name'
+        self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'name',
+        order: str | None = None,
     ) -> tuple[list[Artist], int]:
         """Search artists by name with pagination
 
@@ -218,7 +211,7 @@ class ArtistRepository(BaseRepository):
                     select(Artist)
                     .options(*_ARTIST_LIST_OPTIONS)
                     .where(Artist.name.ilike(search_term, escape='\\'))
-                    .order_by(*_artist_order_by(order_by))
+                    .order_by(*_artist_order_by(order_by, order))
                     .limit(limit)
                     .offset(offset)
                 ).scalars().all()

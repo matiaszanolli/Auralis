@@ -18,13 +18,22 @@ from ..artwork import create_artwork_extractor
 from ..data_dir import artwork_dir
 from ..models import Album, Artist, Track
 from .album_artwork import AlbumArtworkMixin
-from .base import correlated_count, correlated_sum, escape_like
+from .base import correlated_count, correlated_sum, escape_like, sort_terms
 
 
 def _total_duration_subquery() -> Any:
     """Correlated SUM of an album's track durations — base.correlated_sum
     (the direct-FK shape), one builder shared with playlists (#6212)."""
     return correlated_sum(Track, Track.duration, Track.album_id, Album)
+
+
+def _album_order_by(order_by: str, order: str | None) -> tuple[Any, ...]:
+    """ORDER BY shared by get_all() and search(); the whitelist keeps getattr
+    off arbitrary attributes, and sort_terms() supplies collation, NULL
+    placement and the id tie-breaker (#5868, #5869)."""
+    if order_by not in ('title', 'year', 'created_at'):
+        order_by = 'title'
+    return sort_terms(getattr(Album, order_by), Album.id, descending=order == 'desc')
 
 
 # Named eager-load constants (#5028), mirroring track_repository.py's
@@ -76,7 +85,9 @@ class AlbumRepository(AlbumArtworkMixin):
             )
             return album
 
-    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Album], int]:
+    def get_all(
+        self, limit: int = 50, offset: int = 0, order_by: str = 'title', order: str | None = None
+    ) -> tuple[list[Album], int]:
         """
         Get all albums with pagination and total count
 
@@ -84,6 +95,7 @@ class AlbumRepository(AlbumArtworkMixin):
             limit: Maximum number of albums to return
             offset: Number of albums to skip
             order_by: Column to order by ('title', 'year', 'created_at')
+            order: 'asc' (default) or 'desc'
 
         Returns:
             Tuple of (albums list, total count)
@@ -94,26 +106,14 @@ class AlbumRepository(AlbumArtworkMixin):
                 select(func.count()).select_from(Album)
             ).scalar_one()
 
-            # Get albums for current page (whitelist to prevent arbitrary attribute access)
-            VALID_ORDER_COLUMNS = {'title', 'year', 'created_at'}
-            if order_by not in VALID_ORDER_COLUMNS:
-                order_by = 'title'
-            order_column = getattr(Album, order_by, Album.title)
             albums = self._all_detached(
                 session,
                 select(Album)
                 .options(*_ALBUM_LIST_OPTIONS)
-                .order_by(order_column.asc(), Album.id.asc())
+                .order_by(*_album_order_by(order_by, order))
                 .limit(limit)
                 .offset(offset),
             )
-
-            # Expunge every album AND its eagerly-loaded artist (fixes #2406 /
-            # #4236 — a per-item expunge(album) does not cascade to related
-            # objects, leaving them DetachedInstanceError-prone). tracks is no
-            # longer eager-loaded here (#4777) — track_count_expr/
-            # total_duration_expr cover what the serializer actually needs.
-
             return albums, total
 
     def get_recent(self, limit: int = 50, offset: int = 0) -> list[Album]:
@@ -129,7 +129,9 @@ class AlbumRepository(AlbumArtworkMixin):
             )
             return albums
 
-    def search(self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Album], int]:
+    def search(
+        self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title', order: str | None = None
+    ) -> tuple[list[Album], int]:
         """
         Search albums by title or artist name
 
@@ -138,6 +140,7 @@ class AlbumRepository(AlbumArtworkMixin):
             limit: Maximum number of results
             offset: Number of results to skip
             order_by: Column to order by ('title', 'year', 'created_at')
+            order: 'asc' (default) or 'desc'
 
         Returns:
             Tuple of (matching albums, total match count) — total enables correct
@@ -159,12 +162,6 @@ class AlbumRepository(AlbumArtworkMixin):
                 .where(search_filter)
             ).scalar_one_or_none() or 0
 
-            # Whitelist order_by to prevent arbitrary attribute access
-            VALID_ORDER_COLUMNS = {'title', 'year', 'created_at'}
-            if order_by not in VALID_ORDER_COLUMNS:
-                order_by = 'title'
-            order_column = getattr(Album, order_by, Album.title)
-
             results = self._all_detached(
                 session,
                 select(Album)
@@ -181,7 +178,7 @@ class AlbumRepository(AlbumArtworkMixin):
                     with_expression(Album.track_count_expr, correlated_count(Track, Track.album_id, Album)),
                     with_expression(Album.total_duration_expr, _total_duration_subquery()),
                 )
-                .order_by(order_column.asc(), Album.id.asc())
+                .order_by(*_album_order_by(order_by, order))
                 .limit(limit)
                 .offset(offset),
             )

@@ -29,7 +29,7 @@ from schemas import TrackListResponse, TrackResponse
 from .dependencies import with_error_handling
 from .errors import NotFoundError
 from .repo_deps import RepositoryFactoryDeps
-from .pagination import limit_query, offset_query, paginated
+from .pagination import SortOrder, limit_query, offset_query, paginated
 from .serializers_library import serialize_tracks
 
 logger = logging.getLogger(__name__)
@@ -69,15 +69,15 @@ async def get_tracks(
         'title', 'created_at', 'play_count',
         'duration', 'year', 'last_played'
     ] = 'created_at',
+    order: SortOrder = None,
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
     """Get tracks from library with optional search and pagination."""
+    page = dict(limit=limit, offset=offset, order_by=order_by, order=order)
     if search:
-        tracks, total = await asyncio.to_thread(
-            repos.tracks.search, search, limit=limit, offset=offset, order_by=order_by
-        )
+        tracks, total = await asyncio.to_thread(repos.tracks.search, search, **page)
     else:
-        tracks, total = await asyncio.to_thread(repos.tracks.get_all, limit=limit, offset=offset, order_by=order_by)
+        tracks, total = await asyncio.to_thread(repos.tracks.get_all, **page)
     return paginated("tracks", serialize_tracks(tracks), total, offset, limit)
 
 

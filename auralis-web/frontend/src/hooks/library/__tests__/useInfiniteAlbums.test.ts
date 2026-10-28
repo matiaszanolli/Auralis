@@ -230,4 +230,32 @@ describe('useInfiniteAlbums', () => {
     expect(endpoint).toContain('search=test');
     expect(endpoint).toContain('offset=0');
   });
+
+  it('sends the sort as a server order, A-Z by default (#5868)', async () => {
+    getMock.mockResolvedValueOnce(mockAlbumsPage(0, 50, 5));
+
+    const { result } = renderHook(() => useInfiniteAlbums(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const params = new URL(getMock.mock.calls[0][0] as string, 'http://x').searchParams;
+    expect(params.get('order_by')).toBe('title');
+    expect(params.get('order')).toBe('asc');
+  });
+
+  it('a different sort is a different query, fetched from offset 0 (#5868)', async () => {
+    getMock.mockImplementation(async () => mockAlbumsPage(0, 50, 5));
+
+    const { result, rerender } = renderHook(
+      ({ order }: { order: 'asc' | 'desc' }) => useInfiniteAlbums({ orderBy: 'year', order }),
+      { wrapper: createWrapper(), initialProps: { order: 'asc' as 'asc' | 'desc' } },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    rerender({ order: 'desc' });
+    await waitFor(() => expect(getMock).toHaveBeenCalledTimes(2));
+
+    const second = new URL(getMock.mock.calls[1][0] as string, 'http://x').searchParams;
+    expect(second.get('order_by')).toBe('year');
+    expect(second.get('order')).toBe('desc');
+    expect(second.get('offset')).toBe('0');
+  });
 });

@@ -17,7 +17,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
 from typing import Any, TypeVar
 
-from sqlalchemy import ScalarSelect, Select, func, select
+from sqlalchemy import ColumnElement, ScalarSelect, Select, String, collate, func, select
 from sqlalchemy.orm import Session
 
 from ...utils.logging import error
@@ -41,6 +41,27 @@ def escape_like(query: str) -> str:
     carrying their own inline copy of the expression.
     """
     return query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
+def sort_terms(column: Any, tie_breaker: Any, descending: bool = False) -> tuple[ColumnElement[Any], ...]:
+    """ORDER BY terms for a paginated list read (#5868, #5869).
+
+    - Text columns sort ``COLLATE NOCASE`` — the collation ``idx_albums_title``
+      and ``idx_tracks_title`` are built on, so the sort stays index-backed —
+      instead of BINARY, which put every lowercase initial (``alt-J``,
+      ``deadmau5``) after ``Z``. NOCASE folds ASCII only.
+    - Nullable columns put NULLs last in either direction (SQLite puts them
+      first on ASC, so "by year" opened on the undated albums).
+    - *tie_breaker* (the primary key) follows the same direction and gives a
+      total order, so LIMIT/OFFSET pages neither overlap nor skip rows.
+    """
+    nullable = getattr(getattr(column, 'expression', column), 'nullable', False)
+    if isinstance(getattr(column, 'type', None), String):
+        column = collate(column, 'NOCASE')
+    primary = column.desc() if descending else column.asc()
+    if nullable:
+        primary = primary.nulls_last()
+    return (primary, tie_breaker.desc() if descending else tie_breaker.asc())
 
 
 def correlated_count(source: Any, fk_column: Any, parent: Any) -> ScalarSelect[int]:
