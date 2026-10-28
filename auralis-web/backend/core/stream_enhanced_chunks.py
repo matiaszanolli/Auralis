@@ -249,7 +249,11 @@ async def pump_chunks(
                     ),
                     error_code=error_code,
                 )
-                stopped_early = True
+                # A server-side abort, not a client-driven stop: recorded as a
+                # failed chunk so the end frame says "errored", like the normal
+                # pump's read-timeout abort ("stopped" is reserved for clean
+                # client exits, #4790, #5995).
+                failed_chunks.append(chunk_idx)
                 break
 
             except Exception as chunk_error:
