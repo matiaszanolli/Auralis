@@ -147,10 +147,19 @@ mod tests {
 
     #[test]
     fn test_phase_correlation_opposite() {
-        let left = vec![0.5, 0.5, 0.5, 0.5];
-        let right = vec![-0.5, -0.5, -0.5, -0.5]; // Opposite
+        // An inverted AC signal (#5859: the old constant ±0.5 input has zero
+        // variance, where the correlation is undefined and falls back to 1.0).
+        let left = vec![0.5, -0.3, 0.2, -0.4];
+        let right: Vec<f32> = left.iter().map(|s| -s).collect();
         let correlation = compute_phase_correlation(&left, &right);
         assert!((correlation + 1.0).abs() < 0.01); // Should be ~-1.0
+    }
+
+    #[test]
+    fn test_phase_correlation_constant_channels_fall_back_to_one() {
+        // Zero-variance (DC) channels have no defined correlation; treated as mono.
+        let correlation = compute_phase_correlation(&[0.5; 4], &[-0.5; 4]);
+        assert_eq!(correlation, 1.0);
     }
 
     #[test]
@@ -163,9 +172,11 @@ mod tests {
 
     #[test]
     fn test_compute_energy() {
-        let signal = vec![0.3, 0.4]; // sqrt(0.09 + 0.16) / 2 = sqrt(0.25) / 2 = 0.25
+        // RMS: sqrt((0.09 + 0.16) / 2) = sqrt(0.125) ≈ 0.3536 (#5859: the old
+        // expectation divided the root by N instead of the sum).
+        let signal = vec![0.3, 0.4];
         let energy = compute_energy(&signal);
-        assert!((energy - 0.25).abs() < 0.01);
+        assert!((energy - 0.125f32.sqrt()).abs() < 1e-6);
     }
 
     #[test]

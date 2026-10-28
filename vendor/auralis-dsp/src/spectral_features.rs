@@ -84,7 +84,9 @@ pub fn compute_spectral_flatness(psd: &[f32]) -> f32 {
         return 0.0;
     }
 
-    // Filter out zeros to avoid log(0)
+    // Filter out zeros to avoid log(0). Bins at or below the threshold are
+    // excluded from both means rather than floored, so only the measured part
+    // of the spectrum counts (see test_spectral_flatness_tone, #5859).
     let nonzero_psd: Vec<f32> = psd.iter().filter(|&&p| p > 1e-10).copied().collect();
     if nonzero_psd.is_empty() {
         return 0.0;
@@ -196,8 +198,12 @@ mod tests {
 
     #[test]
     fn test_spectral_flatness_tone() {
-        // Single frequency (tone) - low flatness
-        let mut psd = vec![0.0; 100];
+        // Single frequency (tone) over a noise floor - low flatness. The floor
+        // matters (#5859): bins at or below 1e-10 are left out of both means
+        // (they would make log() blow up), so an all-zero background reduces a
+        // tone to one bin, i.e. "perfectly flat". A Hann-windowed FFT of real
+        // audio never yields that exactly-sparse spectrum.
+        let mut psd = vec![1e-6; 100];
         psd[20] = 1.0; // Single peak
 
         let flatness = compute_spectral_flatness(&psd);

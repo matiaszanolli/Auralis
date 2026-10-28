@@ -16,26 +16,28 @@ deleted the nine bindings and the modules only they used.
 
 | Module | Lines | Unit tests | Purpose |
 |---|---|---|---|
-| `fingerprint_compute.rs` | 846 | 9 | Orchestrates the full 25D fingerprint from the modules below |
+| `fingerprint_compute.rs` | 948 | 11 | Orchestrates the full 25D fingerprint from the modules below |
 | `frequency_analysis.rs` | 225 | 5 | 7-band perceptual frequency distribution |
-| `spectral_features.rs` | 222 | 6 | Spectral centroid/rolloff/flatness |
+| `spectral_features.rs` | 228 | 6 | Spectral centroid/rolloff/flatness |
 | `variation_analysis.rs` | 240 | 10 | Temporal variation (dynamic range, loudness, peak consistency) |
-| `stereo_analysis.rs` | 188 | 7 | Stereo width / phase correlation |
+| `stereo_analysis.rs` | 199 | 8 | Stereo width / phase correlation |
 | `chroma.rs` | 502 | 15 | Constant-Q chromagram (harmonic dimensions of the fingerprint) |
 | `rhythm.rs` | 700 | 6 | Beat tracking + silence ratio; feeds `rhythm_stability` / `silence_ratio` (ported from the deleted `fingerprint-server` crate, #4533) |
 | `dsp_math.rs` | 44 | 0 | Shared RMS / LUFS-proxy primitives |
 | `chunk_processor.rs` | 250 | 3 | Streaming chunk processing; **dead**, behind `process_chunks`, decision tracked in #5738 |
 | `py_bindings.rs` | 228 | 0 | `#[pymodule]` registering `compute_fingerprint` and `process_chunks` |
 
-## Test status (`cargo test --lib`, verified 2026-10-22)
+## Test status (`cargo test --lib`, verified 2026-10-27)
 
-**56 / 61 unit tests passing.** 5 pre-existing failures (they fail identically before #5764):
-
-- `fingerprint_compute::tests::test_compute_complete_fingerprint_mono`
-- `fingerprint_compute::tests::test_compute_complete_fingerprint_stereo`
-- `spectral_features::tests::test_spectral_flatness_tone`
-- `stereo_analysis::tests::test_compute_energy`
-- `stereo_analysis::tests::test_phase_correlation_opposite`
+**64 / 64 unit tests passing.** The five failures listed here until #5859 were
+stale tests, not fingerprint bugs: `test_compute_energy` expected
+sqrt(sum)/N instead of RMS; the phase-correlation "opposite" and stereo
+fingerprint tests fed constant (zero-variance) channels, whose correlation is
+undefined and falls back to 1.0; `test_spectral_flatness_tone` used an
+all-zero background, which the flatness excludes rather than floors (a
+windowed FFT of real audio never produces one). The mono fingerprint test
+exposed one real edge: f32 rounding gave a constant signal a tiny negative
+crest factor, now clamped at 0 dB.
 
 ## Build
 

@@ -115,8 +115,10 @@ fn compute_crest_factor(signal: &[f32]) -> f32 {
         return 0.0;
     }
 
-    // Convert to dB
-    20.0 * (peak / rms).log10()
+    // Convert to dB. Peak >= RMS, so the ratio is >= 1 (>= 0 dB); f32
+    // accumulation in compute_rms can put a constant signal's RMS a hair above
+    // its peak, which read as a tiny negative crest (#5859).
+    (20.0 * (peak / rms).log10()).max(0.0)
 }
 
 /// Compute bass/mid energy ratio
@@ -841,10 +843,13 @@ mod tests {
 
     #[test]
     fn test_compute_complete_fingerprint_stereo() {
+        // AC channels a phase step apart (#5859: constant L/R have zero
+        // variance, whose correlation falls back to 1.0 like mono).
         let mut audio = Vec::new();
-        for _ in 0..48000 {
-            audio.push(0.1); // Left
-            audio.push(0.05); // Right (different)
+        for i in 0..48000 {
+            let t = i as f32 / 48000.0;
+            audio.push(0.3 * (2.0 * std::f32::consts::PI * 440.0 * t).sin()); // Left
+            audio.push(0.3 * (2.0 * std::f32::consts::PI * 440.0 * t + 1.0).sin()); // Right
         }
 
         let fp = compute_complete_fingerprint(&audio, 48000, 2).unwrap();
