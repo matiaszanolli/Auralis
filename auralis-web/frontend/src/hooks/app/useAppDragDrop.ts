@@ -59,48 +59,20 @@ export const useAppDragDrop = ({ info, success }: DragDropConfig) => {
       const trackId = parseInt(draggableId.replace('track-', ''), 10);
 
       try {
-        // Handle different drop targets
-        if (destination.droppableId === 'queue') {
-          // ========================================
-          // ADD TRACK TO QUEUE
-          // ========================================
+        // A drag within one list reorders it; it must be tested before the drop-target
+        // branches, which would otherwise treat "queue -> queue" as an add (#5189).
+        if (destination.droppableId === source.droppableId) {
+          if (source.droppableId === 'queue') {
+            await handleReorderQueue(source.index, destination.index, info);
+          } else if (source.droppableId.startsWith('playlist-')) {
+            const playlistId = parseInt(source.droppableId.replace('playlist-', ''), 10);
+            await handleReorderPlaylist(playlistId, source.index, destination.index, info);
+          }
+        } else if (destination.droppableId === 'queue') {
           await handleAddToQueue(trackId, destination.index, success);
         } else if (destination.droppableId.startsWith('playlist-')) {
-          // ========================================
-          // ADD TRACK TO PLAYLIST
-          // ========================================
-          const playlistId = parseInt(
-            destination.droppableId.replace('playlist-', ''),
-            10
-          );
-          await handleAddToPlaylist(
-            trackId,
-            playlistId,
-            destination.index,
-            success
-          );
-        } else if (destination.droppableId === source.droppableId) {
-          // ========================================
-          // REORDER WITHIN SAME LIST
-          // ========================================
-          if (source.droppableId === 'queue') {
-            await handleReorderQueue(
-              source.index,
-              destination.index,
-              info
-            );
-          } else if (source.droppableId.startsWith('playlist-')) {
-            const playlistId = parseInt(
-              source.droppableId.replace('playlist-', ''),
-              10
-            );
-            await handleReorderPlaylist(
-              playlistId,
-              source.index,
-              destination.index,
-              info
-            );
-          }
+          const playlistId = parseInt(destination.droppableId.replace('playlist-', ''), 10);
+          await handleAddToPlaylist(trackId, playlistId, destination.index, success);
         }
       } catch (err) {
         console.error('Drag and drop error:', err);

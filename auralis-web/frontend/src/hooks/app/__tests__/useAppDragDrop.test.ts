@@ -346,18 +346,10 @@ describe('useAppDragDrop', () => {
     });
   });
 
-  describe('reorder routing is broken (#5189)', () => {
-    // Characterization, not desired behaviour. handleDragEnd tests
-    // `destination.droppableId === 'queue'` before it tests
-    // `destination.droppableId === source.droppableId`, so a within-list drag
-    // never reaches handleReorderQueue / handleReorderPlaylist — it calls the
-    // ADD endpoint instead, duplicating the track rather than moving it.
-    //
-    // The earlier 'reorders tracks in queue' / 'reorders tracks in playlist'
-    // tests asserted only `expect(result.current).toBeDefined()`, which is why
-    // this went unnoticed; they were replaced by the two tests below. When
-    // #5189 fixes the routing these expectations flip to the move/reorder
-    // endpoints.
+  describe('reorder routing (#5189)', () => {
+    // A drag within one list moves the track; only a drag from another list adds it. The
+    // drop-target branches used to run first, so queue -> queue called the ADD endpoint and
+    // duplicated the track.
 
     const recordEndpoint = (hits: string[]) => {
       server.use(
@@ -380,7 +372,7 @@ describe('useAppDragDrop', () => {
       );
     };
 
-    it('a queue reorder calls add-track, not move', async () => {
+    it('a queue reorder calls move, not add-track', async () => {
       const hits: string[] = [];
       recordEndpoint(hits);
 
@@ -394,10 +386,10 @@ describe('useAppDragDrop', () => {
         );
       });
 
-      expect(hits).toEqual(['POST add-track']);   // should be ['PUT move']
+      expect(hits).toEqual(['PUT move']);
     });
 
-    it('a playlist reorder calls tracks/add, not tracks/reorder', async () => {
+    it('a playlist reorder calls tracks/reorder, not tracks/add', async () => {
       const hits: string[] = [];
       recordEndpoint(hits);
 
@@ -414,7 +406,49 @@ describe('useAppDragDrop', () => {
         );
       });
 
-      expect(hits).toEqual(['POST playlist-add']); // should be ['PUT playlist-reorder']
+      expect(hits).toEqual(['PUT playlist-reorder']);
+    });
+
+    it('a drag from the library into the queue still adds', async () => {
+      const hits: string[] = [];
+      recordEndpoint(hits);
+      const { result } = renderHook(() => useAppDragDrop({ info: mockInfo, success: mockSuccess }));
+
+      await act(async () => {
+        await result.current.handleDragEnd(
+          createDropResult({ droppableId: 'library', index: 4 }, { droppableId: 'queue', index: 0 })
+        );
+      });
+
+      expect(hits).toEqual(['POST add-track']);
+    });
+
+    it('a drag from one playlist into another still adds', async () => {
+      const hits: string[] = [];
+      recordEndpoint(hits);
+      const { result } = renderHook(() => useAppDragDrop({ info: mockInfo, success: mockSuccess }));
+
+      await act(async () => {
+        await result.current.handleDragEnd(
+          createDropResult({ droppableId: 'playlist-1', index: 0 }, { droppableId: 'playlist-2', index: 0 })
+        );
+      });
+
+      expect(hits).toEqual(['POST playlist-add']);
+    });
+
+    it('a reorder inside a list that is neither queue nor playlist does nothing', async () => {
+      const hits: string[] = [];
+      recordEndpoint(hits);
+      const { result } = renderHook(() => useAppDragDrop({ info: mockInfo, success: mockSuccess }));
+
+      await act(async () => {
+        await result.current.handleDragEnd(
+          createDropResult({ droppableId: 'library', index: 1 }, { droppableId: 'library', index: 3 })
+        );
+      });
+
+      expect(hits).toEqual([]);
     });
   });
 });
