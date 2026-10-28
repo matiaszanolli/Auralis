@@ -112,8 +112,11 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   // The three transport handlers await-and-discard runTransportCommand's
   // started boolean (#5613): coalescing is their desired behaviour, so a
   // drop needs no reaction — they only keep the Promise<void> contract.
-  const handleNext = useCallback(async () => {
-    await runTransportCommand(async () => {
+  // advanceNext reports whether the command actually started (false = the gate
+  // was busy and dropped it). handleNext discards that; auto-advance needs it to
+  // release its once-per-completion latch on a drop (#6045).
+  const advanceNext = useCallback(() => {
+    return runTransportCommand(async () => {
     try {
       let nextIndex = currentQueueIndex + 1;
       if (nextIndex >= queueTracks.length) {
@@ -143,6 +146,10 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     }
     });
   }, [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
+
+  const handleNext = useCallback(async () => {
+    await advanceNext();
+  }, [advanceNext]);
 
   const handlePrevious = useCallback(async () => {
     await runTransportCommand(async () => {
@@ -232,7 +239,8 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     currentQueueIndex,
     queueLength: queueTracks.length,
     startTrack,
-    handleNext,
+    advanceNext,
+    isCommandPending,
   });
 
   // #5006: split from one combined value into two, so a consumer that only

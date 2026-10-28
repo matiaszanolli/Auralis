@@ -397,6 +397,46 @@ describe('PlaybackSessionContext transport logic (#5399)', () => {
       expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack2.id, 'warm', 0.5);
     });
 
+    it('retries an auto-advance the single-flight gate dropped, once the gate frees (#6045)', async () => {
+      // Another transport command is mid-flight when the track completes: the
+      // advance is dropped by the gate. The latch used to stay set, so the queue
+      // silently stopped at the end of the track.
+      let resolveBusy!: () => void;
+      mockPlayEnhanced.mockImplementationOnce(
+        () => new Promise<void>((resolve) => { resolveBusy = resolve; })
+      );
+      const out: { value?: PlaybackControlsContextValue } = {};
+      session.streamingState = 'streaming';
+      session.currentTime = 100;
+      const { rerender } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: mockTrack } as never,
+          queue: { tracks: [mockTrack, mockTrack2], currentIndex: 0 } as never,
+        },
+      });
+
+      let busy!: Promise<void>;
+      act(() => {
+        busy = out.value!.startTrack(mockTrack.id); // holds the gate
+      });
+      expect(mockPlayEnhanced).toHaveBeenCalledTimes(1);
+
+      session.streamingState = 'complete';
+      session.currentTime = 199.6;
+      await act(async () => {
+        rerender(<ControlsCapture out={out} />);
+      });
+      expect(mockStopPlayback).not.toHaveBeenCalled(); // dropped, nothing advanced yet
+
+      await act(async () => {
+        resolveBusy();
+        await busy;
+      });
+
+      expect(mockStopPlayback).toHaveBeenCalledTimes(1);
+      expect(mockPlayEnhanced).toHaveBeenLastCalledWith(mockTrack2.id, 'warm', 0.5);
+    });
+
     it('does not auto-advance a second time on a subsequent render in the same completed state', async () => {
       // A 3-track queue so `hasMoreTracks` is still true for the *new*
       // current track (index 1 of 3) after the first auto-advance moves the

@@ -89,7 +89,10 @@ export interface AutoAdvanceInputs {
   currentQueueIndex: number;
   queueLength: number;
   startTrack: (trackId: number) => Promise<void>;
-  handleNext: () => Promise<void>;
+  /** Advance to the next track; resolves false when the transport gate dropped it. */
+  advanceNext: () => Promise<boolean>;
+  /** The gate's pending flag: its falling edge is when a dropped advance can retry. */
+  isCommandPending: boolean;
 }
 
 /**
@@ -100,7 +103,7 @@ export interface AutoAdvanceInputs {
  */
 export function useAutoAdvance({
   streamingState, currentTime, trackDuration, repeatMode, currentTrackId,
-  currentQueueIndex, queueLength, startTrack, handleNext,
+  currentQueueIndex, queueLength, startTrack, advanceNext, isCommandPending,
 }: AutoAdvanceInputs): void {
   const hasAutoAdvancedRef = useRef(false);
 
@@ -133,7 +136,13 @@ export function useAutoAdvance({
     const hasMoreTracks = currentQueueIndex < queueLength - 1;
     if (hasMoreTracks || (repeatMode === 'all' && queueLength > 0)) {
       hasAutoAdvancedRef.current = true;
-      handleNext();
+      // The single-flight gate drops the advance when another transport command
+      // is mid-flight. The latch must not stay set for a command that never ran
+      // (#6045); it is released, and this effect re-runs when the gate frees
+      // (isCommandPending is a dependency).
+      void advanceNext().then((started) => {
+        if (!started) hasAutoAdvancedRef.current = false;
+      });
     }
-  }, [streamingState, currentTime, trackDuration, currentQueueIndex, queueLength, repeatMode, currentTrackId, startTrack, handleNext]);
+  }, [streamingState, currentTime, trackDuration, currentQueueIndex, queueLength, repeatMode, currentTrackId, startTrack, advanceNext, isCommandPending]);
 }
