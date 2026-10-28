@@ -201,3 +201,25 @@ def test_lock_registry_drops_entries_once_released(tmp_path: Path) -> None:
         with backup_module.lock_files([path]):  # re-entrant on one thread
             assert os.path.realpath(path) in backup_module._file_locks
     assert os.path.realpath(path) not in backup_module._file_locks
+
+
+def test_failed_save_through_a_symlink_restores_the_target_not_the_link(tmp_path: Path) -> None:
+    """#6176: restore used to replace the link itself with the backup, leaving the
+    real file holding the half-written content."""
+    real_dir = tmp_path / "nas"
+    real_dir.mkdir()
+    target = real_dir / "track.mp3"
+    target.write_bytes(b"original")
+    link_dir = tmp_path / "library"
+    link_dir.mkdir()
+    link = link_dir / "track.mp3"
+    link.symlink_to(target)
+    editor = _editor()
+
+    with patch(_MUTAGEN_FILE, return_value=_saving(target, b"CORRUPT", fail=True)):
+        with pytest.raises(OSError):
+            editor.write_metadata(str(link), {"title": "B"}, backup=True)
+
+    assert link.is_symlink()
+    assert target.read_bytes() == b"original"
+    assert not list(link_dir.glob(".*.bak")) and not list(real_dir.glob(".*.bak"))

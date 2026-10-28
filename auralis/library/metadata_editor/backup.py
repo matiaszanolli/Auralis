@@ -82,7 +82,10 @@ class BackupManager:
         Returns:
             Path of the new backup copy, or None if it could not be created
         """
-        directory, name = os.path.split(os.path.abspath(filepath))
+        # The real file, not a symlink to it: the backup must sit beside the
+        # target (same filesystem, so restore stays an atomic rename), and
+        # restore replaces the target rather than the link (#6176).
+        directory, name = os.path.split(os.path.realpath(filepath))
         backup_path: str | None = None
         try:
             # Truncate the name so prefix + random part + suffix stays well
@@ -116,7 +119,7 @@ class BackupManager:
             error(f"Backup {backup_path} for {filepath} is missing; cannot restore")
             return False
         try:
-            os.replace(backup_path, filepath)
+            os.replace(backup_path, os.path.realpath(filepath))
             info(f"Restored from backup: {filepath}")
             return True
         except Exception as e:

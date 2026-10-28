@@ -145,12 +145,11 @@ class BatchUpdateMixin:
             # delete the backups; either way none is left behind.
             rolled_back = False
             if any_failed and backups:
-                for filepath, backup_path in backups.items():
-                    self.backup_manager.restore_backup(filepath, backup_path)
-                rolled_back = True
-                # Mark previously-succeeded items as rolled back.
+                # Only report a rollback if every restore worked (#6177).
+                restored = [self.backup_manager.restore_backup(fp, bp) for fp, bp in backups.items()]
+                rolled_back = all(restored)
                 per_file_results = [
-                    {**r, 'success': False, 'rolled_back': True} if r.get('success') else r
+                    {**r, 'success': False, 'rolled_back': rolled_back} if r.get('success') else r
                     for r in per_file_results
                 ]
             else:

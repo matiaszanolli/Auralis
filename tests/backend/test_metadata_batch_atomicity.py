@@ -141,6 +141,25 @@ class TestBatchUpdateAtomicity:
 
         assert all(not r.get('success') for r in result['results'])
 
+    def test_failed_restore_is_not_reported_as_rolled_back(self):
+        """#6177: rolled_back was set unconditionally, even if a restore failed."""
+        editor = make_editor()
+        updates = make_updates(2)
+
+        def _write(filepath, metadata, backup=True):
+            if 'track2' in filepath:
+                raise OSError("Disk full")
+            return True
+
+        with patch('os.path.exists', return_value=True), \
+             patch.object(editor.backup_manager, 'create_backup', return_value=True), \
+             patch.object(editor.backup_manager, 'restore_backup', side_effect=[False, True]), \
+             patch.object(editor, 'write_metadata', side_effect=_write):
+            result = editor.batch_update(updates)
+
+        assert result['rolled_back'] is False
+        assert all(r.get('rolled_back') is not True for r in result['results'])
+
     def test_rolled_back_items_carry_rolled_back_flag(self):
         """Items that succeeded before rollback should expose rolled_back=True."""
         editor = make_editor()
