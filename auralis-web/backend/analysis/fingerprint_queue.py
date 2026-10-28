@@ -232,7 +232,9 @@ class FingerprintQueue:
                 logger.info(f"🎵 Processing fingerprint for track {track_id} (remaining: {remaining})")
 
                 # Get filepath for track
-                filepath = self._get_filepath(track_id)
+                # A synchronous repository query: off the event loop, which also
+                # carries WS control traffic (#5390).
+                filepath = await asyncio.to_thread(self._get_filepath, track_id)
                 if filepath is None:
                     logger.warning(f"⚠️  Track {track_id} not found or no filepath, skipping")
                     with self._state_lock:
