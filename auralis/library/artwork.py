@@ -23,6 +23,7 @@ from ..utils.artwork_security import (
 )
 from ..utils.logging import debug, error, info
 from .artwork_tags import TagArtworkReadersMixin
+from .folder_artwork import read_folder_artwork
 
 # Cap the largest side of stored artwork (#4439). Embedded/folder covers can be
 # arbitrarily large (e.g. 6000x6000); bounding the source here keeps disk usage
@@ -151,11 +152,8 @@ class ArtworkExtractor(TagArtworkReadersMixin):
 
             for artwork_name in artwork_names:
                 artwork_file = album_dir / artwork_name
-                if artwork_file.exists() and artwork_file.stat().st_size <= MAX_LOCAL_ARTWORK_BYTES:
-                    # Read the artwork file
-                    with open(artwork_file, 'rb') as f:
-                        artwork_data = f.read()
-
+                artwork_data = read_folder_artwork(artwork_file)
+                if artwork_data is not None:
                     # Determine MIME type from extension
                     mime_type = 'image/png' if artwork_file.suffix.lower() in ['.png'] else 'image/jpeg'
 
