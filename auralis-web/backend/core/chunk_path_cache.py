@@ -16,6 +16,7 @@ cache-write sites.
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -104,7 +105,14 @@ class ChunkPathCache:
         # write forever, since the cache key is stable across restarts (#4576).
         if wav_chunk_path.exists():
             if is_wav_complete(wav_chunk_path):
-                self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
+                # A hit adds no file, so it must not trigger the reaper (#5967):
+                # it could delete the very WAV returned below. Touch the mtime
+                # instead, so the oldest-first reaper really is LRU.
+                try:
+                    os.utime(wav_chunk_path)
+                except OSError:
+                    return None  # vanished since the check: a genuine miss
+                self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path, prune=False)
                 return wav_chunk_path
             logger.warning(
                 f"Discarding truncated WAV chunk {chunk_index} at "

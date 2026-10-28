@@ -86,8 +86,14 @@ def process_chunk(
         # contract, #5947). Smoothing it is this stream's step, exactly as for
         # a miss: smooth_transition then compares it to the chunk this
         # processor served before it, in stream order (#5948).
-        audio = read_chunk_wav(cached_path)
-        return (str(cached_path), processor._smooth_level_transition(audio, chunk_index))
+        try:
+            audio = read_chunk_wav(cached_path)
+        except (OSError, RuntimeError) as exc:  # RuntimeError: libsndfile
+            # The file went away (or was cut) between lookup and read, e.g. to
+            # the disk reaper: fall through to a re-render (#5967).
+            logger.warning(f"Cached chunk {chunk_index} unreadable ({exc}); re-rendering")
+        else:
+            return (str(cached_path), processor._smooth_level_transition(audio, chunk_index))
 
     # #4815: bail out before the expensive DSP call if the owning stream was
     # already cancelled (seek/track-change/disconnect) — cheap to check, and

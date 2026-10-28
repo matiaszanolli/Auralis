@@ -176,17 +176,16 @@ class ChunkCacheManager(ChunkDiskPruneMixin):
         logger.debug(f"Cache hit: {cache_key} → {path}")
         return path
 
-    def cache_chunk_path(self, cache_key: str, path: Path) -> None:
+    def cache_chunk_path(self, cache_key: str, path: Path, prune: bool = True) -> None:
         """
         Store chunk path in cache.
 
         Args:
             cache_key: Cache key
             path: Path to chunk file (must exist on disk)
-
-        Examples:
-            >>> manager = ChunkCacheManager({})
-            >>> manager.cache_chunk_path("key", Path("/tmp/chunk.wav"))
+            prune: Count this call toward the on-disk reaper. False when only
+                re-recording an existing file (a disk hit): the reaper could
+                otherwise delete the very file about to be served (#5967).
         """
         # Both gates must agree on what counts as a valid entry (#4576),
         # otherwise a truncated file is refused on read but still recorded here.
@@ -209,10 +208,10 @@ class ChunkCacheManager(ChunkDiskPruneMixin):
         self._cache[cache_key] = str(path)
         logger.debug(f"Cached: {cache_key} → {path}")
 
-        # Bound the on-disk chunk directory (#3834). The dict is per-instance and
-        # small, but every processor writes WAVs to the same dir, which would
-        # otherwise grow unbounded over a long session.
-        self._maybe_prune(path.parent)
+        # Bound the on-disk chunk directory (#3834): every processor writes
+        # WAVs to the same dir, which would otherwise grow unbounded.
+        if prune:
+            self._maybe_prune(path.parent)
 
     def clear_track_cache(
         self,
