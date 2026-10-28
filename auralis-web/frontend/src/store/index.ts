@@ -25,13 +25,15 @@ import { createLoggerMiddleware } from './middleware/loggerMiddleware';
 /**
  * Configure Redux store with all slices
  */
+export const reducer = {
+  player: playerReducer,
+  queue: queueReducer,
+  cache: cacheReducer,
+  connection: connectionReducer,
+};
+
 export const store = configureStore({
-  reducer: {
-    player: playerReducer,
-    queue: queueReducer,
-    cache: cacheReducer,
-    connection: connectionReducer,
-  },
+  reducer,
   middleware: (getDefaultMiddleware) => {
     // #3622: gate dev-only middleware so production bundles don't ship the
     // logger code and don't print errors to user consoles.

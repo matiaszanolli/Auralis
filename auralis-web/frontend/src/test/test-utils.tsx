@@ -15,6 +15,7 @@ import { render, RenderOptions } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Provider as ReduxProvider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
+import { reducer } from '@/store'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastProvider } from '@/components/shared/Toast'
 import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext'
@@ -78,17 +79,10 @@ export function createTestStore(preloadedState?: PreloadedState) {
     : undefined;
 
   return configureStore({
-    reducer: {
-      player: playerReducer,
-      queue: queueReducer,
-      cache: cacheReducer,
-      connection: connectionReducer,
-    },
+    // The production reducer map, so a slice added to store/index.ts cannot be missing here (#5681).
+    reducer,
     preloadedState: seededState,
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware({
-        serializableCheck: false, // Disable for tests to avoid warnings
-      }),
+    // Default middleware, serializable and immutable checks included, as in production.
   });
 }
 

@@ -6,16 +6,17 @@
  *
  * Test Categories:
  * 1. Playlist CRUD Operations (3 tests: create, load, metadata)
- * 2. Track Management in Playlists (2 tests)
+ * 2. Track Management in Playlists (1 test)
  * 3. Playlist Display & Navigation (3 tests)
  * 4. Playlist Playback (2 tests)
  * 5. Playlist Search & Filter (1 test)
  *
- * Total: 14 tests
+ * Total: 10 tests
  *
- * Rename, delete, duplicate and drag-and-drop specs were removed (#5677): each ended on a
+ * Rename, delete, duplicate, drag-and-drop and reorder specs were removed (#5677, #5681): each ended on a
  * comment saying the interaction was out of scope and asserted only that a playlist it already
- * held was still in the document. Reinstate them with a real context-menu / dnd keyboard-sensor drive.
+ * held was still in the document (the reorder one fetched an MSW handler for a path the app never
+ * calls and asserted the mock echoed its own body). Reinstate them with a real context-menu / dnd keyboard-sensor drive.
  *
  * Coverage:
  * - PlaylistList component
@@ -134,7 +135,7 @@ describe('Playlist Management Integration Tests', () => {
   });
 
   // ==========================================
-  // 2. Track Management in Playlists (2 tests)
+  // 2. Track Management in Playlists (1 test)
   // ==========================================
 
   describe('Track Management in Playlists', () => {
@@ -148,24 +149,6 @@ describe('Playlist Management Integration Tests', () => {
       // Assert - API returns added count
       expect(addTracksSpy).toHaveBeenCalledWith(1, [101, 102, 103]);
       expect(result).toBe(3); // MSW returns added_count: trackIds.length
-    });
-
-    it('should move track to different position within playlist', async () => {
-      // Arrange
-      const newTrackOrder = [3, 1, 2, 4, 5]; // New order after moving track
-
-      // Act - Reorder tracks (direct API call)
-      const response = await fetch('/api/playlists/1/reorder', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ track_ids: newTrackOrder })
-      });
-
-      // Assert - MSW handler returns success
-      expect(response.ok).toBe(true);
-      const data = await response.json();
-      expect(data.success).toBe(true);
-      expect(data.new_order).toEqual(newTrackOrder);
     });
   });
 

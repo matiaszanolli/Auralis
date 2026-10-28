@@ -377,8 +377,8 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
-  // PUT /api/playlists/:id/reorder - Reorder tracks in playlist
-  http.put(`${API_BASE}/playlists/:id/reorder`, async ({ request }) => {
+  // PUT /api/playlists/:id/tracks/reorder - Reorder tracks in playlist (what useAppDragDrop calls)
+  http.put(`${API_BASE}/playlists/:id/tracks/reorder`, async ({ request }) => {
     const body = await request.json();
     await delay(100);
     return HttpResponse.json({
@@ -999,7 +999,7 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 
-  http.put(`${API_RELATIVE}/playlists/:id/reorder`, async ({ request }) => {
+  http.put(`${API_RELATIVE}/playlists/:id/tracks/reorder`, async ({ request }) => {
     const body = await request.json();
     await delay(100);
     return HttpResponse.json({

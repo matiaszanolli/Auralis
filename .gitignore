@@ -207,3 +207,9 @@ research/
 # Local audit issue snapshots (per-machine cache, not source of truth)
 .claude/issues/
 
+
+# Local test/build output that names the developer's machine (#6183)
+.tmp-pytest/
+appimage-log.txt
+*-test-output.txt
+auralis-web/frontend/auralis-web/
