@@ -11,7 +11,7 @@ Quantization Details:
 - Dequantization restores original float values with minimal error
 
 Accuracy Guarantees:
-- Percentage dimensions (0-100): <0.4% max error (100/255)
+- Frequency-distribution dimensions (0-1 fractions): <0.4% max error (1/255 of the range)
 - Normalized dimensions (0-1): <0.4% max error
 - Range-bounded dimensions: <1% max error
 - Overall distance calculations: <0.5% error in Euclidean space

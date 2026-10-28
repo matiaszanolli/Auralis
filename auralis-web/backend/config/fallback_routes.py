@@ -47,7 +47,6 @@ FRONTEND_MISSING_HTML = """
                 <p>Frontend assets not found — the installation looks incomplete.
                    Reinstall Auralis, or run the backend with --dev and serve the
                    frontend with Vite.</p>
-                <p><a href="/api/docs">View API Documentation</a></p>
             </body>
         </html>
         """

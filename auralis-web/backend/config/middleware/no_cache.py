@@ -1,7 +1,7 @@
 """
 No-Cache Middleware
 
-Disables caching for frontend static files. Split out of
+Disables caching for frontend entry points (hashed bundles are immutable). Split out of
 config/middleware.py (#5479).
 
 :copyright: (C) 2024 Auralis Team
@@ -18,12 +18,18 @@ from starlette.responses import Response
 from .error_response import _middleware_error_response
 
 
+# Where Vite emits its content-hashed bundles (index-<hash>.js, ...).
+HASHED_ASSET_PREFIX = '/assets/'
+
+
 class NoCacheMiddleware(BaseHTTPMiddleware):
     """
-    Middleware to disable caching for frontend static files.
+    Middleware to disable caching for frontend entry points.
 
-    Only applies to frontend assets (.html, .js, .css), not API responses.
-    API streaming responses must NOT have cache-control headers modified.
+    Applies to / and .html/.js/.css outside /assets/, where a stale copy would
+    pin users to an old build. Content-hashed bundles under /assets/ are marked
+    immutable instead. Never touches API responses: API streaming responses must
+    NOT have cache-control headers modified.
     """
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
@@ -38,8 +44,16 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
         try:
             # Only disable caching for frontend static files (not API endpoints)
             # API streaming responses must NOT have cache-control headers modified
-            if not request.url.path.startswith('/api') and not request.url.path.startswith('/ws'):
-                if request.url.path.endswith(('.html', '.js', '.css')) or request.url.path == '/':
+            path = request.url.path
+            if not path.startswith('/api') and not path.startswith('/ws'):
+                if path.startswith(HASHED_ASSET_PREFIX) and path.endswith(('.js', '.css')):
+                    # Vite names these by content hash: a new build is a new URL,
+                    # so a given URL never changes. no-store here threw away the
+                    # caching the hashing exists to provide (#5071). Only a 200
+                    # is marked immutable; a 404 for a stale hash must not stick.
+                    if response.status_code == 200:
+                        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+                elif path.endswith(('.html', '.js', '.css')) or path == '/':
                     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
                     response.headers["Pragma"] = "no-cache"
                     response.headers["Expires"] = "0"
