@@ -124,4 +124,19 @@ describe('TrackRow artwork cache-busting (#5473)', () => {
       '/api/albums/7/artwork?size=80'
     );
   });
+
+  it('shows art that appears for an album that had none when the list loaded (#5894)', () => {
+    const noArt = { ...mockTrack, artworkUrl: undefined };
+    const { container } = render(<TrackRow track={noArt} index={0} onPlay={vi.fn()} />);
+    expect(container.querySelector('img')).toBeNull();
+
+    act(() => {
+      capturedCallback!({ type: 'artwork_updated', data: { album_id: 7 } });
+    });
+
+    expect(container.querySelector('img')).toHaveAttribute(
+      'src',
+      expect.stringContaining('/api/albums/7/artwork?size=80&v=1')
+    );
+  });
 });

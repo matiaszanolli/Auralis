@@ -69,7 +69,9 @@ export const AlbumCard = memo(function AlbumCard({
   const artworkRevision = useArtworkRevision(albumId);
   // Album grid cards render ~200px; request a 256-bucket thumbnail rather than
   // the full-resolution bitmap (#4447).
-  const artworkUrl = hasArtwork
+  // `artworkRevision > 0`: an album that had no art when the list loaded got some since
+  // (artwork_updated), so try the URL even though the list payload said none (#5894).
+  const artworkUrl = hasArtwork || artworkRevision > 0
     ? getArtworkUrl(albumId, { size: 256, revision: artworkRevision })
     : undefined;
 

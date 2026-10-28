@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type SyntheticEvent } from 'react';
 import MusicNote from '@mui/icons-material/MusicNote';
 import { tokens } from '@/design-system';
 import { AlbumArtThumbnail } from './TrackRow.styles';
@@ -8,7 +8,7 @@ interface TrackRowAlbumArtProps {
   title: string;
   album?: string;
   shouldShowImage: boolean;
-  onImageError: () => void;
+  onImageError: (event: SyntheticEvent<HTMLImageElement>) => void;
 }
 
 /**

@@ -14,7 +14,7 @@ import TrackRowMetadata from './TrackRowMetadata';
 import { useTrackRowHandlers } from './useTrackRowHandlers';
 import { useTrackContextMenu } from './useTrackContextMenu';
 import { useTrackImage } from './useTrackImage';
-import { withArtworkSize } from '@/services/artworkService';
+import { getArtworkUrl, withArtworkSize } from '@/services/artworkService';
 import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 import { useTrackFormatting } from './useTrackFormatting';
 import type { LibraryTrack } from '@/types/domain';
@@ -110,7 +110,13 @@ const TrackRowComponent = ({
   // Cache-bust on artwork_updated like the album views do (#5473); revision 0
   // (track without an album) is a no-op in withArtworkSize.
   const artworkRevision = useArtworkRevision(track.albumId ?? 0);
-  const rowArtworkUrl = withArtworkSize(track.artworkUrl ?? undefined, 80, artworkRevision);
+  // A track whose album had no art at load has no artworkUrl; once artwork_updated bumps the
+  // revision, build the URL from the album id so the new art can appear (#5894).
+  const rowArtworkUrl = track.artworkUrl
+    ? withArtworkSize(track.artworkUrl, 80, artworkRevision)
+    : artworkRevision > 0 && track.albumId
+      ? getArtworkUrl(track.albumId, { size: 80, revision: artworkRevision })
+      : undefined;
 
   return (
     <>
