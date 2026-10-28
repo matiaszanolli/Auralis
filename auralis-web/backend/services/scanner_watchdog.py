@@ -1,7 +1,6 @@
 """
-Watchdog glue for LibraryAutoScanner (split from library_auto_scanner.py,
-#5837): the optional import, the debounced event handler, and the observer
-start/stop that follow the configured scan folders.
+Watchdog glue for LibraryAutoScanner (split from library_auto_scanner.py, #5837):
+the optional import, the debounced event handler, and the observer start/stop.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -84,7 +83,6 @@ class WatchdogMixin:
         if not HAS_WATCHDOG:
             return
 
-        # Compare current watched dirs against new list
         current_dirs: set[str] = set()
         if self._observer and self._observer.is_alive():
             current_dirs = {str(w.path) for w in self._observer._watches}
@@ -118,7 +116,6 @@ class WatchdogMixin:
                 self._observer.stop()
                 self._observer.join(timeout=OBSERVER_JOIN_TIMEOUT_S)
             except Exception:
-                # Best-effort teardown (#4368 — was a bare pass, hiding
-                # genuine watchdog-thread failures from debugging).
+                # Best-effort teardown; logged, not swallowed (#4368).
                 logger.debug("Watchdog teardown failed", exc_info=True)
             self._observer = None

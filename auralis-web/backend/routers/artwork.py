@@ -4,10 +4,7 @@ Artwork Router
 
 Handles album artwork operations: retrieval, extraction, and deletion.
 
-Endpoints:
-- GET /api/albums/{album_id}/artwork - Get album artwork file
-- POST /api/albums/{album_id}/artwork/extract - Extract artwork from tracks
-- DELETE /api/albums/{album_id}/artwork - Delete album artwork
+Endpoints: GET and DELETE /api/albums/{album_id}/artwork, POST .../artwork/extract.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

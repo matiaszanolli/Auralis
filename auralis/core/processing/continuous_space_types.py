@@ -2,15 +2,14 @@
 Continuous Space Types
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The coordinate/parameter/preference dataclasses of the continuous processing
-space, split from continuous_space.py (#6272); the mapper stays there.
+The coordinate/parameter/preference dataclasses of the continuous processing space,
+split from continuous_space.py (#6272); the mapper stays there.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass
@@ -35,13 +34,6 @@ class ProcessingCoordinates:
                 f"energy={self.energy_level:.2f})")
 
 
-#: ProcessingParameters fields no DSP stage consumes (#5576). Anything else
-#: added to the dataclass must be read by a ContinuousMode stage.
-REPORTING_ONLY_FIELDS = frozenset({
-    'peak_target_db', 'dynamics_blend', 'limiter_params', 'expansion_params',
-})
-
-
 @dataclass
 class ProcessingParameters:
     """
@@ -49,15 +41,8 @@ class ProcessingParameters:
 
     Generated from processing space coordinates and user preferences.
 
-    Reporting-only fields (#5576): ``peak_target_db``, ``dynamics_blend``,
-    ``limiter_params`` and ``expansion_params`` are produced for display and
-    for the fixed-target schema contract but are not read by any DSP stage --
-    the ContinuousMode chain takes its peak from ``AdaptiveLoudnessControl``,
-    builds its limiter from constants, and no longer runs an expansion stage
-    (#5561). Tuning them does not change the audio. Likewise only ``ratio`` and
-    ``amount`` of ``compression_params`` and the gains/blend of ``eq_curve``
-    are applied. ``REPORTING_ONLY_FIELDS`` names the set; a test pins that every
-    other field has a reader.
+    Not every field reaches a DSP stage: ``REPORTING_ONLY_FIELDS`` (in
+    ``processing_parameter_readers``) names the display-only ones.
     """
     # Loudness normalization
     target_lufs: float          # Target integrated loudness (LUFS)
@@ -78,11 +63,10 @@ class ProcessingParameters:
     # Stereo processing
     stereo_width_target: float            # Width FACTOR, 0.0-1.0 (0.5 = unity, 1.0 = max widening)
 
-    # Track-level source loudness, when the targets came from a whole-track
-    # fingerprint (fixed-targets path). With it, final normalisation applies
-    # ONE gain (target_lufs - source_lufs) to every chunk instead of
-    # re-levelling each chunk to target_lufs, which flattened intra-track
-    # dynamics (#5552). None means "unknown": measure per chunk.
+    # Track-level source loudness from a whole-track fingerprint (fixed-targets path): final
+    # normalisation applies ONE gain (target_lufs - source_lufs) to every chunk instead of
+    # re-levelling each to target_lufs, which flattened intra-track dynamics (#5552).
+    # None means "unknown": measure per chunk.
     source_lufs: float | None = None
 
     def __str__(self) -> str:
@@ -124,18 +108,10 @@ class PreferenceVector:
         """
         Convert a preset name to a preference vector.
 
-        Auralis ships a single preset today: 'adaptive' (pure content-driven
-        processing, all biases neutral). The 'gentle'/'warm'/'bright'/'punchy'/
-        'live' variants that used to live here were deliberately removed
-        rather than deprecated in place: none was reachable through any live
-        API surface -- 'live' never was (schemas.VALID_PRESETS/
-        EnhancementPresetLiteral never listed it, #4861), and the other four
-        are no longer exposed either, narrowing the whole preset system down
-        to just 'adaptive'. Any name other than 'adaptive' -- including the
-        five retired ones, for backward compatibility with anything still
-        holding an old value -- falls back to the neutral vector below
-        rather than raising, matching this method's existing tolerant
-        contract.
+        Auralis ships a single preset: 'adaptive' (content-driven, all biases neutral). The
+        retired 'gentle'/'warm'/'bright'/'punchy'/'live' were removed rather than deprecated:
+        none was reachable through a live API ('live' never was, #4861). Any other name,
+        including those five, falls back to the neutral vector rather than raising.
 
         Args:
             preset: Preset name (only 'adaptive' is recognized)

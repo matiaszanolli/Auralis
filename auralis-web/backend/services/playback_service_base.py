@@ -17,7 +17,6 @@ import logging
 from typing import Any, cast
 
 from services.playback_event_sequencer import playback_event_sequencer
-from websocket.outbound_messages import BroadcastManager
 
 from .errors import require_collaborators
 from .playback_protocols import PlayerStateManager
@@ -26,8 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class PlaybackServiceBase:
-    """Hosts set ``player_state_manager`` in ``__init__`` (see
-    PlaybackService)."""
+    """Hosts set ``player_state_manager`` in ``__init__`` (see PlaybackService)."""
 
     player_state_manager: PlayerStateManager
 

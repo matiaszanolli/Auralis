@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 
 from ...dsp.utils.audio_info import to_mono
-from ...dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate, zero_crossing_rate
+from ...dsp.utils.spectral import crest_factor, spectral_centroid, tempo_estimate, zero_crossing_rate
 from ...utils.logging import debug
 
 
@@ -24,23 +24,16 @@ class GenreClassificationMixin:
 
     def _classify_genre_advanced(self, audio: np.ndarray) -> dict[str, Any]:
         """Advanced genre classification using ML or rule-based fallback"""
-
         if self.use_ml_classification and self.ml_classifier is not None:
             try:
-                # Use ML classifier. Thread the configured rate through
-                # (#5244): every other feature call in this class already
-                # receives it, and the classifier caches one extractor per
-                # rate so a non-44100 pipeline no longer gets silently
-                # mis-scaled features.
-                ml_result: dict[str, Any] = self.ml_classifier.classify(
-                    audio, self.sample_rate
-                )
+                # The configured rate is threaded through (#5244); the classifier caches one
+                # extractor per rate, so a non-44100 pipeline is not mis-scaled.
+                ml_result: dict[str, Any] = self.ml_classifier.classify(audio, self.sample_rate)
                 debug(f"ML classification: {ml_result['primary']} (confidence: {ml_result['confidence']:.3f})")
                 return ml_result
             except Exception as e:
                 debug(f"ML classification failed, falling back to rule-based: {e}")
 
-        # Fall back to rule-based classification
         return self._classify_genre_rule_based(audio)
 
     def _classify_genre_rule_based(self, audio: np.ndarray) -> dict[str, Any]:

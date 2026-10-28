@@ -69,20 +69,14 @@ async def send_stream_start(
     Returns:
         True if message was sent, False if WebSocket was disconnected.
     """
-    # Reset the per-stream frame counter at every audio_stream_start so
-    # `seq` is monotonic across the whole stream and restarts at 0 on a new
-    # stream / seek / resume — the client rebaselines on this message too
-    # (fixes #3841). A fresh cell per stream-start keeps concurrent streams
-    # in different tasks isolated.
+    # Fresh per-stream frame counter: `seq` restarts at 0 on every stream / seek / resume,
+    # the client rebaselines on this message too (#3841), and concurrent streams stay isolated.
     _asc._frame_seq_var.set([0])
     # Seed the per-stream track id so send_pcm_chunk can stamp it on each
     # audio_chunk_meta (#4434).
     _asc._track_id_var.set(track_id)
-    # Allocate this stream's epoch (#4563) and seed it for send_pcm_chunk. The
-    # client records it from this message and drops any chunk stamped with a
-    # different one — that is what stops in-flight frames from a superseded
-    # stream landing in the buffer after a seek, which `is_seek: True` below
-    # would otherwise instruct the client to preserve.
+    # Allocate this stream's epoch (#4563) for send_pcm_chunk: the client drops chunks stamped
+    # with another one, so frames from a superseded stream cannot land after a seek.
     epoch = _asc.next_stream_epoch()
     _asc._stream_epoch_var.set(epoch)
 

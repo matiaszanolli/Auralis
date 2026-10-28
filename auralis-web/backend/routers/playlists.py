@@ -2,17 +2,7 @@
 Playlists Router
 ~~~~~~~~~~~~~~~~
 
-Handles playlist CRUD operations and track management.
-
-Endpoints:
-- GET /api/playlists - Get all playlists
-- GET /api/playlists/{playlist_id} - Get playlist by ID
-- POST /api/playlists - Create new playlist
-- PUT /api/playlists/{playlist_id} - Update playlist
-- DELETE /api/playlists/{playlist_id} - Delete playlist
-- POST /api/playlists/{playlist_id}/tracks - Add tracks to playlist
-- DELETE /api/playlists/{playlist_id}/tracks/{track_id} - Remove track
-- DELETE /api/playlists/{playlist_id}/tracks - Clear all tracks
+Playlist CRUD and track management; every route is registered at the bottom of this module.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

@@ -16,10 +16,8 @@ import dataclasses
 import re
 from pathlib import Path
 
-from auralis.core.processing.continuous_space_types import (
-    REPORTING_ONLY_FIELDS,
-    ProcessingParameters,
-)
+from auralis.core.processing.continuous_space_types import ProcessingParameters
+from auralis.core.processing.processing_parameter_readers import REPORTING_ONLY_FIELDS
 
 _PROCESSING = Path(__file__).resolve().parents[3] / "auralis/core/processing"
 # The modules that run the stages and read params.* (continuous_mode.py only

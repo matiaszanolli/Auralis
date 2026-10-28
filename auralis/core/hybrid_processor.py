@@ -229,12 +229,8 @@ class HybridProcessor:
             self.psychoacoustic_eq.reset()
 
     def reset_run_state(self) -> None:
-        """Forget the previous run's analysis at a job boundary (#6088).
-
-        An empty/short/silent input returns before any analysis, so its job
-        would report the previous job's profile. Job paths only: the streaming
-        fast path reuses ``last_*`` across chunks.
-        """
+        """Forget the previous run's analysis at a job boundary (#6088); an empty or silent
+        input returns before analysing. Job paths only: streaming reuses ``last_*`` across chunks."""
         with self._process_lock:
             self.last_content_profile = {}
             self.adaptive_mode.last_content_profile = None

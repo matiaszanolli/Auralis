@@ -15,12 +15,10 @@ import asyncio
 import atexit
 import logging
 import os
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from auralis.analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
 from core.env_config import get_int_env
 
 from config.limits import SHUTDOWN_STEP_TIMEOUT_S
@@ -72,23 +70,13 @@ async def shutdown_fingerprint_executor_bounded(
 ) -> None:
     """Bounded-wait shutdown for the FastAPI lifespan (#4756).
 
-    Every other worker/pool in config/startup.py's _shutdown_components()
-    is explicitly torn down there, in a fixed order relative to the library
-    database shutdown; the fingerprint executor was the one component only
-    reachable via atexit — which runs *after* the lifespan (so after the
-    library database is already WAL-checkpointed and disposed) and blocks
-    process exit until every in-flight fingerprint computation finishes
-    (ThreadPoolExecutor threads cannot be force-killed, and stdlib's own
-    atexit hook joins them regardless of cancel_futures).
-
-    Unlike the atexit path, this waits (wait=True) so an in-flight
-    computation cannot race the library-database shutdown that follows it —
-    but bounded by `timeout`, offloaded via asyncio.to_thread so the event
-    loop stays responsive, so a pathologically slow computation cannot stall
-    process shutdown indefinitely. If the bound is exceeded, the worker
-    thread keeps running in the background (join() cannot be aborted) and
-    the stdlib's own interpreter-exit hook still guarantees it's joined
-    before the process actually exits.
+    Every other pool in config/startup.py's _shutdown_components() is torn down there, in
+    order relative to the library database; this executor was reachable only via atexit,
+    which runs after the database is disposed and blocks exit until every in-flight
+    fingerprint finishes. This waits (wait=True) so an in-flight computation cannot race
+    the database shutdown, but bounded by `timeout` and offloaded via asyncio.to_thread so
+    the event loop stays responsive. Past the bound the worker keeps running and the
+    stdlib's exit hook still joins it before the process exits.
     """
     global _fingerprint_executor
     if _fingerprint_executor is None:
@@ -117,13 +105,8 @@ atexit.register(shutdown_fingerprint_executor)
 def _compute_windowed_fingerprint_in_thread(filepath: str) -> dict[str, Any] | None:
     """Run the shared windowed fingerprint pipeline on an executor worker.
 
-    #5531: this used to be a full-file decode followed by a raw call to the
-    Rust schema glue — unsanitized (a NaN/Inf Rust result was stored verbatim
-    and poisoned every later read), uncapped (a multi-hour file was decoded in
-    full), and without the #4595 body+probe LUFS/crest bias correction, so it
-    disagreed with the same track's batch-scan fingerprint.
-    compute_windowed_fingerprint() closes all three at once and returns the
-    exact fingerprint the batch path produces.
+    #5531: runs the shared pipeline instead of a raw full-file decode plus Rust glue, so the
+    result is sanitized, capped, and bias-corrected (#4595) exactly like the batch scan's.
 
     Kept at module level so executor submission stays simple. Runs in a worker
     thread of the current process — the PyO3 Rust engine releases the GIL, so
