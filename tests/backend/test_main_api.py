@@ -1192,13 +1192,13 @@ class TestAlbumArtistEndpoints:
         mock_artist.track_count = 10
         mock_artist.album_count = 2
         mock_artist.albums = []  # Prevent Mock infinite recursion
-        mock_artist.tracks = []  # Prevent Mock infinite recursion
+        mock_artist.track_count_expr = 10  # get_page() counts in SQL (#5872)
         mock_artist.artwork_url = None
         mock_artist.artwork_source = None
 
         # Router uses repository_factory (not library_database) via get_repository_factory
         mock_factory = Mock()
-        mock_factory.artists.get_by_id.return_value = mock_artist
+        mock_factory.artists.get_page.return_value = mock_artist
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
             response = client.get("/api/artists/1")
@@ -1206,12 +1206,13 @@ class TestAlbumArtistEndpoints:
             assert response.status_code == 200
             data = response.json()
             assert data["name"] == "Test Artist"
+            assert data["total_tracks"] == 10
 
     def test_get_artist_not_found(self, client):
         """Test getting non-existent artist"""
         # Router uses repository_factory (not library_database) via get_repository_factory
         mock_factory = Mock()
-        mock_factory.artists.get_by_id.return_value = None
+        mock_factory.artists.get_page.return_value = None
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
             response = client.get("/api/artists/999")

@@ -137,9 +137,10 @@ async def get_artist(
 ) -> ArtistDetailResponse:
     """Get detailed information about a specific artist
 
-    Returns artist information with all their albums.
+    Returns artist information with all their albums. Counts and album
+    aggregates come from SQL; no Track row is hydrated (#5872).
     """
-    artist = await asyncio.to_thread(repos.artists.get_by_id, artist_id)
+    artist = await asyncio.to_thread(repos.artists.get_page, artist_id)
 
     if not artist:
         raise NotFoundError("Artist", artist_id)
@@ -168,7 +169,7 @@ async def get_artist(
         name=cast(str, artist.name),
         albums=albums,
         total_albums=len(albums),
-        total_tracks=len(artist.tracks) if artist.tracks else 0,
+        total_tracks=artist.track_count_expr or 0,
         artwork_url=artist.artwork_url,
         artwork_source=artist.artwork_source,
     )
@@ -181,37 +182,18 @@ async def get_artist_tracks(
 ) -> ArtistTracksResponse:
     """Get all tracks for a specific artist
 
-    Returns all tracks by the artist, sorted by album and track number.
+    Returns all tracks by the artist, sorted by album and track number. The
+    repository selects only the columns below, sorted in SQL (#5872).
     """
-    artist = await asyncio.to_thread(repos.artists.get_by_id, artist_id)
-
-    if not artist:
+    found = await asyncio.to_thread(repos.artists.get_track_rows, artist_id)
+    if found is None:
         raise NotFoundError("Artist", artist_id)
-
-    # Transform tracks to response format
-    tracks = []
-    for track in (artist.tracks or []):
-        tracks.append(TrackInArtist(
-            id=track.id,
-            title=track.title,
-            album=track.album.title if track.album else None,
-            album_id=track.album.id if track.album else None,
-            duration=track.duration or 0,
-            track_number=track.track_number,
-            disc_number=track.disc_number,
-            format=track.format,
-        ))
-
-    # Sort tracks by album, disc number, then track number
-    tracks.sort(key=lambda t: (
-        t.album or "",  # album-less tracks first
-        t.disc_number or 1,
-        t.track_number or 999
-    ))
+    name, rows = found
+    tracks = [TrackInArtist(**{**row, 'duration': row['duration'] or 0}) for row in rows]
 
     return ArtistTracksResponse(
-        id=cast(int, artist.id),
-        name=cast(str, artist.name),
+        id=artist_id,
+        name=name,
         tracks=tracks,
         total_tracks=len(tracks)
     )

@@ -287,7 +287,7 @@ class TestGetArtistDetails:
     def test_get_artist_not_found(self, mock_require_repos, client, mock_repos):
         """Test getting non-existent artist"""
         mock_require_repos.return_value = mock_repos
-        mock_repos.artists.get_by_id = Mock(return_value=None)
+        mock_repos.artists.get_page = Mock(return_value=None)
 
         response = client.get("/api/artists/999")
 

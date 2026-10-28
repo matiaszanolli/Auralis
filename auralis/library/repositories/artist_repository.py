@@ -16,7 +16,8 @@ from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session, selectinload, with_expression
 
 from ..models import Album, Artist, Genre, Track, track_artist, track_genre
-from .base import BaseRepository, correlated_count, escape_like, sort_terms
+from .artist_page import ArtistPageMixin
+from .base import correlated_count, escape_like, sort_terms
 
 
 def _artist_order_by(order_by: str, order: str | None = None) -> tuple[ColumnElement[Any], ...]:
@@ -116,7 +117,7 @@ _ARTIST_LIST_OPTIONS = (
 )
 
 
-class ArtistRepository(BaseRepository):
+class ArtistRepository(ArtistPageMixin):
     """Repository for artist database operations"""
 
     def get_by_id(self, artist_id: int) -> Artist | None:

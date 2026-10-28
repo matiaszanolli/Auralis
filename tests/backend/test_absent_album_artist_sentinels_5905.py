@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from auralis.library.models import Album  # noqa: E402
+from auralis.library.models import Album, Artist, Track  # noqa: E402
 from routers.albums import get_album_tracks  # noqa: E402
 from routers.artists import get_artist_tracks  # noqa: E402
 from routers.artists_models import TrackInArtist  # noqa: E402
@@ -24,39 +24,46 @@ from routers.serializers_library import serialize_album  # noqa: E402
 from schemas import AlbumResponse  # noqa: E402
 
 
-def _artist_with_tracks(*tracks):
-    return SimpleNamespace(id=1, name="The Artist", tracks=list(tracks))
+def _artist_tracks(session_factory, artist_repository, *tracks):
+    """GET /api/artists/1/tracks over a real DB: ``tracks`` are (title, album title|None)."""
+    session = session_factory()
+    try:
+        artist = Artist(name="The Artist")
+        session.add(artist)
+        session.flush()
+        albums: dict[str, Album] = {}
+        for i, (title, album_title) in enumerate(tracks):
+            album = None
+            if album_title is not None:
+                album = albums.setdefault(album_title, Album(title=album_title, artist_id=artist.id))
+            track = Track(title=title, filepath=f"/{i}.flac", duration=100.0, album=album,
+                          track_number=1, disc_number=1, format="FLAC")
+            track.artists = [artist]
+            session.add(track)
+        session.commit()
+        artist_id = artist.id
+    finally:
+        session.close()
+    repos = SimpleNamespace(artists=artist_repository)
+    return asyncio.run(get_artist_tracks(artist_id=artist_id, repos=repos))
 
 
-def _track(id, title, album=None):
-    return SimpleNamespace(
-        id=id, title=title, album=album, duration=100.0,
-        track_number=1, disc_number=1, format="FLAC",
-    )
-
-
-def test_album_less_track_in_artist_tracks_has_null_album_and_album_id():
-    artist = _artist_with_tracks(_track(1, "Loose"))
-    repos = MagicMock()
-    repos.artists.get_by_id.return_value = artist
-
-    response = asyncio.run(get_artist_tracks(artist_id=1, repos=repos))
+def test_album_less_track_in_artist_tracks_has_null_album_and_album_id(session_factory, artist_repository):
+    response = _artist_tracks(session_factory, artist_repository, ("Loose", None))
 
     [track] = response.tracks
     assert track.album is None
     assert track.album_id is None
 
 
-def test_artist_tracks_with_and_without_albums_sort_without_error():
-    album = SimpleNamespace(id=7, title="Zed")
-    artist = _artist_with_tracks(_track(1, "On Album", album), _track(2, "Loose"))
-    repos = MagicMock()
-    repos.artists.get_by_id.return_value = artist
-
-    response = asyncio.run(get_artist_tracks(artist_id=1, repos=repos))
+def test_artist_tracks_with_and_without_albums_sort_without_error(session_factory, artist_repository):
+    response = _artist_tracks(
+        session_factory, artist_repository, ("On Album", "Zed"), ("Loose", None),
+    )
 
     assert [t.title for t in response.tracks] == ["Loose", "On Album"]
-    assert response.tracks[1].album_id == 7
+    assert response.tracks[1].album == "Zed"
+    assert response.tracks[1].album_id is not None
     assert response.total_tracks == 2
 
 

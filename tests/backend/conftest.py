@@ -358,6 +358,8 @@ def mock_library_database():
     manager.tracks.get_by_id = Mock(return_value=None)
     manager.albums.get_by_id = Mock(return_value=None)
     manager.artists.get_by_id = Mock(return_value=None)
+    manager.artists.get_page = Mock(return_value=None)
+    manager.artists.get_track_rows = Mock(return_value=None)
     manager.genres.get_by_id = Mock(return_value=None)
     manager.playlists.get_by_id = Mock(return_value=None)
 
@@ -417,6 +419,8 @@ def mock_repository_factory():
     factory.tracks.get_by_id = Mock(return_value=None)
     factory.albums.get_by_id = Mock(return_value=None)
     factory.artists.get_by_id = Mock(return_value=None)
+    factory.artists.get_page = Mock(return_value=None)
+    factory.artists.get_track_rows = Mock(return_value=None)
     factory.genres.get_by_id = Mock(return_value=None)
     factory.playlists.get_by_id = Mock(return_value=None)
     factory.fingerprints.get_by_id = Mock(return_value=None)

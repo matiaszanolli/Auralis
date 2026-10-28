@@ -52,6 +52,25 @@ def artist_row():
     )
 
 
+@pytest.fixture
+def artist_page(artist_row):
+    """``artist_row`` as ArtistRepository.get_page() returns it (#5872): the
+    artist's track count comes from SQL, not from a loaded tracks collection."""
+    artist_row.track_count_expr = len(artist_row.tracks)
+    return artist_row
+
+
+@pytest.fixture
+def artist_track_rows():
+    """ArtistRepository.get_track_rows() output: (name, column-narrow rows)."""
+    return "Test Artist", [
+        {"id": 1, "title": "Track 1", "album": "Album 1", "album_id": 1, "duration": 180,
+         "track_number": 1, "disc_number": 1, "format": "FLAC"},
+        {"id": 2, "title": "Track 2", "album": "Album 1", "album_id": 1, "duration": None,
+         "track_number": 2, "disc_number": 1, "format": None},
+    ]
+
+
 class TestGetArtists:
     """Test GET /api/artists endpoint"""
 
@@ -246,11 +265,11 @@ class TestGetArtists:
 class TestGetArtistById:
     """Test GET /api/artists/{artist_id} endpoint"""
 
-    def test_get_artist_by_id_success(self, client, artist_row):
+    def test_get_artist_by_id_success(self, client, artist_page):
         """Test getting a specific artist by ID"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = artist_row
+        mock_repo_factory.artists.get_page.return_value = artist_page
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
@@ -267,13 +286,13 @@ class TestGetArtistById:
             assert data["albums"][0]["track_count"] == 2
             assert data["albums"][0]["total_duration"] == 380
 
-    def test_get_artist_artwork_url_in_detail_response(self, client, artist_row):
+    def test_get_artist_artwork_url_in_detail_response(self, client, artist_page):
         """Test that artwork_url is included in artist detail response (issue #2110)"""
-        artist_row.artwork_url = "https://example.com/artist.jpg"
-        artist_row.artwork_source = "discogs"
+        artist_page.artwork_url = "https://example.com/artist.jpg"
+        artist_page.artwork_source = "discogs"
 
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = artist_row
+        mock_repo_factory.artists.get_page.return_value = artist_page
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
             response = client.get("/api/artists/1")
@@ -285,11 +304,11 @@ class TestGetArtistById:
             assert data["artwork_url"] == "https://example.com/artist.jpg"
             assert data["artwork_source"] == "discogs"
 
-    def test_get_artist_albums_sorted(self, client, artist_row):
+    def test_get_artist_albums_sorted(self, client, artist_page):
         """Test that artist's albums are sorted by year"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = artist_row
+        mock_repo_factory.artists.get_page.return_value = artist_page
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
@@ -312,7 +331,7 @@ class TestGetArtistById:
         artist.albums = [album]
 
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = artist
+        mock_repo_factory.artists.get_page.return_value = artist
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
             response = client.get("/api/artists/1")
@@ -336,7 +355,7 @@ class TestGetArtistById:
         artist.albums = [album]
 
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = artist
+        mock_repo_factory.artists.get_page.return_value = artist
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
             response = client.get("/api/artists/1")
@@ -350,7 +369,7 @@ class TestGetArtistById:
         """Test getting non-existent artist"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = None
+        mock_repo_factory.artists.get_page.return_value = None
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
@@ -369,11 +388,11 @@ class TestGetArtistById:
 class TestGetArtistTracks:
     """Test GET /api/artists/{artist_id}/tracks endpoint"""
 
-    def test_get_artist_tracks_success(self, client, artist_row):
+    def test_get_artist_tracks_success(self, client, artist_track_rows):
         """Test getting tracks for an artist"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = artist_row
+        mock_repo_factory.artists.get_track_rows.return_value = artist_track_rows
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
@@ -387,11 +406,11 @@ class TestGetArtistTracks:
             assert data["total_tracks"] == 2
             assert len(data["tracks"]) == 2
 
-    def test_get_artist_tracks_include_album_info(self, client, artist_row):
+    def test_get_artist_tracks_include_album_info(self, client, artist_track_rows):
         """Test that tracks include album information"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = artist_row
+        mock_repo_factory.artists.get_track_rows.return_value = artist_track_rows
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
@@ -405,11 +424,11 @@ class TestGetArtistTracks:
             assert "album_id" in track
             assert track["album_id"] == 1
 
-    def test_get_artist_tracks_sorted(self, client, artist_row):
+    def test_get_artist_tracks_sorted(self, client, artist_track_rows):
         """Test that tracks are sorted by album, disc, and track number"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = artist_row
+        mock_repo_factory.artists.get_track_rows.return_value = artist_track_rows
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
@@ -418,16 +437,17 @@ class TestGetArtistTracks:
             assert response.status_code == 200
             data = response.json()
 
-            # Tracks should be sorted
-            assert len(data["tracks"]) == 2
+            # The repository sorts in SQL; the route keeps its order and maps
+            # a NULL duration to 0 (#5872).
+            assert [track["id"] for track in data["tracks"]] == [1, 2]
+            assert data["tracks"][1]["duration"] == 0
+            assert data["tracks"][0]["format"] == "FLAC"
 
-    def test_get_artist_tracks_empty(self, client, artist_row):
+    def test_get_artist_tracks_empty(self, client):
         """Test getting tracks for artist with no tracks"""
-        artist_row.tracks = []
-
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = artist_row
+        mock_repo_factory.artists.get_track_rows.return_value = ("Test Artist", [])
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
@@ -443,7 +463,7 @@ class TestGetArtistTracks:
         """Test getting tracks for non-existent artist"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = None
+        mock_repo_factory.artists.get_track_rows.return_value = None
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
@@ -455,7 +475,7 @@ class TestGetArtistTracks:
 class TestArtistsAPIIntegration:
     """Integration tests for artists API"""
 
-    def test_artists_workflow(self, client, artist_row):
+    def test_artists_workflow(self, client, artist_row, artist_track_rows):
         """Test complete workflow: list artists -> get artist -> get tracks"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
@@ -472,7 +492,8 @@ class TestArtistsAPIIntegration:
                 artist_id = artists[0]["id"]
 
                 # Step 2: Get artist details
-                mock_repo_factory.artists.get_by_id.return_value = artist_row
+                mock_repo_factory.artists.get_page.return_value = artist_row
+                mock_repo_factory.artists.get_track_rows.return_value = artist_track_rows
                 response = client.get(f"/api/artists/{artist_id}")
                 assert response.status_code == 200
                 artist_data = response.json()
@@ -538,7 +559,7 @@ class TestArtistsErrorHandling:
         """Test handling of database errors when getting artist by ID"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.side_effect = Exception("Database error")
+        mock_repo_factory.artists.get_page.side_effect = Exception("Database error")
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
@@ -550,7 +571,7 @@ class TestArtistsErrorHandling:
         """Test handling of database errors when getting artist tracks"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.side_effect = Exception("Database error")
+        mock_repo_factory.artists.get_track_rows.side_effect = Exception("Database error")
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 

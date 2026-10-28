@@ -44,7 +44,7 @@ def mock_artist_with_album():
 class TestArtistDetailAlbumKeys:
     def test_album_row_emits_exactly_the_five_field_contract(self, client, mock_artist_with_album):
         mock_repo_factory = Mock()
-        mock_repo_factory.artists.get_by_id.return_value = mock_artist_with_album
+        mock_repo_factory.artists.get_page.return_value = mock_artist_with_album
 
         with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
             response = client.get("/api/artists/1")
