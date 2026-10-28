@@ -128,8 +128,12 @@ async def _init_processing_engine(HAS_PROCESSING: bool, globals_dict: dict[str, 
         # after a crash or restart, so leftovers from a previous run were
         # never reclaimed until now (#4762).
         _ttl = globals_dict['processing_engine'].completed_job_ttl_hours
-        reclaim_stale_temp_entries(globals_dict['processing_engine'].temp_dir, _ttl)
-        reclaim_stale_temp_entries(Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME, _ttl)
+        # Off the loop: both walk a directory and rmtree what they find, which
+        # can be gigabytes of decoded temp after a crash (#5068).
+        await asyncio.to_thread(reclaim_stale_temp_entries, globals_dict['processing_engine'].temp_dir, _ttl)
+        await asyncio.to_thread(
+            reclaim_stale_temp_entries, Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME, _ttl
+        )
 
         # Start the processing worker — retain strong reference to prevent GC,
         # and attach a done-callback so a silently-failing start_worker is
