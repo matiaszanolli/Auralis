@@ -942,7 +942,7 @@ describe('usePlayEnhanced – seekTo', () => {
 
     // The previous stream ended (latching streamEnded), then an enhancement
     // re-issue / reconnect opens a NEW stream from the playhead.
-    fireHandler('audio_stream_end', makeStreamEndMsg({ reason: 'completed' }));
+    fireHandler('audio_stream_end', makeStreamEndMsg({ reason: 'completed', track_id: 42 }));
     expect(engine.markStreamEnded).toHaveBeenCalled();
 
     act(() => {

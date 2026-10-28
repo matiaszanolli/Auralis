@@ -15,7 +15,8 @@ const DEBUG = import.meta.env.DEV;
 
 import { useCallback } from 'react';
 import { updateStreamingProgress, setStreamingError, completeStreaming } from '@/store/slices/playerSlice';
-import type { AppDispatch } from '@/store';
+import { useStore } from 'react-redux';
+import type { AppDispatch, RootState } from '@/store';
 import { endActiveStream } from '@/hooks/websocket/websocketConnectionState';
 import type { useWebSocketContext } from '@/contexts/WebSocketContext';
 import {
@@ -90,6 +91,16 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     cleanupStreaming,
     setCurrentTime,
   } = deps;
+
+  const store = useStore<RootState>();
+  // True for a stream-level message naming a track other than the one this
+  // stream is playing: a late end/error from a superseded track after a rapid
+  // skip must not tear down or mark the NEW track's stream (#6017). The reducer
+  // already drops such actions; this keeps the side effects from running too.
+  const isSupersededTrack = useCallback((trackId: number | undefined): boolean => {
+    const active = store.getState().player.streaming[streamType].trackId;
+    return trackId != null && active != null && active !== trackId;
+  }, [store, streamType]);
 
   const handleChunk = useCallback((message: AudioChunkMessage) => {
     try {
@@ -202,6 +213,7 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     // A backend older than #4659 sends no reason, and its end always meant completion.
     const reason = message.data.reason ?? 'completed';
     const trackId = message.data.track_id;
+    if (isSupersededTrack(trackId)) return;
 
     DEBUG && console.log(`${logPrefix} Stream ended:`, {
       trackId,
@@ -240,11 +252,12 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     }
     // 'stopped': whatever stopped it supersedes it — a new play command, or the
     // play_normal re-issue that disabling enhancement sends — so nothing to record.
-  }, [dispatch, streamType, logPrefix, acceptsStreamType, playbackEngineRef]);
+  }, [dispatch, streamType, logPrefix, acceptsStreamType, playbackEngineRef, isSupersededTrack]);
 
   const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
     // Only process messages intended for this stream (#2104)
     if (!acceptsStreamType(message.data.stream_type)) return;
+    if (isSupersededTrack(message.data.track_id)) return;
 
     const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
 
@@ -290,7 +303,7 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     }
     // Terminal: no recovery point, or it was already tried (#5876).
     endActiveStream(trackId);
-  }, [dispatch, streamType, logPrefix, cleanupStreaming, acceptsStreamType, wsContext, lastRecoveryAttemptRef]);
+  }, [dispatch, streamType, logPrefix, cleanupStreaming, acceptsStreamType, wsContext, lastRecoveryAttemptRef, isSupersededTrack]);
 
   return { handleChunk, handleStreamEnd, handleStreamError };
 }
