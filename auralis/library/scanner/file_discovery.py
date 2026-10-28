@@ -222,32 +222,25 @@ class FileDiscovery:
         return True
 
     def _is_wanted_file(self, entry_path: Path) -> bool:
-        """An audio-extension file that is not under a skipped path."""
+        """An audio-extension file that is not hidden (directories were filtered on the way down)."""
         return entry_path.suffix.lower() in AUDIO_EXTENSIONS and not self.should_skip_path(entry_path)
 
     def should_skip_path(self, file_path: Path) -> bool:
         """
-        Check if path should be skipped
+        Whether a discovered FILE is hidden (its own name starts with a dot).
 
-        Skips:
-        - System directories
-        - Hidden directories
-        - Version control directories
+        Only the file's own name counts. Excluded and hidden directories below the
+        scan root are never descended into (``_claim_subdirectory``), and the root
+        itself and its ancestors are the user's choice: testing every component of
+        the absolute path made a root such as ``~/.local/share/music`` (or any path
+        containing ``node_modules``/``.git`` above the root) skip every file and
+        report an empty scan (#5594).
 
         Args:
             file_path: Path to check
 
         Returns:
-            True if path should be skipped
+            True if the file is hidden
         """
-        # Check if any parent directory should be skipped
-        for parent in file_path.parents:
-            if parent.name in SKIP_DIRECTORIES:
-                return True
-
-        # Check for hidden files/directories (starting with .)
-        for part in file_path.parts:
-            if part.startswith('.') and len(part) > 1:
-                return True
-
-        return False
+        name = file_path.name
+        return name.startswith('.') and len(name) > 1
