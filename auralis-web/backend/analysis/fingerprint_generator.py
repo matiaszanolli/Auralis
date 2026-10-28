@@ -30,6 +30,8 @@ from sqlalchemy.orm import Session
 
 from core.env_config import get_int_env
 
+from auralis.analysis.fingerprint.schema import DIMENSION_NAMES
+
 logger = logging.getLogger(__name__)
 
 # Try to import Rust fingerprinting via PyO3
@@ -224,44 +226,8 @@ class FingerprintGenerator:
         Returns:
             Dict with all fingerprint dimensions
         """
-        # Extract all fingerprint dimensions from the record
-        # This handles the 25D fingerprint structure
-        fingerprint_dict = {}
-
-        # Frequency dimensions (7D)
-        for field in ['sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct',
-                      'upper_mid_pct', 'presence_pct', 'air_pct']:
-            if hasattr(fp_record, field):
-                fingerprint_dict[field] = getattr(fp_record, field)
-
-        # Dynamics dimensions (3D)
-        for field in ['lufs', 'crest_db', 'bass_mid_ratio']:
-            if hasattr(fp_record, field):
-                fingerprint_dict[field] = getattr(fp_record, field)
-
-        # Temporal dimensions (4D)
-        for field in ['tempo', 'rhythm_stability', 'transient_density', 'silence_ratio']:
-            if hasattr(fp_record, field):
-                fingerprint_dict[field] = getattr(fp_record, field)
-
-        # Spectral dimensions (3D)
-        for field in ['spectral_centroid', 'spectral_rolloff', 'spectral_flatness']:
-            if hasattr(fp_record, field):
-                fingerprint_dict[field] = getattr(fp_record, field)
-
-        # Harmonic dimensions (3D)
-        for field in ['harmonic_ratio', 'pitch_stability', 'chroma_energy']:
-            if hasattr(fp_record, field):
-                fingerprint_dict[field] = getattr(fp_record, field)
-
-        # Variation dimensions (3D)
-        for field in ['dynamic_range_variation', 'loudness_variation', 'peak_consistency']:
-            if hasattr(fp_record, field):
-                fingerprint_dict[field] = getattr(fp_record, field)
-
-        # Stereo dimensions (2D)
-        for field in ['stereo_width', 'phase_correlation']:
-            if hasattr(fp_record, field):
-                fingerprint_dict[field] = getattr(fp_record, field)
+        # The schema's name list is the one spelling of the 25 dimensions (#5786); the
+        # model columns share it, so a hand-typed copy here drifted ('tempo' vs tempo_bpm).
+        fingerprint_dict = {name: getattr(fp_record, name) for name in DIMENSION_NAMES}
 
         return fingerprint_dict
