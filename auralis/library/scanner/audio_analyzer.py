@@ -13,6 +13,7 @@ from pathlib import Path
 
 import soundfile as sf
 
+from ...io.formats import FFMPEG_FORMATS, SUPPORTED_FORMATS
 from ...io.loader import oversize_probe_detail
 from ...io.loaders.ffmpeg_probe import _probe_audio
 from ...utils.logging import debug, warning
@@ -52,25 +53,24 @@ class AudioAnalyzer:
                 modified_time=datetime.fromtimestamp(file_stat.st_mtime)
             )
 
-            # Extract audio properties using soundfile (WAV, FLAC, AIFF)
-            try:
-                sf_info = sf.info(file_path)
-                info_obj.duration = sf_info.duration
-                info_obj.sample_rate = sf_info.samplerate
-                info_obj.channels = sf_info.channels
-                info_obj.format = sf_info.format
-            except Exception as e:
-                debug(f"SoundFile analysis failed for {file_path}: {e}")
-                # Fall back to ffprobe for formats SoundFile doesn't support
-                # (MP3, OGG, M4A, etc.)
-                probe = _probe_audio(path)
-                if probe['duration'] is not None:
-                    info_obj.duration = probe['duration']
-                if probe['sample_rate'] is not None:
-                    info_obj.sample_rate = probe['sample_rate']
-                if probe['channels'] is not None:
-                    info_obj.channels = probe['channels']
-                info_obj.format = path.suffix.lstrip('.').upper()
+            # Probe the way playback decodes (#6134): FFmpeg-routed formats
+            # (MP3/OGG/OPUS/M4A/...) through ffprobe, so the stored duration and
+            # format match the decoder, not libsndfile's own idea of the file
+            # (which names an .opus file "OGG" and measures a VBR MP3 differently).
+            # libsndfile stays the probe for its own formats and the fallback
+            # when ffprobe yields nothing.
+            if path.suffix.lower() in FFMPEG_FORMATS and self._probe_with_ffprobe(path, info_obj):
+                pass
+            else:
+                try:
+                    sf_info = sf.info(file_path)
+                    info_obj.duration = sf_info.duration
+                    info_obj.sample_rate = sf_info.samplerate
+                    info_obj.channels = sf_info.channels
+                    info_obj.format = sf_info.format
+                except Exception as e:
+                    debug(f"SoundFile analysis failed for {file_path}: {e}")
+                    self._probe_with_ffprobe(path, info_obj)
 
             # The scan stores whatever the container claims, and every later
             # consumer (chunk counting, seek geometry, the UI's duration)
@@ -88,3 +88,16 @@ class AudioAnalyzer:
         except Exception as e:
             debug(f"Failed to extract info from {file_path}: {e}")
             return None
+
+    @staticmethod
+    def _probe_with_ffprobe(path: Path, info_obj: AudioFileInfo) -> bool:
+        """Fill *info_obj* from ffprobe; True if it reported a duration."""
+        probe = _probe_audio(path)
+        if probe['duration'] is not None:
+            info_obj.duration = probe['duration']
+        if probe['sample_rate'] is not None:
+            info_obj.sample_rate = probe['sample_rate']
+        if probe['channels'] is not None:
+            info_obj.channels = probe['channels']
+        info_obj.format = SUPPORTED_FORMATS.get(path.suffix.lower(), path.suffix.lstrip('.').upper())
+        return probe['duration'] is not None
