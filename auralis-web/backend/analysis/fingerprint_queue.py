@@ -125,6 +125,11 @@ class FingerprintQueue:
         logger.info(f"📋 Added track {track_id} to fingerprint queue (queue size: {queue_size})")
         return True
 
+    def is_pending(self, track_id: int) -> bool:
+        """True when the track is waiting in the queue or being fingerprinted right now."""
+        with self._state_lock:
+            return track_id in self._state.queued_set or track_id == self._state.processing
+
     def get_stats(self) -> dict[str, Any]:
         """
         Get current queue statistics.

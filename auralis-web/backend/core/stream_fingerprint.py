@@ -78,28 +78,37 @@ async def check_or_queue_fingerprint(
         # Fingerprint not cached - queue for background generation
         logger.info(f"📋 Fingerprint not cached for track {track_id}, queuing for background generation")
 
-        # Try to enqueue via fingerprint queue (non-blocking)
+        # Try to enqueue via fingerprint queue (non-blocking). "queued" is reported only when
+        # the track is actually waiting for analysis (#5919): a missing queue, a raising
+        # enqueue or a full queue means it never will be.
+        pending = False
         try:
             from analysis.fingerprint_queue import get_fingerprint_queue
             queue = get_fingerprint_queue()
             if queue:
                 added = await asyncio.to_thread(queue.enqueue, track_id)
+                pending = added or await asyncio.to_thread(queue.is_pending, track_id)
                 if added:
                     logger.info(f"📋 Track {track_id} queued for background fingerprinting")
-                else:
+                elif pending:
                     logger.debug(f"Track {track_id} already queued or processing")
+                else:
+                    logger.warning(f"Fingerprint queue rejected track {track_id} (full)")
             else:
-                logger.debug(f"Fingerprint queue not available")
+                logger.debug("Fingerprint queue not available")
         except Exception as q_err:
-            logger.debug(f"Could not enqueue track {track_id}: {q_err}")
+            logger.warning(f"Could not enqueue track {track_id}: {q_err}")
 
-        # Send progress message - using standard mastering
         if websocket:
             await controller._send_fingerprint_progress(
                 websocket,
                 track_id=track_id,
-                status="queued",
-                message="Audio analysis queued, using standard mastering"
+                status="queued" if pending else "failed",
+                message=(
+                    "Audio analysis queued, using standard mastering"
+                    if pending
+                    else "Audio analysis unavailable, using standard mastering"
+                ),
             )
 
         return False
