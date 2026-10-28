@@ -11,7 +11,7 @@ from websocket.outbound_messages import broadcast_typed
 import asyncio
 
 from .dependencies import with_error_handling
-from .errors import BadRequestError, NotFoundError
+from .errors import BadRequestError, InternalServerError, NotFoundError
 from .pagination import limit_query, offset_query, paginated
 from .playlists_deps import _get_connection_manager, _repo_deps
 from .playlists_models import CreatePlaylistRequest, UpdatePlaylistRequest
@@ -106,7 +106,10 @@ async def create_playlist(
     )
 
     if not playlist:
-        raise BadRequestError("Failed to create playlist")
+        # The request already validated; the repository returns None only when the
+        # write failed (locked database, constraint error): a server fault, not a
+        # bad request (#5940).
+        raise InternalServerError("create playlist")
 
     # Broadcast playlist created event
     await broadcast_typed(
@@ -200,7 +203,14 @@ async def delete_playlist(
     playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
     if playlist is None:
         raise NotFoundError("Playlist")
-    await asyncio.to_thread(repos.playlists.delete, playlist_id)
+    deleted = await asyncio.to_thread(repos.playlists.delete, playlist_id)
+    if not deleted:
+        # False is both "a concurrent delete beat us" (success to a DELETE) and a
+        # failed write (locked database, IntegrityError); only the first leaves
+        # the playlist gone (#5940).
+        still_there = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
+        if still_there is not None:
+            raise InternalServerError("delete playlist")
 
     # Broadcast playlist deleted event
     await broadcast_typed(

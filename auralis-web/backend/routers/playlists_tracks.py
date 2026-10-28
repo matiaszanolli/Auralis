@@ -11,7 +11,7 @@ from websocket.outbound_messages import broadcast_typed
 import asyncio
 
 from .dependencies import with_error_handling
-from .errors import BadRequestError, NotFoundError
+from .errors import BadRequestError, InternalServerError, NotFoundError
 from .playlists_deps import _get_connection_manager, _repo_deps
 from .playlists_models import AddTrackRequest, AddTracksRequest, ReorderTrackRequest
 
@@ -189,7 +189,12 @@ async def remove_track_from_playlist(
     playlist = await asyncio.to_thread(repos.playlists.get_by_id, playlist_id)
     if playlist is None:
         raise NotFoundError("Playlist")
-    await asyncio.to_thread(repos.playlists.remove_track, playlist_id, track_id)
+    removed = await asyncio.to_thread(repos.playlists.remove_track, playlist_id, track_id)
+    if not removed:
+        # remove_track returns True for a clean DELETE whatever the rowcount, so
+        # False can only be a failed write; reporting success here also
+        # broadcast a removal that never happened (#5940).
+        raise InternalServerError("remove track from playlist")
 
     # Broadcast playlist updated event
     await broadcast_typed(
