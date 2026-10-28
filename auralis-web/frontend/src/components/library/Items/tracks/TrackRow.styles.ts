@@ -90,6 +90,10 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(
     '&:focus-visible': {
       outline: `2px solid ${themeVars.accent}`,
       outlineOffset: '2px',
+      opacity: 1, // keyboard focus restores full opacity like hover does (#6031)
+    },
+    '&:focus-within': {
+      opacity: 1,
     },
   })
 );
