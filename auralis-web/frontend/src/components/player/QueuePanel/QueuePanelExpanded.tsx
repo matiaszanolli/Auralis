@@ -7,6 +7,7 @@ import { QueueControlBar } from './QueueControlBar';
 import { ClearQueueDialog } from './ClearQueueDialog';
 import { useQueueAutoScroll } from './useQueueAutoScroll';
 import { useQueueKeyboardReorder } from './useQueueKeyboardReorder';
+import { useQueueRovingFocus } from './useQueueRovingFocus';
 import { styles, QUEUE_ITEM_HEIGHT } from './styles';
 
 interface QueuePanelExpandedProps {
@@ -104,6 +105,12 @@ export const QueuePanelExpanded = ({
     queue,
     reorderTrack,
     removeTrack,
+    scrollElementRef: queueScrollRef,
+    virtualizer,
+  });
+
+  const { tabStopIndex, onListKeyDown, onListFocus } = useQueueRovingFocus({
+    queueLength: queue.length,
     scrollElementRef: queueScrollRef,
     virtualizer,
   });
@@ -213,6 +220,8 @@ export const QueuePanelExpanded = ({
             // with the AT concept of "selected".
             role="list"
             aria-label="Queue tracks"
+            onKeyDown={onListKeyDown}
+            onFocus={onListFocus}
             style={{
               ...styles.queueList,
               height: virtualizer.getTotalSize(),
@@ -237,6 +246,7 @@ export const QueuePanelExpanded = ({
                   onDragOver={handleDragOver}
                   onHover={handleHover}
                   disabled={isLoading}
+                  tabIndex={index === tabStopIndex ? 0 : -1}
                   style={{
                     position: 'absolute' as const,
                     top: 0,

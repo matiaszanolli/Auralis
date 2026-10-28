@@ -25,6 +25,8 @@ export interface QueueTrackItemProps {
   onDragOver: (toIndex: number) => void;
   onHover: (index: number, hovering: boolean) => void;
   disabled: boolean;
+  /** Roving tabindex (#6027): 0 for the one row that is the list's tab stop, -1 otherwise. */
+  tabIndex?: 0 | -1;
   style?: CSSProperties;
 }
 
@@ -41,6 +43,7 @@ const QueueTrackItemImpl = ({
   onDragOver,
   onHover,
   disabled,
+  tabIndex = 0,
   style: positionStyle,
 }: QueueTrackItemProps) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -56,7 +59,7 @@ const QueueTrackItemImpl = ({
         ...positionStyle,
       }}
       role="listitem"
-      tabIndex={0}
+      tabIndex={tabIndex}
       aria-current={isCurrentTrack ? 'true' : undefined}
       aria-label={`${track.title} by ${track.artist}, ${formatDuration(track.duration)}`}
       // Without this the reorder gesture is undiscoverable: there is no visible
@@ -77,8 +80,9 @@ const QueueTrackItemImpl = ({
           return;
         }
         // Alt-modified arrows reorder (#4536). Alt keeps this off plain
-        // ArrowUp/ArrowDown, which the browser uses to move between rows, so
-        // navigating the queue and rearranging it stay distinct gestures.
+        // ArrowUp/ArrowDown, which move focus between rows (roving focus on
+        // the list, useQueueRovingFocus), so navigating the queue and
+        // rearranging it stay distinct gestures.
         if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
           e.preventDefault();
           if (disabled) return;
@@ -149,6 +153,7 @@ export const QueueTrackItem = memo(QueueTrackItemImpl, (prev, next) =>
   prev.isDragging === next.isDragging &&
   prev.isHovered === next.isHovered &&
   prev.disabled === next.disabled &&
+  prev.tabIndex === next.tabIndex &&
   prev.onRemove === next.onRemove &&
   prev.onReorder === next.onReorder &&
   prev.onDragStart === next.onDragStart &&
