@@ -96,13 +96,12 @@ const VolumeControlComponent = ({
     return '🔊';
   }, [isMuted, clampedVolume]);
 
-  // Final aria label
-  const finalAriaLabel = useMemo(() => {
-    if (ariaLabel) {
-      return ariaLabel;
-    }
-    return `Volume control, ${volumePercentage}%${isMuted ? ', muted' : ''}`;
-  }, [ariaLabel, volumePercentage, isMuted]);
+  // The accessible NAME is static: the live value is aria-valuetext's job. A name
+  // embedding the percentage was re-announced on every change and duplicated the
+  // slider's own value announcement (#6072).
+  const finalAriaLabel = ariaLabel || 'Volume';
+  const valueText = `${volumePercentage}%${isMuted ? ', muted' : ''}`;
+  const muteLabel = isMuted || clampedVolume === 0 ? 'Unmute' : 'Mute';
 
   return (
     <div
@@ -125,8 +124,10 @@ const VolumeControlComponent = ({
         onClick={onMuteToggle}
         disabled={disabled}
         data-testid="volume-control-mute"
-        aria-label={isMuted || clampedVolume === 0 ? 'Unmute (⌨ M )' : 'Mute (⌨ M )'}
-        title={isMuted || clampedVolume === 0 ? 'Unmute (⌨ M )' : 'Mute (⌨ M )'}
+        aria-label={muteLabel}
+        aria-pressed={isMuted}
+        aria-keyshortcuts="M"
+        title={`${muteLabel} (⌨ M )`}
         onFocus={() => setIsMuteButtonFocused(true)}
         onBlur={() => setIsMuteButtonFocused(false)}
         style={{
@@ -199,6 +200,7 @@ const VolumeControlComponent = ({
           disabled={disabled}
           data-testid="volume-control-slider"
           aria-label={finalAriaLabel}
+          aria-valuetext={valueText}
           title={`Volume: ${volumePercentage}%`}
           onFocus={() => setIsSliderFocused(true)}
           onBlur={() => setIsSliderFocused(false)}

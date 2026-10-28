@@ -201,7 +201,7 @@ describe('VolumeControl', () => {
       );
 
       const button = screen.getByTestId('volume-control-mute');
-      expect(button).toHaveAttribute('aria-label', 'Unmute (⌨ M )');
+      expect(button).toHaveAttribute('aria-label', 'Unmute');
       expect(button).toHaveAttribute('title', 'Unmute (⌨ M )');
     });
 
@@ -216,7 +216,7 @@ describe('VolumeControl', () => {
       );
 
       const button = screen.getByTestId('volume-control-mute');
-      expect(button).toHaveAttribute('aria-label', 'Mute (⌨ M )');
+      expect(button).toHaveAttribute('aria-label', 'Mute');
       expect(button).toHaveAttribute('title', 'Mute (⌨ M )');
     });
   });
@@ -262,31 +262,40 @@ describe('VolumeControl', () => {
   });
 
   describe('Accessibility', () => {
-    it('should have proper aria-label on slider', () => {
-      render(
-        <VolumeControl
-          volume={0.75}
-          onVolumeChange={vi.fn()}
-          isMuted={false}
-        />
+    it('should have a static accessible name and the live value in aria-valuetext (#6072)', () => {
+      const { rerender } = render(
+        <VolumeControl volume={0.75} onVolumeChange={vi.fn()} isMuted={false} />
       );
 
       const slider = screen.getByTestId('volume-control-slider');
-      expect(slider).toHaveAttribute('aria-label');
-      expect(slider.getAttribute('aria-label')).toContain('75%');
+      expect(slider).toHaveAttribute('aria-label', 'Volume');
+      expect(slider).toHaveAttribute('aria-valuetext', '75%');
+
+      // A change updates the value text, never the name.
+      rerender(<VolumeControl volume={0.4} onVolumeChange={vi.fn()} isMuted={false} />);
+      expect(screen.getByTestId('volume-control-slider')).toHaveAttribute('aria-label', 'Volume');
+      expect(screen.getByTestId('volume-control-slider')).toHaveAttribute('aria-valuetext', '40%');
     });
 
-    it('should indicate muted state in aria-label', () => {
-      render(
-        <VolumeControl
-          volume={0.75}
-          onVolumeChange={vi.fn()}
-          isMuted={true}
-        />
-      );
+    it('should indicate muted state in aria-valuetext (#6072)', () => {
+      render(<VolumeControl volume={0.75} onVolumeChange={vi.fn()} isMuted={true} />);
 
       const slider = screen.getByTestId('volume-control-slider');
-      expect(slider.getAttribute('aria-label')).toContain('muted');
+      expect(slider).toHaveAttribute('aria-valuetext', '75%, muted');
+      expect(slider.getAttribute('aria-label')).not.toContain('muted');
+    });
+
+    it('should expose the mute state and shortcut on the mute button (#6072)', () => {
+      const { rerender } = render(
+        <VolumeControl volume={0.5} onVolumeChange={vi.fn()} isMuted={false} />
+      );
+      const mute = screen.getByTestId('volume-control-mute');
+      expect(mute).toHaveAttribute('aria-pressed', 'false');
+      expect(mute).toHaveAttribute('aria-keyshortcuts', 'M');
+      expect(mute.getAttribute('aria-label')).not.toContain('M )'); // shortcut is not in the name
+
+      rerender(<VolumeControl volume={0.5} onVolumeChange={vi.fn()} isMuted={true} />);
+      expect(screen.getByTestId('volume-control-mute')).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('should support custom aria-label', () => {
