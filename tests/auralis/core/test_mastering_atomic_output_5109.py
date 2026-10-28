@@ -58,7 +58,7 @@ def _pipeline(fail_on_chunk=None):
         calls["n"] += 1
         if fail_on_chunk is not None and calls["n"] == fail_on_chunk:
             raise ValueError("simulated mid-track DSP failure")
-        return audio.copy(), {"stages": ["stub"]}
+        return audio.copy(), {"stages": [{"stage": "stub"}]}
 
     pipeline = MagicMock()
     pipeline._process = _process
@@ -123,7 +123,7 @@ class TestSuccessPath:
         info, chunks = _run(_pipeline(), source, out)
         assert out.exists()
         assert chunks > 1, "test source should span several chunks"
-        assert info["stages"] == ["stub"]
+        assert info["stages"] == [{"stage": "stub"}]
 
     def test_output_is_complete_and_readable(self, source, tmp_path):
         out = tmp_path / "mastered.wav"
