@@ -114,6 +114,8 @@ class AdaptiveResourceMonitor:
     def _check_and_adjust_resources(self) -> None:
         """Check RAM usage and adjust worker count if needed"""
         memory_percent = psutil.virtual_memory().percent
+        worker_change: tuple[int, int] | None = None
+        semaphore_change: tuple[int, int] | None = None
 
         with self._lock:
             # Update statistics
@@ -150,18 +152,7 @@ class AdaptiveResourceMonitor:
                 old_count = self.current_worker_count
                 self.current_worker_count = optimal_workers
                 self._stats['scale_ups' if optimal_workers > old_count else 'scale_downs'] += 1
-
-                if self.on_worker_count_change:
-                    try:
-                        self.on_worker_count_change(optimal_workers)
-                    except Exception as e:
-                        error(f"Error in worker count callback: {e}")
-
-                direction = "↑" if optimal_workers > old_count else "↓"
-                info(
-                    f"{direction} Adaptive scaling: {old_count} → {optimal_workers} workers "
-                    f"(RAM: {memory_percent:.1f}%)"
-                )
+                worker_change = (old_count, optimal_workers)
 
             # Also adjust processing semaphore (max concurrent audio loads)
             if memory_percent < self.limits.scale_up_threshold:
@@ -180,18 +171,35 @@ class AdaptiveResourceMonitor:
             if optimal_semaphore != self.current_semaphore_size:
                 old_size = self.current_semaphore_size
                 self.current_semaphore_size = optimal_semaphore
+                semaphore_change = (old_size, optimal_semaphore)
 
-                if self.on_semaphore_change:
-                    try:
-                        self.on_semaphore_change(optimal_semaphore)
-                    except Exception as e:
-                        error(f"Error in semaphore callback: {e}")
+        # The callbacks take the consumers' own locks (stats_lock, the semaphore's), so they run
+        # after this monitor's lock is released: no monitor-lock -> consumer-lock nesting (#5756).
+        if worker_change is not None:
+            old_count, optimal_workers = worker_change
+            if self.on_worker_count_change:
+                try:
+                    self.on_worker_count_change(optimal_workers)
+                except Exception as e:
+                    error(f"Error in worker count callback: {e}")
+            direction = "↑" if optimal_workers > old_count else "↓"
+            info(
+                f"{direction} Adaptive scaling: {old_count} → {optimal_workers} workers "
+                f"(RAM: {memory_percent:.1f}%)"
+            )
 
-                direction = "↑" if optimal_semaphore > old_size else "↓"
-                debug(
-                    f"{direction} Adaptive semaphore: {old_size} → {optimal_semaphore} "
-                    f"(RAM: {memory_percent:.1f}%)"
-                )
+        if semaphore_change is not None:
+            old_size, optimal_semaphore = semaphore_change
+            if self.on_semaphore_change:
+                try:
+                    self.on_semaphore_change(optimal_semaphore)
+                except Exception as e:
+                    error(f"Error in semaphore callback: {e}")
+            direction = "↑" if optimal_semaphore > old_size else "↓"
+            debug(
+                f"{direction} Adaptive semaphore: {old_size} → {optimal_semaphore} "
+                f"(RAM: {memory_percent:.1f}%)"
+            )
 
     def get_stats(self) -> dict[str, Any]:
         """Get monitoring statistics"""
