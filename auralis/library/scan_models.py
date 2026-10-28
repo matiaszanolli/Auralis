@@ -52,6 +52,19 @@ class ScanFailure:
         return {'filename': _wire_safe(filename), 'reason': _wire_safe(reason)}
 
 
+@dataclass(frozen=True, slots=True)
+class ScannedTrackRef:
+    """What a finished scan keeps of a track it added or updated: its id.
+
+    The result used to hold the full detached Track returned by ``add()`` (all ~40
+    columns incl. lyrics/comments plus its loaded artists/album/genres, ~10 KB each),
+    for every track until the scan returned, though the only consumers (the
+    fingerprint enqueue helpers) read ``.id`` (#5963).
+    """
+
+    id: int
+
+
 @dataclass
 class ScanResult:
     """Result of a library scan operation"""
@@ -64,7 +77,7 @@ class ScanResult:
     scan_time: float = 0.0
     directories_scanned: int = 0
     rejected: bool = False  # True when rejected by the concurrency guard (#2438)
-    added_tracks: list[Any] = field(default_factory=list)  # List of Track objects added during scan
+    added_tracks: list[Any] = field(default_factory=list)  # ScannedTrackRef (id only) per track added during scan
     # Tracks refreshed by a rescan (#5719). Their fingerprint may have been
     # discarded because the file changed, so they are enqueued next to added_tracks.
     updated_tracks: list[Any] = field(default_factory=list)

@@ -14,7 +14,7 @@ from typing import Any
 
 from ...utils.logging import error, warning
 from ..repositories.track_repository_mutation import MTIME_TOLERANCE_SEC
-from ..scan_models import ScanResult
+from ..scan_models import ScannedTrackRef, ScanResult
 
 
 class BatchProcessor:
@@ -78,11 +78,11 @@ class BatchProcessor:
                 if file_result == 'added':
                     result.files_added += 1
                     if track_record:
-                        result.added_tracks.append(track_record)
+                        result.added_tracks.append(ScannedTrackRef(track_record.id))
                 elif file_result == 'updated':
                     result.files_updated += 1
                     if track_record:
-                        result.updated_tracks.append(track_record)
+                        result.updated_tracks.append(ScannedTrackRef(track_record.id))
                 elif file_result == 'skipped':
                     result.files_skipped += 1
                 else:  # failed
