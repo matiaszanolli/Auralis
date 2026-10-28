@@ -32,6 +32,18 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# The names callers import from here; the error classes and allow-list helpers live in
+# path_errors / path_allowlist and are re-exported so mypy treats them as public.
+__all__ = [
+    "DEFAULT_ALLOWED_DIRS",
+    "PathMissingError",
+    "PathValidationError",
+    "get_allowed_directories",
+    "validate_directory_list",
+    "validate_file_path",
+    "validate_user_chosen_directory",
+]
+
 from .path_allowlist import (  # noqa: E402  (split #6271; body-used below)
     DEFAULT_ALLOWED_DIRS,
     _extra_allowed_dirs,

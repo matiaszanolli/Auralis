@@ -5,6 +5,7 @@ Metadata router dependency plumbing, field mapping and path validation (split fr
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import asyncio
 from auralis.library.metadata_editor import MetadataEditor
 from collections.abc import Callable
 from security.path_security import PathMissingError, PathValidationError, validate_file_path
@@ -39,7 +40,7 @@ def _tag_dict_to_db_columns(tag_updates: dict[str, Any]) -> dict[str, Any]:
     return {_METADATA_FIELD_TO_COLUMN.get(k, k): v for k, v in tag_updates.items()}
 
 
-def _validate_track_filepath(track_id: int, filepath: Any) -> str:
+async def _validate_track_filepath(track_id: int, filepath: Any) -> str:
     """Validate a DB-stored track filepath, mapping each failure class to its
     own HTTP status.
 
@@ -58,7 +59,8 @@ def _validate_track_filepath(track_id: int, filepath: Any) -> str:
     ``_logs_rejections``, so nothing is lost by not reflecting it.
     """
     try:
-        return str(validate_file_path(str(filepath)))
+        # Off the loop (#5972): resolve() and the allowed-directory scan hit the filesystem.
+        return str(await asyncio.to_thread(validate_file_path, str(filepath)))
     except PathMissingError:
         raise NotFoundError(
             "Audio file", detail=f"Audio file not found for track {track_id}"

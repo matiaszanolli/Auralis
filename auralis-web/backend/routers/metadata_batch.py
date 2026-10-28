@@ -81,7 +81,8 @@ async def batch_update_metadata(
 
         # Validate DB-retrieved filepath before file I/O (fixes #2302)
         try:
-            validated_filepath = str(validate_file_path(
+            validated_filepath = str(await asyncio.to_thread(
+                validate_file_path,
                 str(track.filepath),
                 context=f"track {update_req.track_id}, batch update — skipping",
             ))

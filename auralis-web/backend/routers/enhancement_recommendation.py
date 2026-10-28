@@ -75,7 +75,7 @@ async def get_mastering_recommendation(
     # does (#2302). Deliberately generic detail: PathValidationError's text
     # names the resolved path and every allowed directory (#4807).
     try:
-        filepath = str(validate_file_path(str(filepath)))
+        filepath = str(await asyncio.to_thread(validate_file_path, str(filepath)))
     except PathMissingError:
         # #5483: a deleted/moved file is "not found", not a bad request —
         # matches the split metadata.py made in #5080.

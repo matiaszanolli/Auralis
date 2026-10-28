@@ -50,7 +50,7 @@ async def get_editable_fields(
 
         # Validate DB-retrieved filepath before any file I/O (fixes #2302).
         # 404 when the file is simply gone, 400 when the path is rejected (#5080).
-        filepath_str = _validate_track_filepath(track_id, track.filepath)
+        filepath_str = await _validate_track_filepath(track_id, track.filepath)
         editable_fields = await asyncio.to_thread(metadata_editor.get_editable_fields, filepath_str)
 
         # Get current metadata (file I/O — run in thread)
@@ -104,7 +104,7 @@ async def get_track_metadata(
 
         # Validate DB-retrieved filepath before file I/O (fixes #2302).
         # 404 when the file is simply gone, 400 when the path is rejected (#5080).
-        filepath_validated = _validate_track_filepath(track_id, track.filepath)
+        filepath_validated = await _validate_track_filepath(track_id, track.filepath)
 
         # Read metadata from file (offloaded to thread to avoid event-loop block, fixes #2317)
         metadata = await asyncio.to_thread(metadata_editor.read_metadata, filepath_validated)
@@ -168,7 +168,7 @@ async def update_track_metadata(
 
         # Validate DB-retrieved filepath before any file I/O (fixes #2302).
         # 404 when the file is simply gone, 400 when the path is rejected (#5080).
-        filepath_validated = _validate_track_filepath(track_id, track.filepath)
+        filepath_validated = await _validate_track_filepath(track_id, track.filepath)
 
         # Write metadata to file (backup always enforced server-side, fixes #2407).
         # Offloaded to thread to avoid blocking the event loop (fixes #2317).
@@ -212,7 +212,7 @@ async def update_track_metadata(
 
         # Read updated metadata (offloaded to thread, fixes #2317)
         # track was refreshed from DB above — re-validate before read (fixes #2302)
-        validated_path_for_read = _validate_track_filepath(track_id, track.filepath)
+        validated_path_for_read = await _validate_track_filepath(track_id, track.filepath)
         updated_metadata = await asyncio.to_thread(metadata_editor.read_metadata, validated_path_for_read)
 
         logger.info(f"Updated metadata for track {track_id}: {list(metadata_updates.keys())}")

@@ -85,8 +85,8 @@ async def process_audio(
 
     # Validate input path against allowed directories (#2559)
     try:
-        validated_input = validate_file_path(
-            request.input_path, context="input_path"
+        validated_input = await asyncio.to_thread(
+            validate_file_path, request.input_path, context="input_path"
         )
     except PathValidationError:
         # validate_file_path logs it once with the context above (#4925).
@@ -105,8 +105,8 @@ async def process_audio(
     validated_reference: Path | None = None
     if request.reference_path:
         try:
-            validated_reference = validate_file_path(
-                request.reference_path, context="reference_path"
+            validated_reference = await asyncio.to_thread(
+                validate_file_path, request.reference_path, context="reference_path"
             )
         except PathValidationError:
             # validate_file_path logs it once with the context above (#4925).

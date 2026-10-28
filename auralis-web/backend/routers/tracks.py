@@ -151,7 +151,7 @@ async def get_track_lyrics(
     # Try to extract from file
     try:
         from security.path_security import validate_file_path
-        validate_file_path(str(track.filepath))
+        await asyncio.to_thread(validate_file_path, str(track.filepath))
         import mutagen
         audio_file = await asyncio.to_thread(mutagen.File, track.filepath)
         lyrics_text = extract_embedded_lyrics(audio_file) if audio_file else None
