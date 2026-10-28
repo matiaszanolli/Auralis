@@ -55,6 +55,10 @@ def measure_window_loudness(
 
         if window.size == 0:
             return None, None
+        if window.ndim == 1 or window.shape[1] == 1:
+            # A mono file is rendered as dual-mono (read_chunk, #4494), and BS.1770
+            # sums channel power: one channel reads 3 LU below what is rendered (#6138).
+            window = np.column_stack([window.reshape(-1)] * 2)
 
         meter = LoudnessMeter(sample_rate=sample_rate)
         block = meter.block_size
