@@ -72,6 +72,10 @@ def validate_and_normalize_input(
     if len(target_audio) == 0:
         return target_audio, target_audio.copy()
 
+    # Fail fast on NaN/Inf before the short and silence early returns: they hand the buffer back
+    # untouched, which would pass corrupted samples through as if they were audio (#5191).
+    target_audio = validate_audio_finite(target_audio, context="input audio", repair=False)
+
     if target_audio.shape[0] < MIN_SAMPLES:
         warning(
             f"Audio too short to master ({target_audio.shape[0]} samples, "
@@ -84,10 +88,6 @@ def validate_and_normalize_input(
     # Handle silence (all zeros) - return as-is to avoid NaN production in downstream processing
     if np.allclose(target_audio, 0.0, atol=1e-10):
         return target_audio, target_audio.copy()
-
-    # Validate input audio for NaN/Inf (fail fast on corrupted input)
-    target_audio = validate_audio_finite(target_audio, context="input audio", repair=False)
-    debug("Input audio validated: no NaN/Inf detected")
 
     return target_audio, None
 
