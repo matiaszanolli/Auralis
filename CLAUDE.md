@@ -239,7 +239,7 @@ Cached chunk files are 16-bit PCM WAV, not float32.
    to fall back to a high-recall prose grep that cannot distinguish a deferral
    from an ordinary sentence (#4564). Genuine marker debt in shipped code —
    `auralis/`, `auralis-web/`, `vendor/` — is **4** (2026-10-25: #5858, #5484,
-   #6292, #5738), each citing an OPEN issue; `tests/` holds **1** (#5851). A
+   #6292, #5738), each citing an OPEN issue; `tests/` holds **0** (#5851 closed). A
    marker citing a closed issue is itself a finding (the `TODO(#5537)` in
    `py_bindings.rs` was re-pointed at the open #5738). #5152 turned the prose
    "Retiring it is tracked separately" into a `TODO(#5295)` that `134c74ae`
