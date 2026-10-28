@@ -46,6 +46,17 @@ def _init_library_database(globals_dict: dict[str, Any]) -> None:
     globals_dict['repository_factory'] = globals_dict['library_database'].repositories
     logger.info("✅ Repository Factory initialized (Phase 2 support)")
 
+    # The engine's ContinuousMode reads the reference cloud through this provider instead of
+    # importing backend config (#5722). Resolved at call time, so a library reset that swaps the
+    # database is followed.
+    from auralis.core.fingerprint_repository_provider import set_fingerprint_repository_provider
+
+    def _fingerprint_repository() -> Any:
+        database = globals_dict.get('library_database')
+        return database.fingerprints if database is not None else None
+
+    set_fingerprint_repository_provider(_fingerprint_repository)
+
 
 def _seed_settings_and_enhancement(globals_dict: dict[str, Any]) -> None:
     """Wire the settings repository and seed runtime enhancement settings.

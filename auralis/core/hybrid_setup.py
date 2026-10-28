@@ -24,6 +24,7 @@ from ..utils.logging import debug, info
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
 from .analysis.spectrum_mapper import SpectrumMapper
 from .config import UnifiedConfig
+from .fingerprint_repository_provider import get_fingerprint_repository
 from .processing import AdaptiveMode, ContinuousMode, EQProcessor, HybridMode
 
 if TYPE_CHECKING:
@@ -63,25 +64,12 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
         config, processor.content_analyzer, processor.target_generator,
         processor.spectrum_mapper
     )
-    # #5560: resolve the fingerprint repository so ContinuousMode's Phase 4
-    # reference-cloud derivation (derive_target/compute_delta_eq) actually
-    # runs in the shipped app. The registry lives backend-side; read it
-    # lazily the same way chunk_fingerprint_registry does — None (bare
-    # unit-test context) and missing keys degrade to no repository, which
-    # keeps ContinuousMode on the legacy deficit EQ rather than raising.
-    fingerprint_repository = None
-    try:
-        from config.globals import get_component_registry
-
-        registry = get_component_registry()
-        if registry is not None and registry.get('library_database') is not None:
-            fingerprint_repository = registry['library_database'].fingerprints
-    except Exception as e:
-        debug(f"Fingerprint repository unavailable for ContinuousMode: {e}")
-
+    # #5560: ContinuousMode's reference-cloud derivation needs the fingerprint repository. The
+    # application registers a provider at startup (#5722); with none, it stays on the legacy
+    # deficit EQ rather than raising.
     processor.continuous_mode = ContinuousMode(
         config, processor.content_analyzer, processor.fingerprint_analyzer,
-        fingerprint_repository=fingerprint_repository,
+        fingerprint_repository=get_fingerprint_repository(),
     )
     processor.hybrid_mode = HybridMode(config, processor.adaptive_mode)
     # Initialize performance optimizer (optimizations applied once at module level)
