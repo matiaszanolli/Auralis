@@ -774,3 +774,38 @@ class TestLockedWrites:
         assert result is True
         assert ctrl.current_index == 2  # clamped to last valid index
         assert spy.enter_count >= 1
+
+
+class TestShuffleFlagFollowsTheOrder:
+    """#5728: set_queue(), load_playlist() and clear() drop the shuffle snapshot, so the queue is no
+    longer shuffled - but the flag stayed set, get_queue_info() reported shuffle on over an unshuffled
+    queue, and set_shuffle(True) was then a no-op."""
+
+    @staticmethod
+    def _shuffled_controller():
+        controller = QueueController(lambda: None)
+        controller.set_queue([f"/m/{i}.flac" for i in range(6)])
+        controller.shuffle()
+        assert controller.shuffle_enabled is True
+        return controller
+
+    def test_set_queue_resets_the_flag(self):
+        controller = self._shuffled_controller()
+        controller.set_queue(["/m/a.flac", "/m/b.flac", "/m/c.flac"])
+        assert controller.shuffle_enabled is False
+        assert controller.get_queue_info()["shuffle_enabled"] is False
+
+    def test_clear_queue_resets_the_flag(self):
+        controller = self._shuffled_controller()
+        controller.clear_queue()
+        assert controller.shuffle_enabled is False
+
+    def test_set_shuffle_works_again_after_set_queue(self):
+        controller = self._shuffled_controller()
+        controller.set_queue([f"/m/{i}.flac" for i in range(6)])
+        before = [t["filepath"] for t in controller.get_queue()]
+
+        controller.set_shuffle(True)
+
+        assert controller.shuffle_enabled is True
+        assert sorted(t["filepath"] for t in controller.get_queue()) == sorted(before)

@@ -35,12 +35,10 @@ class QueueManager(QueueNavigationMixin, ShuffleMixin):
             self._invalidate_shuffle_snapshot_unlocked()
 
     def insert_track(self, index: int, track_info: dict[str, Any]) -> int:
-        """Insert a track atomically and keep the current track selected.
+        """Insert a track atomically and keep the current track selected; returns the normalized index.
 
-        Returns the normalized insertion index.  QueueService previously
-        rebuilt the whole queue with ``set_queue`` for positional inserts,
-        which reused a stale numeric current index and changed the playing
-        track whenever an item was inserted before it (#4776).
+        QueueService used to rebuild the queue with ``set_queue`` for positional inserts, which
+        reused a stale numeric current index and changed the playing track (#4776).
         """
         with self._lock:
             normalized_index = min(max(index, 0), len(self.tracks))
@@ -72,6 +70,7 @@ class QueueManager(QueueNavigationMixin, ShuffleMixin):
         with self._lock:
             self.tracks.clear()
             self.current_index = -1
+            self.shuffle_enabled = False  # an emptied queue is not shuffled (set_queue/load_playlist clear first, #5728)
             self._invalidate_shuffle_snapshot_unlocked()
 
     def _remove_track_unlocked(self, index: int) -> bool:
