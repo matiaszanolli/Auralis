@@ -121,6 +121,27 @@ def test_update_settings_validates_field_ranges(client: TestClient) -> None:
     assert client._repo.updated_with is None  # type: ignore[attr-defined]
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"scan_interval": 1},
+        {"scan_interval": 59},
+        {"scan_interval": 86401},
+        {"max_concurrent_scans": 17},
+    ],
+)
+def test_update_settings_rejects_unbounded_scan_cadence(client: TestClient, payload) -> None:
+    """A typo'd interval or a huge concurrency cap must 422 (#6164)."""
+    resp = client.put("/api/settings", json=payload)
+    assert resp.status_code == 422
+    assert client._repo.updated_with is None  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("payload", [{"scan_interval": 60}, {"scan_interval": 86400}, {"max_concurrent_scans": 16}])
+def test_update_settings_accepts_scan_cadence_limits(client: TestClient, payload) -> None:
+    assert client.put("/api/settings", json=payload).status_code == 200
+
+
 def test_update_settings_partial_excludes_unset(client: TestClient) -> None:
     """Only the fields the client sent reach the repo (exclude_unset)."""
     resp = client.put("/api/settings", json={"theme": "light"})

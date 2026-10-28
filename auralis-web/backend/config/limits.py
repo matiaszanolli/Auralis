@@ -177,6 +177,14 @@ def owning_pid_from_stream_temp_name(name: str) -> int | None:
 # instead of raising ValueError inside the request handler.
 SCAN_TIMEOUT_S: int = get_int_env("AURALIS_SCAN_TIMEOUT", 3600)
 
+# Bounds on the auto-scan settings (#6164). An interval of a few seconds is a
+# full recursive rescan on repeat; the Settings dialog offers one minute to one
+# day, so those are the limits. Concurrent scans are capped well above the
+# default (4) rather than left unbounded.
+MIN_SCAN_INTERVAL_S: int = 60
+MAX_SCAN_INTERVAL_S: int = 86400
+MAX_CONCURRENT_SCANS_LIMIT: int = 16
+
 RATE_LIMIT_UPLOAD_MAX: int = get_int_env("AURALIS_RATE_LIMIT_UPLOAD_MAX", 5)
 RATE_LIMIT_UPLOAD_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_UPLOAD_WINDOW", 60)
 RATE_LIMIT_PROCESSING_MAX: int = get_int_env("AURALIS_RATE_LIMIT_PROCESSING_MAX", 10)

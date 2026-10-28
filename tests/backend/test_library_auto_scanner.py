@@ -244,6 +244,26 @@ class TestRunCyclePolling:
         assert sleep_calls == [1234]
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("stored, expected", [(5, 60), (10**9, 86400)])
+    async def test_run_cycle_clamps_a_stored_interval_to_the_allowed_range(self, stored, expected):
+        """A value saved before the request bound existed must not rescan every
+        few seconds (#6164)."""
+        settings = _make_settings(auto_scan=True, scan_folders=["/music"], scan_interval=stored)
+        scanner, *_ = _make_scanner(settings)
+
+        scanner._do_scan = AsyncMock()  # type: ignore[method-assign]
+        sleep_calls: list[int] = []
+
+        async def _record_sleep(seconds: int) -> None:
+            sleep_calls.append(seconds)
+
+        scanner._interruptible_sleep = _record_sleep  # type: ignore[method-assign]
+
+        await scanner._run_cycle()
+
+        assert sleep_calls == [expected]
+
+    @pytest.mark.asyncio
     async def test_run_cycle_skips_scan_when_auto_scan_disabled(self):
         """With auto_scan=False, _do_scan is never invoked — only the
         interruptible sleep runs (polling for a future config change)."""

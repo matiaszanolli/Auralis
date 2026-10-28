@@ -6,6 +6,7 @@ Settings router bodies and the enhancement-settings field list (split from setti
 """
 
 import logging
+from config.limits import MAX_CONCURRENT_SCANS_LIMIT, MAX_SCAN_INTERVAL_S, MIN_SCAN_INTERVAL_S
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from schemas import DEFAULT_PRESET, BitDepth, EnhancementIntensity, EnhancementPresetLiteral
 import math
@@ -42,7 +43,7 @@ class SettingsUpdateRequest(BaseModel):
     scan_folders: list[str] | None = None
     file_types: list[str] | None = None
     auto_scan: bool | None = None
-    scan_interval: int | None = Field(default=None, ge=0)
+    scan_interval: int | None = Field(default=None, ge=MIN_SCAN_INTERVAL_S, le=MAX_SCAN_INTERVAL_S)
     # Playback
     crossfade_enabled: bool | None = None
     crossfade_duration: float | None = Field(default=None, ge=0)
@@ -79,7 +80,7 @@ class SettingsUpdateRequest(BaseModel):
     enhancement_intensity: EnhancementIntensity | None = None
     # Advanced
     cache_size: int | None = Field(default=None, ge=0)
-    max_concurrent_scans: int | None = Field(default=None, ge=1)
+    max_concurrent_scans: int | None = Field(default=None, ge=1, le=MAX_CONCURRENT_SCANS_LIMIT)
     enable_analytics: bool | None = None
     debug_mode: bool | None = None
 
