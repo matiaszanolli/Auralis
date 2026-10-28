@@ -56,8 +56,8 @@ def process_chunk(
         locked: If True, hold _processor_lock (threading.Lock) for the whole
             chunk so concurrent calls serialise. Used by process_chunk_safe,
             which runs this in a thread pool (#2388). Default False keeps the
-            direct sync call (and tests) lock-free (#4245: collapses the old
-            process_chunk / _process_chunk_locked pair).
+            direct sync call lock-free; that is for tests (#4245), not for a
+            caller sharing the processor with a stream (#6086).
 
     Returns:
         Tuple of (path_to_chunk_file, processed_audio_array)
@@ -224,36 +224,42 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
 
         logger.info(f"Processing chunk {chunk_index} directly to WAV")
 
-        processor._dsp_state_advanced = False
-        try:
-            # Use shared core processing logic (eliminates duplicate code)
-            # The raw emitted segment: the durable file is never level-smoothed (#5948).
-            extracted_chunk = processor._process_chunk_core(chunk_index, fast_start=False)
-
-            # #5328: never persist a render its stream abandoned mid-DSP.
-            _raise_if_cancelled(processor, chunk_index)
-
+        # LevelManager history and _dsp_state_advanced are only safe under
+        # _processor_lock; this entry point used to mutate them without it, so a
+        # caller mixing it with process_chunk could interleave rms/gain history
+        # or clear the flag from the wrong call (#6086). Order: _sync_cache_lock
+        # -> _processor_lock, as chunk_render already does.
+        with processor._processor_lock:
+            processor._dsp_state_advanced = False
             try:
-                processor._wav_encoder.encode_and_save(
-                    audio=extracted_chunk,
-                    sample_rate=processor.sample_rate,
-                    chunk_path=wav_chunk_path,
-                    subtype='PCM_16',
-                )
-                logger.info(f"Chunk {chunk_index} encoded to WAV: {wav_chunk_path.name}")
-            except WAVEncoderError as e:
-                logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
-                raise RuntimeError(f"Failed to encode chunk to WAV: {e}")
+                # Use shared core processing logic (eliminates duplicate code)
+                # The raw emitted segment: the durable file is never level-smoothed (#5948).
+                extracted_chunk = processor._process_chunk_core(chunk_index, fast_start=False)
 
-            # Cache under the same collapsed key process_chunk() uses.
-            processor._path_cache.store(chunk_index, wav_chunk_path)
-        except ChunkCancelledError:
-            processor._dsp_state_advanced = False  # see process_chunk
-            raise
-        except Exception:
-            _invalidate_after_post_dsp_failure(processor, chunk_index)
-            raise
-        processor._dsp_state_advanced = False
+                # #5328: never persist a render its stream abandoned mid-DSP.
+                _raise_if_cancelled(processor, chunk_index)
+
+                try:
+                    processor._wav_encoder.encode_and_save(
+                        audio=extracted_chunk,
+                        sample_rate=processor.sample_rate,
+                        chunk_path=wav_chunk_path,
+                        subtype='PCM_16',
+                    )
+                    logger.info(f"Chunk {chunk_index} encoded to WAV: {wav_chunk_path.name}")
+                except WAVEncoderError as e:
+                    logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
+                    raise RuntimeError(f"Failed to encode chunk to WAV: {e}")
+
+                # Cache under the same collapsed key process_chunk() uses.
+                processor._path_cache.store(chunk_index, wav_chunk_path)
+            except ChunkCancelledError:
+                processor._dsp_state_advanced = False  # see process_chunk
+                raise
+            except Exception:
+                _invalidate_after_post_dsp_failure(processor, chunk_index)
+                raise
+            processor._dsp_state_advanced = False
 
     # Store last_content_profile globally for visualizer API access
     # This allows the /api/processing/parameters endpoint to show real processing data.
