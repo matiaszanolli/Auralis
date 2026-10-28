@@ -124,6 +124,11 @@ class MetadataExtractor:
 
                 if isinstance(value, list) and value:
                     value = value[0]
+                # An ID3 TextFrame is not a list, and str() of a multi-valued one
+                # is mutagen's NUL-joined text; take its first value (#6133).
+                frame_text = getattr(value, 'text', None)
+                if isinstance(frame_text, list) and frame_text:
+                    value = frame_text[0]
 
                 if value:
                     normalized_value = self._normalize_field_value(field, value)
