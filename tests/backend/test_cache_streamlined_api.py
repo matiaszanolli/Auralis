@@ -61,6 +61,7 @@ def client(tmp_path):
     ))
 
     with TestClient(app) as test_client:
+        test_client.cache_manager = mock_cache  # tests that need a cached track set its status
         yield test_client
 
 
@@ -197,45 +198,49 @@ class TestGetTrackCacheStatus:
         assert response.status_code == 404
         assert "not found in cache" in response.json()["detail"].lower()
 
+    @staticmethod
+    def _cached_track(client, *, original=(0, 1, 2, 3), processed=(0, 1)):
+        """Make the mock cache report track 1 as partly cached (#5999)."""
+        from cache.models import TrackCacheStatus
+
+        client.cache_manager.get_track_cache_status.return_value = TrackCacheStatus(
+            track_id=1,
+            total_chunks=4,
+            cached_chunks_original=set(original),
+            cached_chunks_processed=set(processed),
+        )
+
     def test_get_track_status_structure(self, client):
-        """Test track status response structure if track is cached"""
-        # Try track ID 1 (may or may not be cached)
+        """A cached track reports all six status fields"""
+        self._cached_track(client)
+
         response = client.get("/api/cache/track/1/status")
 
-        if response.status_code == 200:
-            data = response.json()
-
-            # Check required fields
-            assert "track_id" in data
-            assert "total_chunks" in data
-            assert "cached_original" in data
-            assert "cached_processed" in data
-            assert "completion_percent" in data
-            assert "fully_cached" in data
+        assert response.status_code == 200
+        assert set(response.json()) == {
+            "track_id", "total_chunks", "cached_original", "cached_processed",
+            "completion_percent", "fully_cached",
+        }
 
     def test_get_track_status_field_types(self, client):
-        """Test that track status fields have correct types"""
-        response = client.get("/api/cache/track/1/status")
+        """Track status fields have the documented types and the counts of the cached sets"""
+        self._cached_track(client)
 
-        if response.status_code == 200:
-            data = response.json()
+        data = client.get("/api/cache/track/1/status").json()
 
-            assert isinstance(data["track_id"], int)
-            assert isinstance(data["total_chunks"], int)
-            assert isinstance(data["cached_original"], int)
-            assert isinstance(data["cached_processed"], int)
-            assert isinstance(data["completion_percent"], (int, float))
-            assert isinstance(data["fully_cached"], bool)
+        assert (data["track_id"], data["total_chunks"]) == (1, 4)
+        assert (data["cached_original"], data["cached_processed"]) == (4, 2)
+        assert isinstance(data["completion_percent"], float)
+        assert data["fully_cached"] is False
 
     def test_get_track_status_completion_range(self, client):
-        """Test that completion percentage is in valid range"""
-        response = client.get("/api/cache/track/1/status")
+        """Completion is processed/total as a percentage, and 100 only when fully cached"""
+        self._cached_track(client)
+        assert client.get("/api/cache/track/1/status").json()["completion_percent"] == 50.0
 
-        if response.status_code == 200:
-            data = response.json()
-
-            # Completion should be 0-100%
-            assert 0.0 <= data["completion_percent"] <= 100.0
+        self._cached_track(client, processed=(0, 1, 2, 3))
+        done = client.get("/api/cache/track/1/status").json()
+        assert (done["completion_percent"], done["fully_cached"]) == (100.0, True)
 
     def test_get_track_status_accepts_get_only(self, client):
         """Test that endpoint only accepts GET"""

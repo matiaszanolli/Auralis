@@ -29,6 +29,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from auralis.analysis.fingerprint.schema import DIMENSION_NAMES
+from auralis.library.models import Album, Artist, Track, TrackFingerprint
+
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -228,15 +231,16 @@ class TestGetLyrics:
 
         assert response.status_code == 404
 
-    def test_get_lyrics_structure(self, client):
-        """Test lyrics response structure if track exists"""
+    @patch('routers.repo_deps.require_repository_factory')
+    def test_get_lyrics_structure(self, mock_require_repos, client, mock_repos):
+        """A stored lyric comes back with its track id and detected format (#5999)"""
+        mock_require_repos.return_value = mock_repos
+        mock_repos.tracks.get_by_id.return_value = Track(id=1, title="T", lyrics="[00:01.00]hello")
+
         response = client.get("/api/library/tracks/1/lyrics")
 
-        if response.status_code == 200:
-            data = response.json()
-
-            # Should have lyrics field
-            assert "lyrics" in data or isinstance(data, str)
+        assert response.status_code == 200
+        assert response.json() == {"track_id": 1, "lyrics": "[00:01.00]hello", "format": "lrc"}
 
     def test_get_lyrics_accepts_get_only(self, client):
         """Test that lyrics endpoint only accepts GET"""
@@ -293,15 +297,20 @@ class TestGetArtistDetails:
 
         assert response.status_code == 404
 
-    def test_get_artist_structure(self, client):
-        """Test artist details response structure if exists"""
+    @patch('routers.repo_deps.require_repository_factory')
+    def test_get_artist_structure(self, mock_require_repos, client, mock_repos):
+        """An existing artist comes back with its identity and album list (#5999)"""
+        mock_require_repos.return_value = mock_repos
+        artist = Artist(id=1, name="Test Artist", albums=[Album(id=7, title="Oktubre", year=1986)])
+        artist.track_count_expr = 0
+        mock_repos.artists.get_page = Mock(return_value=artist)
+
         response = client.get("/api/artists/1")
 
-        if response.status_code == 200:
-            data = response.json()
-
-            # Should have artist details
-            assert "id" in data or "name" in data
+        assert response.status_code == 200
+        data = response.json()
+        assert (data["id"], data["name"]) == (1, "Test Artist")
+        assert [(a["id"], a["title"]) for a in data["albums"]] == [(7, "Oktubre")]
 
     def test_get_artist_accepts_get_only(self, client):
         """Test that artist details only accepts GET"""
@@ -358,15 +367,18 @@ class TestGetAlbumDetails:
 
         assert response.status_code == 404
 
-    def test_get_album_structure(self, client):
-        """Test album details response structure if exists"""
+    @patch('routers.repo_deps.require_repository_factory')
+    def test_get_album_structure(self, mock_require_repos, client, mock_repos):
+        """An existing album comes back in the listing's snake_case shape (#5999)"""
+        mock_require_repos.return_value = mock_repos
+        mock_repos.albums.get_by_id = Mock(return_value=Album(id=1, title="Oktubre", year=1986))
+
         response = client.get("/api/albums/1")
 
-        if response.status_code == 200:
-            data = response.json()
-
-            # Should have album details
-            assert "id" in data or "title" in data
+        assert response.status_code == 200
+        data = response.json()
+        assert (data["id"], data["title"], data["year"]) == (1, "Oktubre", 1986)
+        assert "track_count" in data
 
     def test_get_album_accepts_get_only(self, client):
         """Test that album details only accepts GET"""
@@ -436,15 +448,24 @@ class TestGetTrackFingerprint:
 
         assert response.status_code == 404
 
-    def test_get_fingerprint_structure(self, client):
-        """Test fingerprint response structure if exists"""
+    @patch('routers.repo_deps.require_repository_factory')
+    def test_get_fingerprint_structure(self, mock_require_repos, client, mock_repos):
+        """A fingerprinted track returns its identity and the 25 dimensions (#5999)"""
+        mock_require_repos.return_value = mock_repos
+        mock_repos.tracks.get_by_id.return_value = Track(
+            id=1, title="T", artists=[Artist(name="A")], album=Album(title="Al")
+        )
+        mock_repos.fingerprints = Mock()
+        mock_repos.fingerprints.get_by_track_id.return_value = TrackFingerprint(
+            **{name: 0.5 for name in DIMENSION_NAMES}
+        )
+
         response = client.get("/api/tracks/1/fingerprint")
 
-        if response.status_code == 200:
-            data = response.json()
-
-            # Should have fingerprint data
-            assert isinstance(data, dict)
+        assert response.status_code == 200
+        data = response.json()
+        assert (data["track_id"], data["track_title"], data["artist"], data["album"]) == (1, "T", "A", "Al")
+        assert len(data["fingerprint"]) == len(DIMENSION_NAMES)
 
     def test_get_fingerprint_accepts_get_only(self, client):
         """Test that fingerprint endpoint only accepts GET"""

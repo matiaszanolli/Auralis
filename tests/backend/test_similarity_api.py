@@ -171,17 +171,32 @@ class TestExplainSimilarity:
         assert response.status_code == 404
 
     def test_explain_similarity_structure(self, client):
-        """Test explanation response structure if tracks exist"""
-        response = client.get("/api/similarity/tracks/1/explain/2")
+        """A fitted system's explanation is returned with the documented fields (#5999)"""
+        from routers.similarity_deps import _get_repository_factory_getter, _get_similarity_system_getter
 
-        if response.status_code == 200:
-            data = response.json()
+        repos = Mock()
+        repos.tracks.get_by_id.return_value = Mock()
+        repos.fingerprints.exists.return_value = True
+        system = Mock()
+        system.is_fitted.return_value = True
+        system.get_similarity_explanation.return_value = {
+            "track_id1": 1, "track_id2": 2, "distance": 0.4, "similarity_score": 0.8,
+            "top_differences": [{"dimension": "lufs", "contribution": 0.3}],
+            "all_contributions": [{"dimension": "lufs", "contribution": 0.3}],
+        }
+        client.app.dependency_overrides[_get_repository_factory_getter] = lambda: (lambda: repos)
+        client.app.dependency_overrides[_get_similarity_system_getter] = lambda: (lambda: system)
+        try:
+            response = client.get("/api/similarity/tracks/1/explain/2")
+        finally:
+            client.app.dependency_overrides.clear()
 
-            assert "track_id1" in data
-            assert "track_id2" in data
-            assert "distance" in data
-            assert "similarity_score" in data
-            assert "top_differences" in data
+        assert response.status_code == 200
+        data = response.json()
+        assert (data["track_id1"], data["track_id2"]) == (1, 2)
+        assert data["similarity_score"] == 0.8
+        assert data["top_differences"][0]["dimension"] == "lufs"
+        system.get_similarity_explanation.assert_called_once_with(1, 2, top_n=5)
 
 
 class TestFitModel:
@@ -223,20 +238,29 @@ class TestGraphStats:
         """Test getting stats when graph doesn't exist"""
         response = client.get("/api/similarity/graph/stats")
 
-        # May return None or 404 if no graph built
-        assert response.status_code in [200, 404]
+        # No graph builder: a 200 with a null body, not an error
+        assert response.status_code == 200
+        assert response.json() is None
 
     def test_get_graph_stats_structure(self, client):
-        """Test graph stats response structure if graph exists"""
-        response = client.get("/api/similarity/graph/stats")
+        """A built graph reports its size and distance statistics (#5999)"""
+        from routers.similarity_graph import _get_graph_builder
 
-        if response.status_code == 200:
-            data = response.json()
+        builder = Mock()
+        builder.get_graph_stats.return_value = Mock(to_dict=lambda: {
+            "total_tracks": 12, "total_edges": 120, "k_neighbors": 10,
+            "avg_distance": 0.5, "min_distance": 0.1, "max_distance": 0.9,
+            "build_time_seconds": 1.5,
+        })
+        client.app.dependency_overrides[_get_graph_builder] = lambda: builder
+        try:
+            response = client.get("/api/similarity/graph/stats")
+        finally:
+            client.app.dependency_overrides.clear()
 
-            if data is not None:  # Graph may not exist
-                assert "total_tracks" in data
-                assert "total_edges" in data
-                assert "k_neighbors" in data
+        assert response.status_code == 200
+        data = response.json()
+        assert (data["total_tracks"], data["total_edges"], data["k_neighbors"]) == (12, 120, 10)
 
     def test_get_graph_stats_accepts_get_only(self, client):
         """Test that stats endpoint only accepts GET"""

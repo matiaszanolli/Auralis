@@ -104,9 +104,15 @@ def test_old_algorithm_sidecar_is_rejected(cache_dir, audio_file):
 def test_round_trip_does_not_recompute(cache_dir, audio_file):
     """save() -> load() must round-trip, or every fresh compute is thrown
     away on the next access (a recompute loop)."""
-    FingerprintStorage.save(audio_file, _valid_fingerprint(), {}, sample_rate=44100, duration=30.0)
+    saved = _valid_fingerprint()
+    FingerprintStorage.save(audio_file, saved, {}, sample_rate=44100, duration=30.0)
 
-    assert FingerprintStorage.load(audio_file) is not None
+    loaded = FingerprintStorage.load(audio_file)
+
+    assert loaded is not None
+    fingerprint, targets = loaded
+    assert {name: fingerprint[name] for name in saved} == saved  # load() adds fingerprint_version
+    assert targets == {}
 
 
 def test_get_or_compute_recomputes_instead_of_serving_stale(cache_dir, audio_file):
