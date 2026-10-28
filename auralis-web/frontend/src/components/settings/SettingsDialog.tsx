@@ -12,7 +12,7 @@ import { Button } from '@/design-system';
 import { UserSettings } from '@/services/settingsService';
 import { StyledDialog } from '@/components/library/Styles/Dialog.styles';
 import { SettingsDialogContent as StyledContent } from './SettingsDialog.styles';
-import { SettingsTabNav } from './SettingsTabNav';
+import { SETTINGS_PANEL_ID, SettingsTabNav, settingsTabId } from './SettingsTabNav';
 import SettingsDialogHeader from './SettingsDialogHeader';
 import SettingsDialogContentComponent from './SettingsDialogContent';
 import SettingsDialogFooter from './SettingsDialogFooter';
@@ -73,15 +73,18 @@ export const SettingsDialog = ({
         />
 
         {loading ? (
+          // The tabs point at this panel (aria-controls), so it exists while loading too (#6074).
           <StyledContent>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton
-                key={i}
-                variant="rectangular"
-                height={48}
-                sx={{ mb: 2, borderRadius: 1 }}
-              />
-            ))}
+            <div role="tabpanel" id={SETTINGS_PANEL_ID} aria-labelledby={settingsTabId(activeTab)} aria-busy="true">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  variant="rectangular"
+                  height={48}
+                  sx={{ mb: 2, borderRadius: 1 }}
+                />
+              ))}
+            </div>
           </StyledContent>
         ) : (
           <SettingsDialogContentComponent
