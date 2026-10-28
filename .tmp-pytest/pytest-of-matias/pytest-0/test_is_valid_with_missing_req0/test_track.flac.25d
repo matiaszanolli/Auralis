@@ -1,1 +1,0 @@
-{"format_version": "2.0", "fingerprint_algorithm_version": 9, "auralis_version": "1.5.1", "generated_at": "2026-10-19T22:01:43.546061+00:00", "audio_file": {"path": "test_track.flac", "size_bytes": 27, "modified_at": "2026-10-20T03:31:43.545861"}, "processing_cache": {}, "metadata": {"title": "Test Track", "artist": "Test Artist", "album": "Test Album"}}
