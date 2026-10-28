@@ -29,6 +29,7 @@ export const SidebarHeader = ({ onToggleCollapse }: SidebarHeaderProps) => {
           onClick={onToggleCollapse}
           aria-label="Collapse sidebar"
           aria-expanded={true}
+          data-sidebar-toggle
           size="small"
           sx={{
             color: themeVars.textSecondary,

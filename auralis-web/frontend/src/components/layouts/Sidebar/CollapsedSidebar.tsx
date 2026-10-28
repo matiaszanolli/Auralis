@@ -19,7 +19,7 @@ export const CollapsedSidebar = ({ onToggleCollapse }: CollapsedSidebarProps) =>
   return (
     <CollapsedSidebarContainer>
       <Box sx={{ p: tokens.spacing.md, display: 'flex', justifyContent: 'center' }}>
-        <IconButton onClick={onToggleCollapse} aria-label="Expand sidebar" aria-expanded={false} sx={{ color: themeVars.textSecondary }}>
+        <IconButton onClick={onToggleCollapse} aria-label="Expand sidebar" aria-expanded={false} data-sidebar-toggle sx={{ color: themeVars.textSecondary }}>
           <ChevronRight />
         </IconButton>
       </Box>

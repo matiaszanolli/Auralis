@@ -4,7 +4,7 @@
  * wraps usePlayEnhanced.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { Box } from '@mui/material';
 import { styles } from './Player.styles';
 import { themeVars } from '@/theme/semanticTheme';
@@ -92,7 +92,13 @@ const Player = () => {
   // #4632: every prop reaching a memoized child must be referentially stable —
   // one inline arrow silently defeats that child's `React.memo` and the whole
   // fix becomes a no-op that still looks correct. These two were inline.
-  const handleCloseQueue = useCallback(() => setQueuePanelOpen(false), []);
+  // Closing from inside the panel hides the focused button (display: none), so
+  // focus returns to the toggle that opened it instead of falling to <body> (#6070).
+  const queueToggleRef = useRef<HTMLButtonElement>(null);
+  const handleCloseQueue = useCallback(() => {
+    setQueuePanelOpen(false);
+    queueToggleRef.current?.focus();
+  }, []);
   const handleMuteClick = useCallback(() => { void handleMuteToggle(); }, [handleMuteToggle]);
 
   // The wrapper/button `sx` objects are spread literals, so they were rebuilt
@@ -178,6 +184,7 @@ const Player = () => {
               table (#5632). */}
           <Box
             component="button"
+            ref={queueToggleRef}
             onClick={handleQueueToggle}
             sx={queueButtonSx}
             title="Toggle queue"

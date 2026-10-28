@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import CollapsedSidebar from './CollapsedSidebar';
 import SidebarHeader from './SidebarHeader';
 import SidebarContent from './SidebarContent';
@@ -32,14 +32,28 @@ const SidebarComponent = ({
 }: SidebarProps) => {
   const { selectedItem, handleItemClick } = useSidebarState(onNavigate);
 
+  // Collapsing swaps this tree for CollapsedSidebar (and back), so the focused
+  // toggle button unmounts and focus falls to <body>. After a toggle the user
+  // made, hand focus to the counterpart button (#6070).
+  const refocusToggle = useRef(false);
+  const handleToggle = useCallback(() => {
+    refocusToggle.current = true;
+    onToggleCollapse?.();
+  }, [onToggleCollapse]);
+  useEffect(() => {
+    if (!refocusToggle.current) return;
+    refocusToggle.current = false;
+    document.querySelector<HTMLElement>('[data-sidebar-toggle]')?.focus();
+  }, [collapsed]);
+
   // Show collapsed variant
   if (collapsed) {
-    return <CollapsedSidebar onToggleCollapse={onToggleCollapse} />;
+    return <CollapsedSidebar onToggleCollapse={handleToggle} />;
   }
 
   return (
     <SidebarContainer>
-      <SidebarHeader onToggleCollapse={onToggleCollapse} />
+      <SidebarHeader onToggleCollapse={handleToggle} />
       <SidebarContent selectedItem={selectedItem} onItemClick={handleItemClick} />
       <SidebarFooter onOpenSettings={onOpenSettings} />
     </SidebarContainer>

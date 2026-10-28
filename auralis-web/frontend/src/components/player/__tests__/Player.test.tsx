@@ -31,11 +31,12 @@ const { mockPlayEnhanced, mockPlayNormal, enhancementSettings, session, queuePan
 // renders null when healthy (existing tests only need Player's own controls)
 // and throws on demand for the crash-isolation test.
 vi.mock('../QueuePanel', () => ({
-  default: () => {
+  default: ({ onToggleCollapse }: { onToggleCollapse?: () => void }) => {
     if (queuePanelState.shouldThrow) {
       throw new Error('queue render crash');
     }
-    return null;
+    // Stands in for the panel's own "Collapse queue panel" button.
+    return <button onClick={onToggleCollapse}>Close panel (mock)</button>;
   },
 }));
 
@@ -305,5 +306,18 @@ describe('Player', () => {
       queuePanelState.shouldThrow = false;
       consoleErr.mockRestore();
     }
+  });
+
+  it('returns focus to the queue toggle when the panel closes itself (#6070)', () => {
+    render(<Player />);
+    fireEvent.click(screen.getByTitle('Toggle queue'));
+    expect(screen.getByTitle('Toggle queue')).toHaveAttribute('aria-expanded', 'true');
+
+    const closeButton = screen.getByRole('button', { name: 'Close panel (mock)' });
+    closeButton.focus();
+    fireEvent.click(closeButton);
+
+    expect(screen.getByTitle('Toggle queue')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTitle('Toggle queue')).toHaveFocus();
   });
 });
