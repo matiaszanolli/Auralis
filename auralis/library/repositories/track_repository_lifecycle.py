@@ -32,6 +32,9 @@ from .track_deletion import delete_tracks_by_ids
 from .track_repository import _track_eager_options
 
 
+MAX_GENRE_NAME_LENGTH = 100
+MAX_GENRES_PER_TRACK = 20
+
 _M = TypeVar("_M", Artist, Genre, Album)
 
 
@@ -80,6 +83,12 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
                 track_info[field] = track_info[field][:max_len]
         if 'artists' in track_info:
             track_info['artists'] = [a[:200] for a in track_info['artists'] if isinstance(a, str)]
+        if 'genres' in track_info:
+            # Capped like artists: an unbounded TCON frame would otherwise be stored
+            # once and returned in every track and genre payload (#6165).
+            track_info['genres'] = [
+                g[:MAX_GENRE_NAME_LENGTH] for g in track_info['genres'] if isinstance(g, str)
+            ][:MAX_GENRES_PER_TRACK]
 
     def _get_or_create_artists(self, session: Session, artist_names: list[str]) -> list[Artist]:
         """Resolve or create artists by normalized name matching.
