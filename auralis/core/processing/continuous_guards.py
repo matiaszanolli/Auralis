@@ -15,6 +15,8 @@ can be read at a glance, rather than scattered above a 700-line class.
 
 import numpy as np
 
+from ...dsp.utils.filters import is_long_enough_for_sosfiltfilt
+
 # Cross-dimensional guard knees (#4860).
 #
 # Each pair brackets the hard threshold this guard used to switch on at, so
@@ -75,6 +77,10 @@ def _apply_spectral_tilt_correction(
     # Simple low-shelf at 250 Hz
     cutoff = min(250.0, sample_rate * 0.45)
     sos = butter(1, cutoff, btype='low', fs=sample_rate, output='sos')
+    # Neither fallback of sosfiltfilt_safe is a tilt of nothing: too short to
+    # split into bands, leave the buffer as it is (#5736).
+    if not is_long_enough_for_sosfiltfilt(sos, result.shape[0]):
+        return result
     low = sosfiltfilt(sos, result, axis=0)
     high = result - low
 

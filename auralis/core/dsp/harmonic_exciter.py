@@ -35,7 +35,9 @@ mixes both, biased toward even, so it lifts air without sounding fizzy.
 """
 
 import numpy as np
-from scipy.signal import butter, sosfiltfilt
+from scipy.signal import butter
+
+from ...dsp.utils.filters import sosfiltfilt_safe
 
 
 class HarmonicExciter:
@@ -143,7 +145,8 @@ class HarmonicExciter:
         # sosfiltfilt always returns float64; cast back so we don't
         # promote the mixed signal (same dtype concern as
         # ParallelEQUtilities, issue #2158).
-        donor = np.asarray(sosfiltfilt(bp_sos, audio, axis=axis), dtype=audio.dtype)
+        # Too-short buffers (#5736): no donor band means no harmonics, so zeros.
+        donor = sosfiltfilt_safe(bp_sos, audio, axis=axis, context="harmonic_exciter donor", on_too_short="zeros")
         driven = donor * np.asarray(drive_linear, dtype=audio.dtype)
 
         if asymmetry > 0.0:
@@ -155,6 +158,6 @@ class HarmonicExciter:
         else:
             saturated = np.tanh(driven)
 
-        harmonics = np.asarray(sosfiltfilt(hp_sos, saturated, axis=axis), dtype=audio.dtype)
+        harmonics = sosfiltfilt_safe(hp_sos, saturated, axis=axis, context="harmonic_exciter highpass", on_too_short="zeros")
 
-        return (audio + harmonics * np.asarray(wet_linear, dtype=audio.dtype)).astype(audio.dtype)
+        return np.asarray(audio + harmonics * np.asarray(wet_linear, dtype=audio.dtype), dtype=audio.dtype)

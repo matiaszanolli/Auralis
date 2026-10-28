@@ -26,7 +26,10 @@ def _load_stage_module():
     fake_peak = types.ModuleType("auralis.core.mastering_process_chunk")
     fake_peak.compute_peak_db = lambda audio: 0.0
     fake_assembly = types.ModuleType("auralis.core.mastering_chunk_assembly")
-    for name in ("apply_true_peak_guard", "assemble_write_region", "merge_stage_info", "read_chunk"):
+    for name in (
+        "apply_true_peak_guard", "assemble_write_region", "count_chunks", "merge_stage_info",
+        "next_core_samples", "read_chunk",
+    ):
         setattr(fake_assembly, name, lambda *args, **kwargs: None)
     # #5694: the loop's measurement pass reads the 4x-oversampled peak from
     # here as well.
@@ -72,7 +75,7 @@ def _publish(module, output: Path, payload: bytes = b"completed master"):
         # pass passes output_path=None and must not write anything.
         if args[2] is not None:
             Path(args[2]).write_bytes(payload)
-        return {"stages": ["test"]}, 1, 0.5, 0.5
+        return {"stages": [{"stage": "test"}]}, 1, 0.5, 0.5
 
     with mock.patch.object(module, "_render_to_sink", side_effect=render):
         return module.process_chunks(None, Path("unused.wav"), str(output), 8000,

@@ -21,10 +21,11 @@ chunk.
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.signal import find_peaks, sosfiltfilt, tf2sos
+from scipy.signal import find_peaks, tf2sos
 from scipy.signal.windows import hann
 
 from ...dsp.utils.audio_info import to_mono
+from ...dsp.utils.filters import sosfiltfilt_safe
 
 # PSD analysis window anchored in TIME, not samples (#4030). A fixed 16384-sample
 # window gave sample-rate-dependent frequency resolution (~1.35 Hz/bin at 22 kHz
@@ -206,6 +207,7 @@ class ResonanceNotcher:
 
             # sosfiltfilt for zero phase. Cast back to preserve dtype (NumPy
             # would otherwise promote to float64 — same issue as parallel_eq.py).
-            out = np.asarray(sosfiltfilt(sos, out, axis=axis), dtype=out.dtype)
+            # A notch shapes in place, so a too-short buffer passes through (#5736).
+            out = sosfiltfilt_safe(sos, out, axis=axis, context="resonance_notcher")
 
         return out

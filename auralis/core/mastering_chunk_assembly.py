@@ -24,6 +24,31 @@ if TYPE_CHECKING:
 _TRUE_PEAK_OVERSHOOT_RATIO = db_to_amplitude(0.27)
 
 
+# A final chunk shorter than this is folded into the previous one (#5736): the
+# stages run each chunk alone, and the zero-phase filters raise on a buffer no
+# longer than their pad (up to ~15 samples). The samples are not lost - they
+# are rendered as the tail of the preceding chunk instead.
+MIN_FINAL_CHUNK_SAMPLES = 1024
+
+
+def next_core_samples(read_pos: int, total_frames: int, chunk_size: int) -> int:
+    """Core length of the chunk starting at *read_pos*; never leaves a tiny remainder."""
+    remaining = total_frames - read_pos
+    core = min(chunk_size, remaining)
+    if 0 < remaining - core < MIN_FINAL_CHUNK_SAMPLES:
+        return remaining
+    return core
+
+
+def count_chunks(total_frames: int, chunk_size: int) -> int:
+    """How many chunks the loop renders for *total_frames* (matches next_core_samples)."""
+    count, read_pos = 0, 0
+    while read_pos < total_frames:
+        read_pos += next_core_samples(read_pos, total_frames, chunk_size)
+        count += 1
+    return count
+
+
 def read_chunk(
     audio_file: Any,
     read_pos: int,

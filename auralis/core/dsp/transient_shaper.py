@@ -35,7 +35,9 @@ output equals the input.
 """
 
 import numpy as np
-from scipy.signal import butter, sosfilt, sosfiltfilt
+from scipy.signal import butter, sosfilt
+
+from ...dsp.utils.filters import sosfiltfilt_safe
 
 
 class TransientShaper:
@@ -105,7 +107,9 @@ class TransientShaper:
         # The _onepole envelope follower below stays causal: it tracks
         # the signal as a derived control feature, not mixed into dry.
         # sosfiltfilt always returns float64; cast back to preserve dtype.
-        band = np.asarray(sosfiltfilt(bp, audio, axis=axis), dtype=audio.dtype)
+        # A buffer too short to filter has no extractable band (#5736): zeros
+        # make the delta zero, i.e. the audio passes through unshaped.
+        band = sosfiltfilt_safe(bp, audio, axis=axis, context="transient_shaper", on_too_short="zeros")
 
         # Envelope detector: one-pole low-pass on |band|. The time constant
         # determines how fast the envelope follows. Same fast/slow envelopes
@@ -141,4 +145,4 @@ class TransientShaper:
         shaped_band = band * gain_envelope.astype(audio.dtype)
         delta = (shaped_band - band).astype(audio.dtype)
 
-        return (audio + delta).astype(audio.dtype)
+        return np.asarray(audio + delta, dtype=audio.dtype)

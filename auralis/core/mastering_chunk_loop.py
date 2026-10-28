@@ -24,7 +24,9 @@ from ..utils.atomic_write import publish_atomically
 from .mastering_chunk_assembly import (
     apply_true_peak_guard,
     assemble_write_region,
+    count_chunks,
     merge_stage_info,
+    next_core_samples,
     read_chunk,
     true_peak_4x,
     two_pass_correction_gain,
@@ -157,13 +159,13 @@ def _render_to_sink(
             )
         ) as output_file:
             chunks_processed = 0
-            total_chunks = int(np.ceil(total_frames / chunk_size))
+            total_chunks = count_chunks(total_frames, chunk_size)
 
             prev_tail = None  # Previous chunk's processed overlap tail
             read_pos = 0
 
             while read_pos < total_frames:
-                core_samples = min(chunk_size, total_frames - read_pos)
+                core_samples = next_core_samples(read_pos, total_frames, chunk_size)
                 is_last = (read_pos + core_samples >= total_frames)
 
                 chunk = read_chunk(
@@ -246,9 +248,8 @@ def _render_to_sink(
     # The `chunk.size == 0` break above exits without raising, which would
     # otherwise publish a short file as a finished master — the same outcome
     # #5109 is about, reached without an exception. read_pos advances by
-    # core_samples every iteration and core_samples is
-    # min(chunk_size, total_frames - read_pos), so a complete render always
-    # performs exactly ceil(total_frames / chunk_size) iterations; a shortfall
+    # next_core_samples() every iteration, so a complete render always
+    # performs exactly count_chunks(total_frames, chunk_size) iterations; a shortfall
     # means the source read returned nothing while frames remained.
     if chunks_processed != total_chunks:
         raise RuntimeError(
