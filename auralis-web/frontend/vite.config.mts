@@ -98,7 +98,6 @@ export default defineConfig(({ mode }) => {
       },
     },
     define: {
-      'process.env.VITE_COMMIT_ID': `"${commitIdAtBuildTime}"`,
       // The renderer's only product-version source: index.tsx's debug blob
       // reports this, so it tracks package.json (kept in lockstep with
       // auralis/version.py by sync_version.py) instead of a hard-coded

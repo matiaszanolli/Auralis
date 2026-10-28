@@ -136,16 +136,4 @@ export default defineConfig({
     // `restoreAllMocks` was a non-option that v4's stricter types now reject.
     mockReset: true,
   },
-
-  define: {
-    'process.env.NODE_ENV': '"test"',
-    // #4468: `process.env.VITE_API_URL = "http://localhost:8765/api"` used to
-    // live here. It was inert while config/api.ts ignored the variable, but the
-    // app itself never defines it — there is no .env file — so the test harness
-    // was the only place an override existed. Now that API_BASE_URL honours it,
-    // keeping the define would make every test resolve against a base the real
-    // app never uses, and its trailing `/api` doubled the segment on any
-    // `/api/...` endpoint (`/api/api/test`). Removed so tests exercise the same
-    // default configuration dev and production do.
-  },
 });
