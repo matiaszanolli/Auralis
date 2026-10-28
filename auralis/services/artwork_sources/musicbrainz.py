@@ -25,12 +25,35 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+_COMMONS_HOST = "commons.wikimedia.org"
+_COMMONS_FILE_PAGE = "/wiki/File:"
+_COMMONS_FILE_PATH = "/wiki/Special:FilePath/"
+
+
+def _image_url(resource: str) -> str | None:
+    """The URL to fetch for an image relation, or None when it names an HTML page (#5926).
+
+    MusicBrainz points artist images at Commons file *pages* (``/wiki/File:Name.jpg``), which
+    pass the host check yet serve ``text/html`` to an ``<img>``. Special:FilePath serves the
+    image itself (redirecting to ``upload.wikimedia.org``, also trusted); any other Commons
+    ``/wiki/`` page has no image to fetch.
+    """
+    parsed = urllib.parse.urlparse(resource)
+    if (parsed.hostname or "").lower() != _COMMONS_HOST:
+        return resource
+    if parsed.path.startswith(_COMMONS_FILE_PAGE):
+        name = parsed.path[len(_COMMONS_FILE_PAGE):]
+        return f"https://{_COMMONS_HOST}{_COMMONS_FILE_PATH}{name}"
+    return None if parsed.path.startswith("/wiki/") else resource
+
+
 def _first_trusted_image(relations: list[dict[str, Any]]) -> dict[str, str] | None:
-    """First 'image' relation whose URL passes the trusted-host check."""
+    """First 'image' relation whose URL names an image on a trusted host."""
     for relation in relations:
         if relation.get('type') != 'image':
             continue
-        image_url = relation.get('url', {}).get('resource')
+        resource = relation.get('url', {}).get('resource')
+        image_url = _image_url(resource) if resource else None
         if not image_url:
             continue
         result = _validated_artwork_result(image_url, "musicbrainz")
