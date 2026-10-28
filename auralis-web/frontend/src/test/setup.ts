@@ -232,18 +232,22 @@ beforeAll(() => {
 // project-wide hides legitimate bugs. Specific WebSocket/timer integration tests
 // that need to suppress act() warnings should do so locally in their own beforeEach.
 const originalError = console.error
-vi.spyOn(console, 'error').mockImplementation((...args: any[]) => {
-  // Suppress React Router future flag warnings (expected, non-blocking)
-  if (args[0]?.toString?.().includes('React Router Future Flag Warning')) {
-    return
-  }
-  // Suppress React concurrent rendering warnings ("Should not already be working")
-  // These occur when animations cause state updates during render phase
-  if (args[0]?.toString?.().includes('Should not already be working')) {
-    return
-  }
-  // Log all other errors normally (including act() warnings — those are real)
-  originalError(...args)
+// Installed per test: vitest.config's restoreMocks restores a spy made at file load before the
+// first test runs, so a module-level spy never filtered anything (#5680).
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation((...args: any[]) => {
+    // Suppress React Router future flag warnings (expected, non-blocking)
+    if (args[0]?.toString?.().includes('React Router Future Flag Warning')) {
+      return
+    }
+    // Suppress React concurrent rendering warnings ("Should not already be working")
+    // These occur when animations cause state updates during render phase
+    if (args[0]?.toString?.().includes('Should not already be working')) {
+      return
+    }
+    // Log all other errors normally (including act() warnings — those are real)
+    originalError(...args)
+  })
 })
 
 // ============================================================
