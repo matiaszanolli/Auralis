@@ -220,6 +220,7 @@ const Player = () => {
             playback controls survive a queue crash and "Try again" recovers
             the panel without a reload. */}
         <ErrorBoundary
+          resetKeys={[currentTrack?.id]}
           fallback={(_error, retry) => (
             <RegionErrorFallback
               message="The queue failed to render. Playback controls are still available."

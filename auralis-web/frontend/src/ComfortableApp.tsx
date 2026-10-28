@@ -33,6 +33,7 @@ import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts } from '@/hooks/app/useKeyboardShortcuts';
 import { selectVolume } from './store/slices/playerSlice';
+import { playerSelectors } from './store/selectors';
 import type { ViewMode } from '@/components/navigation/ViewToggle';
 
 function ComfortableApp() {
@@ -62,6 +63,9 @@ function ComfortableApp() {
 
   // Redux selector for the volume shortcuts' +/-10 stepping (read-only).
   const volume = useSelector(selectVolume);
+  // The Player boundary recovers when the track changes: the same bad track would crash every
+  // "Try again", the next one need not (#6035).
+  const currentTrackId = useSelector(playerSelectors.selectCurrentTrack)?.id;
 
   // #4541: global shortcuts must operate on the SAME enhanced-audio session
   // Player.tsx drives, not a disconnected legacy control plane — sending
@@ -205,7 +209,9 @@ function ComfortableApp() {
         fallback={(_error, retry) => (
           <RegionErrorFallback
             message="Settings failed to render. The rest of the app (library, player, sidebar) is still available."
-            retry={retry}
+            // A dialog the parent still holds open would crash again on a bare retry: close it
+            // first (#6035).
+            retry={() => { setSettingsOpen(false); retry(); }}
           />
         )}
       >
@@ -226,7 +232,7 @@ function ComfortableApp() {
         fallback={(_error, retry) => (
           <RegionErrorFallback
             message="Keyboard shortcuts help failed to render. The rest of the app is still available."
-            retry={retry}
+            retry={() => { closeHelp(); retry(); }}
           />
         )}
       >
@@ -247,6 +253,7 @@ function ComfortableApp() {
           render error no longer takes the transport controls with it. */}
       <Box sx={{ flexShrink: 0 }}>
         <ErrorBoundary
+          resetKeys={[currentTrackId]}
           fallback={(_error, retry) => (
             <RegionErrorFallback
               message="Player encountered an error."

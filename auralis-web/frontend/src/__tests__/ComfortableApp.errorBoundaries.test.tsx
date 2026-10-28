@@ -15,6 +15,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { act, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { render } from '@/test/test-utils';
 import ComfortableApp from '../ComfortableApp';
 
@@ -88,5 +89,29 @@ describe('ComfortableApp dialog error boundaries (#4880)', () => {
 
     expect(await screen.findByText(/Keyboard shortcuts help failed to render/i)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /music player/i })).toBeInTheDocument();
+  });
+
+  // #6035: the parent keeps `open` true, so a bare retry remounted a still-open dialog that threw
+  // again. The fallback's retry now closes the dialog first.
+  it('"Try again" after a Settings crash closes the dialog instead of crashing again', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    pressKey(',', { ctrlKey: true });
+    await screen.findByText(/Settings failed to render/i);
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+
+    expect(screen.queryByText(/Settings failed to render/i)).not.toBeInTheDocument();
+  });
+
+  it('"Try again" after a shortcuts-help crash closes it instead of crashing again', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    pressKey('?');
+    await screen.findByText(/Keyboard shortcuts help failed to render/i);
+
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+
+    expect(screen.queryByText(/Keyboard shortcuts help failed to render/i)).not.toBeInTheDocument();
   });
 });
