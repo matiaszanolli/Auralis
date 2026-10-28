@@ -92,12 +92,12 @@ class AudioPlayerWithQueue(Protocol):
         """Get queue manager."""
         ...
 
-    def load_file(self, path: str) -> None:
-        """Load audio file."""
+    def load_file(self, path: str) -> bool:
+        """Load audio file; False when it could not be loaded (never raises)."""
         ...
 
-    def play(self) -> None:
-        """Start playback."""
+    def play(self) -> bool:
+        """Start playback; False when nothing changed."""
         ...
 
     def stop(self) -> None:

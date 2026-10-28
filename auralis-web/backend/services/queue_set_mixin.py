@@ -72,6 +72,17 @@ class QueueSetMixin(QueueServiceBase):
                 return False, None
             return True, await operation()
 
+    async def _start_playback(self, generation: int, deferred_snapshots: list[Any]) -> bool:
+        """Play and record the playing snapshot; False when superseded meanwhile."""
+        await asyncio.to_thread(self.audio_player.play)
+        current, playing_snapshot = await self._if_current_generation(
+            generation,
+            lambda: self.player_state_manager.set_playing(True, broadcast=False),
+        )
+        if current and playing_snapshot is not None:
+            deferred_snapshots.append(playing_snapshot)
+        return current
+
     async def _set_queue_impl(
         self, track_ids: list[int], start_index: int, generation: int
     ) -> dict[str, Any]:
@@ -168,21 +179,22 @@ class QueueSetMixin(QueueServiceBase):
                     # containment, so a legitimate library track can resolve
                     # outside get_allowed_directories() — and it must play.
                     # See validate_file_path's "Deliberate non-callers" note.
-                    await asyncio.to_thread(
+                    loaded = await asyncio.to_thread(
                         self.audio_player.load_file, current_track.filepath
                     )
                     if await self._superseded(generation):
                         return result
 
-                    await asyncio.to_thread(self.audio_player.play)
-                    current, playing_snapshot = await self._if_current_generation(
-                        generation,
-                        lambda: self.player_state_manager.set_playing(True, broadcast=False),
-                    )
-                    if not current:
+                    if loaded is False:
+                        # load_file reports a missing/undecodable file by
+                        # returning False. Playing nothing and announcing
+                        # "playing" was a lie to every client (#5996); the
+                        # queue and current track stay set, not playing.
+                        logger.warning(
+                            f"Could not load track {current_track.id}; queue set but not playing"
+                        )
+                    elif not await self._start_playback(generation, deferred_snapshots):
                         return result
-                    if playing_snapshot is not None:
-                        deferred_snapshots.append(playing_snapshot)
 
             for snapshot in deferred_snapshots:
                 await self.player_state_manager.broadcast_state(snapshot)

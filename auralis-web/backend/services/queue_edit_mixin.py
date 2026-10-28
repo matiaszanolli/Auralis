@@ -174,8 +174,10 @@ class QueueEditMixin(QueueServiceBase):
         if new_current and hasattr(self.audio_player, 'load_file'):
             file_path = new_current.get('filepath') or new_current.get('file_path')
             if file_path:
-                await asyncio.to_thread(self.audio_player.load_file, file_path)
-                logger.info(f"Removed current track; loaded next: {new_current.get('id')}")
+                if await asyncio.to_thread(self.audio_player.load_file, file_path) is False:
+                    logger.warning(f"Removed current track; could not load next: {new_current.get('id')}")
+                else:
+                    logger.info(f"Removed current track; loaded next: {new_current.get('id')}")
         elif hasattr(self.audio_player, 'playback') and hasattr(self.audio_player.playback, 'stop'):
             await asyncio.to_thread(self.audio_player.playback.stop)
             logger.info("Removed only/last track; stopped playback")

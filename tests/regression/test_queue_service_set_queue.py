@@ -172,3 +172,37 @@ async def test_set_queue_falls_back_when_get_by_ids_missing():
     assert tracks_repo.get_by_id.call_count == 2
     filepaths_passed = audio_player.queue.set_queue.call_args[0][0]
     assert filepaths_passed == ["/music/track_5.flac", "/music/track_6.flac"]
+
+
+@pytest.mark.regression
+@pytest.mark.asyncio
+async def test_set_queue_does_not_announce_playing_when_the_file_cannot_load():
+    """#5996: AudioPlayer.load_file reports a missing/undecodable file by returning
+    False. set_queue ignored it, called play() and broadcast playing=True for a
+    track that never loaded, then returned 200."""
+    tracks = {1: _make_track(1)}
+    service = _build_service(repo_returns=tracks)
+    service.audio_player.load_file = MagicMock(return_value=False)
+
+    result = await service.set_queue([1], start_index=0)
+
+    service.audio_player.load_file.assert_called_once_with(tracks[1].filepath)
+    service.audio_player.play.assert_not_called()
+    service.player_state_manager.set_playing.assert_not_awaited()
+    # The queue and the current track are still set - only playback is withheld.
+    service.audio_player.queue.set_queue.assert_called_once()
+    service.player_state_manager.set_track.assert_awaited_once()
+    assert result["track_count"] == 1
+
+
+@pytest.mark.regression
+@pytest.mark.asyncio
+async def test_set_queue_still_plays_when_the_file_loads():
+    tracks = {1: _make_track(1)}
+    service = _build_service(repo_returns=tracks)
+    service.audio_player.load_file = MagicMock(return_value=True)
+
+    await service.set_queue([1], start_index=0)
+
+    service.audio_player.play.assert_called_once()
+    service.player_state_manager.set_playing.assert_awaited_once_with(True, broadcast=False)
