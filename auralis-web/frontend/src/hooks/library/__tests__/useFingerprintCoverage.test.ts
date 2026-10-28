@@ -182,6 +182,48 @@ describe('analyseRemaining', () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST' });
   });
 
+  it('keeps the backend message when the full queue dropped tracks (#5920)', async () => {
+    const dropped = {
+      enqueued: 5000,
+      dropped_queue_full: 12,
+      message: 'Enqueued 5000 tracks; 12 did not fit in the full queue, run it again once it drains',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okResponse(status()))
+      .mockResolvedValueOnce(okResponse(dropped))
+      .mockResolvedValue(okResponse(status()));
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() => useFingerprintCoverage());
+    await waitFor(() => expect(result.current.coverage).not.toBeNull());
+
+    await act(async () => {
+      await result.current.analyseRemaining();
+    });
+
+    expect(result.current.notice).toBe(dropped.message);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('shows no notice when nothing was dropped', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okResponse(status()))
+      .mockResolvedValueOnce(okResponse({ enqueued: 3, dropped_queue_full: 0, message: 'Enqueued 3' }))
+      .mockResolvedValue(okResponse(status()));
+    global.fetch = fetchMock;
+
+    const { result } = renderHook(() => useFingerprintCoverage());
+    await waitFor(() => expect(result.current.coverage).not.toBeNull());
+
+    await act(async () => {
+      await result.current.analyseRemaining();
+    });
+
+    expect(result.current.notice).toBeNull();
+  });
+
   it('refreshes even when the enqueue fails', async () => {
     // The queue depth may have changed regardless, and a stale card would
     // misreport it.

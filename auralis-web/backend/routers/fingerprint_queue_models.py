@@ -47,6 +47,7 @@ class EnqueueAllFingerprintsResponse(BaseModel):
     """
     enqueued: int = Field(description="Tracks added to the queue")
     skipped: int | None = Field(default=None, description="Tracks already queued or processing")
+    dropped_queue_full: int | None = Field(default=None, description="Tracks rejected because the queue was full; enqueue again once it drains")
     already_fingerprinted: int = Field(description="Tracks that already had a fingerprint")
     total_tracks: int = Field(description="Total tracks in the library")
     pending_after: int | None = Field(default=None, description="Tracks still missing a fingerprint")

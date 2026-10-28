@@ -41,6 +41,8 @@ export interface UseFingerprintCoverageReturn {
   coverage: FingerprintCoverage | null;
   loading: boolean;
   error: string | null;
+  /** Non-error outcome of the last enqueue-all (e.g. tracks the full queue dropped, #5920). */
+  notice: string | null;
   /** True while an enqueue-all request is in flight. */
   enqueueing: boolean;
   /** Queue every track still missing a fingerprint, then refresh. */
@@ -66,6 +68,7 @@ export function useFingerprintCoverage(enabled = true): UseFingerprintCoverageRe
   const [coverage, setCoverage] = useState<FingerprintCoverage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [enqueueing, setEnqueueing] = useState(false);
 
   // Guards every setState after an await: the settings dialog is unmounted the
@@ -103,12 +106,17 @@ export function useFingerprintCoverage(enabled = true): UseFingerprintCoverageRe
 
   const analyseRemaining = useCallback(async () => {
     setEnqueueing(true);
+    setNotice(null);
     try {
-      await post('/api/similarity/fingerprint-queue/enqueue-all', undefined, {
-        signal: abortRef.current.signal,
-      });
+      const result = await post<{ dropped_queue_full?: number | null; message?: string }>(
+        '/api/similarity/fingerprint-queue/enqueue-all',
+        undefined,
+        { signal: abortRef.current.signal },
+      );
       if (!mountedRef.current) return;
       setError(null);
+      // The backend words the full-queue case; refresh() below must not erase it.
+      if (result?.dropped_queue_full) setNotice(result.message ?? null);
     } catch (err) {
       if (!mountedRef.current) return;
       setError(err instanceof Error ? err.message : 'Failed to queue tracks for analysis');
@@ -137,7 +145,7 @@ export function useFingerprintCoverage(enabled = true): UseFingerprintCoverageRe
     return () => clearInterval(id);
   }, [enabled, coverage, refresh]);
 
-  return { coverage, loading, error, enqueueing, analyseRemaining, refresh };
+  return { coverage, loading, error, notice, enqueueing, analyseRemaining, refresh };
 }
 
 export default useFingerprintCoverage;

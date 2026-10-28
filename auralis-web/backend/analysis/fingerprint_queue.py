@@ -24,7 +24,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from helpers import spawn_background_task
 
 logger = logging.getLogger(__name__)
@@ -124,6 +124,22 @@ class FingerprintQueue:
 
         logger.info(f"📋 Added track {track_id} to fingerprint queue (queue size: {queue_size})")
         return True
+
+    def enqueue_many(self, track_ids: Iterable[int]) -> tuple[int, int, int]:
+        """Enqueue each track; returns (enqueued, already_pending, dropped_queue_full) (#5920).
+
+        enqueue() answers False for a duplicate and for a full queue alike, so a rejected
+        track that is not pending is a queue-full drop.
+        """
+        enqueued = already_pending = dropped = 0
+        for track_id in track_ids:
+            if self.enqueue(track_id):
+                enqueued += 1
+            elif self.is_pending(track_id):
+                already_pending += 1
+            else:
+                dropped += 1
+        return enqueued, already_pending, dropped
 
     def is_pending(self, track_id: int) -> bool:
         """True when the track is waiting in the queue or being fingerprinted right now."""

@@ -37,7 +37,7 @@ export function formatRemaining(seconds: number): string {
 }
 
 export const FingerprintCoverageCard = ({ enabled = true }: FingerprintCoverageCardProps) => {
-  const { coverage, loading, error, enqueueing, analyseRemaining } =
+  const { coverage, loading, error, notice, enqueueing, analyseRemaining } =
     useFingerprintCoverage(enabled);
 
   // Nothing to say yet — don't flash an empty card on first open.
@@ -118,6 +118,15 @@ export const FingerprintCoverageCard = ({ enabled = true }: FingerprintCoverageC
             </Typography>
           </>
         ) : null}
+        {notice && (
+          <Typography
+            variant="caption"
+            role="status"
+            sx={{ display: 'block', mt: 0.75, color: themeVars.textSecondary }}
+          >
+            {notice}
+          </Typography>
+        )}
       </Box>
 
       {hasPending && (

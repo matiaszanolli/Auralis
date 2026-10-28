@@ -163,29 +163,25 @@ async def enqueue_all_missing_fingerprints(
     # Get tracks without fingerprints
     missing_tracks = await asyncio.to_thread(repos.fingerprints.get_missing_fingerprints, limit=limit)
 
-    # Enqueue each track (offloaded to thread to avoid blocking
-    # the event loop for large libraries — #3335)
-    def _enqueue_batch() -> tuple[int, int]:
-        enqueued = 0
-        skipped = 0
-        for track in missing_tracks:
-            if queue.enqueue(track.id):
-                enqueued += 1
-            else:
-                skipped += 1
-        return enqueued, skipped
+    # Offloaded so a large batch does not block the event loop (#3335).
+    enqueued_count, skipped_count, dropped_count = await asyncio.to_thread(
+        queue.enqueue_many, [track.id for track in missing_tracks]
+    )
 
-    enqueued_count, skipped_count = await asyncio.to_thread(_enqueue_batch)
-
-    logger.info(f"📋 Batch enqueued {enqueued_count} tracks for fingerprinting ({skipped_count} skipped)")
+    logger.info(
+        f"📋 Batch enqueued {enqueued_count} tracks for fingerprinting "
+        f"({skipped_count} already pending, {dropped_count} dropped: queue full)"
+    )
 
     return {
         "enqueued": enqueued_count,
         "skipped": skipped_count,
+        "dropped_queue_full": dropped_count,
         "already_fingerprinted": already_fingerprinted,
         "total_tracks": total_tracks,
         "pending_after": pending - enqueued_count,
         "message": f"Enqueued {enqueued_count} tracks for background fingerprinting"
+        + (f"; {dropped_count} did not fit in the full queue, run it again once it drains" if dropped_count else ""),
     }
 
 
