@@ -116,15 +116,17 @@ def handle_query_error(operation: str, error: Exception) -> NoReturn:
     """
     Centralized error handler for query operations.
 
-    Maps transient SQLite/SQLAlchemy errors to HTTP 503 (retryable) and
-    reserves HTTP 500 for truly unexpected failures (#3222).
+    Maps transient SQLite/SQLAlchemy errors to HTTP 503 (retryable), a vanished or
+    unreadable file to 404 / 403 (#5081), and reserves HTTP 500 for truly
+    unexpected failures (#3222).
 
     Args:
         operation: Description of the operation that failed (e.g., "get tracks")
         error: The exception that was raised
 
     Raises:
-        HTTPException: 503 for transient DB errors, 500 for others
+        HTTPException: 503 for transient DB errors, 404 / 403 for a missing /
+            unreadable file, 500 for others
 
     Example:
         try:
@@ -138,5 +140,15 @@ def handle_query_error(operation: str, error: Exception) -> NoReturn:
     from sqlalchemy.exc import OperationalError
     if isinstance(error, OperationalError):
         raise ServiceUnavailableError(f"Database temporarily unavailable during {operation}")
+
+    # Filesystem races under a handler (a file removed or locked between the DB
+    # lookup and the read) are not server bugs, mirroring core/job_error_mapping's
+    # FileNotFoundError / PermissionError categories (#5081). Fixed details: the
+    # exception text names the absolute path. FileNotFoundError and
+    # PermissionError are OSErrors, so they must be tested before any broader catch.
+    if isinstance(error, FileNotFoundError):
+        raise NotFoundError("File")
+    if isinstance(error, PermissionError):
+        raise HTTPException(status_code=403, detail="Permission denied")
 
     raise InternalServerError(operation, error)

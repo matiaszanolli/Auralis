@@ -191,6 +191,24 @@ class TestHandleQueryError:
         assert "constraint violation" not in exc_info.value.detail
         assert "constraint violation" in caplog.text
 
+    def test_a_vanished_file_is_a_404_not_a_500(self):
+        """#5081: a file removed between the DB lookup and the read."""
+        with pytest.raises(HTTPException) as exc_info:
+            handle_query_error("get artwork", FileNotFoundError(2, "No such file", "/home/u/Music/a.flac"))
+        assert exc_info.value.status_code == 404
+        assert "/" not in exc_info.value.detail  # the path stays in the log
+
+    def test_an_unreadable_file_is_a_403_not_a_500(self):
+        with pytest.raises(HTTPException) as exc_info:
+            handle_query_error("get artwork", PermissionError(13, "Permission denied", "/home/u/Music/a.flac"))
+        assert exc_info.value.status_code == 403
+        assert "/" not in exc_info.value.detail
+
+    def test_other_os_errors_stay_500(self):
+        with pytest.raises(HTTPException) as exc_info:
+            handle_query_error("get artwork", OSError(5, "Input/output error"))
+        assert exc_info.value.status_code == 500
+
     def test_works_with_various_exception_types(self):
         for exc_type in (ValueError, RuntimeError, OSError, KeyError):
             with pytest.raises(HTTPException) as exc_info:
@@ -200,5 +218,8 @@ class TestHandleQueryError:
     def test_no_sensitive_path_in_detail(self):
         with pytest.raises(HTTPException) as exc_info:
             handle_query_error("open file", FileNotFoundError("/home/user/.auralis/library.db"))
-        # Operation name should appear, but we check status is 500
-        assert exc_info.value.status_code == 500
+        # A vanished file is a 404 now (#5081); the point of this test is that the
+        # path in the exception text never reaches the client.
+        assert exc_info.value.status_code == 404
+        assert "/home/user" not in exc_info.value.detail
+        assert "library.db" not in exc_info.value.detail
