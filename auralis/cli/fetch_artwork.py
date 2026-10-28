@@ -130,7 +130,7 @@ def resolve_credentials(args: argparse.Namespace, environ: Mapping[str, str]) ->
     return token, key
 
 
-def main() -> None:
+def main() -> int:
     """Main entry point for fetch_artwork CLI"""
     parser = argparse.ArgumentParser(
         description='Fetch artist artwork from external sources'
