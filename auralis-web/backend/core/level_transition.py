@@ -26,6 +26,7 @@ from .level_constants import (
     MAX_GAIN_CORRECTION_DB,
     _clamp_gain_db,
 )
+from .level_peak_guard import peak_safe_gain_db
 
 logger = logging.getLogger(__name__)
 
@@ -136,8 +137,8 @@ class LevelTransitionMixin:
                 if level_diff_db > 0
                 else -self.max_level_change_db
             )
-            # Clamped as a last-resort safety net (#4729) — see MAX_GAIN_CORRECTION_DB.
-            required_adjustment_db = _clamp_gain_db(target_diff - level_diff_db)
+            # Clamped as a last-resort safety net (#4729), and a boost is capped to the chunk's headroom (#5558).
+            required_adjustment_db = peak_safe_gain_db(_clamp_gain_db(target_diff - level_diff_db), chunk)
 
             # Convert dB to linear gain, typed to the chunk so float32 stays
             # float32 (#3831 — avoids the float64 promotion of `chunk * pyfloat`).
@@ -159,7 +160,6 @@ class LevelTransitionMixin:
             # New array — never mutate the caller's chunk in place.
             chunk_adjusted = chunk * (env[:, None] if chunk.ndim == 2 else env)
 
-            # Verify adjustment
             adjusted_rms = self.calculate_rms(chunk_adjusted)
 
             logger.info(
