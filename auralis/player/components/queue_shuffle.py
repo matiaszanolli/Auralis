@@ -56,16 +56,15 @@ class ShuffleMixin:
                 self._pre_shuffle_index = self.current_index
 
             current_track = self._get_current_track_unlocked()
-            current_track_id = current_track.get('id') if current_track else None
 
             # Shuffle all tracks
             random.shuffle(self.tracks)
 
-            # If there was a current track, move it to the front
-            if current_track_id is not None:
+            # Move the current track to the front, found by identity not 'id': set_queue entries
+            # are {'filepath': ...} with no id, so the id lookup never matched (#5564).
+            if current_track is not None:
                 for i, track in enumerate(self.tracks):
-                    if track.get('id') == current_track_id:
-                        # Swap current track to position 0
+                    if track is current_track:
                         self.tracks[0], self.tracks[i] = self.tracks[i], self.tracks[0]
                         self.current_index = 0
                         break
@@ -77,15 +76,14 @@ class ShuffleMixin:
                 return False
 
             current_track = self._get_current_track_unlocked()
-            current_track_id = current_track.get('id') if current_track else None
 
             self.tracks = self._pre_shuffle_tracks
             self.current_index = self._pre_shuffle_index
 
-            # If the current track moved, find it in the restored order
-            if current_track_id is not None:
+            # If the current track moved, find it in the restored order (by identity, #5564)
+            if current_track is not None:
                 for i, track in enumerate(self.tracks):
-                    if track.get('id') == current_track_id:
+                    if track is current_track:
                         self.current_index = i
                         break
 
