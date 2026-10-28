@@ -22,11 +22,11 @@ import numpy as np
 
 from ...utils.logging import Code, ModuleError, debug, warning
 from .ffmpeg_command import build_ffmpeg_cmd, check_truncation
+from .ffmpeg_path_guard import ffmpeg_input_path
 from .ffmpeg_probe import (
     _probe_audio,
     check_ffmpeg,
     check_ffprobe,
-    reject_protocol_path,
 )
 from .ffmpeg_process import (
     FFMPEG_DECODE_TIMEOUT_S,
@@ -64,9 +64,7 @@ def _validate_input(file_path: Path) -> tuple[Path, str]:
         debug(f"File not found: {file_path}")
         raise ModuleError(Code.ERROR_FILE_NOT_FOUND, path=str(file_path))
     # Guard against ffmpeg protocol specifiers (http://, pipe:, concat:, data:, etc.)
-    file_path_str = str(file_path)
-    reject_protocol_path(file_path_str)
-    return file_path, file_path_str
+    return file_path, ffmpeg_input_path(str(file_path))
 
 
 def _probe_or_fail(file_path: Path) -> tuple[float | None, int, int]:

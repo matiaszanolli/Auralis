@@ -13,7 +13,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ...utils.logging import Code, ModuleError, warning
+from ...utils.logging import warning
+from .ffmpeg_path_guard import ffmpeg_input_path
 from .ffmpeg_process import (
     FFMPEG_VERSION_CHECK_TIMEOUT_S,
     FFPROBE_TIMEOUT_S,
@@ -33,27 +34,6 @@ from .ffmpeg_process import (
 # mitigation until (or instead of) bundling.
 MINIMUM_FFMPEG_VERSION = (4, 0, 0)
 
-# Rejects any file_path FFmpeg/libavformat would parse as a protocol
-# specifier rather than a plain filesystem path. A bare `"://" in path`
-# substring check (the guard this replaced) misses `pipe:0`, `concat:a|b`,
-# `data:...` and every other colon-only protocol, which never contain "://"
-# (#4834). Requires at least two characters before the colon so a
-# single-letter Windows drive path ("C:\\Users\\...") is never misclassified
-# as a protocol — every real FFmpeg protocol name is 2+ characters.
-_PROTOCOL_PREFIX_RE = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.\-]+:')
-
-
-def reject_protocol_path(file_path_str: str) -> None:
-    """Raise ``ModuleError`` if *file_path_str* looks like an FFmpeg protocol
-    specifier (``concat:``, ``pipe:``, ``http://``, ...) instead of a plain
-    filesystem path. Shared by both ffprobe/ffmpeg call sites (#4834)."""
-    if _PROTOCOL_PREFIX_RE.match(file_path_str):
-        raise ModuleError(
-            f"{Code.ERROR_UNSUPPORTED_FORMAT}: URL/protocol inputs are not allowed",
-            path=file_path_str,
-        )
-
-
 # Pinned on every ffmpeg/ffprobe input so the only protocol FFmpeg may open is
 # a plain file (#5326). Without it, whether a content-sniffed HLS/concat
 # playlist can reach http:// or other local files rests on FFmpeg's own
@@ -67,10 +47,10 @@ def ffprobe_command(file_path_str: str) -> list[str]:
     The single definition both probe paths run (``_probe_audio`` here and
     ``unified_loader._get_info_with_ffprobe``), so the protocol guard, the
     whitelist and the ``--`` path isolation (#4826) cannot drift apart between
-    them again (#5326). Rejects a protocol-shaped path before building
-    anything, so no caller can reach ffprobe without the guard.
+    them again (#5326). Guards the path before building anything, so no
+    caller can reach ffprobe without it.
     """
-    reject_protocol_path(file_path_str)
+    file_path_str = ffmpeg_input_path(file_path_str)
     return [
         'ffprobe',
         # -v error, not quiet (#5590): quiet discards every diagnostic, so a

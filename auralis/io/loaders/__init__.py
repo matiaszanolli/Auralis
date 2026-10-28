@@ -9,7 +9,8 @@ Format-specific audio loading implementations
 """
 
 from .ffmpeg_loader import load_with_ffmpeg
-from .ffmpeg_probe import check_ffmpeg, check_ffprobe, ffprobe_command, reject_protocol_path
+from .ffmpeg_path_guard import ffmpeg_input_path, reject_protocol_path
+from .ffmpeg_probe import check_ffmpeg, check_ffprobe, ffprobe_command
 from .ffmpeg_process import FFPROBE_TIMEOUT_S, SUBPROCESS_TEXT_KWARGS, redact_subprocess_output
 from .soundfile_loader import load_with_soundfile
 
@@ -21,6 +22,7 @@ __all__ = [
     'check_ffmpeg',
     'check_ffprobe',
     'ffprobe_command',
+    'ffmpeg_input_path',
     'reject_protocol_path',
     'redact_subprocess_output',
 ]
