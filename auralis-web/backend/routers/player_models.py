@@ -169,7 +169,7 @@ class QueueInfoResponse(BaseModel):
     # Matches PlayerState.repeat_mode above.
     repeat_mode: Literal["off", "all", "one"] | None = None
 
-    model_config = ConfigDict(extra='allow')
+    model_config = ConfigDict(extra='ignore')
 
 
 class SetQueueResponse(BaseModel):
