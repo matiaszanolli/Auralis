@@ -93,7 +93,7 @@ function formatTime(timestamp: number): string {
 /**
  * Create colored console output
  */
-function log(message: string, color: string, ...args: any[]): void {
+function log(message: string, color: string, ...args: unknown[]): void {
   if (typeof window !== 'undefined' && window.console) {
     console.log(`%c${message}`, style(color), ...args);
   }
@@ -102,8 +102,8 @@ function log(message: string, color: string, ...args: any[]): void {
 /**
  * Calculate state diff
  */
-function getStateDiff(prev: RootState, next: RootState): Record<string, any> {
-  const diff: Record<string, any> = {};
+function getStateDiff(prev: RootState, next: RootState): Record<string, unknown> {
+  const diff: Record<string, unknown> = {};
 
   // Check each slice
   const slices = Object.keys(next) as (keyof RootState)[];
@@ -160,7 +160,7 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
       const timestamp = new Date();
       const startTime = performance.now();
 
-      let result: any;
+      let result: unknown;
       let error: Error | undefined;
 
       try {

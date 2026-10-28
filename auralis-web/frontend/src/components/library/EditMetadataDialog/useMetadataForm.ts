@@ -152,10 +152,10 @@ export const useMetadataForm = (
             }
             const num = parseInt(String(value), 10);
             if (!isNaN(num)) {
-              (updates as Record<string, any>)[key] = num;
+              (updates as Record<string, string | number>)[key] = num;
             }
           } else {
-            (updates as Record<string, any>)[key] = value;
+            (updates as Record<string, string | number>)[key] = value;
           }
         }
       });
