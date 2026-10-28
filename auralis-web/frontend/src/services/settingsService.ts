@@ -86,6 +86,12 @@ export interface SettingsUpdate {
   debug_mode?: boolean;
 }
 
+/**
+ * A settings-change callback whose value is tied to its key: `('bit_depth', 'loud')` or
+ * `('theme', 42)` no longer compiles (#6051).
+ */
+export type OnSettingChange = <K extends keyof SettingsUpdate>(key: K, value: SettingsUpdate[K]) => void;
+
 interface SettingsResponse {
   message: string;
   settings: UserSettings;

@@ -3,13 +3,13 @@
  */
 
 import { Box, Switch, FormControlLabel, Select, MenuItem, FormControl, Divider } from '@mui/material';
-import { SettingsUpdate } from '@/services/settingsService';
+import type { OnSettingChange } from '@/services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 
 interface AutoScanSettingsProps {
   autoScan: boolean;
   scanInterval: number;
-  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
+  onSettingChange: OnSettingChange;
 }
 
 const INTERVAL_OPTIONS: { label: string; seconds: number }[] = [

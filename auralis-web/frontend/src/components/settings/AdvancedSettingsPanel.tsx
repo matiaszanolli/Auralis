@@ -7,7 +7,7 @@ import {
   Divider
 } from '@mui/material';
 import { tokens } from '@/design-system';
-import { SettingsUpdate, resetLibrary } from '@/services/settingsService';
+import { resetLibrary, type OnSettingChange } from '@/services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 import { ConfirmationDialog } from '@/components/shared/ui/ConfirmationDialog';
 import { CacheStatsDashboard } from '@/components/shared/CacheStatsDashboard';
@@ -18,7 +18,7 @@ interface AdvancedSettingsPanelProps {
   maxConcurrentScans: number;
   enableAnalytics: boolean;
   debugMode: boolean;
-  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
+  onSettingChange: OnSettingChange;
 }
 
 interface NumericSettingFieldProps {

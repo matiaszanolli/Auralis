@@ -11,13 +11,13 @@ import {
 } from '@mui/material';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { ThemeMode } from '@/theme/semanticTheme';
-import { SettingsUpdate } from '@/services/settingsService';
+import type { OnSettingChange } from '@/services/settingsService';
 import { SectionContainer, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 
 interface InterfaceSettingsPanelProps {
   showVisualizations: boolean;
   miniPlayerOnClose: boolean;
-  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
+  onSettingChange: OnSettingChange;
 }
 
 /**

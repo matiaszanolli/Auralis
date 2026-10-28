@@ -1,5 +1,5 @@
 
-import { SettingsUpdate } from '@/services/settingsService';
+import type { OnSettingChange, SettingsUpdate } from '@/services/settingsService';
 import { SettingsDialogContent as StyledContent } from './SettingsDialog.styles';
 import { LibrarySettingsPanel } from './LibrarySettingsPanel';
 import { PlaybackSettingsPanel } from './PlaybackSettingsPanel';
@@ -20,7 +20,7 @@ interface SettingsDialogContentProps {
    * below decides its null fallback explicitly.
    */
   getValue: <K extends keyof SettingsUpdate>(key: K) => SettingsUpdate[K] | null;
-  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
+  onSettingChange: OnSettingChange;
   onAddFolder: () => Promise<void>;
   onRemoveFolder: (folder: string) => void;
   onScanNow: () => void;

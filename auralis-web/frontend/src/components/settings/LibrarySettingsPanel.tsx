@@ -1,6 +1,6 @@
 
 import { Box } from '@mui/material';
-import { SettingsUpdate } from '@/services/settingsService';
+import type { OnSettingChange } from '@/services/settingsService';
 import FoldersList from './FoldersList';
 import AutoScanSettings from './AutoScanSettings';
 import ScanStatusCard from './ScanStatusCard';
@@ -11,7 +11,7 @@ interface LibrarySettingsPanelProps {
   scanFolders: string[];
   autoScan: boolean;
   scanInterval: number;
-  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
+  onSettingChange: OnSettingChange;
   onAddFolder: () => Promise<void>;
   onRemoveFolder: (folder: string) => void;
   onScanNow: () => void;

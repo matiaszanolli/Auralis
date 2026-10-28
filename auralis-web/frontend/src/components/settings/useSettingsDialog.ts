@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { settingsService, UserSettings, SettingsUpdate } from '@/services/settingsService';
+import { settingsService, UserSettings, SettingsUpdate, type OnSettingChange } from '@/services/settingsService';
 import { getElectronAPI } from '@/utils/electron';
 import { describeScanError } from '@/utils/scanErrors';
 
@@ -59,7 +59,7 @@ export const useSettingsDialog = ({ open, onSettingsChange, onSettingsReset }: U
     }
   }, [open, loadSettings]);
 
-  const handleSettingChange = useCallback((key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => {
+  const handleSettingChange = useCallback<OnSettingChange>((key, value) => {
     setPendingChanges((prev) => ({ ...prev, [key]: value }));
   }, []);
 

@@ -1,5 +1,5 @@
 
-import { SettingsUpdate } from '@/services/settingsService';
+import type { OnSettingChange } from '@/services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 import { Slider } from '@/design-system';
 import { Box, Switch, FormControlLabel, Divider } from '@mui/material';
@@ -10,7 +10,7 @@ interface PlaybackSettingsPanelProps {
   crossfadeDuration: number;
   replayGainEnabled: boolean;
   volume: number;
-  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
+  onSettingChange: OnSettingChange;
 }
 
 /**

@@ -1,5 +1,6 @@
 
-import { SettingsUpdate } from '@/services/settingsService';
+import type { OnSettingChange } from '@/services/settingsService';
+import { isEnhancementPreset } from '@/types/domain';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 import { Slider } from '@/design-system';
 import { Box, FormControl, InputLabel, Select, MenuItem, Switch, FormControlLabel, Divider } from '@mui/material';
@@ -8,7 +9,7 @@ interface EnhancementSettingsPanelProps {
   defaultPreset: string;
   autoEnhance: boolean;
   enhancementIntensity: number;
-  onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
+  onSettingChange: OnSettingChange;
 }
 
 /**
@@ -35,7 +36,9 @@ export const EnhancementSettingsPanel = ({
           <Select
             labelId="settings-enhancement-default-preset-label"
             value={defaultPreset}
-            onChange={(e) => onSettingChange('default_preset', e.target.value)}
+            onChange={(e) => {
+              if (isEnhancementPreset(e.target.value)) onSettingChange('default_preset', e.target.value);
+            }}
             label="Default Preset"
           >
             <MenuItem value="adaptive">Adaptive</MenuItem>
