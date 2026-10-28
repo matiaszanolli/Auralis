@@ -75,12 +75,12 @@ class LibraryAutoScanner(WatchdogMixin):
     # ------------------------------------------------------------------
 
     async def start(self) -> None:
-        """Start the scanner background task."""
+        """Start the scanner background task (restartable after stop(), #5954)."""
+        self._stop_event.clear()
+        self._trigger_event.clear()
         self._task = spawn_background_task(self._run(), name="library_auto_scanner")
-        if HAS_WATCHDOG:
-            logger.info("✅ LibraryAutoScanner started (watchdog + polling fallback)")
-        else:
-            logger.info("✅ LibraryAutoScanner started (polling-only; install watchdog for real-time detection)")
+        mode = "watchdog + polling fallback" if HAS_WATCHDOG else "polling-only; install watchdog for real-time detection"
+        logger.info(f"✅ LibraryAutoScanner started ({mode})")
 
     async def stop(self) -> None:
         """Signal the scanner to stop and wait for it to finish."""

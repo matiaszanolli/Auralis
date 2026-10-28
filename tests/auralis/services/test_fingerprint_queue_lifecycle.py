@@ -445,6 +445,12 @@ class TestGracefulShutdown:
         extractor.extract_and_store.return_value = True
 
         await queue.start()
+        # Let the workers drain the tracks before stopping: stop() right after start()
+        # races them (it raced before this too - the assertion below only held when the
+        # threads happened to win).
+        deadline = time.time() + 5.0
+        while queue.stats["completed"] < n_tracks and time.time() < deadline:
+            await asyncio.sleep(0.01)
         await queue.stop(timeout=10.0)
 
         assert queue.stats["completed"] == n_tracks

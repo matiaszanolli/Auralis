@@ -22,6 +22,7 @@ Worker Pool:
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import asyncio
 import threading
 import time
 from typing import Any
@@ -152,12 +153,21 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
         self.progress_callback = callback
 
     async def start(self) -> None:
-        """Start background worker threads and resource monitor"""
+        """Start background worker threads and resource monitor.
+
+        Restartable after ``stop()`` (library reset stops every background worker,
+        deletes, then starts them again): ``should_stop`` is cleared, and workers
+        that missed stop()'s timeout and are still alive count toward the pool
+        instead of leaving a dead one (#5954).
+        """
+        self.should_stop = False
+        self.workers = [w for w in self.workers if w.is_alive()]
         start_resource_monitor(self.resource_monitor)
 
-        info(f"Starting {self.initial_num_workers} fingerprint extraction workers")
+        missing = self.initial_num_workers - len(self.workers)
+        info(f"Starting {missing} fingerprint extraction workers")
 
-        for i in range(self.initial_num_workers):
+        for i in range(len(self.workers), len(self.workers) + max(missing, 0)):
             worker = threading.Thread(
                 target=self._worker_loop,
                 args=(i,),
@@ -173,12 +183,19 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
         """
         Stop all worker threads gracefully
 
+        The joins (and the resource monitor's) block for up to ``timeout``, so they
+        run in a thread: stop() is awaited on the event loop by library reset and
+        shutdown, and used to freeze every request and WebSocket for that long (#5955).
+
         Args:
             timeout: Maximum time to wait for workers to finish (seconds)
 
         Returns:
             True if all workers stopped cleanly, False if timeout
         """
+        return await asyncio.to_thread(self._stop_blocking, timeout)
+
+    def _stop_blocking(self, timeout: float) -> bool:
         info("Stopping fingerprint extraction workers...")
         self.should_stop = True
 
@@ -197,6 +214,7 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
                 warning(f"Worker {worker.name} did not stop within timeout")
                 return False
 
+        self.workers = []
         info(f"All workers stopped. Stats: {self.stats}")
         return True
 
