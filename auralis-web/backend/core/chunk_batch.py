@@ -4,17 +4,15 @@
 Whole-Track Chunk Batch Processing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Two whole-track operations extracted from ``ChunkedAudioProcessor`` (#4245):
-``process_all_chunks_async`` (background pre-processing of every remaining
-chunk) and ``get_full_processed_audio_path`` (concatenate every chunk into
-one full-track WAV). Both iterate ``processor.process_chunk_safe`` rather
-than the per-chunk streaming hot path directly.
+The whole-track operation extracted from ``ChunkedAudioProcessor`` (#4245):
+``get_full_processed_audio_path`` (concatenate every chunk into one full-track
+WAV), iterating ``processor.process_chunk_safe`` rather than the per-chunk
+streaming hot path directly.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -29,50 +27,6 @@ if TYPE_CHECKING:
     from core.chunked_processor import ChunkedAudioProcessor
 
 logger = logging.getLogger("core.chunked_processor")
-
-
-async def process_all_chunks_async(processor: "ChunkedAudioProcessor") -> None:
-    """
-    Background task to process all remaining chunks.
-
-    Processes chunks sequentially to avoid overwhelming the system.
-    Uses thread-safe locking to prevent concurrent processor state corruption.
-    """
-    assert processor.total_chunks is not None
-    logger.info(f"Starting background processing of {processor.total_chunks - 1} remaining chunks")
-
-    failed_chunks = 0
-    for chunk_idx in range(1, processor.total_chunks):
-        try:
-            # Check if already cached — in-memory tier only (not the on-disk
-            # fallback _lookup_cached_chunk also checks), matching the
-            # pre-#4245 behaviour of this loop exactly.
-            cache_key = processor._path_cache.cache_key(chunk_idx)
-            if processor._cache_manager.get_cached_chunk_path(cache_key) is not None:
-                continue
-
-            # Process chunk with thread-safe locking
-            await processor.process_chunk_safe(chunk_idx)
-
-            # Small delay to avoid CPU saturation
-            await asyncio.sleep(0.1)
-
-        except Exception as e:
-            failed_chunks += 1
-            logger.error(f"Failed to process chunk {chunk_idx}: {e}")
-
-    # #4809: "complete" is misleading when every chunk in the batch failed —
-    # qualify it instead of logging an unconditional success message.
-    if failed_chunks and failed_chunks >= processor.total_chunks - 1:
-        logger.error(
-            f"Background chunk processing finished with all {failed_chunks} chunk(s) failed"
-        )
-    elif failed_chunks:
-        logger.warning(
-            f"Background chunk processing complete with {failed_chunks} chunk(s) failed"
-        )
-    else:
-        logger.info("Background chunk processing complete")
 
 
 async def get_full_processed_audio_path(processor: "ChunkedAudioProcessor") -> str:

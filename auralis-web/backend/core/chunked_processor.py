@@ -273,10 +273,6 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
         """Weighted mastering profile recommendation. Delegates to chunk_mastering (#4245)."""
         return compute_mastering_recommendation(self, confidence_threshold)
 
-    async def process_all_chunks_async(self) -> None:
-        """Background-process all remaining chunks. Delegates to chunk_batch (#4245)."""
-        await chunk_batch.process_all_chunks_async(self)
-
     async def get_full_processed_audio_path(self) -> str:
         """Concatenate all processed chunks into one file. Delegates to chunk_batch (#4245)."""
         return await chunk_batch.get_full_processed_audio_path(self)

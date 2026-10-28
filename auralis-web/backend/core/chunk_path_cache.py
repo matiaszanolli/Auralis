@@ -8,8 +8,7 @@ Resolves a chunk's on-disk WAV path and checks the in-memory / on-disk cache
 tiers for it. Extracted from ``ChunkedAudioProcessor`` (#4245): the
 ``_get_chunk_path`` / ``_get_wav_chunk_path`` / ``_lookup_cached_chunk``
 trio, plus the cache-key-then-store pattern duplicated at each of
-``process_chunk`` / ``process_all_chunks_async`` / ``get_wav_chunk_path``'s
-cache-write sites.
+``process_chunk`` / ``get_wav_chunk_path``'s cache-write sites.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
