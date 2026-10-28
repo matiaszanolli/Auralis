@@ -49,6 +49,12 @@ export interface AppTopBarProps {
   onSearchClear?: () => void;
 
   /**
+   * The app's current search query. When it is reset to empty from outside
+   * (the Escape shortcut), the field empties with it (#6013).
+   */
+  searchValue?: string;
+
+  /**
    * Current view mode (grid or list). When provided, shows the ViewToggle.
    */
   viewMode?: ViewMode;
@@ -100,6 +106,7 @@ export const AppTopBar = ({
   connectionStatus,
   isMobile,
   onSearchClear,
+  searchValue,
   viewMode,
   onViewModeChange,
 }: AppTopBarProps) => {
@@ -114,7 +121,7 @@ export const AppTopBar = ({
     setIsSearchFocused,
     handleSearchChange,
     handleSearchClear,
-  } = useSearchInput({ onSearch, onSearchClear });
+  } = useSearchInput({ onSearch, onSearchClear, externalQuery: searchValue });
 
   // Connection status color
   const statusColor = useConnectionStatus(connectionStatus);

@@ -157,6 +157,7 @@ function ComfortableApp() {
             connectionStatus={connectionStatus}
             isMobile={isMobile}
             onSearchClear={() => setSearchQuery('')}
+            searchValue={searchQuery}
             {...(['songs', 'favourites'].includes(currentView) ? {
               viewMode,
               onViewModeChange: setViewMode,
