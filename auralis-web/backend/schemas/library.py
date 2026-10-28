@@ -42,6 +42,12 @@ class LibraryScanRequest(BaseModel):
     })
 
 
+class ScanFailure(BaseModel):
+    """One file (or folder) a scan could not process: a bare name, never the path (#5341)."""
+    filename: str
+    reason: str
+
+
 class ScanResultResponse(BaseModel):
     """Library scan result (POST /api/library/scan).
 
@@ -60,10 +66,10 @@ class ScanResultResponse(BaseModel):
     # (a bare name, never the absolute path, #5341).
     # `files_failed` stays the exact count; this names the first N so the UI can
     # tell the user *which* files to look at instead of only how many.
-    failures: list[dict[str, str]] = Field(default_factory=list)
+    failures: list[ScanFailure] = Field(default_factory=list)
     # #5877: folders the scan could not read, same {filename, reason} shape
     # (the folder's name). Their files are missing from every count above.
-    directory_errors: list[dict[str, str]] = Field(default_factory=list)
+    directory_errors: list[ScanFailure] = Field(default_factory=list)
 
 
 # ============================================================================

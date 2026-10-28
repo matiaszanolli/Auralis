@@ -573,7 +573,10 @@ class TestPlayerEndpoints:
             response = client.post("/api/player/volume", json={"volume": 75})
 
             assert response.status_code == 200
-            mock_player.set_volume.assert_called_once()
+            # Volume is client-side (#3722): the route echoes the 0-100 level and never
+            # reaches the engine.
+            assert response.json()["volume"] == 75
+            mock_player.set_volume.assert_not_called()
 
     def test_next_track(self, client):
         """Test skipping to next track"""
@@ -1588,7 +1591,7 @@ class TestAlbumArtworkEndpoints:
     def test_get_artwork_album_not_found(self, client):
         """Test getting artwork for non-existent album"""
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = None
+        mock_repos.albums.get_artwork_path.return_value = (False, None)
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/999/artwork")
@@ -1596,11 +1599,8 @@ class TestAlbumArtworkEndpoints:
 
     def test_get_artwork_no_artwork(self, client):
         """Test getting artwork when album has no artwork"""
-        mock_album = Mock()
-        mock_album.artwork_path = None
-
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_artwork_path.return_value = (True, None)
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")

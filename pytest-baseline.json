@@ -2,7 +2,7 @@
   "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5175, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, #5295, #5419, and #5225 removed obsolete or newly passing entries by hand, as did #5811 (38 entries: 36 tests that run and pass, and 2 that no longer exist \u2014 --strict-stale cannot see the latter): --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
-    "failedTests": 148
+    "failedTests": 147
   },
   "failures": [
     "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
@@ -23,7 +23,6 @@
     "tests.auralis.core.test_cross_dimensional_interactions.TestQualityGateInterval::test_interval_5_runs_on_call_0_and_5",
     "tests.auralis.core.test_cross_dimensional_interactions.TestQualityGateInterval::test_interval_zero_runs_first_call_only",
     "tests.auralis.core.test_cross_dimensional_interactions.TestQualityGateInterval::test_monitor_records_continuous_measurements",
-    "tests.backend.test_main_api.TestPlayerEndpoints::test_set_volume",
     "tests.backend.test_player_api_comprehensive.TestAddTrackToQueue::test_add_track_valid",
     "tests.backend.test_player_api_comprehensive.TestSetQueue::test_set_queue_with_tracks",
     "tests.backend.test_processing_parameters.TestProcessingParametersDocumentation::test_parameters_endpoint_has_description",
