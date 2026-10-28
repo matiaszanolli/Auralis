@@ -75,7 +75,13 @@ export const Alert = forwardRef<
   };
 
   return (
-    <div ref={ref} role="alert" style={containerStyles} className={className}>
+    <div
+      ref={ref}
+      // Only warnings and errors are assertive; info and success are polite status text (#5669).
+      role={variant === 'error' || variant === 'warning' ? 'alert' : 'status'}
+      style={containerStyles}
+      className={className}
+    >
       {icon && <div>{icon}</div>}
       <div style={contentStyles}>{children}</div>
       {onClose && (
