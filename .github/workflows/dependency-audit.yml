@@ -1,0 +1,80 @@
+name: Dependency Audit
+
+# Gate added for #6178. Rust already had one (rust-audit.yml); the Python runtime lock and the npm
+# trees had none, so an advisory published against an unchanged lockfile went unnoticed until
+# someone ran an audit by hand (multidict PYSEC-2026-4244 and js-yaml GHSA-2883-xcg3-v3hh both sat
+# in a shipped lock this way).
+#
+# Blocking: any advisory against the hash-locked Python runtime set, and any high/critical
+# advisory against the *production* dependency tree of the root, desktop and frontend packages --
+# those are what ship. The dev/build trees are reported in a separate non-blocking step: their
+# remaining advisories (undici via jsdom, esbuild via vite, happy-dom) need major-version bumps and
+# are tracked in #6181, so gating on them would hold every PR hostage to a toolchain decision.
+#
+# Runs on lockfile changes, and weekly so a newly published advisory against an unchanged lock
+# still shows up.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'requirements-lock.txt'
+      - 'pnpm-lock.yaml'
+      - 'desktop/pnpm-lock.yaml'
+      - 'auralis-web/frontend/pnpm-lock.yaml'
+      - '.github/workflows/dependency-audit.yml'
+  pull_request:
+    paths:
+      - 'requirements-lock.txt'
+      - 'pnpm-lock.yaml'
+      - 'desktop/pnpm-lock.yaml'
+      - 'auralis-web/frontend/pnpm-lock.yaml'
+      - '.github/workflows/dependency-audit.yml'
+  schedule:
+    # Weekly (Mon 06:30 UTC), after rust-audit.yml.
+    - cron: '30 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  python-runtime-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+
+      - name: Audit requirements-lock.txt
+        # --no-deps: the file is the fully resolved, hash-pinned graph, so pip-audit must not
+        # resolve anything itself. --disable-pip keeps it from building an environment.
+        # Exit status is non-zero on any known vulnerability.
+        run: |
+          python -m pip install pip-audit
+          pip-audit -r requirements-lock.txt --no-deps --disable-pip
+
+  npm-production-trees:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ['.', 'desktop', 'auralis-web/frontend']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Audit production dependencies (high and critical block)
+        working-directory: ${{ matrix.package }}
+        run: pnpm audit --prod --audit-level high
+
+      - name: Report dev/build-tree advisories (non-blocking, tracked in #6181)
+        working-directory: ${{ matrix.package }}
+        continue-on-error: true
+        run: pnpm audit --audit-level high
