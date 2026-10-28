@@ -22,6 +22,7 @@ from .genre_repository import GenreRepository
 from .playlist_repository import PlaylistRepository
 from .processing_job_repository import ProcessingJobRepository
 from .settings_repository import SettingsRepository
+from .similarity_graph_repository import SimilarityGraphRepository
 from .stats_repository import StatsRepository
 from .track_repository import TrackRepository
 
@@ -76,6 +77,7 @@ class RepositoryFactory:
         self._stats_repo: StatsRepository | None = None
         self._settings_repo: SettingsRepository | None = None
         self._processing_job_repo: ProcessingJobRepository | None = None
+        self._similarity_graph_repo: SimilarityGraphRepository | None = None
 
     @property
     def tracks(self) -> TrackRepository:
@@ -156,6 +158,13 @@ class RepositoryFactory:
         if not self._processing_job_repo:
             self._processing_job_repo = ProcessingJobRepository(self.session_factory)
         return self._processing_job_repo
+
+    @property
+    def similarity_graph(self) -> SimilarityGraphRepository:
+        """Get or create SimilarityGraphRepository instance (#5368)"""
+        if not self._similarity_graph_repo:
+            self._similarity_graph_repo = SimilarityGraphRepository(self.session_factory)
+        return self._similarity_graph_repo
 
     def reset_library(self) -> None:
         """Atomically delete the entire library in a single transaction.

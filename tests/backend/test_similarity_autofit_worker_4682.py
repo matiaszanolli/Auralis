@@ -62,7 +62,9 @@ class TestSuccessfulFit:
 
         assert globals_dict["graph_builder"] is builder_cls.return_value
         builder_cls.assert_called_once_with(
-            similarity_system=sim_system, session_factory=lib_mgr.SessionLocal
+            similarity_system=sim_system,
+            session_factory=lib_mgr.SessionLocal,
+            graph_repo=lib_mgr.repositories.similarity_graph,
         )
 
     async def test_fit_returning_false_leaves_graph_builder_unset(self):

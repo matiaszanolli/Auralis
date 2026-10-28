@@ -110,6 +110,7 @@ class SimilarityAutoFitWorker:
                     self._globals_dict['graph_builder'] = self._builder_cls(
                         similarity_system=self._sim_system,
                         session_factory=self._lib_mgr.SessionLocal,
+                        graph_repo=self._lib_mgr.repositories.similarity_graph,
                     )
                     logger.info("✅ Similarity auto-fitted; K-NN Graph Builder ready")
             elif self._stop_event.is_set():

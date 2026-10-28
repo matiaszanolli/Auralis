@@ -77,7 +77,8 @@ class KNNGraphBuilder:
     def __init__(
         self,
         similarity_system: FingerprintSimilarity,
-        session_factory: Any
+        session_factory: Any,
+        graph_repo: SimilarityGraphRepository | None = None,
     ) -> None:
         """
         Initialize graph builder
@@ -85,10 +86,12 @@ class KNNGraphBuilder:
         Args:
             similarity_system: FingerprintSimilarity instance (already fitted)
             session_factory: SQLAlchemy session factory
+            graph_repo: The library's shared repository (``RepositoryFactory.similarity_graph``,
+                #5368); built from ``session_factory`` when not supplied
         """
         self.similarity = similarity_system
         self.session_factory = session_factory
-        self.graph_repo = SimilarityGraphRepository(session_factory)
+        self.graph_repo = graph_repo or SimilarityGraphRepository(session_factory)
 
         if not self.similarity.is_fitted():
             raise ValueError("Similarity system must be fitted before building graph")
