@@ -118,6 +118,8 @@ async def upload_files(
                     return tmp.name
 
             temp_path = await asyncio.to_thread(_write_temp, content, suffix)
+            permanent_path: Path | None = None
+            track_added = False
 
             try:
                 # Read the header for duration / sample rate / channels. This used to decode
@@ -156,6 +158,7 @@ async def upload_files(
                 track = await asyncio.to_thread(repos.tracks.add, track_info)
 
                 if track:
+                    track_added = True
                     results.append({
                         "filename": file.filename or "",
                         "status": "success",
@@ -189,6 +192,13 @@ async def upload_files(
                     Path(temp_path).unlink(missing_ok=True)
                 except Exception as e:
                     logger.debug(f"Failed to clean temp file: {e}")
+                # The file was moved into ~/.auralis/uploads before the DB insert; if the insert
+                # failed (or returned None) nothing references it, and it stayed there forever (#5968).
+                if permanent_path is not None and not track_added:
+                    try:
+                        permanent_path.unlink(missing_ok=True)
+                    except Exception as e:
+                        logger.debug(f"Failed to clean orphaned upload: {e}")
 
         except Exception as e:
             logger.error(f"Upload error for {sanitize_log_value(file.filename)}: {e}", exc_info=True)

@@ -66,3 +66,26 @@ def test_an_upload_whose_header_is_unreadable_is_an_error_not_a_track(api):
     assert response.status_code == 200
     assert response.json()["results"][0]["status"] == "error"
     repos.tracks.add.assert_not_called()
+
+
+def test_a_failed_library_insert_does_not_leave_the_moved_upload_behind(api):
+    """#5968: the file is moved into ~/.auralis/uploads before the DB insert; if the insert
+    fails, nothing references it and it used to stay there forever."""
+    client, repos, tmp_path = api
+    repos.tracks.add = Mock(return_value=None)  # the repository swallowed an error
+    body = _wav_bytes(tmp_path)
+
+    response = client.post("/api/files/upload", files=[("files", ("song.wav", body, "audio/wav"))])
+
+    assert response.json()["results"][0]["status"] == "error"
+    uploads = tmp_path / ".auralis" / "uploads"
+    assert not uploads.exists() or list(uploads.iterdir()) == []
+
+
+def test_a_successful_upload_keeps_its_file(api):
+    client, _repos, tmp_path = api
+    body = _wav_bytes(tmp_path)
+
+    client.post("/api/files/upload", files=[("files", ("song.wav", body, "audio/wav"))])
+
+    assert len(list((tmp_path / ".auralis" / "uploads").iterdir())) == 1
