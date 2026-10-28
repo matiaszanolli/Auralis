@@ -126,10 +126,10 @@ if __name__ == "__main__":
         app,  # Pass app directly instead of "main:app" to avoid module duplication
         host="127.0.0.1",
         port=_port,
-        # Bound inbound frames at the transport, before they are buffered: the
-        # app-level size check runs on text already fully received, and the
-        # library default is 16 MB (#5915).
+        # Bound inbound frames at the transport, before they are buffered; the library default is 16 MB (#5915).
         ws_max_size=WS_MAX_MESSAGE_SIZE,
         # Same value the root logger was configured with at import time (#5065).
         log_level=_log_level,
+        # No uvicorn LOGGING_CONFIG: its stock handlers bypass the sanitizing root handler (#6184).
+        log_config=None,
     )
