@@ -23,7 +23,7 @@ from ..utils.artwork_security import (
 )
 from ..utils.logging import debug, error, info
 from .artwork_tags import TagArtworkReadersMixin
-from .folder_artwork import read_folder_artwork
+from .folder_artwork import candidate_cover_files, read_folder_artwork
 
 # Cap the largest side of stored artwork (#4439). Embedded/folder covers can be
 # arbitrarily large (e.g. 6000x6000); bounding the source here keeps disk usage
@@ -109,13 +109,8 @@ class ArtworkExtractor(TagArtworkReadersMixin):
 
     def _find_folder_artwork(self, audio_filepath: str, album_id: int) -> str | None:
         """
-        Look for folder.jpg/folder.png or cover.jpg/cover.png in the album directory
-
-        Supports multiple naming conventions:
-        - folder.jpg, cover.jpg (standard)
-        - front.jpg (common in digital music collections)
-        - AlbumArtSmall.jpg (Windows Media Player)
-        - Various case variations
+        Look for folder/cover/front/AlbumArt images (jpg, jpeg, png, webp, any case)
+        in the album directory
 
         Args:
             audio_filepath: Path to audio file (to determine album directory)
@@ -128,34 +123,10 @@ class ArtworkExtractor(TagArtworkReadersMixin):
             # Get the directory containing the audio file (album folder)
             album_dir = Path(audio_filepath).parent
 
-            # Priority order: check most common artwork filenames first
-            # Standard naming (highest priority)
-            artwork_names = [
-                'folder.jpg', 'folder.jpeg', 'folder.png',
-                'Folder.jpg', 'Folder.jpeg', 'Folder.png',
-                'cover.jpg', 'cover.jpeg', 'cover.png',
-                'Cover.jpg', 'Cover.jpeg', 'Cover.png',
-            ]
-
-            # Front artwork (very common in many music libraries)
-            artwork_names.extend([
-                'front.jpg', 'front.jpeg', 'front.png',
-                'Front.jpg', 'Front.jpeg', 'Front.png',
-                'FRONT.jpg', 'FRONT.jpeg', 'FRONT.png',
-            ])
-
-            # Windows Media Player and other naming conventions
-            artwork_names.extend([
-                'AlbumArtSmall.jpg', 'AlbumArt.jpg',
-                'albumart.jpg', 'albumartsmall.jpg',
-            ])
-
-            for artwork_name in artwork_names:
-                artwork_file = album_dir / artwork_name
+            for artwork_file in candidate_cover_files(album_dir):
                 artwork_data = read_folder_artwork(artwork_file)
                 if artwork_data is not None:
-                    # Determine MIME type from extension
-                    mime_type = 'image/png' if artwork_file.suffix.lower() in ['.png'] else 'image/jpeg'
+                    mime_type = f"image/{detect_image_extension(artwork_data)}"
 
                     # Save to artwork directory
                     saved_path = self._save_artwork(artwork_data, album_id, mime_type)

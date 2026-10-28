@@ -14,6 +14,7 @@ from mutagen.id3 import ID3
 from mutagen.mp4 import MP4, MP4Cover
 
 from ..utils.logging import debug
+from .picture_choice import front_cover_first
 
 
 class TagArtworkReadersMixin:
@@ -27,10 +28,10 @@ class TagArtworkReadersMixin:
                 return None, None
 
             # Look for APIC (Attached Picture) frames
-            for key in tags.keys():
-                if key.startswith('APIC'):
-                    apic = tags[key]
-                    return apic.data, apic.mime
+            apics = [tags[key] for key in tags.keys() if key.startswith('APIC')]
+            if apics:
+                apic = front_cover_first(apics)
+                return apic.data, apic.mime
 
         except Exception as e:
             debug(f"Failed to extract from ID3: {e}")
@@ -60,7 +61,7 @@ class TagArtworkReadersMixin:
         """Extract artwork from FLAC files"""
         try:
             if audio_file.pictures:
-                picture = audio_file.pictures[0]  # Get first picture
+                picture = front_cover_first(audio_file.pictures)
                 return picture.data, picture.mime
 
         except Exception as e:
@@ -82,9 +83,8 @@ class TagArtworkReadersMixin:
                 if key in tags:
                     # Handle base64-encoded artwork (Vorbis comments)
                     if key == 'METADATA_BLOCK_PICTURE':
-                        picture_data = base64.b64decode(tags[key][0])
-                        # Parse FLAC Picture block
-                        picture = Picture(picture_data)  # type: ignore[no-untyped-call]
+                        blocks = (Picture(base64.b64decode(b)) for b in tags[key])  # type: ignore[no-untyped-call]
+                        picture = front_cover_first(blocks)
                         return picture.data, picture.mime
                     else:
                         # Legacy COVERART/COVER store the image as a base64 STRING;
