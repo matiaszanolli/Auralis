@@ -26,6 +26,10 @@ from ..utils.artist_normalizer import parse_featured_artists
 # regex or the repository sees it: frames can be megabytes (#6154).
 MAX_TAG_TEXT_CHARS = 1000
 
+# A track or disc number above this is a corrupt or hostile tag, not a position: a value past
+# SQLite's int64 raised OverflowError in the insert and blocked the track's ingest (#5732).
+MAX_TRACK_NUMBER = 99_999
+
 # #3757: log once at module import if mutagen is missing. Previously each
 # per-file extraction emitted a `debug()` line, so users investigating
 # "why is my library scan missing artist/title/album" couldn't easily
@@ -161,14 +165,14 @@ class MetadataExtractor:
                 # Handle track/disc numbers (tuple/list for MP4, string for Vorbis/ID3/ASF)
                 if isinstance(value, (tuple, list)):
                     track_no = int(value[0]) if value else 0
-                    return track_no if track_no > 0 else None
+                    return track_no if 0 < track_no <= MAX_TRACK_NUMBER else None
 
                 val_str = str(value).strip()
                 if '/' in val_str:
                     num = int(val_str.split('/')[0])
                 else:
                     num = int(val_str)
-                return num if num > 0 else None
+                return num if 0 < num <= MAX_TRACK_NUMBER else None
 
             elif field in ['year', 'date']:
                 # Handle year/date
