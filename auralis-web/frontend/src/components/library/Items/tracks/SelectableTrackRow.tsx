@@ -29,6 +29,8 @@ interface SelectableTrackRowProps {
   isSelected: boolean;
   /** Roving-tabindex focus stop (#5011) — see TrackRow's doc. */
   tabIndex?: number;
+  /** Whole-list size for aria-setsize — see TrackRow (#5672). */
+  setSize?: number;
   onToggleSelect: (trackId: number, event: MouseEvent) => void;
   isPlaying?: boolean;
   isCurrent?: boolean;
@@ -49,6 +51,7 @@ const SelectableTrackRow = ({
   index,
   isSelected,
   tabIndex,
+  setSize,
   onToggleSelect,
   isPlaying,
   isCurrent,
@@ -94,6 +97,7 @@ const SelectableTrackRow = ({
           isCurrent={isCurrent}
           isSelected={isSelected}
           tabIndex={tabIndex}
+          setSize={setSize}
           onPlay={onPlay}
           onPause={onPause}
           onDoubleClick={onDoubleClick}

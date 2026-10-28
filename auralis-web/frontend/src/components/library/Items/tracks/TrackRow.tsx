@@ -33,6 +33,9 @@ interface TrackRowProps {
    *  per the WAI-ARIA APG listbox pattern. Defaults to 0 for callers (e.g.
    *  existing tests) that don't manage roving focus. */
   tabIndex?: number;
+  /** Size of the whole list, for aria-setsize/aria-posinset: a virtualized listbox mounts only
+   *  the visible rows, so AT cannot count the rest (#5672). */
+  setSize?: number;
   onPlay: (trackId: number) => void;
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
@@ -52,6 +55,7 @@ const TrackRowComponent = ({
   isCurrent = false,
   isSelected = false,
   tabIndex = 0,
+  setSize,
   onPlay,
   onPause,
   onDoubleClick,
@@ -128,6 +132,8 @@ const TrackRowComponent = ({
         aria-label={`${track.title} by ${track.artist}${isCurrent ? ', now playing' : ''}`}
         aria-current={isCurrent ? 'true' : undefined}
         aria-selected={isSelected}
+        aria-setsize={setSize}
+        aria-posinset={setSize === undefined ? undefined : index + 1}
         data-track-index={index}
         iscurrent={isCurrentStr}
         onClick={handleRowClick}

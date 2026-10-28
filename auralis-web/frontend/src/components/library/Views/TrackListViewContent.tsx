@@ -238,6 +238,7 @@ export const TrackListViewContent = ({
                   index={virtualRow.index}
                   isSelected={isSelected(track.id)}
                   tabIndex={virtualRow.index === tabStopIndex ? 0 : -1}
+                  setSize={Math.max(totalTracks, tracks.length)}
                   onToggleSelect={onToggleSelect}
                   isPlaying={isPlaying && currentTrackId === track.id}
                   isCurrent={currentTrackId === track.id}

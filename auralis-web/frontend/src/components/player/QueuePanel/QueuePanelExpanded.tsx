@@ -247,6 +247,7 @@ export const QueuePanelExpanded = ({
                   onHover={handleHover}
                   disabled={isLoading}
                   tabIndex={index === tabStopIndex ? 0 : -1}
+                  setSize={queue.length}
                   style={{
                     position: 'absolute' as const,
                     top: 0,

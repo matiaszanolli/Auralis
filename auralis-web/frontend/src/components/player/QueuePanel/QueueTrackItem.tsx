@@ -27,6 +27,8 @@ export interface QueueTrackItemProps {
   disabled: boolean;
   /** Roving tabindex (#6027): 0 for the one row that is the list's tab stop, -1 otherwise. */
   tabIndex?: 0 | -1;
+  /** Queue length for aria-setsize: only the visible rows are mounted (#5672). */
+  setSize?: number;
   style?: CSSProperties;
 }
 
@@ -44,6 +46,7 @@ const QueueTrackItemImpl = ({
   onHover,
   disabled,
   tabIndex = 0,
+  setSize,
   style: positionStyle,
 }: QueueTrackItemProps) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -61,6 +64,8 @@ const QueueTrackItemImpl = ({
       role="listitem"
       tabIndex={tabIndex}
       aria-current={isCurrentTrack ? 'true' : undefined}
+      aria-setsize={setSize}
+      aria-posinset={setSize === undefined ? undefined : index + 1}
       aria-label={`${track.title} by ${track.artist}, ${formatDuration(track.duration)}`}
       // Without this the reorder gesture is undiscoverable: there is no visible
       // affordance for it, and drag-and-drop is not exposed to assistive tech.
