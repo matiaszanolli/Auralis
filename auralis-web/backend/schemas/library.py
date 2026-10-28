@@ -110,7 +110,6 @@ class TrackResponse(BaseModel):
     # Audio analysis
     dr_rating: float | None = Field(default=None, description="Dynamic range rating")
     mastering_quality: float | None = Field(default=None, description="Quality score (0–1)")
-    recommended_reference: str | None = Field(default=None, description="Best reference track")
     processing_profile: str | None = Field(default=None, description="Optimal mastering profile")
 
     # Metadata / navigation

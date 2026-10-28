@@ -282,10 +282,15 @@ class TestWireShape:
         )
 
     def test_rest_response_model_declares_failures(self):
+        import sys
         from pathlib import Path
 
-        source = Path("auralis-web/backend/schemas/library.py").read_text()
+        sys.path.insert(0, str(Path("auralis-web/backend").resolve()))
+        from schemas.library import ScanFailure as ScanFailureResponse
+        from schemas.library import ScanResultResponse
 
         # response_model FILTERS undeclared keys, so an omission here would
-        # silently strip the field from the REST reply.
-        assert 'failures: list[dict[str, str]]' in source
+        # silently strip the field from the REST reply. The entries are the typed
+        # {filename, reason} model (#5500), not an open string map.
+        assert "failures" in ScanResultResponse.model_fields
+        assert ScanResultResponse.model_fields["failures"].annotation == list[ScanFailureResponse]

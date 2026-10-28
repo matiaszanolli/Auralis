@@ -155,7 +155,6 @@ class Track(Base, TimestampMixin):
                 'filesize': self.filesize,
                 'dr_rating': self.dr_rating,
                 'mastering_quality': self.mastering_quality,
-                'recommended_reference': self.recommended_reference,
                 'processing_profile': self.processing_profile,
                 'album_id': self.album_id,
                 'track_number': self.track_number,
