@@ -320,4 +320,16 @@ describe('Player', () => {
     expect(screen.getByTitle('Toggle queue')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByTitle('Toggle queue')).toHaveFocus();
   });
+
+  it('requests a thumbnail-sized variant of the playing track\'s artwork (#5895)', () => {
+    const track = { ...mockTrack, albumId: 4, artworkUrl: '/api/albums/4/artwork' };
+    const { container } = renderPlayer(<Player />, {
+      preloadedState: { player: { currentTrack: track } as never },
+    });
+
+    const image = container.querySelector('img[src*="/api/albums/4/artwork"]');
+    expect(image).not.toBeNull();
+    // 2x the 44 px slot, not the stored original (up to 2048 px).
+    expect(image!.getAttribute('src')).toContain('size=88');
+  });
 });

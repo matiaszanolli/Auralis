@@ -36,6 +36,11 @@ import { usePlaybackControls, usePlaybackProgress } from '@/contexts/PlaybackSes
 import { useSelector } from 'react-redux';
 import { playerSelectors } from '@/store/selectors';
 import { selectEnhancedStreaming } from '@/store/slices/playerSlice';
+import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
+import { withArtworkSize } from '@/services/artworkService';
+
+/** 2x the 44 px slot, for high-density displays. */
+const PLAYER_BAR_ARTWORK_PX = 88;
 
 const Player = () => {
   // Queue panel visibility state
@@ -43,6 +48,12 @@ const Player = () => {
 
   // Redux state for current playback info (typed selectors fix #2463)
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
+  // The bar shows a 44 px thumbnail: ask for a 2x-sized variant instead of the stored original
+  // (up to 2048 px), and re-request when the album's art is replaced (#5895).
+  // PlayerTrack carries no album id; the artwork URL does.
+  const artworkAlbumId = Number(/\/albums\/(\d+)\/artwork/.exec(currentTrack?.artworkUrl ?? '')?.[1] ?? 0);
+  const artworkRevision = useArtworkRevision(artworkAlbumId);
+  const playerBarArtwork = withArtworkSize(currentTrack?.artworkUrl ?? undefined, PLAYER_BAR_ARTWORK_PX, artworkRevision);
   const playerVolume = useSelector(playerSelectors.selectVolume);
   const playerIsMuted = useSelector(playerSelectors.selectIsMuted);
 
@@ -146,7 +157,7 @@ const Player = () => {
             title={currentTrack?.title ?? 'No track'}
             artist={currentTrack?.artist}
             album={currentTrack?.album}
-            artworkUrl={currentTrack?.artworkUrl}
+            artworkUrl={playerBarArtwork}
             isLoading={isBuffering}
             className="player-track-display"
           />
