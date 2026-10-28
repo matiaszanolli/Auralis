@@ -21,6 +21,7 @@ duplication.
 """
 
 import asyncio
+from collections import Counter
 import logging
 import sys
 import tempfile
@@ -279,20 +280,18 @@ class ProcessingEngine:
         return list(self.jobs.values())
 
     def get_queue_status(self) -> dict[str, Any]:
-        """Get current queue status. Populates both `total`/`cancelled` (the
-        QueueStatusResponse fields) and `total_jobs` (the older extra field
-        callers/tests already read) so the two agree instead of the client
-        seeing `total=0` next to a populated `total_jobs` (#3886)."""
-        # Snapshot to avoid RuntimeError if cleanup_old_jobs mutates self.jobs concurrently (#2435)
-        jobs = list(self.jobs.values())
+        """Queue status; `total` and the older `total_jobs` agree (#3886), and every status has a bucket (#5496)."""
+        jobs = list(self.jobs.values())  # snapshot: cleanup_old_jobs may mutate self.jobs concurrently (#2435)
+        by_status = Counter(j.status for j in jobs)
         return {
             "total_jobs": len(jobs),
             "total": len(jobs),
-            "queued": len([j for j in jobs if j.status == ProcessingStatus.QUEUED]),
+            "queued": by_status[ProcessingStatus.QUEUED],
             "processing": self._active_job_count,  # replaces ._value private attr (#2459)
-            "completed": len([j for j in jobs if j.status == ProcessingStatus.COMPLETED]),
-            "failed": len([j for j in jobs if j.status == ProcessingStatus.FAILED]),
-            "cancelled": len([j for j in jobs if j.status == ProcessingStatus.CANCELLED]),
+            "completed": by_status[ProcessingStatus.COMPLETED],
+            "failed": by_status[ProcessingStatus.FAILED],
+            "cancelled": by_status[ProcessingStatus.CANCELLED],
+            "interrupted": by_status[ProcessingStatus.INTERRUPTED],
             "max_concurrent": self.max_concurrent_jobs,
             "max_queue_size": self.max_queue_size,
             "queue_full": self.job_queue.full(),

@@ -127,6 +127,7 @@ class QueueStatusResponse(BaseModel):
     completed: int = 0
     failed: int = 0
     cancelled: int = 0
+    interrupted: int = 0
     total: int = 0
 
     model_config = {"extra": "allow"}
