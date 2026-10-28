@@ -62,6 +62,7 @@ def register_allowed_directory(directory: Path) -> None:
     resolved = directory.resolve()
     if resolved not in _extra_allowed_dirs:
         _extra_allowed_dirs.append(resolved)
+        logger.info("Allowed directory registered: %s (%d extra)", resolved.name, len(_extra_allowed_dirs))  # audit (#6185)
 
 
 def unregister_allowed_directory(directory: Path) -> None:
@@ -73,18 +74,17 @@ def unregister_allowed_directory(directory: Path) -> None:
     resolved = directory.resolve()
     if resolved in _extra_allowed_dirs:
         _extra_allowed_dirs.remove(resolved)
+        logger.info("Allowed directory removed: %s (%d extra)", resolved.name, len(_extra_allowed_dirs))
 
 
 def clear_extra_allowed_directories() -> None:
     """Remove all runtime-registered extra directories (fixes #3842).
 
-    Called on settings reset, since `reset_to_defaults` wipes the configured
-    `scan_folders` list — none of the previously-registered extra directories
-    should remain implicitly trusted afterward.
+    Called on settings reset: `reset_to_defaults` wipes `scan_folders`, so none
+    of the registered directories should stay implicitly trusted.
     """
+    logger.info("Cleared %d extra allowed directories", len(_extra_allowed_dirs))
     _extra_allowed_dirs.clear()
-
-
 
 
 def get_allowed_directories() -> list[Path]:
