@@ -79,13 +79,7 @@ async def build_similarity_graph(
         Graph build statistics
     """
     if graph_builder is None:
-        # The builder is published by the auto-fit worker's periodic check once the
-        # system is fitted - including after a manual POST /fit - so "fit first" sent a
-        # caller who had already fitted in a circle (#5890).
-        raise ServiceUnavailableError(
-            "The K-NN graph builder is not ready. Fit the similarity system with POST /api/similarity/fit "
-            "if you have not; the builder appears within a few minutes of the system being fitted."
-        )
+        raise ServiceUnavailableError("Graph builder not ready: fit via POST /api/similarity/fit if needed; it appears within a few minutes of the fit")
 
     # CPU-bound O(N²) K-NN computation; offload to thread so the
     # event loop stays responsive (fixes #2738).
