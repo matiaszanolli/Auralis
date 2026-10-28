@@ -8,7 +8,7 @@ Shared bounded types for request bodies (#4681). Split out of schemas.py
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 
@@ -43,3 +43,8 @@ TrackIdList = Annotated[list[TrackId], Field(max_length=MAX_TRACK_ID_LIST)]
 
 #: A list of queue positions, bounded per element and in length.
 QueueIndexList = Annotated[list[QueueIndex], Field(max_length=MAX_TRACK_ID_LIST)]
+
+# Output bit depths the save step maps to a subtype (core/processing_engine.py).
+# One definition for both the processing job settings and the persisted user
+# setting, so they cannot accept different sets (#5984).
+BitDepth = Literal[16, 24, 32]

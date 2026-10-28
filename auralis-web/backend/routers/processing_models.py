@@ -12,6 +12,7 @@ from auralis.core.config.settings import ProcessingMode
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
+from schemas import BitDepth
 
 from core.processing_engine import ProcessingStatus
 
@@ -32,7 +33,7 @@ class ProcessingSettings(BaseModel):
     # libsndfile and fail deep inside the save step as a generic job
     # failure, not a 422 at submit time.
     output_format: Literal["wav", "flac", "mp3"] = "wav"
-    bit_depth: Literal[16, 24, 32] = 16
+    bit_depth: BitDepth = 16
     sample_rate: int | None = None  # None = keep original
 
     # EQ settings

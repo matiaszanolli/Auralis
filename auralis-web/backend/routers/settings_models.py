@@ -7,7 +7,7 @@ Settings router bodies and the enhancement-settings field list (split from setti
 
 import logging
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from schemas import DEFAULT_PRESET, EnhancementIntensity, EnhancementPresetLiteral
+from schemas import DEFAULT_PRESET, BitDepth, EnhancementIntensity, EnhancementPresetLiteral
 import math
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class SettingsUpdateRequest(BaseModel):
     )
     # Audio output
     output_device: str | None = None
-    bit_depth: int | None = None
+    bit_depth: BitDepth | None = None
     sample_rate: int | None = Field(default=None, gt=0)
     # Interface
     theme: str | None = None

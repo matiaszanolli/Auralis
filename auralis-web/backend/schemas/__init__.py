@@ -40,6 +40,7 @@ from .library import (
 from .mastering import MasteringRecommendationResponse
 from .request_bounds import (
     MAX_TRACK_ID_LIST,
+    BitDepth,
     QueueIndex,
     QueueIndexList,
     TrackId,
@@ -80,6 +81,7 @@ __all__ = [
     "OverallCacheStats",
     "PlaylistResponse",
     "QueueIndex",
+    "BitDepth",
     "QueueIndexList",
     "ScanResultResponse",
     "TrackCacheStatusResponse",

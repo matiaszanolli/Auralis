@@ -8,7 +8,7 @@ schemas.py (#5479).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 class HealthResponse(BaseModel):
     """Response model for GET /api/health."""
-    status: str = Field(description="Liveness: always 'healthy' while the process serves requests")
+    status: Literal["healthy"] = Field(description="Liveness: always 'healthy' while the process serves requests")
     auralis_available: bool = Field(
         description="True only when the engine imported AND its library database "
                     "initialised; false after a failed or rolled-back startup (#4684)"
@@ -54,15 +54,11 @@ class TrackCacheStatusResponse(BaseModel):
     cached_processed: int = Field(description="Number of processed chunks cached")
     completion_percent: float = Field(description="Overall cache completion percentage")
     fully_cached: bool = Field(description="Whether all chunks are cached")
-    estimated_cache_time_seconds: float | None = Field(
-        default=None,
-        description="Estimated seconds until fully cached"
-    )
 
 
 class CacheTierStats(BaseModel):
     """Statistics for a single cache tier."""
-    tier_name: str = Field(description="Tier identifier (e.g. 'tier1', 'tier2')")
+    tier_name: Literal["tier1", "tier2"] = Field(description="Tier identifier")
     chunks: int = Field(description="Number of chunks stored in this tier")
     size_mb: float = Field(description="Total size of cached data in MB")
     hits: int = Field(description="Total cache hits")
