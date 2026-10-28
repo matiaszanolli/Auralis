@@ -8,20 +8,28 @@ dimensions.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import math
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
-from ..analysis.fingerprint.schema import DIMENSION_SCHEMA
 from ..utils.logging import debug, warning
+from .sidecar_fingerprint_check import fingerprint_block_is_valid
 
 
 def sidecar_matches_audio(
-    data: dict[str, Any], audio_path: Path, expected_format_version: str
+    data: Any, audio_path: Path, expected_format_version: str
 ) -> bool:
-    """True if ``data`` is a current, complete sidecar for the file at ``audio_path``."""
+    """True if ``data`` is a current, complete sidecar for the file at ``audio_path``.
+
+    ``data`` is whatever ``json.load`` returned: a foreign or hand-edited file
+    may hold a list, a string or ``null``, which is simply not a valid sidecar
+    (#6147).
+    """
+    if not isinstance(data, dict):
+        warning(f"Sidecar is not a JSON object: {type(data).__name__}")
+        return False
+
     # Check format version
     format_version = data.get('format_version')
     if format_version != expected_format_version:
@@ -38,6 +46,9 @@ def sidecar_matches_audio(
 
     # Check audio file metadata
     audio_meta = data.get('audio_file', {})
+    if not isinstance(audio_meta, dict):
+        warning("Sidecar audio_file is not an object")
+        return False
 
     # Check file size
     expected_size = audio_meta.get('size_bytes')
@@ -46,10 +57,11 @@ def sidecar_matches_audio(
         debug(f"Audio file size changed: {expected_size} → {actual_size}")
         return False
 
-    # Check modification time
+    # Check modification time. Required: a sidecar without modified_at used to
+    # pass on file size alone (#6175); every writer records it.
     expected_mtime = audio_meta.get('modified_at')
     actual_mtime = datetime.fromtimestamp(audio_path.stat().st_mtime).isoformat()
-    if expected_mtime and expected_mtime != actual_mtime:
+    if expected_mtime != actual_mtime:
         debug(f"Audio file modified: {expected_mtime} → {actual_mtime}")
         return False
 
@@ -58,49 +70,4 @@ def sidecar_matches_audio(
     # (rare) but costs a full file read on every check, so it's not
     # computed here (#4405).
 
-    # Check required fields
-    fingerprint = data.get('fingerprint')
-    if not isinstance(fingerprint, dict):
-        warning("Sidecar missing fingerprint data")
-        return False
-
-    fingerprint_values: dict[str, Any] = {}
-    if 'frequency' in fingerprint:
-        for category in (
-            'frequency', 'dynamics', 'temporal', 'spectral',
-            'harmonic', 'variation', 'stereo',
-        ):
-            category_data = fingerprint.get(category)
-            if isinstance(category_data, dict):
-                fingerprint_values.update(category_data)
-    else:
-        fingerprint_values.update(fingerprint)
-
-    missing_dimensions = set(DIMENSION_SCHEMA) - fingerprint_values.keys()
-    if missing_dimensions:
-        warning(
-            "Sidecar fingerprint is incomplete; missing "
-            f"{len(missing_dimensions)} dimensions"
-        )
-        return False
-
-    # #4910: a sidecar is trusted as authoritative and skips real
-    # analysis entirely — reject non-numeric or non-finite (NaN/
-    # Infinity) dimension values before that happens. Python's json
-    # module accepts NaN/Infinity literals by default, and nothing
-    # downstream range-checks these 25 values before they drive
-    # content-aware processing decisions.
-    for dimension in DIMENSION_SCHEMA:
-        value = fingerprint_values[dimension]
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            warning(
-                f"Sidecar dimension '{dimension}' is non-numeric: {value!r}"
-            )
-            return False
-        if not math.isfinite(value):
-            warning(
-                f"Sidecar dimension '{dimension}' is non-finite: {value!r}"
-            )
-            return False
-
-    return True
+    return fingerprint_block_is_valid(data.get('fingerprint'))

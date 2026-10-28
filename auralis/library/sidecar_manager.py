@@ -126,9 +126,12 @@ class SidecarManager:
 
         try:
             with open(sidecar_path, encoding='utf-8') as f:
-                data: dict[str, Any] = json.load(f)
+                data = json.load(f)
+            if not isinstance(data, dict):  # a list/string/null: not a sidecar (#6147)
+                error(f"Sidecar file {sidecar_path} is not a JSON object")
+                return None
             debug(f"Read sidecar file: {sidecar_path}")
-            return data
+            return cast(dict[str, Any], data)
 
         except (json.JSONDecodeError, OSError) as e:
             error(f"Failed to read sidecar file {sidecar_path}: {e}")
@@ -225,13 +228,10 @@ class SidecarManager:
         fingerprint = data.get('fingerprint', {})
 
         # Flatten nested structure if needed
-        if isinstance(fingerprint, dict) and 'frequency' in fingerprint:
-            # Nested format (from spec example)
+        if isinstance(fingerprint, dict) and 'frequency' in fingerprint:  # nested format
             flat: dict[str, float] = {}
             for category in ['frequency', 'dynamics', 'temporal', 'spectral', 'harmonic', 'variation', 'stereo']:
                 if category in fingerprint:
                     flat.update(fingerprint[category])
             return flat
-        else:
-            # Already flat format
-            return cast(dict[str, float], fingerprint)
+        return cast(dict[str, float], fingerprint)  # already flat

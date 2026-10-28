@@ -314,6 +314,58 @@ def test_is_valid_rejects_null_dimension(
     assert not sidecar_manager.is_valid(temp_audio_file)
 
 
+def _rewrite_sidecar(sidecar_manager, audio, mutate):
+    path = sidecar_manager.get_sidecar_path(audio)
+    with open(path) as f:
+        data = json.load(f)
+    mutate(data)
+    with open(path, 'w') as f:
+        json.dump(data, f)
+
+
+@pytest.mark.parametrize("payload", ["[]", "null", '"text"', "7"])
+def test_wrong_shape_json_is_invalid_not_an_exception(
+    sidecar_manager, temp_audio_file, sample_sidecar_data, payload
+):
+    """Valid JSON that is not an object used to raise AttributeError (#6147)."""
+    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
+    sidecar_manager.get_sidecar_path(temp_audio_file).write_text(payload)
+
+    assert sidecar_manager.is_valid(temp_audio_file) is False
+    assert sidecar_manager.read(temp_audio_file) is None
+    assert sidecar_manager.get_fingerprint(temp_audio_file) is None
+
+
+@pytest.mark.parametrize("audio_file", [None, [], "x"])
+def test_non_object_audio_file_entry_is_invalid(
+    sidecar_manager, temp_audio_file, sample_sidecar_data, audio_file
+):
+    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
+    _rewrite_sidecar(sidecar_manager, temp_audio_file, lambda d: d.update(audio_file=audio_file))
+
+    assert sidecar_manager.is_valid(temp_audio_file) is False
+
+
+def test_sidecar_without_modified_at_is_invalid(
+    sidecar_manager, temp_audio_file, sample_sidecar_data
+):
+    """A missing mtime used to pass on file size alone (#6175)."""
+    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
+    _rewrite_sidecar(sidecar_manager, temp_audio_file, lambda d: d["audio_file"].pop("modified_at"))
+
+    assert sidecar_manager.is_valid(temp_audio_file) is False
+
+
+def test_absurd_finite_dimension_value_is_invalid(
+    sidecar_manager, temp_audio_file, sample_sidecar_data
+):
+    """1e30 is finite, so the NaN/Inf check let it through (#6175)."""
+    sidecar_manager.write(temp_audio_file, sample_sidecar_data)
+    _rewrite_sidecar(sidecar_manager, temp_audio_file, lambda d: d["fingerprint"].update(lufs=1e30))
+
+    assert sidecar_manager.is_valid(temp_audio_file) is False
+
+
 def test_is_valid_still_accepts_genuine_fingerprint_after_hardening(
     sidecar_manager, temp_audio_file, sample_sidecar_data
 ):

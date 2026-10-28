@@ -250,6 +250,35 @@ def test_stale_algorithm_version_triggers_reanalysis(mock_compute, extractor_wit
     assert stored['fingerprint_version'] == FINGERPRINT_ALGORITHM_VERSION
 
 
+@patch(_COMPUTE)
+@pytest.mark.parametrize("payload", ["[]", "null", '"text"'])
+def test_wrong_shape_sidecar_falls_back_to_analysis(
+    mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint, payload
+):
+    """Parseable JSON that is not an object used to fail the track for good (#6147)."""
+    sidecar_path = extractor_with_sidecar.sidecar_manager.get_sidecar_path(temp_audio_file)
+    sidecar_path.write_text(payload)
+    mock_compute.return_value = sample_fingerprint
+
+    assert extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    mock_compute.assert_called_once()
+
+
+@patch(_COMPUTE)
+def test_non_numeric_sidecar_fingerprint_version_falls_back_to_analysis(
+    mock_compute, extractor_with_sidecar, temp_audio_file, sample_fingerprint
+):
+    """A ``fingerprint_version`` of "x" raised ValueError outside any fallback (#6175)."""
+    bad = dict(sample_fingerprint, fingerprint_version="x")
+    extractor_with_sidecar.sidecar_manager.write(
+        temp_audio_file, {'fingerprint': bad, 'metadata': {}}
+    )
+    mock_compute.return_value = sample_fingerprint
+
+    assert extractor_with_sidecar.extract_and_store(track_id=1, filepath=str(temp_audio_file))
+    mock_compute.assert_called_once()
+
+
 # ===== Disabled Sidecar Tests =====
 
 @patch(_COMPUTE)

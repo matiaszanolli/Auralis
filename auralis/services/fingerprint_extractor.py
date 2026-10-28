@@ -132,7 +132,11 @@ class FingerprintExtractor:
             return None
 
         # Reject sidecar fingerprints computed with an older algorithm version.
-        sidecar_version = int(fingerprint.get('fingerprint_version', 1))
+        try:
+            sidecar_version = int(fingerprint.get('fingerprint_version', 1))
+        except (TypeError, ValueError):
+            warning("Sidecar fingerprint_version is not a number, will re-analyze")
+            return None
         if sidecar_version < FINGERPRINT_ALGORITHM_VERSION:
             warning(
                 f"Sidecar fingerprint for track {track_id} is v{sidecar_version} "

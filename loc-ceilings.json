@@ -102,7 +102,7 @@
     "auralis/library/scanner/scan_stages.py": 291,
     "auralis/library/scanner/scanner.py": 293,
     "auralis/library/sidecar_manager.py": 237,
-    "auralis/library/sidecar_validation.py": 106,
+    "auralis/library/sidecar_validation.py": 73,
     "auralis/player/components/queue_manager.py": 237,
     "auralis/player/components/queue_navigation.py": 169,
     "auralis/player/components/queue_shuffle.py": 93,
