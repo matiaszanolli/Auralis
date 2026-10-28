@@ -7,7 +7,7 @@ POST /api/files/upload handler (split from files.py, #5831).
 
 import logging
 from auralis.io.formats import SUPPORTED_FORMATS
-from auralis.io.unified_loader import load_audio
+from auralis.io.audio_probe import get_audio_info
 from auralis.utils.logging import sanitize_log_value
 from collections.abc import Callable
 from config.limits import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
@@ -120,9 +120,16 @@ async def upload_files(
             temp_path = await asyncio.to_thread(_write_temp, content, suffix)
 
             try:
-                # Load audio to get metadata (sample rate, duration)
-                audio_data, sample_rate = await asyncio.to_thread(load_audio, temp_path)
-                duration = len(audio_data) / sample_rate
+                # Read the header for duration / sample rate / channels. This used to decode
+                # the whole track (up to the multi-GiB decode budget) and keep both the
+                # upload bytes and the decoded array alive just to take three numbers (#5962).
+                content = b""  # the bytes are on disk now; do not hold up to 500 MB through the move/insert
+                info = await asyncio.to_thread(get_audio_info, temp_path)
+                sample_rate = info.get("sample_rate")
+                channels = info.get("channels")
+                duration = info.get("duration_seconds")
+                if info.get("error") or not (sample_rate and channels and duration):
+                    raise ValueError("The audio header could not be read")
 
                 # Move to permanent library storage before committing the DB record
                 # (issue #2392: storing temp_path then deleting it made every upload
@@ -142,7 +149,7 @@ async def upload_files(
                     "title": file_stem,
                     "duration": duration,
                     "sample_rate": sample_rate,
-                    "channels": 1 if audio_data.ndim == 1 else audio_data.shape[1]
+                    "channels": channels,
                 }
 
                 # Add track to library via repository

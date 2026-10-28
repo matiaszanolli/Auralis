@@ -461,7 +461,7 @@ class TestUploadPermanentStorage:
         track.sample_rate = 44100
         return track
 
-    @patch('routers.files_upload.load_audio')
+    @patch('routers.files_upload.get_audio_info')
     @patch('routers.files_upload.shutil.move')
     def test_db_filepath_is_permanent_not_temp(
         self, mock_move, mock_load, client, tmp_path
@@ -474,7 +474,7 @@ class TestUploadPermanentStorage:
         """
         import numpy as np
 
-        mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
+        mock_load.return_value = {'sample_rate': 44100, 'channels': 2, 'duration_seconds': 1.0}
         # The handler's actual DB call is repos.tracks.add via get_repository_factory
         # — library_database.add_track is dead wiring (files.py's own docstring: "Deprecated,
         # unused. Kept for backward compatibility").
@@ -502,7 +502,7 @@ class TestUploadPermanentStorage:
             "issue #2392 not fixed: track will be unplayable after upload"
         )
 
-    @patch('routers.files_upload.load_audio')
+    @patch('routers.files_upload.get_audio_info')
     @patch('routers.files_upload.shutil.move')
     def test_temp_file_is_cleaned_up_on_success(
         self, mock_move, mock_load, client
@@ -515,7 +515,7 @@ class TestUploadPermanentStorage:
         """
         import numpy as np
 
-        mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
+        mock_load.return_value = {'sample_rate': 44100, 'channels': 2, 'duration_seconds': 1.0}
         mock_lib_obj = Mock()
         mock_lib_obj.add_track.return_value = self._make_mock_track()
 
@@ -542,7 +542,7 @@ class TestUploadPermanentStorage:
             "cleanup did not run correctly"
         )
 
-    @patch('routers.files_upload.load_audio')
+    @patch('routers.files_upload.get_audio_info')
     @patch('routers.files_upload.shutil.move')
     def test_add_track_not_called_when_move_fails(
         self, mock_move, mock_load, client
@@ -555,7 +555,7 @@ class TestUploadPermanentStorage:
         """
         import numpy as np
 
-        mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
+        mock_load.return_value = {'sample_rate': 44100, 'channels': 2, 'duration_seconds': 1.0}
         mock_lib_obj = Mock()
         leaky_message = "Simulated disk full: /home/deploy/secret/tracks.db"
         mock_move.side_effect = OSError(leaky_message)
@@ -578,7 +578,7 @@ class TestUploadPermanentStorage:
         assert "/home/" not in message
         assert message == "Failed to process audio: Audio file could not be read"
 
-    @patch('routers.files_upload.load_audio')
+    @patch('routers.files_upload.get_audio_info')
     @patch('routers.files_upload.shutil.move')
     def test_upload_success_track_is_playable(
         self, mock_move, mock_load, client, tmp_path
@@ -592,7 +592,7 @@ class TestUploadPermanentStorage:
         import shutil as _shutil
         import numpy as np
 
-        mock_load.return_value = (np.zeros((44100, 2), dtype=np.float32), 44100)
+        mock_load.return_value = {'sample_rate': 44100, 'channels': 2, 'duration_seconds': 1.0}
         # The handler's actual DB call is repos.tracks.add via get_repository_factory
         # — library_database.add_track is dead wiring (files.py's own docstring: "Deprecated,
         # unused. Kept for backward compatibility").

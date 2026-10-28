@@ -323,7 +323,7 @@ class TestFileUpload:
 
         # Use globals_dict pattern for library_database (factory-injected dependency)
         # load_audio is patched at module level since it's imported there
-        with patch('routers.files_upload.load_audio', return_value=(mock_audio, 44100)), \
+        with patch('routers.files_upload.get_audio_info', return_value={'sample_rate': 44100, 'channels': 2, 'duration_seconds': 1.0}), \
              patch.dict('main.globals_dict', {'library_database': mock_library}):
             with open(test_file, "rb") as f:
                 response = client.post(
@@ -411,7 +411,7 @@ class TestFileUpload:
             ("files", ("bad.txt", open(txt_file, "rb"), "text/plain"))
         ]
 
-        with patch('routers.files_upload.load_audio', return_value=(mock_audio, 44100)), \
+        with patch('routers.files_upload.get_audio_info', return_value={'sample_rate': 44100, 'channels': 2, 'duration_seconds': 1.0}), \
              patch.dict('main.globals_dict', {'library_database': mock_library}):
             response = client.post("/api/files/upload", files=files)
 
@@ -465,7 +465,7 @@ class TestFileUpload:
         mock_library = Mock()
         mock_library.add_track.side_effect = create_mock_track
 
-        with patch('routers.files_upload.load_audio', return_value=(mock_audio, 44100)), \
+        with patch('routers.files_upload.get_audio_info', return_value={'sample_rate': 44100, 'channels': 2, 'duration_seconds': 1.0}), \
              patch.dict('main.globals_dict', {'library_database': mock_library}):
             response = client.post("/api/files/upload", files=files)
 
@@ -1460,11 +1460,12 @@ class TestPlaylistEndpoints:
     def test_delete_playlist_idempotent_on_repeat_call(self, client):
         """#4734: a repeat DELETE after a successful delete must NOT 404
         (RFC 7231 §4.3.5), matching the routers/artwork.py precedent
-        (#3563). The playlist still exists per get_by_id (first call's
-        semantics), but the underlying delete() races/no-ops to False —
-        that's still success from the client's idempotency perspective."""
+        (#3563). The playlist exists per the first get_by_id, but a concurrent
+        delete beats ours: delete() returns False and the playlist is gone on
+        the re-check — still success from the client's idempotency perspective.
+        (A False with the playlist still present is a failed write: 500, #5940.)"""
         mock_repos = Mock()
-        mock_repos.playlists.get_by_id.return_value = Mock()
+        mock_repos.playlists.get_by_id.side_effect = [Mock(), None]
         mock_repos.playlists.delete.return_value = False
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
