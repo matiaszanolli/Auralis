@@ -5,7 +5,7 @@
  * Consolidates common header patterns: artwork, title, metadata, and action buttons.
  */
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { tokens, mediaBelow } from '@/design-system';
 import { Box, Typography, styled } from '@mui/material';
 import { themeVars } from '@/theme/semanticTheme';
@@ -123,6 +123,14 @@ export const DetailViewHeader = ({
 }: DetailViewHeaderProps) => {
   const isPlayingStr = isPlaying ? 'true' : 'false'; // Convert to string for styled-components
 
+  // Opening a detail view replaces the grid, unmounting the activated card, so
+  // focus fell to <body> and nothing announced the change. Moving focus to the
+  // heading makes a screen reader read the new view's title (#6026).
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    titleRef.current?.focus({ preventScroll: true });
+  }, []);
+
   return (
     <HeaderSection sx={{ flexDirection: direction }} isplaying={isPlayingStr}>
       <ArtworkWrapper>
@@ -134,7 +142,7 @@ export const DetailViewHeader = ({
           {/* The view's sole <h1> (#5391): detail views are rendered without
               ViewContainer, so this title is their level-one heading. The
               variants keep the visual sizes; `component` sets the level. */}
-          <Title variant="h2" component="h1">
+          <Title variant="h2" component="h1" ref={titleRef} tabIndex={-1} sx={{ outline: 'none' }}>
             {title}
           </Title>
           {subtitle && (
