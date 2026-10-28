@@ -28,6 +28,11 @@ try:
 except ImportError:
     MUTAGEN_ID3_AVAILABLE = False
 
+try:
+    from mutagen.mp4 import MP4FreeForm
+except ImportError:  # mutagen absent: the MP4 writer is unreachable too
+    MP4FreeForm = None  # type: ignore[assignment,misc]
+
 
 def _del_id3_frames_by_type(audio_file: Any, frame_id: str) -> None:
     """Delete all ID3 frames of a type regardless of language/description.
@@ -191,6 +196,11 @@ class MetadataWriters:
                         existing = audio_file.get(tag_key)
                         total = existing[0][1] if existing and len(existing[0]) > 1 else 0
                         audio_file[tag_key] = [(int(parts[0]), total)]
+                elif field == 'bpm':
+                    audio_file[tag_key] = [int(value)]  # tmpo is an integer atom (#6111)
+                elif field == 'publisher':
+                    # A freeform atom holds bytes, not str (#6111).
+                    audio_file[tag_key] = [MP4FreeForm(str(value).encode("utf-8"))]  # type: ignore[no-untyped-call]
                 else:
                     audio_file[tag_key] = [str(value)]
 

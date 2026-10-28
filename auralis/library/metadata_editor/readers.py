@@ -94,7 +94,10 @@ class MetadataReaders:
 
                 # Handle special MP4 types
                 if field in ('track', 'disc') and isinstance(value, tuple):
-                    metadata[field] = f"{value[0]}/{value[1]}" if len(value) > 1 else str(value[0])
+                    has_total = len(value) > 1 and value[1]  # a stored total of 0 means "none"
+                    metadata[field] = f"{value[0]}/{value[1]}" if has_total else str(value[0])
+                elif isinstance(value, bytes):  # freeform atoms (MP4FreeForm) are bytes, not "b'...'"
+                    metadata[field] = value.decode('utf-8', errors='replace') or None
                 else:
                     metadata[field] = str(value) if value else None
 
