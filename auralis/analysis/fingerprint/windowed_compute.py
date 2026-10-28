@@ -102,12 +102,12 @@ def _load_windows(audio_path: Path, audio: np.ndarray | None, sr: int | None) ->
     return load_librosa_windows(audio_path)
 
 
-def _rms_lufs_crest(a: np.ndarray) -> tuple[float, float]:
-    """Return (lufs_approx, crest_db) from a mono/stereo array."""
+def _rms_lufs_crest(a: np.ndarray) -> tuple[float, float] | None:
+    """Return (lufs_approx, crest_db) from a mono/stereo array, or None if silent."""
     mono = to_mono(a, 'channels_samples')  # librosa layout: (channels, samples)
     rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
     if rms < 1e-9:
-        return -70.0, 0.0
+        return None
     peak = float(np.max(np.abs(mono)))
     lufs = 20.0 * np.log10(rms) - 0.691   # K-weighted proxy
     crest = 20.0 * np.log10(peak / max(rms, 1e-9))
@@ -122,24 +122,19 @@ def _apply_probe_correction(
     Validated empirically: reduces LUFS RMSE from 1.96 -> 1.07 dB, max error
     from 9.2 -> 3.6 dB (June 2026 study, 31 tracks). Best-effort: the body
     window alone is fine, so any failure here leaves the fingerprint as is.
+    Silent windows (body included) are left out of the median rather than
+    entering it as a -70 LUFS sentinel (#6141).
     """
     try:
         if not (probe_audios and fingerprint):
             return
-        # Body window (already analyzed)
-        lufs_body, crest_body = _rms_lufs_crest(audio.astype(np.float64))
-        all_lufs = [lufs_body]
-        all_crest = [crest_body]
-
-        for probe in probe_audios:
-            probe_lufs, probe_crest = _rms_lufs_crest(probe.astype(np.float64))
-            if probe_lufs > -70.0:   # skip silent probes
-                all_lufs.append(probe_lufs)
-                all_crest.append(probe_crest)
-
-        if len(all_lufs) >= 2:
-            fingerprint['lufs'] = float(np.median(all_lufs))
-            fingerprint['crest_db'] = float(np.median(all_crest))
+        measured = [
+            m for m in (_rms_lufs_crest(w.astype(np.float64)) for w in (audio, *probe_audios))
+            if m is not None
+        ]
+        if len(measured) >= 2:
+            fingerprint['lufs'] = float(np.median([lufs for lufs, _ in measured]))
+            fingerprint['crest_db'] = float(np.median([crest for _, crest in measured]))
     except Exception:
         pass
 

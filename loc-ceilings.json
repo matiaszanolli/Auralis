@@ -58,7 +58,7 @@
     "auralis/analysis/dynamic_range_dynamics.py": 188,
     "auralis/analysis/fingerprint/normalizer.py": 217,
     "auralis/analysis/fingerprint/normalizer_stats.py": 119,
-    "auralis/analysis/fingerprint/windowed_compute.py": 203,
+    "auralis/analysis/fingerprint/windowed_compute.py": 188,
     "auralis/analysis/fingerprint/windowed_loading.py": 202,
     "auralis/analysis/loudness_filters.py": 133,
     "auralis/analysis/loudness_meter.py": 285,
