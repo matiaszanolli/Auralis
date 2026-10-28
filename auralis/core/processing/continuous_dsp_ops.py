@@ -26,6 +26,7 @@ from ...dsp.dynamics.brick_wall_limiter import create_brick_wall_limiter
 from ...dsp.utils.adaptive import (
     MAX_NORMALIZATION_GAIN_DB,
     SILENCE_FLOOR_LUFS,
+    SILENCE_KNEE_DB,
     calculate_loudness_units,
 )
 from ...dsp.utils.stereo import (
@@ -181,7 +182,13 @@ class ContinuousDSPOpsMixin:
         ))
 
         # #5578: ramp tiny corrections to zero instead of a hard >0.5 dB gate.
-        effective_adjustment = adjustment * smooth_gate(abs(adjustment), 0.0, 0.5)
+        # #6108: and fade the correction in over the first SILENCE_KNEE_DB above the
+        # silence floor, so a 0.2 dB level change cannot swing the gain by 22 dB.
+        effective_adjustment = (
+            adjustment
+            * smooth_gate(abs(adjustment), 0.0, 0.5)
+            * smooth_gate(current_lufs, SILENCE_FLOOR_LUFS, SILENCE_FLOOR_LUFS + SILENCE_KNEE_DB)
+        )
         if abs(effective_adjustment) > 1e-6:
             audio = amplify(audio, effective_adjustment)
             new_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)

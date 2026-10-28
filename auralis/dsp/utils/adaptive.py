@@ -80,6 +80,9 @@ LOUDNESS_FLOOR_LUFS = -70.0
 # ever moved by more than MAX_NORMALIZATION_GAIN_DB. Shared so the live chunk
 # path and any other loudness-targeting stage use one definition.
 SILENCE_FLOOR_LUFS = -50.0
+
+#: Width of the ramp above the floor over which a normalisation gain fades in (#6108).
+SILENCE_KNEE_DB = 5.0
 MAX_NORMALIZATION_GAIN_DB = 24.0
 # Largest K-weighted-vs-proxy gap accepted as a real scale offset. Stereo
 # material sits ~+3 to +4 dB above the fingerprint proxy (summed channels plus
