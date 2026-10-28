@@ -315,6 +315,39 @@ class TestBatchUpdateMetadata:
         # not an exception) — the endpoint always returns 200 with an empty
         # results set, never a failure status.
         assert response.status_code == 200
+        # ...but nothing was attempted, so it is not a success either (#5265).
+        body = response.json()
+        assert body["success"] is False
+        assert (body["total"], body["successful"], body["failed"], body["skipped"]) == (0, 0, 0, 1)
+
+    @patch('auralis.library.metadata_editor.MetadataEditor.batch_update', return_value={
+        "total": 1, "successful": 1, "failed": 0,
+        "results": [{"track_id": 1, "success": True, "updates": {"title": "Track 1"}}],
+    })
+    @patch('routers.metadata_batch.validate_file_path', side_effect=lambda path, **_: path)
+    @patch('routers.dependencies.require_repository_factory')
+    def test_batch_update_with_some_skipped_is_still_a_success(self, mock_require_repos, _validate, _batch, client, mock_repos):
+        """#5265: skipped updates are reported, and do not turn real successes into failure."""
+        track = Mock()
+        track.id = 1
+        track.filepath = "/path/to/track1.mp3"
+        mock_repos.tracks.get_by_ids = Mock(return_value={1: track})
+        mock_repos.tracks.update_metadata_batch = Mock(return_value=[1])
+        mock_require_repos.return_value = mock_repos
+
+        response = client.post(
+            "/api/metadata/batch",
+            json={"updates": [
+                {"track_id": 1, "metadata": {"title": "Track 1"}},
+                {"track_id": 999, "metadata": {"title": "Unknown"}},
+            ]},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["skipped"] == 1
+        assert body["success"] is True
+        assert body["successful"] == 1
 
     @patch('routers.dependencies.require_repository_factory')
     def test_batch_update_mixed_success_failure(self, mock_require_repos, client, mock_repos):

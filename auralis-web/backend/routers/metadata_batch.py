@@ -9,7 +9,8 @@ import logging
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
 from collections.abc import Callable
 from fastapi import Depends
-from security.path_security import PathValidationError, validate_file_path
+from security.path_errors import PathValidationError
+from security.path_security import validate_file_path
 from typing import Any
 from websocket.outbound_messages import broadcast_typed
 import asyncio
@@ -55,10 +56,12 @@ async def batch_update_metadata(
 
     # Prepare batch updates — validate filepath for each found track.
     batch_updates = []
+    skipped = 0  # requested but never attempted: unknown track, no fields, bad path (#5265)
     for update_req in request.updates:
         track = track_map.get(update_req.track_id)
         if not track:
             logger.warning(f"Track {update_req.track_id} not found, skipping")
+            skipped += 1
             continue
 
         # Drop unset fields, mirroring the single-track route (#4555).
@@ -73,6 +76,7 @@ async def batch_update_metadata(
             logger.warning(
                 f"No metadata fields for track {update_req.track_id}, skipping"
             )
+            skipped += 1
             continue
 
         # Validate DB-retrieved filepath before file I/O (fixes #2302)
@@ -83,6 +87,7 @@ async def batch_update_metadata(
             ))
         except PathValidationError:
             # validate_file_path logs it once with the context above (#4925).
+            skipped += 1
             continue
 
         batch_updates.append(MetadataUpdate(
@@ -135,10 +140,13 @@ async def batch_update_metadata(
     )
 
     return {
-        "success": results['failed'] == 0,
+        # Nothing attempted is not a success: with every request skipped,
+        # batch_update([]) reports total=0, failed=0, which read as success (#5265).
+        "success": results['failed'] == 0 and not (results['total'] == 0 and skipped > 0),
         "total": results['total'],
         "successful": results['successful'],
         "failed": results['failed'],
+        "skipped": skipped,
         "results": results['results'],
         "rolled_back": rolled_back,
     }

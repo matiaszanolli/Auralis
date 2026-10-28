@@ -130,10 +130,18 @@ class BatchMetadataResultItem(BaseModel):
 
 class BatchMetadataResponse(BaseModel):
     """Aggregate result of a batch metadata update."""
-    success: bool = Field(description="True when no track failed")
+    success: bool = Field(
+        description="True when no track failed and at least one update was attempted "
+                    "(an all-skipped request is not a success)"
+    )
     total: int = Field(description="Number of updates attempted")
     successful: int = Field(description="Number that succeeded")
     failed: int = Field(description="Number that failed")
+    skipped: int = Field(
+        default=0,
+        description="Requested updates never attempted: unknown track, no fields to "
+                    "write, or a file path that failed validation",
+    )
     results: list[BatchMetadataResultItem] = Field(
         default_factory=list,
         description="Per-track outcomes",
