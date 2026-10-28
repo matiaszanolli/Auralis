@@ -69,3 +69,11 @@ def test_ffprobe_without_a_duration_falls_back_to_libsndfile(tmp_path):
 
     assert info is not None
     assert info.duration == pytest.approx(1.5, abs=0.1)  # libsndfile decoded the MP3
+
+
+def test_an_undecodable_file_is_a_failure_not_a_zero_duration_track(tmp_path):
+    """#5567: when neither probe yields a duration or rate, the scan used to ingest the file anyway."""
+    junk = tmp_path / "broken.flac"
+    junk.write_bytes(b"this is not flac" * 64)
+
+    assert AudioAnalyzer().extract_audio_info(str(junk)) is None

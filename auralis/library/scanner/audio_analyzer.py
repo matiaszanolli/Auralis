@@ -72,6 +72,13 @@ class AudioAnalyzer:
                     debug(f"SoundFile analysis failed for {file_path}: {e}")
                     self._probe_with_ffprobe(path, info_obj)
 
+            # Neither probe produced a duration or a sample rate: the file is undecodable, and an
+            # AudioFileInfo with those unset used to be ingested as a zero-duration track while
+            # the scan reported no failure. None makes the batch processor record it (#5567).
+            if not info_obj.duration or not info_obj.sample_rate:
+                warning(f"Could not probe {path.name}; not adding it to the library")
+                return None
+
             # The scan stores whatever the container claims, and every later
             # consumer (chunk counting, seek geometry, the UI's duration)
             # trusts it. Apply the decode budget here so a forged or corrupt
