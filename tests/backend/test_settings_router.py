@@ -249,3 +249,24 @@ def test_an_out_of_range_stored_intensity_degrades_to_null_not_a_500(stored) -> 
     assert resp.status_code == 200
     assert resp.json()["enhancement_intensity"] is None
 
+
+
+# ---------------------------------------------------------------------------
+# #5875: an explicit null is not "leave unchanged" — it 422s before the repo
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "field", ["default_preset", "auto_enhance", "enhancement_intensity", "volume", "theme"]
+)
+def test_update_settings_rejects_an_explicit_null(client: TestClient, field: str) -> None:
+    resp = client.put("/api/settings", json={field: None})
+    assert resp.status_code == 422
+    assert field in resp.text
+    assert client._repo.updated_with is None  # type: ignore[attr-defined]
+
+
+def test_a_null_stored_preset_reads_back_as_the_default_not_a_500() -> None:
+    resp = _client_with_row(default_preset=None).get("/api/settings")
+    assert resp.status_code == 200
+    assert resp.json()["default_preset"] == "adaptive"

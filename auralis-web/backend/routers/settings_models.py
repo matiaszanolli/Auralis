@@ -6,7 +6,7 @@ Settings router bodies and the enhancement-settings field list (split from setti
 """
 
 import logging
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from schemas import DEFAULT_PRESET, EnhancementIntensity, EnhancementPresetLiteral
 import math
 
@@ -83,6 +83,23 @@ class SettingsUpdateRequest(BaseModel):
     enable_analytics: bool | None = None
     debug_mode: bool | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_explicit_null(cls, data: object) -> object:
+        # The ``| None`` above only makes a field omittable. An explicit null
+        # survives ``exclude_unset`` and reaches the repository's setattr, which
+        # writes NULL to a column the response model cannot read back (GET then
+        # 500s) or that is NOT NULL (IntegrityError 500 instead of a 422) (#5875).
+        # Omitting the field is how a client leaves a setting unchanged.
+        if isinstance(data, dict):
+            nulls = sorted(key for key, value in data.items() if value is None)
+            if nulls:
+                raise ValueError(
+                    f"null is not a valid value for {', '.join(nulls)}; "
+                    "omit a field to leave it unchanged"
+                )
+        return data
+
 
 class SettingsResponse(BaseModel):
     """Response shape for settings endpoints (mirrors ``UserSettings.to_dict()``).
@@ -131,6 +148,13 @@ class SettingsResponse(BaseModel):
     max_concurrent_scans: int | None = None
     enable_analytics: bool | None = None
     debug_mode: bool | None = None
+
+    @field_validator("default_preset", mode="before")
+    @classmethod
+    def _degrade_null_preset(cls, value: object) -> object:
+        # A row written before #5875 rejected explicit nulls can hold NULL;
+        # report the default rather than 500 every GET /api/settings.
+        return DEFAULT_PRESET if value is None else value
 
     @field_validator("enhancement_intensity", mode="before")
     @classmethod

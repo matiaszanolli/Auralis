@@ -80,9 +80,11 @@ class TestBothRestSurfacesAgree:
         assert SettingsUpdateRequest(enhancement_intensity=value).enhancement_intensity == value
 
     def test_settings_still_allows_omitting_the_field(self):
-        """The settings model is a partial update; None must stay valid."""
+        """The settings model is a partial update: omitting the field stays
+        valid, but an explicit null is rejected rather than written (#5875)."""
         assert SettingsUpdateRequest().enhancement_intensity is None
-        assert SettingsUpdateRequest(enhancement_intensity=None).enhancement_intensity is None
+        with pytest.raises(ValidationError):
+            SettingsUpdateRequest(enhancement_intensity=None)
 
 
 class TestSharedPredicateForTheWsPath:
