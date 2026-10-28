@@ -10,7 +10,7 @@ Performance profiling and monitoring for audio processing.
 
 import threading
 import time
-from collections import defaultdict, deque
+from collections import defaultdict
 from functools import wraps
 from typing import Any
 from collections.abc import Callable
@@ -23,8 +23,9 @@ class PerformanceProfiler:
 
     def __init__(self) -> None:
         self.timings: dict[str, list[float]] = defaultdict(list)
+        # Lifetime totals: ``timings`` keeps only a recent window, so counts and sums come from here.
         self.counters: dict[str, int] = defaultdict(int)
-        self.memory_usage: deque[float] = deque(maxlen=1000)
+        self.total_time_ms: dict[str, float] = defaultdict(float)
         self.lock = threading.RLock()
 
     def time_function(self, func_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -43,6 +44,7 @@ class PerformanceProfiler:
                     with self.lock:
                         self.timings[func_name].append(execution_time)
                         self.counters[f"{func_name}_calls"] += 1
+                        self.total_time_ms[func_name] += execution_time
 
                         # Keep only recent timings
                         if len(self.timings[func_name]) > 1000:
@@ -63,8 +65,8 @@ class PerformanceProfiler:
                         'min_time_ms': np.min(times),
                         'max_time_ms': np.max(times),
                         'std_time_ms': np.std(times),
-                        'total_calls': len(times),
-                        'total_time_ms': np.sum(times)
+                        'total_calls': self.counters[f"{func_name}_calls"],
+                        'total_time_ms': self.total_time_ms[func_name],
                     }
 
             return report
