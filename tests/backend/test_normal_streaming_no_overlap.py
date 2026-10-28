@@ -285,3 +285,19 @@ class TestSeekTrimRounding:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestEffectiveSeekPosition:
+    """#5932: the plan reports where the stream really starts, not the request."""
+
+    def test_in_range_request_is_reported_as_is(self) -> None:
+        assert _plan(60 * SAMPLE_RATE, 12.5).effective_position == pytest.approx(12.5)
+
+    def test_a_request_past_the_end_is_reported_clamped(self) -> None:
+        plan = _plan(60 * SAMPLE_RATE, 500.0)
+
+        assert plan.effective_position < 60.0
+        assert plan.effective_position > 59.0  # clamped back by the min remainder, not zeroed
+
+    def test_a_negative_request_is_reported_as_zero(self) -> None:
+        assert _plan(60 * SAMPLE_RATE, -3.0).effective_position == 0.0

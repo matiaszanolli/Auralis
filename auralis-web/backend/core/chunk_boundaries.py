@@ -148,6 +148,8 @@ class NormalStreamPlan(NamedTuple):
     start_chunk: int
     seek_offset: float
     first_chunk_trim_samples: int
+    # Where the stream really starts: the request, clamped back from the end (#5932).
+    effective_position: float
 
 
 def normal_stream_plan(
@@ -204,4 +206,5 @@ def normal_stream_plan(
         start_chunk=start_chunk,
         seek_offset=seek_offset,
         first_chunk_trim_samples=first_chunk_trim_samples,
+        effective_position=pos,
     )

@@ -189,7 +189,7 @@ async def stream_normal_audio(
         if start_position > 0:
             seek_kwargs = {
                 "start_chunk": start_chunk,
-                "seek_position": start_position,
+                "seek_position": plan.effective_position,  # the clamped start, as the enhanced path reports (#5932)
                 "seek_offset": seek_offset,
             }
         if not await controller._send_stream_start(
@@ -231,7 +231,7 @@ async def stream_normal_audio(
             chunk_samples=chunk_samples,
             first_chunk_trim_samples=first_chunk_trim_samples,
             chunk_duration=chunk_duration,
-            start_position=start_position,
+            start_position=plan.effective_position,
             on_progress=on_progress,
         )
         stopped_early = pump.stopped_early
