@@ -84,8 +84,20 @@ class PlayerFileLoadingMixin:
             })
             return True
         else:
-            self.playback.set_error()
+            self._note_failed_load()
             return False
+
+    def _note_failed_load(self) -> None:
+        """Enter ERROR only if the failed load left nothing playable (#5725).
+
+        A failed AudioFileManager.load_file leaves the previous audio and position untouched, yet
+        ERROR rejects play() and stop(), so a healthy player was wedged until another load worked
+        (next_track() failing did not do this, so the two navigation paths disagreed).
+        """
+        with self.file_manager._audio_lock:
+            has_audio = self.file_manager.is_loaded()
+        if not has_audio:
+            self.playback.set_error()
 
     def load_reference(self, file_path: str) -> bool:
         """
@@ -148,5 +160,5 @@ class PlayerFileLoadingMixin:
             self.gapless.start_prebuffering()
             return True
         else:
-            self.playback.set_error()
+            self._note_failed_load()
             return False
