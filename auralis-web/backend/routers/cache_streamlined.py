@@ -15,6 +15,7 @@ from pathlib import Path as FilePath
 from typing import Annotated, Any
 
 from cache import StreamlinedCacheManager
+from cache.models import CHUNK_SIZE_MB, TIER1_MAX_SIZE_MB, TIER2_MAX_SIZE_MB
 from core.cache_cleanup import clear_all_caches
 from core.thumbnail_cache import artwork_cache_root
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -172,22 +173,17 @@ async def clear_cache(
 
 @with_error_handling("check cache health")
 async def cache_health(cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager)) -> CacheHealthResponse:
-    """
-    Get cache system health status.
-
-    Returns:
-        Health information including memory usage and worker status
-    """
+    """Get cache system health: memory usage against the tier budgets."""
     stats = await asyncio.to_thread(cache_manager.get_stats)
 
     overall = stats["overall"]
     tier1 = stats["tier1"]
     tier2 = stats["tier2"]
 
-    # Calculate health metrics
-    tier1_healthy = tier1["size_mb"] <= 15  # Should be ~12 MB
-    tier2_healthy = tier2["size_mb"] <= 250  # Max 240 MB
-    memory_healthy = overall["total_size_mb"] <= 260
+    # The cache's own budgets (#5971) plus one chunk, resident until eviction runs.
+    tier1_healthy = tier1["size_mb"] <= TIER1_MAX_SIZE_MB + CHUNK_SIZE_MB
+    tier2_healthy = tier2["size_mb"] <= TIER2_MAX_SIZE_MB + CHUNK_SIZE_MB
+    memory_healthy = overall["total_size_mb"] <= TIER1_MAX_SIZE_MB + TIER2_MAX_SIZE_MB + CHUNK_SIZE_MB
 
     return CacheHealthResponse(
         healthy=tier1_healthy and tier2_healthy and memory_healthy,
