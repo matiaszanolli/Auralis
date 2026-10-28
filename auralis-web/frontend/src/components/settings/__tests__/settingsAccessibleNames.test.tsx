@@ -35,7 +35,6 @@ describe('settings accessible names (#5666)', () => {
   it('names the Theme Select', () => {
     render(
       <InterfaceSettingsPanel
-        theme="dark"
         showVisualizations
         miniPlayerOnClose={false}
         onSettingChange={onChange}
@@ -89,8 +88,7 @@ describe('settings accessible names (#5666)', () => {
           onSettingChange={onChange}
         />
         <InterfaceSettingsPanel
-          theme="dark"
-          showVisualizations
+            showVisualizations
           miniPlayerOnClose={false}
           onSettingChange={onChange}
         />

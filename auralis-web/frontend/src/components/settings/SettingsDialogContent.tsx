@@ -74,7 +74,6 @@ export const SettingsDialogContentComponent = ({
 
       {activeTab === 3 && (
         <InterfaceSettingsPanel
-          theme={getValue('theme') ?? 'dark'} // the app's default mode
           showVisualizations={getValue('show_visualizations') ?? true}
           miniPlayerOnClose={getValue('mini_player_on_close') ?? false}
           onSettingChange={onSettingChange}

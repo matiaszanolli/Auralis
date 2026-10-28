@@ -9,11 +9,12 @@ import {
   FormControlLabel,
   Divider
 } from '@mui/material';
+import { useTheme } from '@/contexts/ThemeContext';
+import type { ThemeMode } from '@/theme/semanticTheme';
 import { SettingsUpdate } from '@/services/settingsService';
 import { SectionContainer, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 
 interface InterfaceSettingsPanelProps {
-  theme: string;
   showVisualizations: boolean;
   miniPlayerOnClose: boolean;
   onSettingChange: (key: keyof SettingsUpdate, value: SettingsUpdate[keyof SettingsUpdate]) => void;
@@ -23,16 +24,22 @@ interface InterfaceSettingsPanelProps {
  * InterfaceSettingsPanel - UI and theme settings
  *
  * Manages:
- * - Theme selection (dark/light)
+ * - Theme selection (dark/light) — the live ThemeContext mode, not a stored string (#6019)
  * - Visualizations toggle
  * - Mini player on close toggle
  */
 export const InterfaceSettingsPanel = ({
-  theme,
   showVisualizations,
   miniPlayerOnClose,
   onSettingChange
 }: InterfaceSettingsPanelProps) => {
+  const { mode, setTheme } = useTheme();
+
+  const handleThemeChange = (next: ThemeMode) => {
+    setTheme(next);
+    onSettingChange('theme', next);
+  };
+
   return (
     <Box>
       <SectionContainer>
@@ -40,8 +47,8 @@ export const InterfaceSettingsPanel = ({
           <InputLabel id="settings-interface-theme-label">Theme</InputLabel>
           <Select
             labelId="settings-interface-theme-label"
-            value={theme}
-            onChange={(e) => onSettingChange('theme', e.target.value)}
+            value={mode}
+            onChange={(e) => handleThemeChange(e.target.value as ThemeMode)}
             label="Theme"
           >
             <MenuItem value="dark">Dark</MenuItem>
