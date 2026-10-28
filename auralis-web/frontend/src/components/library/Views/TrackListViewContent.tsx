@@ -86,7 +86,15 @@ export const TrackListViewContent = ({
 
   // Trigger infinite scroll when near the end of the list
   const virtualItems = virtualizer.getVirtualItems();
+  const firstItem = virtualItems[0];
   const lastItem = virtualItems[virtualItems.length - 1];
+
+  // Scrolling by wheel/scrollbar unmounts the active row, which left every
+  // mounted row at tabIndex=-1 and Tab skipping the list. Park the tab stop on
+  // the nearest mounted row instead; focusing it re-syncs activeIndex (#6069).
+  const tabStopIndex = firstItem && lastItem
+    ? Math.min(Math.max(activeIndex, firstItem.index), lastItem.index)
+    : activeIndex;
 
   useEffect(() => {
     if (!lastItem) return;
@@ -229,7 +237,7 @@ export const TrackListViewContent = ({
                   track={track}
                   index={virtualRow.index}
                   isSelected={isSelected(track.id)}
-                  tabIndex={virtualRow.index === activeIndex ? 0 : -1}
+                  tabIndex={virtualRow.index === tabStopIndex ? 0 : -1}
                   onToggleSelect={onToggleSelect}
                   isPlaying={isPlaying && currentTrackId === track.id}
                   isCurrent={currentTrackId === track.id}
