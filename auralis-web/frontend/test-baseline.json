@@ -2,11 +2,10 @@
   "_comment": "Known-failing vitest specs (#4640). CI fails on any failure NOT listed here. Regenerate with: pnpm run test:baseline:update",
   "generatedFrom": {
     "totalTests": 3322,
-    "failedTests": 118
+    "failedTests": 117
   },
   "failures": [
     "src/components/__tests__/Sidebar.test.tsx::Sidebar renders in collapsed state",
-    "src/components/__tests__/TextDisabledContrast.test.ts::no new normal-text use of text.disabled creeps back in (#4635) every text.disabled / textDisabled usage is on the reviewed allowlist",
     "src/components/library/Items/__tests__/useTrackFormatting.test.ts::useTrackFormatting formatDuration should format 3661 seconds as \"61:01\"",
     "src/components/library/Items/__tests__/useTrackFormatting.test.ts::useTrackFormatting formatDuration should handle 2 hours duration",
     "src/components/library/Items/__tests__/useTrackFormatting.test.ts::useTrackFormatting formatDuration should handle large durations (hours)",

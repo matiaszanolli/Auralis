@@ -109,7 +109,7 @@ const ALLOWED_DISABLED_USAGES: Record<string, string> = {
   // Token plumbing — definitions and aliases, not usages.
   'design-system/tokens/colors.ts': 'the token definition itself',
   'theme/semanticTheme.ts': 'aliases the token as themeVars.textDisabled',
-  'theme/themeConfig.ts': "MUI palette text.disabled — the framework's own disabled slot",
+  'theme/themePalette.ts': "MUI palette text.disabled — the framework's own disabled slot",
   'styles/globalStyles.ts': 'exposes the token as a CSS custom property',
 
   // Genuinely-inactive controls: WCAG 2.1 SC 1.4.3 exempts inactive components,
