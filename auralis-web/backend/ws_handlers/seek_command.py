@@ -17,7 +17,6 @@ from typing import Any
 from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_protocol import safe_send_text
 from fastapi import WebSocket
-from helpers import spawn_background_task
 from schemas import DEFAULT_PRESET  # single source of truth (#4424, #4600)
 from websocket.websocket_security import send_error_response
 
@@ -30,7 +29,7 @@ logger = logging.getLogger(__name__)
 async def handle_seek(
     websocket: WebSocket, message: dict[str, Any], state: StreamState, deps: WSDeps
 ) -> None:
-    data = message.get("data", {})
+    data = message.get("data") or {}  # `data: null` is a malformed frame, not a crash (#5973)
     track_id = data.get("track_id")
     position = data.get("position", 0)
 

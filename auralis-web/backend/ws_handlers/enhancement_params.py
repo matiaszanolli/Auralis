@@ -11,18 +11,18 @@ handlers. The command handlers import these; no re-exports.
 
 import asyncio
 import logging
+import math
 from collections.abc import Mapping
 from typing import Any
 
-from helpers import spawn_background_task
+from fastapi import WebSocket
 from schemas import (  # single source of truth (#4424, #4600)
     VALID_PRESETS,
     is_valid_intensity,
 )
+from websocket.websocket_security import send_error_response
 
 from .context import WSDeps
-
-logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -148,3 +148,26 @@ async def _generate_mastering_recommendation(track_id: int, deps: WSDeps) -> Non
             f"Mastering recommendation failed for track {track_id} (playback unaffected)"
         )
 
+
+async def parse_play_request(
+    websocket: WebSocket, data: Mapping[str, Any], command: str
+) -> tuple[int, float] | None:
+    """Validate the fields every play command shares; reply with a typed error on failure.
+
+    Returns ``(track_id, start_position)``, or None after sending
+    ``invalid_track_id`` / ``invalid_start_position`` (#2393, #5973). A
+    non-numeric ``start_position`` used to raise inside the handler and surface
+    as a generic ``internal_error``; a non-finite one still degrades to 0.0.
+    """
+    track_id = data.get("track_id")
+    if not isinstance(track_id, int) or track_id <= 0:
+        logger.warning(f"Invalid track_id in {command}: {track_id!r}")
+        await send_error_response(websocket, "invalid_track_id", "track_id must be a positive integer", command=command)
+        return None
+    try:
+        start_position = float(data.get("start_position", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        logger.warning(f"Invalid start_position in {command}: {data.get('start_position')!r}")
+        await send_error_response(websocket, "invalid_start_position", "start_position must be a number", command=command)
+        return None
+    return track_id, (start_position if math.isfinite(start_position) else 0.0)

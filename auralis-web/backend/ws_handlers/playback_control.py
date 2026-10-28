@@ -17,7 +17,9 @@ from core.stream_protocol import safe_send_text
 from fastapi import WebSocket
 from services.playback_event_sequencer import playback_event_sequencer
 
-from .context import StreamState, await_cancelled_task
+from core.task_cancellation import await_cancelled_task
+
+from .context import StreamState
 
 logger = logging.getLogger(__name__)
 

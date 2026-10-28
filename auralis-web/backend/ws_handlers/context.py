@@ -25,7 +25,6 @@ from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Callable
 
-from core.task_cancellation import await_cancelled_task  # noqa: F401  (re-exported for the handlers)
 
 
 @dataclass

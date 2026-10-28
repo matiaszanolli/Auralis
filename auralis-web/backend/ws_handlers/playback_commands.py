@@ -14,25 +14,23 @@ handler lives in seek_command.py (#6269).
 import asyncio
 import json
 import logging
-import math
-from collections.abc import Mapping
 from typing import Any
 
 from core.audio_stream_controller import ws_id as _ws_id
-from core.stream_protocol import safe_send_text
+from core.task_cancellation import await_cancelled_task
 from fastapi import WebSocket
 from helpers import spawn_background_task
 from schemas import (  # single source of truth (#4424, #4600)
     DEFAULT_PRESET,
     VALID_PRESETS,
-    is_valid_intensity,
 )
 from websocket.websocket_security import send_error_response
 
-from .context import StreamState, WSDeps, await_cancelled_task
+from .context import StreamState, WSDeps
 from .enhancement_params import (
     DEFAULT_INTENSITY,
     _generate_mastering_recommendation,
+    parse_play_request,
     resolve_enhancement_params,
 )
 
@@ -72,17 +70,19 @@ async def _cancel_prior_task(ws_id: str, state: StreamState) -> None:
 async def handle_play_enhanced(
     websocket: WebSocket, message: dict[str, Any], state: StreamState, deps: WSDeps
 ) -> None:
-    data = message.get("data", {})
-    track_id = data.get("track_id")
-
-    # Validate track_id before launching any background task (#2393)
-    if not isinstance(track_id, int) or track_id <= 0:
-        logger.warning(f"Invalid track_id in play_enhanced: {track_id!r}")
-        await send_error_response(websocket, "invalid_track_id", "track_id must be a positive integer")
+    data = message.get("data") or {}  # `data: null` is a malformed frame, not a crash (#5973)
+    # Validate before launching any background task (#2393)
+    parsed = await parse_play_request(websocket, data, "play_enhanced")
+    if parsed is None:
         return
+    track_id, start_position = parsed
 
-    # Explicit client opt-out of the stored-`enabled` gate (#3773).
-    force = bool(data.get("force", False))
+    # Explicit client opt-out of the stored-`enabled` gate (#3773). A real bool:
+    # bool("false") is True, which would silently force a play.
+    force = data.get("force", False)
+    if not isinstance(force, bool):
+        await send_error_response(websocket, "invalid_force", "force must be a boolean", command="play_enhanced")
+        return
 
     # Third contract for the same quantity, deliberately kept (#4600): an
     # out-of-range/NaN intensity on a *streaming command* falls back to the
@@ -131,10 +131,6 @@ async def handle_play_enhanced(
         if intensity is None:
             intensity = DEFAULT_INTENSITY
         logger.warning("Enhancement settings not available, using validated message data")
-
-    start_position = float(data.get("start_position", 0.0) or 0.0)
-    if not math.isfinite(start_position):
-        start_position = 0.0
 
     logger.info(
         f"Received play_enhanced: track_id={track_id}, preset={preset}, intensity={intensity}"
@@ -209,18 +205,11 @@ async def handle_play_enhanced(
 async def handle_play_normal(
     websocket: WebSocket, message: dict[str, Any], state: StreamState, deps: WSDeps
 ) -> None:
-    data = message.get("data", {})
-    track_id = data.get("track_id")
-
-    # Validate track_id before launching any background task (#2393)
-    if not isinstance(track_id, int) or track_id <= 0:
-        logger.warning(f"Invalid track_id in play_normal: {track_id!r}")
-        await send_error_response(websocket, "invalid_track_id", "track_id must be a positive integer")
+    data = message.get("data") or {}  # `data: null` is a malformed frame, not a crash (#5973)
+    parsed = await parse_play_request(websocket, data, "play_normal")
+    if parsed is None:
         return
-
-    start_position = float(data.get("start_position", 0.0) or 0.0)
-    if not math.isfinite(start_position):
-        start_position = 0.0
+    track_id, start_position = parsed
 
     logger.info(
         f"Received play_normal: track_id={track_id}"
