@@ -28,7 +28,7 @@ def queue_controller(get_repository_factory_callable):
     Example:
         def test_queue_operations(queue_controller):
             queue_controller.add_track({"title": "Test", "filepath": "/tmp/test.wav"})
-            assert queue_controller.get_track_count() == 1
+            assert queue_controller.get_queue_size() == 1
     """
     from auralis.player.queue_controller import QueueController
 

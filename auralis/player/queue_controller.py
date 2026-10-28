@@ -201,12 +201,8 @@ class QueueController(QueueLockedStateMixin, QueueLoadingMixin):
         whether there's anything to advance TO."""
         return self.queue.peek_next() is not None
 
-    def get_track_count(self) -> int:
-        """Get number of tracks in queue"""
-        return self.queue.get_queue_size()
-
     def get_queue_size(self) -> int:
-        """Get queue size (alias for get_track_count)"""
+        """Get the number of tracks in the queue"""
         return self.queue.get_queue_size()
 
     def remove_track(self, index: int) -> bool:

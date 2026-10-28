@@ -106,7 +106,7 @@ class QueueLoadingMixin:
             return False
 
     def set_queue(self, track_list: list[str | dict[str, Any]], start_index: int = 0) -> None:
-        """Set queue with track list (for backward compatibility)"""
+        """Replace the queue with ``track_list`` (filepaths or track dicts) and select ``start_index``."""
         # #5355: hold the queue's lock across the whole clear-repopulate-and-
         # index-write sequence as one atomic unit — see load_playlist() for
         # the full rationale (same pattern, same fix).

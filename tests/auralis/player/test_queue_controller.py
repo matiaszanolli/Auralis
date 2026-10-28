@@ -9,7 +9,7 @@ Covers all public methods:
 - reorder_tracks (valid / invalid orders, current-index tracking)
 - remove_track (index adjustment)
 - set_queue / add_track / add_tracks / clear
-- get_queue_info / get_track_count
+- get_queue_info / get_queue_size
 - peek_next_track
 - Library-backed methods: add_track_from_library, load_playlist
 """
@@ -54,7 +54,7 @@ def _loaded_controller(n: int = 3) -> QueueController:
 class TestConstructor:
     def test_queue_starts_empty(self):
         ctrl, _ = _make_controller()
-        assert ctrl.get_track_count() == 0
+        assert ctrl.get_queue_size() == 0
 
     def test_current_index_starts_at_minus_one(self):
         ctrl, _ = _make_controller()
@@ -77,12 +77,12 @@ class TestAddTrack:
     def test_add_single_track_increases_count(self):
         ctrl, _ = _make_controller()
         ctrl.add_track(_track(1))
-        assert ctrl.get_track_count() == 1
+        assert ctrl.get_queue_size() == 1
 
     def test_add_tracks_bulk(self):
         ctrl, _ = _make_controller()
         ctrl.add_tracks([_track(1), _track(2), _track(3)])
-        assert ctrl.get_track_count() == 3
+        assert ctrl.get_queue_size() == 3
 
     def test_add_track_preserves_payload(self):
         ctrl, _ = _make_controller()
@@ -95,7 +95,7 @@ class TestAddTrack:
         ctrl, _ = _make_controller()
         tracks = [_track(i) for i in range(1, 4)]
         ctrl.set_queue(tracks)
-        assert ctrl.get_track_count() == 3
+        assert ctrl.get_queue_size() == 3
         assert ctrl.current_index == 0
 
     def test_set_queue_with_filepaths(self):
@@ -119,7 +119,7 @@ class TestAddTrack:
         ctrl, _ = _make_controller()
         ctrl.add_tracks([_track(i) for i in range(10)])
         ctrl.set_queue([_track(1)])
-        assert ctrl.get_track_count() == 1
+        assert ctrl.get_queue_size() == 1
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +274,7 @@ class TestShuffleMode:
     def test_shuffle_does_not_affect_queue_length(self):
         ctrl = _loaded_controller(5)
         ctrl.set_shuffle(True)
-        assert ctrl.get_track_count() == 5
+        assert ctrl.get_queue_size() == 5
 
     def test_set_shuffle_true_actually_reorders_queue(self):
         """#4986: set_shuffle(True) used to only flip shuffle_enabled without
@@ -290,7 +290,7 @@ class TestShuffleMode:
         # shuffle() snapshots the pre-shuffle order — only populated by an
         # actual reorder call, never by writing the flag alone.
         assert ctrl.queue._pre_shuffle_tracks is not None
-        assert ctrl.get_track_count() == 5
+        assert ctrl.get_queue_size() == 5
 
     def test_set_shuffle_false_restores_original_order(self):
         """#4986: set_shuffle(False) must call QueueManager.unshuffle() and
@@ -405,7 +405,7 @@ class TestRemoveTrack:
     def test_remove_track_decreases_count(self):
         ctrl = _loaded_controller(3)
         ctrl.remove_track(1)
-        assert ctrl.get_track_count() == 2
+        assert ctrl.get_queue_size() == 2
 
     def test_remove_track_correct_element(self):
         ctrl = _loaded_controller(3)
@@ -438,7 +438,7 @@ class TestClear:
     def test_clear_queue_empties_tracks(self):
         ctrl = _loaded_controller(5)
         ctrl.clear_queue()
-        assert ctrl.get_track_count() == 0
+        assert ctrl.get_queue_size() == 0
 
     def test_clear_resets_current_index(self):
         ctrl = _loaded_controller(3)
@@ -448,30 +448,26 @@ class TestClear:
     def test_clear_queue_works(self):
         ctrl = _loaded_controller(3)
         ctrl.clear_queue()
-        assert ctrl.get_track_count() == 0
+        assert ctrl.get_queue_size() == 0
 
 
 # ---------------------------------------------------------------------------
-# get_queue_info / get_track_count / get_queue_size
+# get_queue_info / get_queue_size / get_queue_size
 # ---------------------------------------------------------------------------
 
 class TestQueueInfo:
     def test_queue_empty_on_new_controller(self):
         ctrl, _ = _make_controller()
-        assert ctrl.get_track_count() == 0
+        assert ctrl.get_queue_size() == 0
 
     def test_queue_not_empty_after_add(self):
         ctrl, _ = _make_controller()
         ctrl.add_track(_track(1))
-        assert ctrl.get_track_count() == 1
+        assert ctrl.get_queue_size() == 1
 
-    def test_get_track_count_matches_added(self):
+    def test_get_queue_size_matches_added(self):
         ctrl = _loaded_controller(4)
-        assert ctrl.get_track_count() == 4
-
-    def test_get_queue_size_alias(self):
-        ctrl = _loaded_controller(3)
-        assert ctrl.get_queue_size() == ctrl.get_track_count()
+        assert ctrl.get_queue_size() == 4
 
     def test_get_queue_info_fields(self):
         ctrl = _loaded_controller(3)
@@ -526,7 +522,7 @@ class TestAddTrackFromLibrary:
         result = ctrl.add_track_from_library(42)
 
         assert result is True
-        assert ctrl.get_track_count() == 1
+        assert ctrl.get_queue_size() == 1
 
     def test_adds_correct_track(self):
         ctrl, factory = _make_controller()
@@ -545,7 +541,7 @@ class TestAddTrackFromLibrary:
         result = ctrl.add_track_from_library(999)
 
         assert result is False
-        assert ctrl.get_track_count() == 0
+        assert ctrl.get_queue_size() == 0
 
     def test_returns_false_on_repo_exception(self):
         ctrl, factory = _make_controller()
@@ -579,7 +575,7 @@ class TestLoadPlaylist:
 
         ctrl.load_playlist(1)
 
-        assert ctrl.get_track_count() == 4
+        assert ctrl.get_queue_size() == 4
 
     def test_replaces_existing_queue(self):
         ctrl, factory = _make_controller()
@@ -588,7 +584,7 @@ class TestLoadPlaylist:
 
         ctrl.load_playlist(1)
 
-        assert ctrl.get_track_count() == 2
+        assert ctrl.get_queue_size() == 2
 
     def test_sets_start_index(self):
         ctrl, factory = _make_controller()
@@ -644,7 +640,7 @@ class TestClearRepopulateAtomicity:
 
         def _poll() -> None:
             while not stop_polling.is_set():
-                if ctrl.get_track_count() == 0:
+                if ctrl.get_queue_size() == 0:
                     observed_empty.set()
                     return
 
@@ -674,7 +670,7 @@ class TestClearRepopulateAtomicity:
         new_tracks = [_track(i) for i in range(100, 110)]
 
         self._assert_never_observed_empty(ctrl, lambda: ctrl.set_queue(new_tracks))
-        assert ctrl.get_track_count() == 10
+        assert ctrl.get_queue_size() == 10
 
     def test_load_playlist_never_observed_empty_by_a_concurrent_reader(self):
         ctrl, factory = _make_controller()
@@ -696,7 +692,7 @@ class TestClearRepopulateAtomicity:
         ctrl.queue.add_track = _slow_add_track
 
         self._assert_never_observed_empty(ctrl, lambda: ctrl.load_playlist(1))
-        assert ctrl.get_track_count() == 10
+        assert ctrl.get_queue_size() == 10
 
 
 class _LockSpy:

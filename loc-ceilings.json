@@ -120,7 +120,7 @@
     "auralis/player/integration_library.py": 133,
     "auralis/player/integration_manager.py": 239,
     "auralis/player/integration_reporting.py": 127,
-    "auralis/player/queue_controller.py": 269,
+    "auralis/player/queue_controller.py": 264,
     "auralis/player/queue_loading.py": 129,
     "auralis/player/queue_locked_state.py": 58
   }

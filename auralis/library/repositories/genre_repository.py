@@ -12,9 +12,9 @@ import logging
 from typing import Any
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import joinedload, selectinload, with_expression
+from sqlalchemy.orm import selectinload, with_expression
 
-from ..models import Genre, Track, track_genre
+from ..models import Genre, track_genre
 from .base import BaseRepository, correlated_count, escape_like
 
 logger = logging.getLogger(__name__)
@@ -105,53 +105,6 @@ class GenreRepository(BaseRepository):
                 session.expunge(genre)
 
             return list(genres), total
-
-    def get_tracks_by_genre(
-        self,
-        genre_id: int,
-        limit: int = 50,
-        offset: int = 0
-    ) -> tuple[list[Track], int]:
-        """
-        Get all tracks for a genre with pagination.
-
-        Args:
-            genre_id: Genre ID
-            limit: Maximum number of tracks to return
-            offset: Number of tracks to skip
-
-        Returns:
-            Tuple of (tracks list, total count)
-        """
-        with self._session_scope() as session:
-            # Get total count
-            genre = session.execute(
-                select(Genre).where(Genre.id == genre_id)
-            ).scalars().first()
-            if not genre:
-                return [], 0
-
-            # Get tracks for this genre
-            track_filter = Track.genres.any(Genre.id == genre_id)
-
-            total = session.execute(
-                select(func.count()).select_from(Track).where(track_filter)
-            ).scalar_one()
-
-            tracks = session.execute(
-                select(Track)
-                .where(track_filter)
-                .options(joinedload(Track.album), joinedload(Track.artists))
-                .order_by(Track.title)
-                .limit(limit)
-                .offset(offset)
-            ).scalars().unique().all()
-
-            # Expunge from session
-            for track in tracks:
-                session.expunge(track)
-
-            return list(tracks), total
 
     def create(self, name: str, **kwargs: Any) -> Genre:
         """
