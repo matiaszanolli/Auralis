@@ -21,12 +21,6 @@ from ..library.sidecar_manager import SidecarManager
 from ..utils.logging import debug, error, info, warning
 
 
-# Decoded audio can reach 1.8-3.6 GB; with many concurrent workers a >300 MB
-# FLAC drives 32-48 GB peak across 16 workers, so oversized files are skipped
-# rather than fingerprinted (#2896).
-MAX_FINGERPRINT_FILE_SIZE_MB = 300.0
-
-
 class FingerprintExtractor:
     """
     Extracts audio fingerprints for library tracks
@@ -152,16 +146,8 @@ class FingerprintExtractor:
     def _compute_fingerprint(self, track_id: int, filepath_obj: Path) -> dict[str, Any] | None:
         """Analyse the audio file with the in-process windowed analyzer.
 
-        Returns None if the file is too large to analyse safely, or if the
-        analyzer could not produce a fingerprint.
+        Returns None if the analyzer could not produce a fingerprint.
         """
-        file_size_mb = filepath_obj.stat().st_size / (1024 * 1024)
-        if file_size_mb > MAX_FINGERPRINT_FILE_SIZE_MB:
-            warning(
-                f"Skipping fingerprint for large file ({file_size_mb:.1f}MB): {filepath_obj}"
-            )
-            return None
-
         # #4595: use the SINGLE shared windowing implementation rather
         # than a local load + first-90s crop + single-window analyze.
         # This path previously truncated to the first 90 s from the
@@ -174,8 +160,9 @@ class FingerprintExtractor:
         #
         # compute_windowed_fingerprint() does its own bounded loading
         # (body window + two 30 s probes at the analysis rate), so it
-        # never materialises the whole decoded file — which also
-        # preserves the #2896 OOM protection the size guard above provides.
+        # never materialises the whole decoded file, so memory does not scale
+        # with file size and no size guard is needed (a hi-res or hours-long
+        # file is fingerprinted like any other, #6145).
         try:
             debug(f"Extracting fingerprint for track {track_id}")
             fingerprint = compute_windowed_fingerprint(self.analyzer, filepath_obj)

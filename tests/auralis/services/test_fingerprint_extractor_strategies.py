@@ -23,7 +23,6 @@ from auralis.analysis.fingerprint.metrics.constants import (
     FingerprintConstants,
 )
 from auralis.services.fingerprint_extractor import (
-    MAX_FINGERPRINT_FILE_SIZE_MB,
     FingerprintExtractor,
 )
 
@@ -141,23 +140,25 @@ class TestSidecarStrategy:
 
 
 class TestComputeStrategy:
-    """`_compute_fingerprint` — the size guard and the analyzer contract."""
+    """`_compute_fingerprint` — the analyzer contract."""
 
-    def test_oversized_file_is_skipped_without_analysis(self, extractor, tmp_path):
+    def test_large_file_is_analysed_not_skipped(self, extractor, tmp_path):
+        """Windowed loading bounds memory, so file size is no reason to skip (#6145)."""
         big = tmp_path / "big.flac"
         big.write_bytes(b"\0" * 16)
-        over_bytes = int((MAX_FINGERPRINT_FILE_SIZE_MB + 1) * 1024 * 1024)
+        over_bytes = 400 * 1024 * 1024  # past the retired 300 MB guard
 
         with (
             patch.object(Path, "stat") as stat,
             patch(
-                "auralis.services.fingerprint_extractor.compute_windowed_fingerprint"
+                "auralis.services.fingerprint_extractor.compute_windowed_fingerprint",
+                return_value={"lufs": -14.0},
             ) as analyse,
         ):
             stat.return_value = MagicMock(st_size=over_bytes)
-            assert extractor._compute_fingerprint(1, big) is None
+            assert extractor._compute_fingerprint(1, big) == {"lufs": -14.0}
 
-        analyse.assert_not_called()
+        analyse.assert_called_once()
 
     def test_analyzer_returning_none_is_reported_as_failure(self, extractor, audio_file):
         """compute_windowed_fingerprint returns None on failure, not {} (#4595)."""
