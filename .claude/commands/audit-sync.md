@@ -27,6 +27,7 @@ SCRATCH=<session scratchpad>/audit-sync
 The script writes the following into `$SCRATCH`:
 - *BRIEF.md*
 - *open.txt*
+- *cited.txt*: every `#NNNN` a command, shared file or agent cites
 - *closed_since.tsv*
 - *cited_closed_recent_map.txt*
 - *weights.tsv*
@@ -80,7 +81,8 @@ Skill-reading checks: rerun any whose matched text was touched.
 | `check_doc_counts.py --check-docs` (already run by the validator; the test-count line only warns, but a stale router / analysis-file / tests-subdir count exits non-zero and fails the validator, #6250) | the "~N test functions (M files)" line, the "N registered routers", "Analysis: <dir> N files;" and "across N subdirs" statements in `CLAUDE.md` and `_audit-common.md`; every "N repos" / "N repositories" and "schema vNN" in `.claude/agents/*.md`, `.claude/commands/*.md`, `CLAUDE.md` and `docs/architecture/*.md` | `python3 scripts/check_doc_counts.py --check-docs` |
 | `check_optimization_importers.py` (also a step in `path-references.yml`) | the `auralis/optimization/` row in `_audit-common.md` | `python3 scripts/check_optimization_importers.py` |
 | `test_optimization_is_live_5142.py` | the same row, dynamically | `python -m pytest -q tests/test_optimization_is_live_5142.py` |
-| `test_check_doc_counts_repo_scan_5813.py` | that `check_doc_counts.py` still scans `_audit-common.md` | `python -m pytest -q tests/regression/test_check_doc_counts_repo_scan_5813.py` |
+| `test_check_doc_counts_repo_scan_5813.py` | that `check_doc_counts.py` still scans `_audit-common.md`, and (`test_live_layout_counts_match_the_doc_keys`) that the router / analysis-file / tests-subdir counts in `CLAUDE.md` and `_audit-common.md` equal the live tree — a stale count fails this test as well as the validator | `python -m pytest -q tests/regression/test_check_doc_counts_repo_scan_5813.py` |
+| `path-references.yml` and the `path-references` pre-commit hook (`scripts/pre_commit_path_references.sh`, #5818; fires only on a commit that deletes or renames files) | everything `_audit-validate.sh` scans, so a rename in an audited tree turns the gate red on the push | `bash .claude/commands/_audit-validate.sh` |
 
 To re-derive the list: `git grep -n '\.claude/commands' -- '*.py' '*.ts' '*.tsx' '*.yml' ':!.claude'`, keeping the non-comment hits.
 

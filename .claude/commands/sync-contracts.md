@@ -38,13 +38,13 @@ For each message, extract the `type` field value and `data` field structure.
 
 ### WebSocket Messages (Frontend sends)
 
-Two send paths: the raw `manager.send(JSON.stringify(...))` calls in `auralis-web/frontend/src/hooks/websocket/` (`websocketConnectionCore.ts`, `useOutgoingChannel.ts`, and the heartbeat `pong` in `socketFrameParser.ts` — split out of the connection core in #5840), and `wsContext.send({...})` from hooks, chiefly `auralis-web/frontend/src/hooks/enhancement/` (`play_enhanced` / `play_normal` in `useEnhancedPlayCommand.ts`, `seek` in `useEnhancedSeek.ts`, `buffer_full` / `buffer_ready` in `useStreamMessageHandlers.ts`, and the drain-triggered `buffer_ready` in `flowDrainWatch.ts`): `grep -rn "\.send(" auralis-web/frontend/src --include='*.ts' --include='*.tsx'`. Check each sent `type` against the backend's `dispatch_message` switch and the inbound `WebSocketMessageType` enum. The frontend's message types are in `auralis-web/frontend/src/types/ws/`.
+Two send paths: the raw `manager.send(JSON.stringify(...))` calls in `auralis-web/frontend/src/hooks/websocket/` (`websocketConnectionCore.ts`, `useOutgoingChannel.ts`, and the heartbeat `pong` in `socketFrameParser.ts` — split out of the connection core in #5840), and `wsContext.send({...})` from hooks, chiefly `auralis-web/frontend/src/hooks/enhancement/` (`play_enhanced` / `play_normal` in `useEnhancedPlayCommand.ts`, `seek` in `useEnhancedSeek.ts`, `buffer_full` / `buffer_ready` in `useStreamMessageHandlers.ts`, and the drain-triggered `buffer_ready` in `flowDrainWatch.ts`; the reconnect resume command and queued re-issues are sent from `websocketConnectionCore.ts`): `grep -rn "\.send(" auralis-web/frontend/src --include='*.ts' --include='*.tsx'`. Check each sent `type` against the backend's `dispatch_message` switch and the inbound `WebSocketMessageType` enum. The frontend's message types are in `auralis-web/frontend/src/types/ws/`.
 
 ## Step 2: Extract Frontend Contracts
 
 ### API Client Calls
 
-Most calls go through `auralis-web/frontend/src/utils/apiRequest.ts` (`get` / `post` / `put` / `patch` / `del`; options and timeouts in `apiRequestTypes.ts`, retry policy in `queryRetry.ts`) with paths from `ENDPOINTS` in `auralis-web/frontend/src/config/api.ts`. Scan all service files in `auralis-web/frontend/src/services/`, plus `useRestAPI` (`auralis-web/frontend/src/hooks/api/useRestAPI.ts`, a React wrapper over the shared `fetchWithTimeout` / `buildUrl` exported by `apiRequest.ts` since #6216 — there is no second transport) and the direct `fetch(` calls still scattered across `src/hooks/` and `src/components/`. For each API call, extract:
+Most calls go through `auralis-web/frontend/src/utils/apiRequest.ts` (`get` / `post` / `put` / `patch` / `del`; options and timeouts in `apiRequestTypes.ts`, retry policy in `queryRetry.ts`) with paths from `ENDPOINTS` in `auralis-web/frontend/src/config/api.ts`. Scan all service files in `auralis-web/frontend/src/services/`, plus `useRestAPI` (`auralis-web/frontend/src/hooks/api/useRestAPI.ts`, a React wrapper over the shared `fetchWithTimeout` / `buildUrl` exported by `apiRequest.ts` since #6216 — there is no second transport) and the hook/component call sites in `src/hooks/` and `src/components/`, which also use the shared transport (no bare `fetch(` call remains outside it since #5649 and #5650: a new one is a finding, because it has no timeout or abort signal). For each API call, extract:
 - HTTP method, URL path
 - Request body shape (TypeScript interface or inline object)
 - Expected response shape
@@ -62,7 +62,7 @@ Read:
 
 Read:
 - `auralis-web/frontend/src/types/websocket.ts` — a barrel re-exporting the per-domain modules in `auralis-web/frontend/src/types/ws/`
-- `auralis-web/frontend/src/hooks/websocket/` — message handlers
+- `auralis-web/frontend/src/hooks/websocket/` — message handlers; subscribers are typed per message through `auralis-web/frontend/src/types/ws/registry.ts`, so the compiler already checks a consumer against its `types/ws/*` declaration (#5636) — the remaining risk is a declaration that disagrees with the emitter
 
 For each handler, extract which `type` values it listens for and what `data` fields it accesses.
 
@@ -76,7 +76,7 @@ For each backend endpoint, verify:
 4. **Request body**: All required fields sent by frontend? Extra fields that backend ignores?
 5. **Response shape**: Does the frontend type match the backend Pydantic model?
 6. **Field naming**: The wire is `snake_case`. Conversion to the camelCase domain types is explicit, at ingress: `auralis-web/frontend/src/api/transformers/` (`transformTrack` etc.) and `auralis-web/frontend/src/hooks/player/trackInfoMapper.ts`. Many wire types stay snake_case on purpose (`has_more`, `current_index` — the camelCase fallbacks were removed in #5823). Is a raw payload dispatched into a camelCase slice without a transformer (the #5606 class)?
-7. **Optional fields**: Are fields optional on both sides consistently?
+7. **Optional fields**: Are fields optional on both sides consistently? Where the backend model is `X | None` the frontend wire type must say `| null`, not just `?:` (#6049 is open: album year/genre, similar-track fields, `TrackInfo.artwork_url`/`format` and `current_file` were fixed in `8dc831b3`; look for the next one). The inverse also counts: a field declared on the wire type that no emitter populates (#5985).
 
 ## Step 4: Cross-Reference Schemas
 
@@ -85,7 +85,7 @@ For each Pydantic model / TypeScript interface pair:
 1. **Field names**: After case conversion, do all fields match?
 2. **Field types**: `int` = `number`, `str` = `string`, `bool` = `boolean`, `list[T]` = `T[]`
 3. **Nested objects**: Are nested schemas consistent at all levels?
-4. **Enums**: Do enum values match exactly?
+4. **Enums**: Do enum values match exactly? Closed unions (`RepeatMode`, `StreamType`, `EnhancementPreset`) are declared once in `auralis-web/frontend/src/types/domain.ts` and imported by `auralis-web/frontend/src/types/ws/` (#6048, `d1fca07d`): an inline redeclaration of one is a finding. Backend vocabularies in the settings, health and cache schemas are `Literal`s (#5984).
 5. **Defaults**: Are default values consistent?
 
 ## Step 5: Cross-Reference WebSocket (if scope includes `websocket` or `all`)
@@ -123,7 +123,7 @@ Statuses: `OK`, `MISMATCH` (details in Notes), `ORPHAN` (one side only)
 ```
 | Message Type | Backend Sends | Frontend Handles | Data Shape Match | Notes |
 |-------------|--------------|-----------------|-----------------|-------|
-| player_state | system.py:L45 | usePlayerState | OK | |
+| player_state | `broadcast_typed` in `state_manager.py` | `usePlayerStateSync` | OK | |
 ```
 
 ### Summary

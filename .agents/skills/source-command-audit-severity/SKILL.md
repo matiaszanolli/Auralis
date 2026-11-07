@@ -52,7 +52,7 @@ Incorrect behavior with workarounds, defense-in-depth gaps, or affects non-criti
 - Schema mismatch between backend response and frontend type
 - Stale Redux state after a backend event
 - Rate-limiting gap on non-sensitive routes
-- Migration that lacks rollback / backup verification
+- Migration step that lacks backup verification or a failed-step restore (migrations are forward-only SQL; there is no down-migration to ask for)
 - Repository-pattern violation (raw SQL outside `repositories/`)
 
 ## LOW
@@ -79,13 +79,13 @@ Code quality, maintainability, hardening opportunities. Fix opportunistically.
 | Repository-pattern violation (raw SQL) | MEDIUM |
 | Lock held across a callback or `await` | HIGH |
 | Missing `selectinload()` on a list endpoint | MEDIUM |
-| Migration without backup or file-lock | HIGH |
+| Migration without a pre-migration backup, a failed-step restore, or the file lock + same-process lock | HIGH |
 | WebSocket handler not idempotent on reconnect | MEDIUM |
 | Public route without input validation | HIGH |
 | Path-traversal / SSRF / SQLi in any route | CRITICAL |
 | FFmpeg subprocess can be orphaned | HIGH |
 | Component > 300 lines | LOW |
-| Frontend imports `tokens` is missing (raw hex colors) | LOW |
+| Frontend color literal that bypasses `tokens` (raw hex / rgb) | LOW |
 | Rust DSP returns wrong dtype/shape to PyO3 boundary | HIGH |
 | Rust DSP holds GIL during long compute | MEDIUM |
 

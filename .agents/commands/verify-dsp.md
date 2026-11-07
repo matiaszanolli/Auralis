@@ -22,11 +22,11 @@ Determine scope from arguments:
 
 | Component | Path |
 |-----------|------|
-| Core Pipeline | `auralis/core/hybrid_processor.py`, `processing/` (the shipped app path → `mode_dispatch.py` → `ContinuousMode`); offline CLI only (#4873, reached from `auto_master.py`): `simple_mastering.py`, `stages/` (12 stage modules + the shared `hf_budget.py` helper) |
+| Core Pipeline | `auralis/core/hybrid_processor.py`, `hybrid_stage_dispatch.py` (input contract), `processing/` (the shipped app path → `mode_dispatch.py` → `ContinuousMode`); offline CLI only (#4873, reached from `auto_master.py`): `simple_mastering.py`, `stages/` (12 stage modules + the shared `hf_budget.py` helper) |
 | Optimizer wrapper | `auralis/optimization/performance_optimizer.py` — wraps `AdaptiveMode.process` at import time (#5142), so it sits in the audio path |
 | DSP Modules | `auralis/dsp/eq/psychoacoustic_eq.py`, `auralis/dsp/dynamics/`, `auralis/dsp/basic.py` (the old *advanced_dynamics.py* was deleted in #6201) |
 | Audio I/O | `auralis/io/unified_loader.py`, `results.py` |
-| Player RT Processing | `auralis/player/realtime/` |
+| Player RT Processing | `auralis/player/realtime/` (incl. `peak_ceiling.py`, `StreamingPeakCeiling`, #5721) |
 | Chunked Mastering (offline CLI) | `auralis/core/mastering_chunk_loop.py`, `mastering_chunk_assembly.py`, `mastering_process_chunk.py`, `mastering_config.py` |
 | Backend Chunking | `auralis-web/backend/core/chunked_processor.py` |
 | Rust DSP Bindings | `vendor/auralis-dsp/src/*.rs` — since #5764 the only live binding is `compute_fingerprint` (reads audio, emits none; adapter `auralis/analysis/fingerprint/rust_fingerprint.py`). `process_chunks` has no Python caller (#5738, open) |
@@ -42,6 +42,8 @@ Determine scope from arguments:
 - Check that no operation changes the array length: no trimming, padding, resampling, or filtering that alters length
 - Watch for: `np.pad()`, `np.trim_zeros()`, `signal.resample()`, array slicing that changes length, `np.concatenate()` with extra samples
 - Chunked processing: verify `sum(chunk_lengths) == total_length` after reassembly
+- Offline chunk planning folds a final remainder under `max(MIN_FINAL_CHUNK_SAMPLES, crossfade)` into the previous chunk (`next_core_samples` / `count_chunks`, #5736, #6139): the samples are still rendered, so counting chunks as `ceil(total / chunk)` is the stale form
+- `HybridProcessor.process()` input: channels-first, non-floating or >2-D arrays raise `ValueError` rather than returning a silent unprocessed copy (#6118, `tests/auralis/core/test_hybrid_input_contract_6118.py`); a genuinely too-short clip still comes back as an untouched copy
 
 **Pass criteria**: Every audio processing function preserves sample count, or explicitly documents why it doesn't (e.g., resampling).
 
@@ -63,7 +65,7 @@ Determine scope from arguments:
 
 **How to verify**:
 - Check return types of all processing functions
-- Watch for operations that change dtype: integer division `//`, mixing float32 and float64 arrays, `np.int16` casts mid-pipeline
+- Watch for operations that change dtype: integer division `//`, mixing float32 and float64 arrays (a numpy-scalar parameter promotes float32 to float64 under NEP 50 — coerce with `float()`, #6117), `np.int16` casts mid-pipeline
 - Rust DSP boundary: verify PyO3 returns match expected Python dtype
 - `results.py` output formatting: verify pcm16/pcm24 conversion only happens at final output
 
@@ -81,6 +83,8 @@ Determine scope from arguments:
 - Check for NaN propagation: does any stage check `np.isnan()` or `np.isinf()` in output?
 - In-stage `validate_audio_finite(..., repair=True)` must pass `repair_max_fraction=MAX_IN_STAGE_REPAIR_FRACTION` (`auralis/utils/audio_validation.py`, #6105): a mostly-non-finite buffer raises `ModuleError` instead of being zeroed into silence. Only the last-boundary writers (`io/saver.py`, `player/realtime/processor.py`) repair unconditionally
 - Epsilon guards use the named `AMPLITUDE_EPS` / `SILENCE_STD_THRESHOLD` in `auralis/dsp/utils/conversion.py` (#6230), not retyped literals
+- `validate_and_normalize_input` (`auralis/core/hybrid_stage_dispatch.py`) validates finiteness before its short-buffer and silence early returns, so a short non-finite buffer raises like a long one (#5191, `tests/auralis/core/test_short_buffer_nonfinite_5191.py`)
+- Filtering short buffers: stages call `sosfiltfilt_safe` (`auralis/dsp/utils/filters.py`); a raw `sosfiltfilt(` raises on a buffer shorter than its pad length (#5736)
 
 **Pass criteria**: Every potentially NaN/Inf-producing operation has a guard. No stage can pass NaN/Inf to the next.
 
@@ -93,6 +97,7 @@ Determine scope from arguments:
 - Check for clipping: `np.clip(audio, -1.0, 1.0)`, `audio.clip(-1.0, 1.0)`
 - Inter-stage clipping: check if intermediate stages can produce values > 1.0 that accumulate
 - Watch for: gain application without subsequent limiting, additive mixing without normalization
+- Ceilings are sample-local: `ContinuousMode`'s final ceiling is a look-ahead `BrickWallLimiter` that ramps in over the look-ahead (#5701, #5699), and the real-time chain's ceilings share one `StreamingPeakCeiling` envelope carried across chunks (#5721). A per-buffer `ceiling / max(abs(buf))` multiply is a regression (the gain steps at the chunk edges)
 
 - Offline CLI: `process_chunks` measures the real post-guard, post-crossfade peaks in a first render pass and applies one uniform `two_pass_correction_gain` (≤ 1, targets 0.99 sample peak and -0.5 dBTP) in the second (#5694), so the final write clamp is a backstop, not the only guard
 

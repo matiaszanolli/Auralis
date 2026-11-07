@@ -48,7 +48,7 @@ that list. The list may shrink, never grow.
 
 | Workflow | Runs | Baseline | Gate script |
 |---|---|---|---|
-| `frontend-test.yml` | `pnpm run test:ci` | `auralis-web/frontend/test-baseline.json` | `scripts/check-test-baseline.mjs` |
+| `frontend-test.yml` | `pnpm run test:ci` | `auralis-web/frontend/test-baseline.json` | `auralis-web/frontend/scripts/check-test-baseline.mjs` |
 | `backend-tests.yml` | `pytest --junitxml` | `pytest-baseline.json` | `scripts/check_pytest_baseline.py` |
 | `frontend-typecheck.yml` | `pnpm run type-check:prod` | — (must be clean) | — |
 
@@ -96,7 +96,7 @@ auralis/                          Core Python audio engine
 ├── dsp/                          Signal processing
 │   ├── basic.py                    DSP primitives
 │   ├── eq/                         Psychoacoustic EQ (psychoacoustic_eq.py)
-├── analysis/                     Audio analysis (largest module, 65 files)
+├── analysis/                     Audio analysis (largest module, 67 files)
 │   ├── fingerprint/                25D fingerprinting system (audio_fingerprint_analyzer,
 │   │   ├── metrics/                  rust_fingerprint, windowed_compute, schema, distance,
 │   │                                 similarity, knn_graph, normalizer)
@@ -161,7 +161,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (25D fingerprint only, #5764)
 desktop/                          Electron wrapper
-tests/                            ~7,100 test functions (709 files) across 16 subdirs (auralis, backend,
+tests/                            ~8,000 test functions (918 files) across 16 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)
 docs/                             18 topic dirs (development, features, frontend...)
 ```

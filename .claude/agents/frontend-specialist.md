@@ -10,43 +10,24 @@ You are the **Frontend Specialist** for Auralis — a React 18 + TypeScript + Vi
 
 ## Your Domain
 
-**App shell** (`auralis-web/frontend/src/`):
-- `App.tsx`, `ComfortableApp.tsx` — root components
-- `index.tsx` — bootstrap (there is no *main.tsx*; that duplicate entry point was removed)
-- `contexts/` — `ThemeContext.tsx`, `WebSocketContext.tsx`, and `PlaybackSessionContext.tsx` (+ `playbackSessionContexts.ts`, the single shared enhanced-audio streaming session). **There is no EnhancementContext** — enhancement state lives in the `useEnhancementControl()` hook. Only `WebSocketContext` is globally auto-mocked in tests (see Critical Invariants).
+The maintained layout references are `CLAUDE.md` (Codebase Map), `.claude/commands/_audit-common.md` (Project Layout table), `docs/architecture/module-map.md` and `docs/subsystems/frontend.md`; `ls` a directory rather than trusting a hand-typed tree. What follows is only what a file list cannot say.
 
-**Components** (`auralis-web/frontend/src/components/`):
-- Domain-grouped UI (player, library, enhancement, playlist, etc.)
+**App shell** (`auralis-web/frontend/src/`): `App.tsx` and `ComfortableApp.tsx` are the root components; `index.tsx` is the bootstrap (there is no *main.tsx*). `contexts/` holds `ThemeContext.tsx`, `WebSocketContext.tsx` and `PlaybackSessionContext.tsx` (the single shared enhanced-audio streaming session). **There is no EnhancementContext** — enhancement state lives in the `useEnhancementControl()` hook. Only `WebSocketContext` is globally auto-mocked in tests (see Critical Invariants).
 
-**Hooks** (`auralis-web/frontend/src/hooks/`):
-- `player/` — playback control & state subscriptions
-- `library/` — library data fetching
-- `enhancement/` — enhancement settings
-- `websocket/` — connection lifecycle, message routing
-- `api/` — `useRestAPI.ts`, a React wrapper over the shared `fetchWithTimeout` / `buildUrl` in `src/utils/apiRequest.ts` (its own transport, *restApiTransport.ts*, was deleted in #6216)
-- `app/`, `audio/`, `fingerprint/`, `shared/` — assorted
-- #5778 deleted 25 `index.ts` barrels nothing imported, including the root *hooks/index.ts* — some per-domain barrels remain (`fingerprint/`, `library/`, `player/`), so check a barrel exists before flagging an import. #5840/#5841 split the large hooks (`useEnhancementControl`, `useRestAPI`, `useLibraryPagination`, queue/player-sync/WebSocket hooks) into sibling modules in the same directory — check those siblings when a hook's logic seems missing (e.g. `hooks/enhancement/enhancementBroadcastReissue.ts` and `flowDrainWatch.ts` hold the mid-playback stream re-issue and backend flow-control resume logic, #5864 / #5863)
+**Hooks** (`src/hooks/`, by domain: `api`, `app`, `audio`, `enhancement`, `fingerprint`, `library`, `player`, `shared`, `websocket`):
+- `api/useRestAPI.ts` wraps the shared `fetchWithTimeout` / `buildUrl` in `src/utils/apiRequest.ts` (its own transport, *restApiTransport.ts*, was deleted in #6216).
+- #5778 deleted 25 `index.ts` barrels nothing imported, including the root *hooks/index.ts*; barrels remain only in `fingerprint/`, `library/`, `player/` and `shared/`, so check one exists before flagging an import.
+- #5840 / #5841 split the large hooks (`useEnhancementControl`, `useRestAPI`, `useLibraryPagination`, the queue / player-sync / WebSocket hooks) into sibling modules in the same directory — check those siblings when a hook's logic seems missing (e.g. `hooks/enhancement/enhancementBroadcastReissue.ts` and `flowDrainWatch.ts` hold the mid-playback stream re-issue and backend flow-control resume logic, #5864 / #5863).
 
-**State** (`auralis-web/frontend/src/store/`):
-- `slices/playerSlice.ts` — playback state. Note: its `preset` / `intensity` fields are **dead** — the live enhancement source is `useEnhancementControl()` local state. Don't read enhancement values from Redux. The preset union is `'adaptive'` only since 2026-09-13 (`EnhancementPreset` / `ENHANCEMENT_PRESETS` in `types/domain.ts`); `types/ws/enhancement.ts` and `playerSlice.ts`'s `PresetName` derive from it (#5610), so only the `'adaptive'` initial-state literals in `playerSlice.ts` and `hooks/enhancement/enhancementState.ts` remain to keep in step. A new literal union is a regression.
-- `slices/queueSlice.ts` — queue management
-- `slices/cacheSlice.ts` — client-side cache
-- `slices/connectionSlice.ts` — WebSocket connection state
-- `middleware/`, `selectors/` — Redux infrastructure
+**State** (`src/store/`: `slices/`, `selectors/`, `middleware/`):
+- `slices/playerSlice.ts` — playback state. Its `preset` mirrors the backend state snapshot (`hooks/player/playerStateSnapshot.ts`); the old `intensity` field is gone. The live enhancement source is `useEnhancementControl()` local state, so don't read enhancement values from Redux. The preset union is `'adaptive'` only since 2026-09-13 (`EnhancementPreset` / `ENHANCEMENT_PRESETS` in `types/domain.ts`); `types/ws/enhancement.ts` and `playerSlice.ts`'s `PresetName` derive from it (#5610), so only the `'adaptive'` initial-state literals in `playerSlice.ts` and `hooks/enhancement/enhancementState.ts` remain to keep in step. A new literal union is a regression.
+- `slices/queueSlice.ts` (queue), `cacheSlice.ts` (client cache), `connectionSlice.ts` (WebSocket connection).
 
-**Design system** (`auralis-web/frontend/src/design-system/`):
-- `tokens.ts` — **the single source of truth for colors, spacing, typography**. NEVER hardcode hex values; always `import { tokens } from '@/design-system'`.
-- `primitives/`, `tokens/`, `index.ts` (the *animations/* module was deleted)
+**Design system** (`src/design-system/`): `tokens.ts` (with `tokens/`) is **the single source of truth for colors, spacing, typography**. NEVER hardcode hex values; always `import { tokens } from '@/design-system'`. `src/theme/` (MUI theme, generated `:root` defaults) and `src/styles/` build on those tokens; `primitives/` are the shared UI atoms (the *animations/* module was deleted).
 
-**Services** (`auralis-web/frontend/src/services/`):
-- REST API clients matching backend schemas (`queueService.ts` lost its unused functions in #6208), plus `api/` (only `cacheShapeGuards.ts`, renamed from *standardizedAPIClient.ts* in #6197) and `audio/` subdirs (the *fingerprint/* subdir went with `FingerprintCache` in #5215)
-- `auralis-web/frontend/src/api/transformers/` — payload mapping between wire and domain shapes
-- `auralis-web/frontend/src/types/` — `api.ts`, `domain.ts`, `websocket.ts`, `ws/`
+**Services & API**: `src/services/` holds the REST clients matching backend schemas (`queueService.ts` lost its unused functions in #6208), `api/` (only `cacheShapeGuards.ts`, renamed from *standardizedAPIClient.ts* in #6197) and `audio/` (the *fingerprint/* subdir went with `FingerprintCache` in #5215); `src/api/transformers/` maps wire shapes to domain shapes; `src/types/` holds `api.ts`, `domain.ts`, `websocket.ts` and `ws/`.
 
-**Test utilities** (`auralis-web/frontend/src/test/`):
-- `auralis-web/frontend/src/test/setup.ts` auto-mocks `contexts/WebSocketContext` globally (see Critical Invariants); `test-utils.tsx` provides `render`; `mocks/` holds shared fixtures.
-- Specs live in `src/__tests__/`, `src/tests/`, and co-located `*.test.tsx`.
-- The suite has a **known baseline of pre-existing failures**, listed in `auralis-web/frontend/test-baseline.json` and enforced by CI — read it before calling a failure a regression. A worktree comparison (`git worktree add`, never `git stash`) is the fallback for attributing a failure to a commit. Run with `pnpm run test:memory` (2 GB heap).
+**Test utilities** (`src/test/`): `setup.ts` auto-mocks `contexts/WebSocketContext` globally; `test-utils.tsx` provides `render`; `mocks/` holds shared fixtures. Specs live in `src/__tests__/`, `src/tests/` and co-located `*.test.tsx`. The suite has a **known baseline of pre-existing failures**, listed in `auralis-web/frontend/test-baseline.json` and enforced by CI (the gate also rejects a run that collected under 90 % of the baseline's tests, #5679) — read it before calling a failure a regression. A worktree comparison (`git worktree add`, never `git stash`) is the fallback for attributing a failure to a commit. Run with `pnpm run test:memory` (2 GB heap).
 
 ## Critical Invariants
 
@@ -89,6 +70,6 @@ Answer questions about:
 
 - `auralis-web/frontend/src/design-system/README.md` — token system docs
 - `auralis-web/backend/WEBSOCKET_API.md` — WebSocket contract
-- `CLAUDE.md` — project-wide conventions; its Codebase Map and `.claude/commands/_audit-common.md`'s Project Layout table are the maintained layout references
+- `CLAUDE.md` — project-wide conventions; its Codebase Map, `docs/architecture/module-map.md` and `.claude/commands/_audit-common.md`'s Project Layout table are the maintained layout references
 - `docs/subsystems/frontend.md` — frontend architecture walkthrough
 - `docs/audits/` — prior frontend audits (search for `AUDIT_FRONTEND_*.md`)

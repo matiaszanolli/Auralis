@@ -56,7 +56,7 @@ For each CONFIRMED finding, check which risk patterns apply:
 |---------|-----------|--------------------------|
 | **Dead code risk** | Fix requires adding a new function, validator, or decorator | `WIRING: Verify <function> is called from <expected caller>.` |
 | **Sibling divergence risk** | Fix touches a file that has a sibling with similar logic (e.g., multiple DSP modules, multiple repository files) | `SIBLING: Apply same fix to <sibling_file>.` |
-| **Migration chain risk** | Fix creates or modifies a database migration | `MIGRATION: Verify the new auralis/library/migrations/migration_vNNN_to_vNNN+1.sql continues the chain with no gap, __db_schema_version__ in auralis/__version__.py matches the highest file, and a failed step restores the backup (migrations are forward-only SQL — there is no down-migration or Alembic head). If the fix drops a column, the model attribute, `to_dict()` / serializer field and frontend type must go in the same change (the #5755 pattern: v26-v28).` |
+| **Migration chain risk** | Fix creates or modifies a database migration | `MIGRATION: Verify the new auralis/library/migrations/migration_vNNN_to_vNNN+1.sql continues the chain with no gap, __db_schema_version__ in auralis/__version__.py matches the highest file, and a failed step restores the backup (migrations are forward-only SQL — there is no down-migration or Alembic head). If the fix drops a column, the model attribute, `to_dict()` / serializer field and frontend type must go in the same change (the #5755 pattern: v26-v28). The reverse also needs a step: a column added to an ORM model is not created on an existing library by `create_all()`, so it needs its own migration (the #5718 pattern: v28-v29).` |
 | **Return value risk** | Fix adds a guard/check that returns a sentinel (None, False, error) | `RETURN VALUE: Verify all callers of <function> check the return value.` |
 | **Cross-file consistency risk** | Fix applies a pattern change that exists in multiple files (same DSP pattern, same repository method, same hook pattern) | `CONSISTENCY: Same pattern exists in <file1>, <file2>, ... — fix ALL or note as out of scope.` |
 
@@ -64,6 +64,8 @@ For each CONFIRMED finding, check which risk patterns apply:
 - `auralis/dsp/eq/psychoacoustic_eq.py` → check other `auralis/dsp/**/*.py` for same pattern
 - `auralis/library/repositories/track_repository.py` → check other `repositories/*_repository.py`
 - `auralis-web/backend/routers/albums.py` → check other `routers/*.py` for same pattern, including the router's own split siblings (`albums_deps.py`, `albums_models.py`, `albums_fingerprint.py`) where the handlers now live
+- `auralis-web/backend/services/library_auto_scanner.py` → check `auralis-web/backend/routers/library_scan.py` (the manual scan route): both publish through `services/scan_events.py` and `services/scan_fingerprint_enqueue.py` but keep their own lifecycle around it (#5912)
+- `auralis/library/repositories/track_repository.py` → check the split helper files (`track_repository_*.py`, `track_deletion.py`, `orphan_pruning.py`), where the logic now lives
 - `auralis-web/frontend/src/hooks/player/` → check other `hooks/*/` directories
 
 **How to detect wiring risk**: When the proposed fix says "add function", "create validator", "add middleware" — the new code MUST be called from somewhere.

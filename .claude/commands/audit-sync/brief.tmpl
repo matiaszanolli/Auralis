@@ -44,7 +44,9 @@ code bug, REPORT it.
   `.claude/commands/audit-sync.md`. If you edit text one of them matches on, read that check first and keep it passing.
 - Match each skill's existing style and density. Correct in place; don't append changelog prose.
 - When you finish: `bash .claude/commands/_audit-validate.sh 2>&1 | grep -E 'FAIL|STALE|OK:'`. Your edits must
-  introduce no failures. (The `Doc structural counts` section is warn-only.)
+  introduce no failures. The `Doc structural counts` section warns on a stale test count but fails the script on a stale
+  router / analysis-file / tests-subdir count (#6250). `CLAUDE.md` is the orchestrator's file, so a count FAIL that names
+  only `CLAUDE.md` is expected until the orchestrator edits it; fix the ones naming your own files.
 
 ## Final report (keep it under ~400 words)
 1. Per file: what was wrong and what you changed, one line each.

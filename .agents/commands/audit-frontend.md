@@ -48,12 +48,12 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 ### Dimension 1: Component Quality
 
 **Check**:
-- [ ] Single responsibility — does each component do ONE thing? Are any > 300 lines? After the #5478 / #5840 / #5841 split waves only three non-test `src/` files exceed 300 lines at 0ba655c5 (`auralis-web/frontend/src/services/audio/AudioPlaybackEngine.ts` 319, `auralis-web/frontend/src/components/library/CozyLibraryView.tsx` 314, `auralis-web/frontend/src/hooks/enhancement/useAudioStreamingCore.ts` 311); re-measure with `wc -l` rather than trusting this.
+- [ ] Single responsibility — does each component do ONE thing? Are any > 300 lines? After the #5478 / #5840 / #5841 split waves, `auralis-web/frontend/src/services/audio/AudioPlaybackEngine.ts` was brought back under 300 (295, #6037, 4e0ca01db) and three non-test `src/` files exceed it at a8d191192 (`auralis-web/frontend/src/components/library/CozyLibraryView.tsx` 335, `auralis-web/frontend/src/hooks/enhancement/useAudioStreamingCore.ts` 314, `auralis-web/frontend/src/hooks/enhancement/useStreamMessageHandlers.ts` 312); re-measure with `wc -l` rather than trusting this.
 - [ ] Prop drilling — are props passed through > 2 intermediate components instead of using context or Redux?
 - [ ] Conditional rendering — any branches that produce inconsistent DOM structure causing React reconciliation issues?
 - [ ] Key usage in lists — stable keys derived from data, never array indices for reorderable lists?
 - [ ] Ref usage — are refs used correctly for imperative operations (audio elements, scroll, focus)?
-- [ ] Error boundaries — are they wrapping critical subtrees (player, library, enhancement)? There is one implementation, `auralis-web/frontend/src/components/core/ErrorBoundary.tsx` (fallback `(error, retry) => node`, `resetKeys`), with `RegionErrorFallback.tsx` as the shared fallback (#5627); the design-system duplicate is gone. A static "refresh the page" fallback that makes retry unreachable, or a second boundary class, is a finding.
+- [ ] Error boundaries — are they wrapping critical subtrees (player, library, enhancement)? There is one implementation, `auralis-web/frontend/src/components/core/ErrorBoundary.tsx` (fallback `(error, retry) => node`, `resetKeys`), with `RegionErrorFallback.tsx` as the shared fallback (#5627); the design-system duplicate is gone. A static "refresh the page" fallback that makes retry unreachable, or a second boundary class, is a finding. Region boundaries must also recover (#6035, 090e19edc): the Settings and shortcuts-help fallbacks close their dialog before retrying (else a still-open dialog re-throws), and the Player and queue-panel boundaries take the current track id as `resetKeys` so a bad track does not re-crash every retry.
 - [ ] Unmounted component updates — do async operations check component mount state before setState?
 
 ### Dimension 2: Redux State Management
@@ -63,7 +63,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] Selector memoization — are selectors using `createSelector` where derived data is computed? Any selectors returning new references on every call?
 - [ ] Dispatch ordering — can rapid dispatches (skip, skip, skip) leave the store in an inconsistent intermediate state?
 - [ ] Thunk / async action error handling — are rejected promises caught and dispatched as error states?
-- [ ] Middleware — any custom middleware that could drop or reorder actions?
+- [ ] Middleware — any custom middleware that could drop or reorder actions? `auralis-web/frontend/src/store/index.ts` chains `errorTrackingMiddleware` always and `loggerMiddleware` only under `import.meta.env.DEV` (#3622); loggerMiddleware has no scattered `any` (#5377). The four slices (`player`, `queue`, `cache`, `connection`) are the exported `reducer` map that `auralis-web/frontend/src/test/test-utils.tsx` builds its test store from (#5681), so a slice added to the store cannot be missing from tests; a test store that hand-lists slices is a finding.
 - [ ] State shape — are there deeply nested objects that make immutable updates error-prone?
 - [ ] Serializable state — are non-serializable values (functions, class instances, Promises) stored in Redux?
 
@@ -79,6 +79,7 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] Subscription lifecycle — `useMessageSubscriptions(subscribe, handlers)` in `useWebSocketMessages.ts` is the one ref-held, type-keyed subscribe effect (#5789; the #4668 / #5621 no-resubscribe guarantee lives there). A hook that hand-rolls its own subscribe/unsubscribe effect instead is a finding.
 - [ ] Player hooks (`hooks/player/`) — do they correctly synchronize with backend playback state? Stale position/duration?
 - [ ] API hooks (`hooks/api/`) — cancellation of in-flight requests on unmount? Deduplication of concurrent identical requests?
+- [ ] Single-flight playback start — `startPlayback` in `AudioPlaybackEngine` is single-flight, and a stop/dispose during its awaited AudioContext resume / worklet load cancels it (#6043, aa05a0f7c); a path that issues another start per landing chunk, or that can create a worklet node on a stopped/disposed engine, is a finding.
 - [ ] Streaming session ownership — `auralis-web/frontend/src/contexts/PlaybackSessionContext.tsx` holds the single shared enhanced-audio session. Does any hook or component open its own session or `AudioContext` alongside it?
 
 ### Dimension 4: TypeScript Type Safety
@@ -87,7 +88,8 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] `any` usage — are there `any` types that bypass safety? Should they be `unknown` or properly typed?
 - [ ] Type assertions (`as`) — are there unsafe casts that could mask runtime errors?
 - [ ] API response types — do they match the actual backend response schemas in `auralis-web/backend/schemas/`?
-- [ ] WebSocket message types — are binary and text message types correctly discriminated?
+- [ ] WebSocket message types — are binary and text message types correctly discriminated? Subscribe handlers are typed per message type, so consumers are compile-checked against `types/ws/*` (#5636); a hand-written cast of a handler payload is a finding.
+- [ ] Shared unions — `RepeatMode` and `StreamType` each have one definition in `auralis-web/frontend/src/types/domain.ts` (#6048, d1fca07d0); other modules import or re-export them (a type-level test pins the re-exports). A re-typed `'off' | 'all' | 'one'` or inline `stream_type` literal union is a finding.
 - [ ] Event handler types — are DOM event types correctly specified?
 - [ ] Union exhaustiveness — are switch/if chains over union types exhaustive (use `never` checks)?
 - [ ] Generic constraints — are generic hooks and utilities properly constrained?
@@ -100,19 +102,19 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] Spacing — consistent use of spacing tokens vs arbitrary pixel values?
 - [ ] Typography — font sizes, weights, line heights from tokens?
 - [ ] Responsive — do components use responsive breakpoints from the design system?
-- [ ] Dark/light theme — do all styled elements respect the theme context?
-- [ ] Import paths — all using `@/` absolute imports, no relative `../../` paths?
+- [ ] Dark/light theme — do all styled elements respect the theme context? Literals that equal a design token must use it, and `auralis-web/frontend/src/design-system/__tests__/spacingTokens.test.ts` source-scans for them (#5648); MUI breakpoints derive from `tokens.breakpoints` (#6059); fonts are bundled, not loaded from Google Fonts (#6060, pinned by `auralis-web/frontend/src/__tests__/bundledFonts.guard.test.ts`).
+- [ ] Import paths — all using `@/` absolute imports, no relative `../../` paths? `auralis-web/frontend/src/__tests__/relativeImports.guard.test.ts` fails on any deep-relative import or `vi.mock` path (#6061).
 
 ### Dimension 6: API Client & Data Fetching
 
 **Check**:
 - [ ] Error handling — are HTTP errors (4xx, 5xx) caught and surfaced to the UI?
 - [ ] Loading states — is there a loading indicator for every async operation?
-- [ ] Request cancellation — are fetch/axios requests cancelled on component unmount?
+- [ ] Request cancellation — are fetch/axios requests cancelled on component unmount? Superseded/unmounted React Query queries cancel their HTTP request (#5650). `apiRequest` rethrows a caller-initiated abort unchanged as the raw `AbortError` (test with `isAbortError` from `auralis-web/frontend/src/utils/errorGuards.ts`); only its own timeout surfaces as `APIRequestError` status 0 (#5653). A catch that toasts "Network error" on an abort, or re-checks the signal because it distrusts this, is a finding.
 - [ ] Retry logic — are transient failures (network, 503) retried? Are non-transient failures (400, 404) NOT retried? The React Query policy is `shouldRetryQuery` in `auralis-web/frontend/src/utils/queryRetry.ts` (keyed on `APIRequestError`'s status, #4467); flag a call site with its own retry rule.
 - [ ] Response validation — runtime guards live in `auralis-web/frontend/src/api/responseGuards.ts`. Do the fetch paths actually route through them, or do some cast the JSON straight to a type and trust it? A guard that exists but is unused is worse than none — it implies coverage that isn't there.
 - [ ] Error normalization — are HTTP failures funnelled through `auralis-web/frontend/src/utils/httpError.ts` / `errorGuards.ts`, or does each call site re-implement error shape handling?
-- [ ] Base URL configuration — is the API base URL sourced from `auralis-web/frontend/src/config/api.ts`, not hardcoded per call site?
+- [ ] Base URL configuration — is the API base URL sourced from `auralis-web/frontend/src/config/api.ts`, not hardcoded per call site? `API_BASE_URL` / `WS_BASE_URL` there: a production page uses its own origin (#5886), `VITE_API_URL` alone also moves the WebSocket and `VITE_WS_URL` still wins (#5654). A library-scan request must pass `SCAN_TIMEOUT_MS`, not the 30s default (#5643).
 - [ ] One transport — REST hooks should go through `useRestAPI.ts` (a React wrapper over the shared `fetchWithTimeout` / `buildUrl` in `utils/apiRequest.ts`; it has no transport of its own since *restApiTransport.ts* was deleted, #6216) or `auralis-web/frontend/src/utils/apiRequest.ts` (including its `getOrNullOn404` helper for fingerprint-style 404-means-absent reads, #6221), with the timeout from `DEFAULT_TIMEOUT_MS` in `auralis-web/frontend/src/utils/apiRequestTypes.ts` and stale time / debounce from `auralis-web/frontend/src/config/timing.ts` (#5800, a test pins numeric `staleTime` literals out). A bare `fetch` with no timeout, or a re-typed timeout/stale/debounce literal, is a finding.
 - [ ] camelCase/snake_case — is the casing conversion between frontend (camelCase) and backend (snake_case) handled consistently?
 
@@ -134,7 +136,8 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 - [ ] ARIA labels — do custom controls (sliders, progress bars, play/pause) have proper ARIA attributes?
 - [ ] Focus management — is focus correctly managed after modal open/close, route changes, and dynamic content? Helpers live in `auralis-web/frontend/src/a11y/focusManagement.ts`; flag components that hand-roll focus traps instead of using them.
 - [ ] View announcements — does `auralis-web/frontend/src/components/core/AppViewAnnouncement.tsx` announce view changes to screen readers, and is there exactly one `<h1>` per view (a specced invariant — see the co-located tests)?
-- [ ] Screen reader — are player state changes (now playing, paused) announced?
+- [ ] Screen reader — are player state changes (now playing, paused) announced? Info/success alerts and toasts are polite status regions, not assertive alerts (#5669).
+- [ ] Reduced motion — animated surfaces (the starfield background, auto-rotating text) honour `prefers-reduced-motion` through the one shared hook `auralis-web/frontend/src/hooks/shared/usePrefersReducedMotion.ts` (#5676, #6036); a second matchMedia check is a finding.
 - [ ] Color contrast — do text and interactive elements meet WCAG AA contrast ratios?
 - [ ] Semantic HTML — are headings hierarchical? Are lists using `<ul>`/`<ol>`? Are buttons vs links correct?
 
@@ -143,9 +146,9 @@ Out of scope: Python backend, audio engine, Rust DSP, database.
 **Check**:
 - [ ] Critical path coverage — are player hooks, WebSocket hooks, and Redux slices tested?
 - [ ] Global auto-mocks — `auralis-web/frontend/src/test/setup.ts` mocks `contexts/WebSocketContext` for every spec. Any test claiming to exercise the real implementation must `vi.unmock()` it; flag ones that don't (they are asserting against the mock).
-- [ ] Pre-existing failures — the known-failing specs are listed explicitly in `auralis-web/frontend/test-baseline.json` (#4640). **Read that file before reporting any failing spec**; if it is listed, do not file it. Verify with `pnpm run test:ci && pnpm run test:baseline -- --strict-stale` (what CI runs). The gate is a ratchet (baseline may shrink, never grow), so a failure *not* in the list is a real regression; under `--strict-stale` it also fails on a listed test that ran and passed (#5344) and on a phantom entry naming a test that no longer exists (#5811). Regenerate with `pnpm run test:baseline:update` (it first runs `auralis-web/frontend/scripts/check-installed-deps.mjs`, which refuses while the installed jsdom/vitest differ from `pnpm-lock.yaml`, #6008); the one hand edit is removing the entries of a test you deleted, which a report cannot see.
+- [ ] Pre-existing failures — the known-failing specs are listed explicitly in `auralis-web/frontend/test-baseline.json` (#4640). **Read that file before reporting any failing spec**; if it is listed, do not file it. Verify with `pnpm run test:ci && pnpm run test:baseline -- --strict-stale` (what CI runs, with `VITEST_EXIT_CODE` handed to the gate). The gate is a ratchet (baseline may shrink, never grow), so a failure *not* in the list is a real regression; under `--strict-stale` it also fails on a listed test that ran and passed (#5344) and on a phantom entry naming a test that no longer exists (#5811). Since #5679 (86f5299a9) it also fails when the run collected under 90% of `generatedFrom.totalTests` recorded in the baseline (deliberate spec deletions are acknowledged by `test:baseline:update`) and when vitest exited non-zero with no failing test in the report. Regenerate with `pnpm run test:baseline:update` (it first runs `auralis-web/frontend/scripts/check-installed-deps.mjs`, which refuses while the installed jsdom/vitest differ from `pnpm-lock.yaml`, #6008); the one hand edit is removing the entries of a test you deleted, which a report cannot see.
 - [ ] Memory — the suite needs the 2GB-heap runner (`pnpm run test:memory`); flag any new spec that spins an unbounded mock loop.
-- [ ] Mock correctness — do mocks (`vi.*`) accurately represent real behavior? Over-mocking?
+- [ ] Mock correctness — do mocks (`vi.*`) accurately represent real behavior? Over-mocking? Every `vi.mock` string must resolve to an existing module (`auralis-web/frontend/src/tests/vi-mock-targets-exist.test.ts`, #5678): a mock of a moved or deleted module silently mocks nothing. Specs for error paths must assert the failure, not pass on the initial null (#5674).
 - [ ] Async testing — are async operations properly awaited? Any floating promises in tests?
 - [ ] User interaction testing — are tests using `@testing-library` user events, not direct DOM manipulation?
 - [ ] Snapshot overuse — are snapshots testing the right thing, or just freezing implementation details?

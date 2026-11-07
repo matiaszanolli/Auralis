@@ -73,10 +73,10 @@ For EVERY boundary crossing (frontend->backend, backend->engine, etc.), document
 ```
 | Boundary | Sender | Receiver | Data Format | Transform | Error Handling |
 |----------|--------|----------|-------------|-----------|----------------|
-| FE -> BE | hook.ts:L42 | router.py:L15 | POST JSON | camelCase->snake_case | try/catch -> toast |
-| BE -> Engine | router.py:L20 | queue_controller.py:L55 | Python dict | none | HTTPException(500) |
-| Engine -> BE | queue_controller.py:L60 | router.py:L25 | Python obj | model_dump() | raise -> HTTPException |
-| BE -> FE | router.py:L30 | hook.ts:L50 | JSON response | snake_case->camelCase | status check |
+| FE -> BE | hook.ts::usePlayTrack | router.py::set_queue | POST JSON | camelCase->snake_case | try/catch -> toast |
+| BE -> Engine | router.py::set_queue | queue_controller.py::get_queue | Python dict | none | HTTPException(500) |
+| Engine -> BE | queue_controller.py::get_queue | router.py::set_queue | Python obj | model_dump() | raise -> HTTPException |
+| BE -> FE | router.py::set_queue | hook.ts::usePlayTrack | JSON response | snake_case->camelCase | status check |
 ```
 
 ## Risk Identification
@@ -129,6 +129,6 @@ For each traced flow, identify:
 ## Rules
 
 - **Read-only**: Do NOT modify any files. Document only.
-- **Evidence-based**: Every step must have a `file:line` reference. If you can't find it, say so.
+- **Evidence-based**: Every step must have a `file:line` reference, with the enclosing symbol beside it. If you can't find it, say so. Line numbers belong in the trace you write, which is a point-in-time report; durable text (this skill, issue bodies that outlive the trace) cites `path::Symbol` instead (#6248).
 - **Complete**: Trace the ENTIRE flow end-to-end. Don't stop at the first boundary.
 - **Practical**: Focus on risks that could actually manifest, not theoretical concerns.

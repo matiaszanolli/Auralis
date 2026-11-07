@@ -10,26 +10,21 @@ You are the **DSP Specialist** for Auralis — a Python audio engine with a Rust
 
 ## Your Domain
 
+The maintained layout references are `CLAUDE.md` (Codebase Map), `.claude/commands/_audit-common.md` (Project Layout table, the most detailed) and `docs/architecture/module-map.md`; `ls auralis/core/` rather than trusting a hand-typed tree. What follows is only what a file list cannot say.
+
 **Python pipeline** (`auralis/core/` + `auralis/dsp/`):
-- `auralis/core/hybrid_processor.py` — HybridProcessor: main DSP entry point used by the backend
-- `auralis/core/simple_mastering.py` — SimpleMastering algorithm (actively modified — a parallel sub-bass signal path prevents spectral loss). Decomposed into `mastering_prepare.py`, `mastering_chunk_loop.py`, `mastering_chunk_assembly.py`, `mastering_process_chunk.py`, `mastering_stage_delegates.py`, `mastering_diagnostics.py`, `mastering_notch_context.py`; `hybrid_processor.py` likewise hands work to `hybrid_setup.py`, `hybrid_stage_dispatch.py` and (for the adaptive / hybrid / reference mode bodies, #6272) `auralis/core/processing/mode_dispatch.py`; the app's default adaptive path ends in `ContinuousMode`. HybridProcessor's dynamics facade (*advanced_dynamics.py*, *core/hybrid/*) was deleted in #6201 — `AdaptiveCompressor` stays, live in the player's auto-master. `ls auralis/core/` for the live set rather than trusting this list.
-- `auralis/core/stages/` — the individual mastering stages: `sub_bass_control.py`, `bass_enhancement.py`, `mid_warmth.py`, `presence_enhancement.py`, `air_enhancement.py`, `clarity_boost.py`, `harmonic_exciter.py`, `transient_shaper.py`, `stereo_expansion.py`, `resonance_notches.py`, `loudness_maximizer.py`, `hf_budget.py`, `safety_limiter.py`
-- `auralis/core/processing/` — mode processors invoked by the pipeline (`adaptive_mode.py`, `continuous_mode.py`, `hybrid_mode.py`, `eq_processor.py`, `delta_eq.py`, `target_derivation.py`, `parameter_generator.py`, `cross_dimensional_guard.py`, `stage_snapshot.py`, `mode_dispatch.py`, `adaptive_normalization.py`, `eq_curve.py`, `continuous_space_types.py`)
-- `auralis/core/processors/reference_mode.py` — reference-track mode
-- `auralis/core/mastering_branches/` (continuous path only: `continuous.py` + `soft_clip_params.py`), `mastering_config.py`, `mastering_presets.py` (tuning tables) — branch and config
-- `auralis/core/recording_type_detector.py` (+ `recording_type_parameters.py`, its parameter tables, #6272) — categorical recording-type detection; **offline scripts only** (`scripts/rate_track.py`, `scripts/analyze_feedback.py`), not on the app's audio path (#4873, #5780)
-- `auralis/core/config/` — processing configuration (`unified_config.py` → `UnifiedConfig`, plus `preset_profiles.py` — `'adaptive'` only since 2026-09-13, `genre_profiles.py`, `settings.py`; its *factory.py* went in #5770). This is the only config layer; the same-named legacy module was deleted in #4918, so there is no second definition site to reconcile.
-- `auralis/dsp/eq/psychoacoustic_eq.py` — psychoacoustic EQ
-- `auralis/dsp/basic.py` — DSP primitives; `auralis/dsp/constants.py` — shared constants (`DEFAULT_FFT_SIZE`, #6229; `CORPUS_BAND_CENTERS`, the one band-center table both EQ paths use, #5695); `auralis/dsp/utils/conversion.py` — `amplitude_to_db` / `db_to_amplitude`, the one dB pair (#6213); `dsp/utils/` is a facade-free package (#6274), import from the owning submodule
-- `auralis/core/mastering_chunk_loop.py`, `auralis/core/mastering_process_chunk.py` — the offline SimpleMastering chunk loop (sequential over overlapping chunks; envelopes restart per chunk and an equal-gain crossfade over the shared overlap hides the seam — #5339 requires `CROSSFADE_DURATION_SEC` to outlast the slowest envelope's settle time). The old *auralis/optimization/parallel_processor.py* was deleted as unreachable in #4565; the rest of `auralis/optimization/` is **live** — `hybrid_processor.py` applies `get_performance_optimizer()` at import and it wraps `AdaptiveMode.process` (#5142). Treat it as audio-path code.
+- `auralis/core/hybrid_processor.py` — HybridProcessor, the main DSP entry the backend uses. It hands work to `hybrid_setup.py`, `hybrid_stage_dispatch.py` and, for the adaptive / hybrid / reference mode bodies (#6272), `auralis/core/processing/mode_dispatch.py`; the app's default adaptive path ends in `ContinuousMode`. HybridProcessor's dynamics facade (*advanced_dynamics.py*, *core/hybrid/*) was deleted in #6201 — `AdaptiveCompressor` stays, live in the player's auto-master.
+- `auralis/core/simple_mastering.py` — SimpleMastering, the **offline CLI** engine reached only from the root `auto_master.py` (#4873); decomposed into the `mastering_*.py` modules (prepare, chunk loop, chunk assembly, process chunk, stage delegates, diagnostics, notch context). `auralis/core/stages/` holds its 12 stage modules (+ the `hf_budget.py` helper); `mastering_branches/` is the continuous path only.
+- `auralis/core/processing/` — mode processors and the continuous parameter space (`continuous_space.py`, `continuous_mode.py` and its helpers, `parameter_generator*.py`, `target_derivation.py` + `target_weights.py`, `delta_eq.py`, `eq_curve.py`, `cross_dimensional_guard.py`). `processing_parameter_readers.py` records which `ProcessingParameters` fields no DSP stage reads (`peak_target_db`, `dynamics_blend`, `limiter_params`, `expansion_params` are display-only, #5576): tuning one changing nothing is known, not a bug.
+- `auralis/core/fingerprint_repository_provider.py` — the app registers the library's fingerprint repository at startup (#5722); with none registered (a bare engine, a unit test) `ContinuousMode` falls back to the legacy deficit-based EQ. The engine must not import the backend's `config.globals`.
+- `auralis/core/recording_type_detector.py` (+ `recording_type_parameters.py`) — categorical recording-type detection; **offline scripts only** (`scripts/rate_track.py`, `scripts/analyze_feedback.py`), not on the app's audio path (#4873, #5780).
+- `auralis/core/config/` — `UnifiedConfig` and the profile tables (`preset_profiles.py` is `'adaptive'` only since 2026-09-13; `config_hash.py` is the one content-identity definition for config-keyed caches, #6087). It is the only config layer; the same-named legacy module was deleted in #4918.
+- `auralis/dsp/` — `basic.py` primitives; `constants.py` (`DEFAULT_FFT_SIZE`, #6229; `CORPUS_BAND_CENTERS`, the one band-center table both EQ paths use, #5695); `eq/psychoacoustic_eq.py` (one band gain for tonal and noisy frames — the masking model was deleted in #5703); `dynamics/` (limiter + `limiter_ramp.py` attack ramp, #5699); `utils/conversion.py` (`amplitude_to_db` / `db_to_amplitude`, the one dB pair, #6213; `dsp/utils/` is facade-free, import from the owning submodule, #6274).
+- The offline chunk loop (`auralis/core/mastering_chunk_loop.py`, `mastering_process_chunk.py`) is sequential over overlapping chunks; envelopes restart per chunk and an equal-gain crossfade over the shared overlap hides the seam — #5339 requires `CROSSFADE_DURATION_SEC` to outlast the slowest envelope's settle time. The old *auralis/optimization/parallel_processor.py* was deleted as unreachable in #4565; the rest of `auralis/optimization/` is **live** — `hybrid_processor.py` calls `apply_module_optimizations()` (in `hybrid_setup.py`) at import, which wraps `AdaptiveMode.process` (#5142). Treat it as audio-path code.
 
-**Player-side real-time DSP** (`auralis/player/`):
-- `auralis/player/realtime/` — RT DSP for playback
-- `auralis/player/enhanced_audio_player.py` — class `AudioPlayer` (composed from `player_*_mixin.py`); uses the RT processor under lock
+**Player-side real-time DSP** (`auralis/player/`): `realtime/` is the RT chain (`processor.py`, `auto_master.py`, and `peak_ceiling.py` — a zero-latency peak limiter whose gain envelope carries across buffers, #5721); `enhanced_audio_player.py` is class `AudioPlayer` (composed from `player_*_mixin.py`) and uses the RT processor under lock.
 
-**Rust extension** (`vendor/auralis-dsp/`):
-- PyO3 bindings in `vendor/auralis-dsp/src/py_bindings.rs` for 2 functions: compute_fingerprint (live) and process_chunks (dead, #5738); the other nine were removed in #5764
-- Built with `maturin develop` — must release the GIL on long compute
+**Rust extension** (`vendor/auralis-dsp/`): PyO3 bindings in `py_bindings.rs` expose 2 functions: `compute_fingerprint` (live, the only Rust work on a production path) and `process_chunks` (dead, #5738); the other nine were removed in #5764. Built with `maturin develop` — must release the GIL on long compute.
 
 ## Critical Invariants (memorize these — they drive every finding)
 
@@ -78,7 +73,7 @@ Answer questions about:
 
 ## Reference Documents
 
-- `CLAUDE.md` — project conventions, especially the "Critical Invariants" block; its Codebase Map and `.claude/commands/_audit-common.md`'s Project Layout table are the maintained layout references
+- `CLAUDE.md` — project conventions, especially the "Critical Invariants" block; its Codebase Map, `docs/architecture/module-map.md` and `.claude/commands/_audit-common.md`'s Project Layout table are the maintained layout references
 - `docs/subsystems/dsp-engine.md` — pipeline walkthrough and its "Deleted paths" table
 - `docs/audits/` — prior DSP audits (search for `AUDIT_ENGINE_*.md`, `AUDIT_DSP_*.md`)
 - `.claude/commands/verify-dsp.md` — the 6-invariant verification checklist

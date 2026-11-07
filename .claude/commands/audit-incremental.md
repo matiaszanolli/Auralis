@@ -54,17 +54,20 @@ Group changed files by risk domain:
 | **Library/Database** | `auralis/library/*` | HIGH |
 | **Analysis** | `auralis/analysis/*` | MEDIUM |
 | **Engine Services** | `auralis/services/*` | MEDIUM |
+| **Engine Support** | `auralis/utils/*`, `auralis/learning/*`, `auralis/cli/*`, `auralis/__version__.py` | MEDIUM (HIGH for `auralis/utils/artwork_security.py` and `auralis/utils/atomic_write.py`) |
 | **Optimization** | `auralis/optimization/*` — live DSP, applied by `hybrid_processor.py` at import (#5142) | HIGH |
 | **Backend Processing** | `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_*`, `auralis-web/backend/core/processor_*`, `auralis-web/backend/core/executors.py` | HIGH |
 | **Backend Services** | `auralis-web/backend/services/*`, `auralis-web/backend/analysis/*` | MEDIUM |
 | **Rust DSP** | `vendor/auralis-dsp/*` | HIGH |
+| **Desktop shell** | `desktop/*` (Electron main / preload / backend spawn, port cleanup, URL gating) | MEDIUM |
 | **Frontend Components** | `auralis-web/frontend/src/components/*` | LOW-MEDIUM |
 | **Frontend Hooks** | `auralis-web/frontend/src/hooks/*` | MEDIUM |
 | **Frontend Contexts** | `auralis-web/frontend/src/contexts/*` | MEDIUM |
 | **Frontend Store** | `auralis-web/frontend/src/store/*` | MEDIUM |
 | **Frontend API & Types** | `auralis-web/frontend/src/services/*`, `auralis-web/frontend/src/api/*`, `auralis-web/frontend/src/utils/*`, `auralis-web/frontend/src/types/*` | MEDIUM |
+| **Frontend Design & Theme** | `auralis-web/frontend/src/design-system/*`, `auralis-web/frontend/src/theme/*`, `auralis-web/frontend/src/styles/*`, `auralis-web/frontend/src/config/*`, `auralis-web/frontend/src/a11y/*` | LOW-MEDIUM |
 | **Tests** | `tests/*` | LOW |
-| **Config/CI & tooling** | `.github/*`, `scripts/*`, `*.toml`, `*.ini`, `*.cfg`, `pytest-baseline.json`, `loc-ceilings.json` | MEDIUM |
+| **Config/CI & tooling** | `.github/*`, `scripts/*`, `*.toml`, `*.ini`, `*.cfg`, `requirements*.txt`, `uv.lock`, `pnpm-lock.yaml`, `package.json`, `pytest-baseline.json`, `loc-ceilings.json` | MEDIUM |
 
 ## Step 3: Audit Each Changed File
 
@@ -86,10 +89,11 @@ For each changed file that crosses a layer boundary:
 2. **Backend route changed**: Does the frontend API client match the new contract?
 3. **Backend schema changed**: Does the frontend consume the new format correctly?
 4. **WebSocket message format changed**: Are both sides in sync?
-5. **Database schema changed**: Is there a forward-only `migration_vNNN_to_vNNN+1.sql` step in `auralis/library/migrations/`, with `__db_schema_version__` in `auralis/__version__.py` bumped to match? Do the ORM models, `to_dict()` and every repository/API field that read a dropped column (#5755) agree with the new schema?
+5. **Database schema changed**: Is there a forward-only `migration_vNNN_to_vNNN+1.sql` step in `auralis/library/migrations/`, with `__db_schema_version__` in `auralis/__version__.py` bumped to match? Do the ORM models, `to_dict()` and every repository/API field that read a dropped column (#5755) agree with the new schema? The reverse also bites: an ORM column added without a migration is never created on an existing library, because `create_all()` does not alter tables (#5718, fixed by `migration_v028_to_v029.sql`).
 6. **Rust DSP changed**: Is the Python binding still correct? Do callers handle the new behavior?
-7. **Coordinator or sibling changed** (`chunked_processor.py` / `chunk_*`, `processing_engine.py` / `job_*`, `processor_factory.py` / `processor_*`, `enhanced_audio_player.py` / `player_*_mixin.py`, a router module / its `*_deps.py` + per-concern siblings, a mixin-composed class such as `queue_service.py`, `playback_service.py` or `cache/manager.py`, `state_manager.py` + `position_ticker.py`, `level_manager.py` + `level_transition.py`, `playback_commands.py` + `seek_command.py` / `enhancement_params.py`, `path_security.py` + `path_allowlist.py` / `path_errors.py`; the #6269-#6273 god-file splits made most of these): siblings share the coordinator's instance state — re-check the other side of the split.
-8. **Enhancement preset list changed**: do `auralis-web/backend/schemas/enhancement.py`, `auralis-web/backend/core/proactive_buffer.py` and `auralis-web/frontend/src/types/domain.ts` still agree?
+7. **Coordinator or sibling changed** (`chunked_processor.py` / `chunk_*`, `processing_engine.py` / `job_*`, `processor_factory.py` / `processor_*`, `enhanced_audio_player.py` / `player_*_mixin.py`, a router module / its `*_deps.py` + per-concern siblings, a mixin-composed class such as `queue_service.py`, `playback_service.py` or `cache/manager.py`, `state_manager.py` + `position_ticker.py`, `level_manager.py` + `level_transition.py`, `playback_commands.py` + `seek_command.py` / `enhancement_params.py`, `path_security.py` + `path_allowlist.py` / `path_errors.py`; the #6269-#6273 god-file splits made most of these; #6273 itself stays open for the remaining oversized analysis / io / player / library files): siblings share the coordinator's instance state — re-check the other side of the split.
+8. **Shared by two callers** (`routers/library_scan.py` and `services/library_auto_scanner.py` through `services/scan_events.py` / `services/scan_fingerprint_enqueue.py`, #5912; `RecommendationService` and `routers/enhancement_recommendation.py` through `recommendation_analysis.py`, #5970): a change to one caller's payload or ordering must still match the other.
+9. **Enhancement preset list changed**: do `auralis-web/backend/schemas/enhancement.py`, `auralis-web/backend/core/proactive_buffer.py` and `auralis-web/frontend/src/types/domain.ts` still agree?
 
 ## Phase 1: Audit
 

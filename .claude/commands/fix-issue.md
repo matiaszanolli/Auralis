@@ -107,11 +107,19 @@ python -m pytest -q -m "not slow" tests/<subdir-a> tests/<subdir-b> \
   --ignore=tests/concurrency/test_thread_safety.py 2>&1 | tail -30
 ```
 
-A failure is only yours if it is not listed in `pytest-baseline.json`. The
-inverse also bites: `check_pytest_baseline.py --strict-stale` fails CI on a baseline
+A failure is only yours if it is not listed in `pytest-baseline.json` (backend) or
+`auralis-web/frontend/test-baseline.json` (frontend). The inverse also bites:
+`--strict-stale` is on in both CI gates (`check_pytest_baseline.py`, #5091; the
+frontend `pnpm run test:baseline -- --strict-stale`, #5344), and fails on a baseline
 entry whose test now passes, so a fix that turns a listed test green must drop its
 entry (backend: `scripts/check_pytest_baseline.py`; frontend:
-`pnpm run test:ci && pnpm run test:baseline:update`, run locally per CLAUDE.md). When in
+`pnpm run test:ci && pnpm run test:baseline:update`, run locally per CLAUDE.md).
+The backend gate also fails on a *phantom* entry, one naming a test that no longer
+exists (#5811), so a fix that deletes or renames a baselined test, class or file
+drops its entry in the same commit. The frontend gate has a run-size floor
+(#5679): it fails when a run collects under 90% of the specs the baseline was
+generated from, so a fix that deliberately deletes specs must regenerate the
+baseline too (`auralis-web/frontend/scripts/check-test-baseline.mjs`). When in
 doubt, run the same test on an unmodified `git worktree` of `HEAD` (never
 `git stash`) and compare.
 

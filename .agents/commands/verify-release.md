@@ -71,11 +71,12 @@ This is the one place the whole backend suite runs: it takes tens of minutes, an
 ### Gate 5: Frontend Tests
 
 ```bash
-cd auralis-web/frontend && pnpm run test:ci || true
+cd auralis-web/frontend
+pnpm run test:ci || export VITEST_EXIT_CODE=$?   # CI does the same: the gate is told vitest's exit code (#5679)
 pnpm run test:baseline -- --strict-stale
 ```
 
-**Verdict**: FAIL on any failure not listed in `auralis-web/frontend/test-baseline.json`, or on a stale baseline entry. WARN if no tests found.
+**Verdict**: FAIL on any failure not listed in `auralis-web/frontend/test-baseline.json`, on a stale baseline entry, on a missing report, on a run that collected under 90 % of the tests the baseline was generated from, or when vitest exited non-zero with no failing test in the report (a crashed worker, not a baselined failure). WARN if no tests found.
 
 ### Gate 6: DSP Invariants
 
@@ -114,16 +115,25 @@ python -m pytest -q -m "regression" \
 
 ### Gate 10: Dependencies
 
-Check for unpinned or outdated dependencies:
+The same checks CI runs: `dependency-audit.yml` (#6178) and the three pin guards in `requirements-pin-guard.yml` (`check_pyproject_deps.py`, `check_lock_matches_manifest.py`, and `check_build_tools_locked.py`, #6151):
 ```bash
-# Python
-cat requirements.txt | head -30
+# Python: the hash-locked runtime set must be advisory-free and the build tooling hash-locked
+python -m pip install pip-audit && pip-audit -r requirements-lock.txt --no-deps --disable-pip
+python .github/scripts/check_build_tools_locked.py
+python .github/scripts/check_lock_matches_manifest.py
+python .github/scripts/check_pyproject_deps.py
 
-# Frontend
+# JS: production trees of the root, desktop and frontend packages (high/critical block)
+for d in . desktop auralis-web/frontend; do (cd "$d" && pnpm audit --prod --audit-level high); done
+
+# Rust (also rust-audit.yml)
+cargo audit --file vendor/auralis-dsp/Cargo.lock
+
+# Outdated, informational
 cd auralis-web/frontend && pnpm outdated 2>&1 | head -20
 ```
 
-**Verdict**: WARN on unpinned deps. INFO on outdated.
+**Verdict**: FAIL on any advisory against `requirements-lock.txt` or `Cargo.lock`, a high/critical advisory in a production npm tree, or a failing lock/pin script. WARN on a dev/build-tree advisory (non-blocking in CI and tracked in the open #6181) or when `pip-audit` / `cargo audit` is not installed. INFO on outdated.
 
 ### Gate 11: Rust DSP Build
 
