@@ -7,6 +7,7 @@ mastering_target_service.py, #5833). Pure functions of the fingerprint.
 """
 
 from auralis.core.processing.continuous_dsp_ops import SAFE_CEILING_DB
+from auralis.dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB
 from auralis.core.processing.parameter_generator_eq import eq_curve_from_fingerprint
 from auralis.core.utils import fingerprint_default
 from typing import Any
@@ -93,11 +94,13 @@ def plan_level(current_lufs: float, current_crest: float) -> tuple[float, float]
     Wants a 60 % move toward the streaming target. A boost is capped at the
     track's headroom to the limiter ceiling plus ``CREST_BUDGET_DB``, so a master
     that already peaks at full scale is not driven into the limiter; an
-    attenuation is never limited. The crest returned is the forecast after the
-    planned gain.
+    attenuation is never limited. A boost is also held to the renderer's own
+    ``MAX_NORMALIZATION_GAIN_DB``: a near-silent file (a 1.7 s clip peaking at
+    -65 dBFS fingerprints at -93 LUFS) used to plan +47 dB that the renderer then
+    quietly clamped. The crest returned is the forecast after the planned gain.
     """
     wanted_gain = (current_lufs * 0.4 + STREAMING_TARGET_LUFS * 0.6) - current_lufs
     peak_dbfs = current_lufs + _PROXY_OFFSET_DB + current_crest
     headroom = max(0.0, SAFE_CEILING_DB - peak_dbfs)
-    gain = min(wanted_gain, headroom + CREST_BUDGET_DB)
+    gain = min(wanted_gain, headroom + CREST_BUDGET_DB, MAX_NORMALIZATION_GAIN_DB)
     return current_lufs + gain, current_crest - max(0.0, gain - headroom)

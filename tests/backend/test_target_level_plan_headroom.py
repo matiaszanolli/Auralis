@@ -15,6 +15,7 @@ _BACKEND = str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend")
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
+from auralis.dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB  # noqa: E402
 from core.mastering_target_generation import (  # noqa: E402
     CREST_BUDGET_DB,
     generate_targets_from_fingerprint,
@@ -84,3 +85,10 @@ def test_the_plan_does_not_shave_peaks():
           "mid_pct": 0.198, "upper_mid_pct": 0.073, "presence_pct": 0.03, "air_pct": 0.006}
 
     assert generate_targets_from_fingerprint(fp)["compression"]["amount"] == 0.0
+
+
+def test_a_near_silent_file_does_not_plan_more_than_the_renderer_will_apply():
+    """A 1.7 s clip peaking at -65 dBFS fingerprints at about -93 LUFS: free headroom is
+    huge and the 60% pull toward -14 LUFS asked for +47 dB. The renderer clamps to
+    MAX_NORMALIZATION_GAIN_DB; the plan now says the same thing."""
+    assert _gain(-92.6, 20.7) == pytest.approx(MAX_NORMALIZATION_GAIN_DB)
