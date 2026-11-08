@@ -73,3 +73,23 @@ def test_a_large_share_difference_is_not_a_large_correction() -> None:
 
 def test_different_tracks_get_different_eq() -> None:
     assert _eq(bass_pct=0.40) != _eq(bass_pct=0.50)
+
+
+def test_the_air_share_does_not_drive_the_high_shelf() -> None:
+    """The fingerprint analyses at 22.05 kHz, so the 8-20 kHz band stops at 11 kHz."""
+    assert _eq(air_pct=0.0)['high_shelf_gain'] == 0.0
+    assert _eq(air_pct=0.2)['high_shelf_gain'] == 0.0
+
+
+def test_a_treble_preference_still_reaches_the_high_shelf() -> None:
+    from types import SimpleNamespace
+
+    from auralis.core.processing.parameter_generator_eq import generate_eq_curve
+    from auralis.core.processing.continuous_space_types import PreferenceVector
+
+    coords = SimpleNamespace(fingerprint=_fingerprint())
+    flat = generate_eq_curve(coords, None)['high_shelf_gain']
+    boosted = generate_eq_curve(coords, PreferenceVector(treble_boost=1.0))['high_shelf_gain']
+
+    assert flat == 0.0
+    assert boosted > 0.0

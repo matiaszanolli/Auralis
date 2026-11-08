@@ -64,7 +64,14 @@ def _band_gains(fp: dict[str, float]) -> dict[str, float]:
             CORPUS_BAND_CENTERS['upper_mid'] + CORPUS_BAND_CENTERS['presence'],
             3.0,
         ),
-        'high_shelf_gain': _signed_band_gain(fp['air_pct'], CORPUS_BAND_CENTERS['air'], 3.0),
+        # No correction is derived from the air share. The fingerprint analyses at
+        # 22.05 kHz, so its 8-20 kHz band stops at 11 kHz: a tiny, noisy share whose
+        # corpus center comes from the same truncated spectrum. On six reference
+        # records it was the largest remaining EQ move on excellent masters (+1.8 dB
+        # on one, +2.5 dB on another) and the cause of every remaining bench miss.
+        # User treble preferences still reach the shelf (``generate_eq_curve``).
+        # Revisit once the fingerprint measures above 11 kHz (no tracking issue yet).
+        'high_shelf_gain': 0.0,
     }
 
 

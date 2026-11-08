@@ -184,8 +184,9 @@ class TestContinuousParameterGenerator:
         # Should boost bass significantly
         assert params.eq_curve['low_shelf_gain'] > 1.0, f"Expected bass boost (> 1.0), got {params.eq_curve['low_shelf_gain']:.2f}"
 
-        # Air above the corpus center receives a signed cut.
-        assert params.eq_curve['high_shelf_gain'] < 0.0
+        # The air share does not drive the shelf: the fingerprint analyses at 22.05 kHz,
+        # so its 8-20 kHz band stops at 11 kHz and is too noisy to correct from.
+        assert params.eq_curve['high_shelf_gain'] == 0.0
 
         # Should have high EQ blend (unbalanced material)
         assert params.eq_blend > 0.5

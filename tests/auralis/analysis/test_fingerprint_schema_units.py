@@ -166,10 +166,13 @@ def test_eq_curve_varies_with_source_brightness():
     # Signed corrections vary continuously around corpus centers.
     assert abs(dark_params.eq_curve['low_shelf_gain']) < 0.1
     assert bright_params.eq_curve['low_shelf_gain'] > 1.5
-    assert dark_params.eq_curve['high_shelf_gain'] > bright_params.eq_curve['high_shelf_gain']
 
-    # And the gains must differ
-    assert dark_params.eq_curve['high_shelf_gain'] != bright_params.eq_curve['high_shelf_gain']
+    # The high shelf no longer follows the air share (unmeasurable above the
+    # fingerprint's 11 kHz Nyquist): dark and bright sources get the same shelf.
+    assert dark_params.eq_curve['high_shelf_gain'] == bright_params.eq_curve['high_shelf_gain'] == 0.0
+
+    # The low shelf still differs between them.
+    assert dark_params.eq_curve['low_shelf_gain'] != bright_params.eq_curve['low_shelf_gain']
     assert dark_params.eq_curve['low_shelf_gain'] != bright_params.eq_curve['low_shelf_gain']
 
 
