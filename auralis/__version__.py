@@ -71,7 +71,17 @@ __db_schema_version__ = 31  # next scan re-reads every track so albums are owned
 #             rate) could double dynamic_range_variation on a track under ~90 s.
 #             Only whole frames are scored now. Every stored value of those
 #             three dimensions from v11 or earlier must be recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 12
+# v13:      the fingerprint analyses the WHOLE track (up to 900 s) instead of one
+#             90 s window from the middle plus two 30 s LUFS/crest probes. Analysis
+#             is a property of the entire track; only mastering is chunked. On
+#             reference records the window changed `lufs`/`crest_db` by up to 2 dB,
+#             `loudness_variation_std` by 2.4x and `bass_mid_ratio` by a sign, and
+#             ranked a flat master above an excellent one on `crest_db`. The
+#             median-of-probes correction (#4595) is gone for tracks it no longer
+#             applies to; longer tracks still use body + probes. Every stored
+#             fingerprint from v12 or earlier must be recomputed (the queue's
+#             outdated-fingerprint pass does it in the background).
+FINGERPRINT_ALGORITHM_VERSION = 13
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

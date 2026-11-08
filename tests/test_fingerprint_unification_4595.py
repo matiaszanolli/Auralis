@@ -140,7 +140,17 @@ class TestPathsAgree:
         assert fp is not None and len(fp) == 25
         assert all(isinstance(v, (int, float)) for v in fp.values())
 
-    def test_preloaded_audio_branch_agrees_with_fresh_load_branch(self, tmp_path):
+    @pytest.fixture(params=["whole_track", "windowed"])
+    def track_mode(self, request, monkeypatch):
+        """Both strategies must keep the two branches in agreement. A 200 s file is
+        analysed whole (v13); lowering the cap exercises the body + probe branch."""
+        if request.param == "windowed":
+            from auralis.analysis.fingerprint import windows
+
+            monkeypatch.setattr(windows, "FINGERPRINT_FULL_TRACK_MAX_S", 10.0)
+        return request.param
+
+    def test_preloaded_audio_branch_agrees_with_fresh_load_branch(self, tmp_path, track_mode):
         """#4994: compute_windowed_fingerprint()'s two internal branches
         (audio is None vs. pre-loaded audio) must apply the exact same
         body+probe windowing strategy, not just share the same call site.
@@ -174,11 +184,13 @@ class TestPathsAgree:
         assert preloaded is not None and len(preloaded) == 25
         assert set(fresh) == set(preloaded)
         for key in fresh:
-            assert fresh[key] == pytest.approx(preloaded[key], rel=1e-6, abs=1e-9), (
+            # abs=1e-7: near-zero dimensions (peak_consistency ~1e-6) differ by float32
+            # resampling noise between a segmented and a one-shot resample.
+            assert fresh[key] == pytest.approx(preloaded[key], rel=1e-6, abs=1e-7), (
                 f"{key} differs between the fresh-load and pre-loaded-audio branches"
             )
 
-    def test_preloaded_audio_branch_selects_identical_window_as_fresh_load(self, tmp_path):
+    def test_preloaded_audio_branch_selects_identical_window_as_fresh_load(self, tmp_path, track_mode):
         """#4994, DSP-backend-independent variant of the test above.
 
         Captures the exact audio array each branch hands to `analyzer.analyze()`
@@ -217,7 +229,7 @@ class TestPathsAgree:
         assert sr_fresh == sr_preloaded
         assert audio_fresh.shape == audio_preloaded.shape
         np.testing.assert_allclose(
-            audio_fresh, audio_preloaded, rtol=1e-6, atol=1e-9,
+            audio_fresh, audio_preloaded, rtol=1e-6, atol=1e-6,  # -120 dBFS: resampler noise, not window drift
             err_msg="The body window selected by the pre-loaded-audio branch "
                     "differs from the fresh-load branch's — the two internal "
                     "strategies have drifted apart again (#4994)."

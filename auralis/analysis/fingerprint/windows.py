@@ -21,7 +21,30 @@ import numpy as np
 #: rate; halves the data for 44.1 kHz files.
 FINGERPRINT_SAMPLE_RATE: int = 22050
 
-#: Length of the full 25D analysis window ("body"), in seconds.
+#: Tracks up to this long are analysed whole: analysis is a property of the
+#: entire track, and a 90 s window cannot see a track's loudness variation, its
+#: dynamics over time or its section-to-section spectrum (measured on four
+#: reference records: window vs whole-track ``crest_db`` ranked a flat master
+#: above an excellent one). 900 s keeps the largest buffer at ~160 MB
+#: (stereo float32 at ``FINGERPRINT_SAMPLE_RATE``) per fingerprint worker; the
+#: queue runs up to dozens of workers, so this bounds peak memory, it is not a
+#: musical limit. Longer files (DJ mixes, podcasts) keep the body + probe
+#: windows below.
+FINGERPRINT_FULL_TRACK_MAX_S: float = 900.0
+
+#: A whole track is decoded in segments of this length, so the buffer at the
+#: file's NATIVE rate (a 24/192 file is 25x the 22.05 kHz size) never exceeds
+#: one segment.
+FINGERPRINT_SEGMENT_S: float = 60.0
+
+#: Extra audio decoded on each side of a segment and trimmed off after
+#: resampling, so the resampler's edge response never lands in the result and
+#: the segments join without a seam. A whole number of seconds keeps the trim an
+#: exact sample count at every rate.
+FINGERPRINT_SEGMENT_MARGIN_S: float = 1.0
+
+#: Length of the full 25D analysis window ("body") for a track longer than
+#: ``FINGERPRINT_FULL_TRACK_MAX_S``, or one whose duration is unknown, in seconds.
 FINGERPRINT_BODY_WINDOW_S: float = 90.0
 
 #: Length of each lightweight LUFS/crest probe window, in seconds.
@@ -35,6 +58,11 @@ FINGERPRINT_BODY_POSITION: float = 0.50
 #: LUFS/crest are medianed with the body's to correct a single-window bias when
 #: the body lands on an ambient or instrumental intro.
 FINGERPRINT_PROBE_POSITIONS: tuple[float, float] = (0.25, 0.75)
+
+
+def analyses_whole_track(total_s: float | None) -> bool:
+    """True when a track of *total_s* seconds is analysed in full, not windowed."""
+    return total_s is not None and 0.0 < total_s <= FINGERPRINT_FULL_TRACK_MAX_S
 
 
 def window_offset_s(fraction: float, total_s: float, window_s: float) -> float:
