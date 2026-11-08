@@ -15,12 +15,13 @@ Loudness comes from the repo's BS.1770 ``LoudnessMeter``; this module adds the r
 """
 
 from dataclasses import asdict, dataclass
+from typing import Any
 
 import numpy as np
 from scipy import signal
 
 from ..io.processing import downmix_to_stereo
-from .loudness_meter import LoudnessMeter
+from .loudness_meter import LoudnessMeter, LUFSMeasurement
 
 #: Analysis bands (Hz) for tonal balance and stereo image.
 BAND_EDGES_HZ: tuple[int, ...] = (40, 80, 160, 315, 630, 1250, 2500, 5000, 10000)
@@ -43,7 +44,7 @@ class ReferenceProfile:
     band_level_db: dict[str, float]    # each band's level relative to the 40 Hz-10 kHz total
     band_side_mid_db: dict[str, float]
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -59,7 +60,7 @@ def _stereo(audio: np.ndarray) -> np.ndarray:
     return audio if audio.shape[1] == 2 else downmix_to_stereo(audio)
 
 
-def _loudness(audio: np.ndarray, sr: int):
+def _loudness(audio: np.ndarray, sr: int) -> LUFSMeasurement:
     meter = LoudnessMeter(sr)
     block = int(_BLOCK_S * sr)
     for start in range(0, len(audio) - block + 1, block):
