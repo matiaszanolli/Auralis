@@ -1,0 +1,21 @@
+-- Migration v030 to v031
+-- Makes the next scan re-read every track's tags. Date: 2026-11-07
+--
+-- #6332: an album is now owned by the file's ALBUMARTIST tag, falling back to
+-- the track's first artist. Until now the tag was read and dropped, so every
+-- compilation, soundtrack and guest-first album was stored as one same-titled
+-- album per track artist. The tag is not stored anywhere, so SQL cannot tell
+-- which fragments belong together (merging same-titled albums would join
+-- genuinely different ones, e.g. two artists' "Greatest Hits"); only the files
+-- know. The scanner skips a file whose stored mtime matches, so every existing
+-- track would keep its fragmented album forever.
+--
+-- A NULL tracks.file_mtime already means "unknown" to the scanner (the pre-v22
+-- rows): the file is re-read once and the watermark is stamped again. The
+-- re-read goes through update_by_filepath, which re-points the track at the
+-- right album and prunes the fragments it empties in the same transaction
+-- (#6331). The stored fingerprint is kept: an unchanged size, duration and
+-- format do not count as a changed recording, and a NULL old mtime is not
+-- compared. Rows whose files are offline keep NULL until they are next seen.
+
+UPDATE tracks SET file_mtime = NULL;

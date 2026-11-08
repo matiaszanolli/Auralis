@@ -118,6 +118,12 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
         """Resolve or create genres by name (same concurrent-insert handling as artists, fixes #2594)."""
         return [_get_or_create(session, Genre, Genre.name == name, name=name) for name in genre_names]
 
+    def _album_owner_id(self, session: Session, album_artist: str | None, artists: list[Artist]) -> int | None:
+        """An album's owner: the file's album artist, else the track's first artist; add() and updates agree (#6332)."""
+        if isinstance(album_artist, str) and album_artist.strip():
+            return self._get_or_create_artists(session, [album_artist.strip()[:200]])[0].id
+        return artists[0].id if artists else None
+
     def _get_or_create_album(
         self, session: Session, album_title: str, year: Any, artist_id: int | None
     ) -> Album | None:
@@ -188,7 +194,7 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
             if track_info.get('album'):
                 album = self._get_or_create_album(
                     session, track_info['album'], track_info.get('year'),
-                    artists[0].id if artists else None
+                    self._album_owner_id(session, track_info.get('album_artist'), artists)
                 )
             genres = self._get_or_create_genres(session, track_info.get('genres', []))
 

@@ -91,27 +91,19 @@ class TrackRepositoryMutationMixin(BaseRepository):
     _get_or_create_artists: Callable[[Session, list[str]], list[Artist]]
     _get_or_create_genres: Callable[[Session, list[str]], list[Genre]]
     _get_or_create_album: Callable[[Session, str, Any, int | None], Album | None]
+    _album_owner_id: Callable[[Session, str | None, list[Artist]], int | None]
 
     def _update_artists(self, session: Session, track: Track, artist_names: list[str]) -> None:
         """Update track artists using normalized name matching"""
         track.artists = self._get_or_create_artists(session, artist_names)
 
-    def _assign_album(self, session: Session, track: Track, album_title: str, year: Any) -> None:
-        """Point the track at its album, owned by the track's own artist (#5457).
+    def _assign_album(self, session: Session, track: Track, track_info: dict[str, Any]) -> None:
+        """Point the track at its album as ``add()`` does (#5457, #6332); call after any artist update.
 
-        Both update paths used to look an album up by title alone and create a
-        missing one with no ``artist_id``, so a "retag, then rescan" produced an
-        album no artist page lists — and could attach the track to another
-        artist's album that merely shares the title ("Greatest Hits"). They now
-        resolve through the first-scan path's ``_get_or_create_album``, keyed on
-        the track's first artist, exactly as ``add()`` does. Call after any
-        artist update so that artist is the new one.
-
-        A track with no artist still gets an album, the ownerless one of that
-        title (#5595), rather than losing the tag.
+        With no album artist the owner is the track's first artist; no artist gets the ownerless album (#5595).
         """
-        artist_id = track.artists[0].id if track.artists else None
-        track.album = self._get_or_create_album(session, album_title, year, artist_id)
+        owner = self._album_owner_id(session, track_info.get('album_artist'), track.artists)
+        track.album = self._get_or_create_album(session, track_info['album'], track_info.get('year'), owner)
 
     def _update_genres(self, session: Session, track: Track, genre_names: list[str]) -> None:
         """Update track genres"""
@@ -119,14 +111,7 @@ class TrackRepositoryMutationMixin(BaseRepository):
 
     @staticmethod
     def _prune_after_relation_change(session: Session) -> None:
-        """Drop the albums, artists and genres a retag left without tracks (#6331).
-
-        Re-pointing a track at another album/artist/genre strands the old one
-        exactly as deleting the track does, and the Albums/Artists/Genres views
-        and ``total_*`` stats then list entries with no tracks. Flush first so
-        the sweep sees the reassignment; the caller commits, so the update and
-        the prune land (or roll back) together, as in ``delete_tracks_by_ids``.
-        """
+        """Flush a retag, then drop the albums/artists/genres it left without tracks (#6331)."""
         session.flush()
         prune_orphans(session)
 
@@ -180,7 +165,7 @@ class TrackRepositoryMutationMixin(BaseRepository):
 
             # Update album (after artists, so it resolves for the new artist)
             if track_info.get('album'):
-                self._assign_album(session, track, track_info['album'], track_info.get('year'))
+                self._assign_album(session, track, track_info)
 
             if 'artists' in track_info or 'genres' in track_info or track_info.get('album'):
                 self._prune_after_relation_change(session)
@@ -226,10 +211,9 @@ class TrackRepositoryMutationMixin(BaseRepository):
 
             # Update album if provided (after artists — see _assign_album)
             if track_info.get('album'):
-                self._assign_album(session, track, track_info['album'], track_info.get('year'))
+                self._assign_album(session, track, track_info)
 
-            relations = ('artist', 'artists', 'genre', 'genres', 'album')
-            if any(track_info.get(key) for key in relations):
+            if any(track_info.get(k) for k in ('artist', 'artists', 'genre', 'genres', 'album')):
                 self._prune_after_relation_change(session)
 
             session.commit()

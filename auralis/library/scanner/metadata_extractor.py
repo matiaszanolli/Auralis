@@ -237,6 +237,11 @@ class MetadataExtractor:
             if 'album' in metadata:
                 track_info['album'] = metadata['album']
 
+            if 'albumartist' in metadata:
+                # The album's owner (#6332), one name. Parsed like a track artist so
+                # "Iron & Wine" stays whole and a stray "A feat. B" yields the main credit.
+                track_info['album_artist'] = parse_featured_artists(metadata['albumartist'])[0]
+
             if 'genre' in metadata:
                 genres = metadata['genre']
                 if isinstance(genres, str):

@@ -5,7 +5,7 @@ and fingerprint algorithm versions are independent and must only change with
 their respective formats.
 """
 
-__db_schema_version__ = 30  # albums unique per (title, artist) so concurrent get-or-create yields one row (#5595)
+__db_schema_version__ = 31  # next scan re-reads every track so albums are owned by ALBUMARTIST (#6332)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.
