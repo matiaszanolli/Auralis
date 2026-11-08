@@ -20,6 +20,7 @@ from ...utils.logging import debug, error, info, warning
 from ..models import Album, Artist, Genre, Track, TrackFingerprint
 from ..path_key import make_filepath_key
 from .base import BaseRepository
+from .orphan_pruning import prune_orphans
 from .track_repository import _filter_metadata_fields, _track_eager_options
 
 
@@ -116,6 +117,19 @@ class TrackRepositoryMutationMixin(BaseRepository):
         """Update track genres"""
         track.genres = self._get_or_create_genres(session, genre_names)
 
+    @staticmethod
+    def _prune_after_relation_change(session: Session) -> None:
+        """Drop the albums, artists and genres a retag left without tracks (#6331).
+
+        Re-pointing a track at another album/artist/genre strands the old one
+        exactly as deleting the track does, and the Albums/Artists/Genres views
+        and ``total_*`` stats then list entries with no tracks. Flush first so
+        the sweep sees the reassignment; the caller commits, so the update and
+        the prune land (or roll back) together, as in ``delete_tracks_by_ids``.
+        """
+        session.flush()
+        prune_orphans(session)
+
     def update_by_filepath(self, filepath: str, track_info: dict[str, Any]) -> Track | None:
         """
         Update track by filepath
@@ -168,6 +182,9 @@ class TrackRepositoryMutationMixin(BaseRepository):
             if track_info.get('album'):
                 self._assign_album(session, track, track_info['album'], track_info.get('year'))
 
+            if 'artists' in track_info or 'genres' in track_info or track_info.get('album'):
+                self._prune_after_relation_change(session)
+
             session.commit()
             track = _reload_detached(session, Track.filepath_key == make_filepath_key(filepath))
             info(f"Updated track: {track.title}")
@@ -210,6 +227,10 @@ class TrackRepositoryMutationMixin(BaseRepository):
             # Update album if provided (after artists — see _assign_album)
             if track_info.get('album'):
                 self._assign_album(session, track, track_info['album'], track_info.get('year'))
+
+            relations = ('artist', 'artists', 'genre', 'genres', 'album')
+            if any(track_info.get(key) for key in relations):
+                self._prune_after_relation_change(session)
 
             session.commit()
             track = _reload_detached(session, Track.id == track_id)
