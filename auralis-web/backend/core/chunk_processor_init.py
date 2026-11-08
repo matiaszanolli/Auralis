@@ -114,8 +114,12 @@ def init_fingerprint_and_processor(
     """Load the track's fingerprint/targets and create its shared HybridProcessor.
 
     3-tier fingerprint loading: Database (fastest) -> .25d file -> extract
-    from audio (deferred: ``extract_if_missing=False`` here, only on first
-    chunk playback) — delegated to ``MasteringTargetService``.
+    from audio — delegated to ``MasteringTargetService``. Extraction runs HERE,
+    before the first chunk renders: analysis is a property of the whole track,
+    and a track must be mastered against one plan from its first chunk to its
+    last. Rendering without targets fell back to fingerprinting each chunk on
+    its own, and the background queue's targets then arrived mid-playback, so
+    the same track was mastered differently at the start and the end.
 
     If ``preset`` is None the caller wants unprocessed/original audio: no
     fingerprint load and no processor (the third element is ``None``).
@@ -139,10 +143,13 @@ def init_fingerprint_and_processor(
         result = mastering_target_service.load_fingerprint(
             track_id=track_id,
             filepath=filepath,
-            extract_if_missing=False,  # DB row or .25d only — no decode on init
-            # (#5938: Tier-3 extraction was never wired here despite the old
-            # 'first chunk playback' comment; fixed targets come from Tiers
-            # 1/2 or per-chunk analysis otherwise).
+            # Tier 3 is live: a track with no DB row and no .25d (freshly
+            # scanned, queue not there yet) is analysed once, up front, instead
+            # of being rendered un-targeted and re-targeted mid-stream. The
+            # constructor already runs off the event loop (to_thread). If
+            # extraction itself fails the result is None and the renderer falls
+            # back to per-chunk analysis, as before.
+            extract_if_missing=True,
             save_extracted=True,
             file_signature=file_signature,
         )

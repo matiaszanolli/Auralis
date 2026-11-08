@@ -86,10 +86,10 @@ class ChunkCacheManager(ChunkDiskPruneMixin):
                 #4666: targets change the DSP branch
                 AudioProcessingPipeline.apply_enhancement takes, so chunks
                 rendered with targets must not be served to a processor
-                without them (or vice versa). A track's targets typically
-                appear mid-session, once the background fingerprint queue
-                fills in what __init__ deliberately did not extract
-                (extract_if_missing=False) — without this component the
+                without them (or vice versa). __init__ now extracts a missing
+                fingerprint up front, so targets are absent only when that
+                extraction fails; a later success (or the background queue's
+                row) still changes them — without this component the
                 pre-targets chunks stayed cached and were mixed with
                 post-targets ones, producing an audible tonal/level shift
                 mid-track.
