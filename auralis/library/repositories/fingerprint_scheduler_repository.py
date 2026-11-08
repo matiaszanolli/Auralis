@@ -114,9 +114,9 @@ class FingerprintSchedulerRepository(BaseRepository):
         constraint, another worker got there first — try the next track.
 
         Returns:
-            Track object if successfully claimed, None if none available or race lost.
+            The claimed Track, or None if the queue is empty. A database failure raises (#6334).
         """
-        with self._guarded("Error claiming next unfingerprinted track") as session:
+        with self._session_scope() as session:
             # Next unfingerprinted track after the cursor, via LEFT JOIN.
             # Only id and filepath are needed, so no Track row is loaded.
             def find(after_id: int) -> Any:
@@ -183,7 +183,7 @@ class FingerprintSchedulerRepository(BaseRepository):
                     session.rollback()
                     debug(f"Track {track_id} already claimed by another worker")
                     self._advance_cursor(self._UNFINGERPRINTED, track_id)
-        return None
+            return None
 
     def claim_next_outdated_fingerprint(self, current_version: int) -> Track | None:
         """Atomically claim the next fingerprint whose algorithm version is stale.
@@ -202,14 +202,14 @@ class FingerprintSchedulerRepository(BaseRepository):
             current_version: The authoritative algorithm version (FINGERPRINT_ALGORITHM_VERSION).
 
         Returns:
-            Track object if successfully claimed, None if nothing to update.
+            The claimed Track, or None if nothing to update. A database failure raises (#6334).
         """
         if current_version <= 1:
             # No fingerprints can be "outdated" if the current version is 1
             # (version 0 is only the crash-recovery sentinel, not a real version).
             return None
 
-        with self._guarded("Error claiming outdated fingerprint") as session:
+        with self._session_scope() as session:
             # The unary `+` on fingerprint_version keeps SQLite off
             # idx_fingerprints_version. With that index the planner reads
             # every eligible row and sorts them by track_id on each claim,
@@ -238,41 +238,44 @@ class FingerprintSchedulerRepository(BaseRepository):
                     },
                 ).first()
 
-            row = self._find_after_cursor(self._OUTDATED, find)
+            # Workers find() the same row and only one UPDATE sees rowcount 1; the losers
+            # used to return None ("queue empty") and quit the phase, so a version bump
+            # collapsed the pool (#6334, as #6080). A lost race now tries the next track.
+            for _ in range(self._MAX_CLAIM_RACES):
+                row = self._find_after_cursor(self._OUTDATED, find)
 
-            if not row:
-                return None
+                if not row:
+                    return None
 
-            track_id: int = row[0]
-            filepath: str = row[1]
+                track_id: int = row[0]
+                filepath: str = row[1]
 
-            # Claim atomically: set version=0 only if it still has the old version
-            result = session.execute(
-                text("""
-                    UPDATE track_fingerprints
-                    SET fingerprint_version = 0
-                    WHERE track_id = :tid
-                      AND fingerprint_version > 0
-                      AND fingerprint_version < :current_ver
-                """),
-                {'tid': track_id, 'current_ver': current_version},
-            )
-            session.commit()
+                # Claim atomically: set version=0 only if it still has the old version
+                result = session.execute(
+                    text("""
+                        UPDATE track_fingerprints
+                        SET fingerprint_version = 0
+                        WHERE track_id = :tid
+                          AND fingerprint_version > 0
+                          AND fingerprint_version < :current_ver
+                    """),
+                    {'tid': track_id, 'current_ver': current_version},
+                )
+                session.commit()
+                self._advance_cursor(self._OUTDATED, track_id)
 
-            # A text() UPDATE types as a plain Result; at runtime it is a
-            # CursorResult, which is what carries rowcount.
-            if cast(CursorResult[Any], result).rowcount != 1:
-                # Another worker got there first
-                debug(f"Track {track_id} outdated fingerprint already claimed")
-                return None
+                # A text() UPDATE types as a plain Result; at runtime it is a
+                # CursorResult, which is what carries rowcount.
+                if cast(CursorResult[Any], result).rowcount != 1:
+                    debug(f"Track {track_id} outdated fingerprint already claimed by another worker")
+                    continue
 
-            self._advance_cursor(self._OUTDATED, track_id)
-            claimed = Track()
-            claimed.id = track_id
-            claimed.filepath = filepath
-            debug(f"Track {track_id} outdated fingerprint claimed for re-extraction")
-            return claimed
-        return None
+                claimed = Track()
+                claimed.id = track_id
+                claimed.filepath = filepath
+                debug(f"Track {track_id} outdated fingerprint claimed for re-extraction")
+                return claimed
+            return None
 
     def release_claim(self, track_id: int) -> bool:
         """Release this track's claim after its extraction failed (#5308).

@@ -28,6 +28,7 @@ import time
 from typing import Any
 from collections.abc import Callable
 
+from auralis.services.fingerprint_claim import claim_with_retry
 from auralis.services.fingerprint_extractor import FingerprintExtractor
 from auralis.services.fingerprint_queue_scaling import (
     AdaptiveScalingMixin, build_processing_semaphore, build_resource_monitor,
@@ -218,6 +219,11 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
         info(f"All workers stopped. Stats: {self.stats}")
         return True
 
+    def _claim(self, worker_id: int, claim: Callable[[Any], Any]) -> Any:
+        """Claim via the scheduler, retrying a failed claim; None means the queue is empty (#6334)."""
+        factory = self._get_repository_factory
+        return claim_with_retry(lambda: claim(factory().fingerprint_scheduler), worker_id, lambda: self.should_stop)
+
     def _worker_loop(self, worker_id: int) -> None:
         """
         Main loop for background worker thread.
@@ -237,12 +243,11 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
         try:
             # Phase 1: Process newly added tracks (no fingerprint row at all).
             while not self.should_stop:
+                track = self._claim(worker_id, lambda s: s.claim_next_unfingerprinted_track())
+                if not track:
+                    debug(f"Worker {worker_id}: No more unfingerprinted tracks")
+                    break
                 try:
-                    factory = self._get_repository_factory()
-                    track = factory.fingerprint_scheduler.claim_next_unfingerprinted_track()
-                    if not track:
-                        debug(f"Worker {worker_id}: No more unfingerprinted tracks")
-                        break
                     self._process_track(track, worker_id)
                     self._on_track_processed()  # #3479
                 except Exception as e:
@@ -261,12 +266,11 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
             if not self.should_stop:
                 info(f"Worker {worker_id}: Checking for outdated fingerprints (v<{FINGERPRINT_ALGORITHM_VERSION})")
             while not self.should_stop:
+                track = self._claim(worker_id, lambda s: s.claim_next_outdated_fingerprint(FINGERPRINT_ALGORITHM_VERSION))
+                if not track:
+                    debug(f"Worker {worker_id}: No more outdated fingerprints")
+                    break
                 try:
-                    factory = self._get_repository_factory()
-                    track = factory.fingerprint_scheduler.claim_next_outdated_fingerprint(FINGERPRINT_ALGORITHM_VERSION)
-                    if not track:
-                        debug(f"Worker {worker_id}: No more outdated fingerprints")
-                        break
                     self._process_track(track, worker_id)
                     self._on_track_processed()  # #3479
                 except Exception as e:
