@@ -131,8 +131,8 @@ NEAR_IDENTITY_LIMITS: dict[str, float] = {
     "loudness_lu": 1.0,       # |delta integrated loudness|
     "plr_loss_db": 0.5,       # PLR may not fall by more than this
     "crest_loss_db": 0.5,     # median crest may not fall by more than this
-    "correlation": 0.03,      # |delta L/R correlation|
-    "band_level_db": 1.0,     # |delta| of any band's relative level
+    "band_side_mid_db": 1.0,  # |delta| of any band's side/mid: the stereo IMAGE
+    "band_level_db": 1.0,     # |delta| of any band's relative level: the tonal balance
 }
 
 
@@ -156,8 +156,14 @@ def near_identity_violations(
         found.append(f"PLR fell {before.plr_db - after.plr_db:.1f} dB")
     if before.crest_median_db - after.crest_median_db > lim["crest_loss_db"]:
         found.append(f"crest fell {before.crest_median_db - after.crest_median_db:.1f} dB")
-    if abs(after.correlation - before.correlation) > lim["correlation"]:
-        found.append(f"L/R correlation moved {after.correlation - before.correlation:+.2f}")
+    # Width is judged per band, not by the overall L/R correlation: re-balancing a
+    # record's tone moves the correlation (boosting the more decorrelated mids lowers
+    # it) without any width processing, while a band's side/mid only moves when that
+    # band's stereo image does.
+    for band, ratio in before.band_side_mid_db.items():
+        moved = after.band_side_mid_db[band] - ratio
+        if abs(moved) > lim["band_side_mid_db"]:
+            found.append(f"{band} Hz stereo image moved {moved:+.1f} dB")
     for band, level in before.band_level_db.items():
         moved = after.band_level_db[band] - level
         if abs(moved) > lim["band_level_db"]:

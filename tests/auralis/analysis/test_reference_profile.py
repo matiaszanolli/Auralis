@@ -139,3 +139,18 @@ class TestNearIdentity:
         squashed = dataclasses.replace(under, plr_db=under.plr_db - 0.7)
 
         assert any("PLR" in v for v in near_identity_violations(under, squashed))
+
+    def test_a_widened_band_is_reported(self, good):
+        band = "630-1250"
+        wider = dataclasses.replace(
+            good, band_side_mid_db={**good.band_side_mid_db, band: good.band_side_mid_db[band] + 3.0}
+        )
+
+        assert any(f"{band} Hz stereo image" in v for v in near_identity_violations(good, wider))
+
+    def test_a_tonal_change_that_moves_the_overall_correlation_is_not_a_width_change(self, good):
+        """Boosting the decorrelated mids lowers the overall L/R correlation without any
+        width processing; the per-band image is unchanged, so nothing is reported for width."""
+        rebalanced = dataclasses.replace(good, correlation=good.correlation - 0.1)
+
+        assert near_identity_violations(good, rebalanced) == []
