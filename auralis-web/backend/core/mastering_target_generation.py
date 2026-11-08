@@ -6,22 +6,23 @@ mastering_target_service.py, #5833). Pure functions of the fingerprint.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.core.processing.continuous_dsp_ops import SAFE_CEILING_DB
+from auralis.core.processing.parameter_generator_eq import eq_curve_from_fingerprint
 from auralis.core.utils import fingerprint_default
 from typing import Any
 
 from auralis.dsp.constants import CORPUS_BAND_CENTERS
 from auralis.dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS, STREAMING_TARGET_LUFS
 
-# The corpus medians are the calibration, not hand-set "ideal" shares
-# (#5695): the previous table (sub 0.05, bass 0.15, low-mid 0.18, mid 0.22,
-# upper-mid 0.20, presence 0.13, air 0.07) described nothing the fingerprint
-# band fractions look like (energy falls steeply with frequency), so a
-# corpus-MEDIAN track still got bass clamped at -6 dB, upper-mid +6 and a
-# +9.5 dB summed high shelf — a content-independent bass-cut/treble-boost
-# tilt on every fixed-target render. Shared with the per-chunk fingerprint
-# EQ path (parameter_generator_eq.py) via dsp/constants, so the two cannot
-# drift again.
-_IDEAL_BAND_SHARE = CORPUS_BAND_CENTERS
+# The fingerprint's `lufs` is a K-weighted-style RMS proxy: 20*log10(rms) - 0.691.
+# Adding the offset back to `lufs + crest_db` recovers the track's peak in dBFS.
+_PROXY_OFFSET_DB = 0.691
+
+# How much crest factor (dB) the plan may spend on loudness. A gain beyond the
+# track's headroom to the limiter ceiling is paid for in crest: the limiter has to
+# claw it back (a +4.8 dB boost cost a 21 dB-crest master 4 dB of crest). The
+# plan keeps loudness matching only where it is free, plus this small allowance.
+CREST_BUDGET_DB = 0.5
 
 
 def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
@@ -52,23 +53,17 @@ def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
     # Target loudness: nudge toward streaming standard (-14 LUFS) while
     # preserving the track's original loudness character (fixes #2726).
     current_lufs = fp_dict.get('lufs', dynamics.get('lufs', DEFAULT_TARGET_LUFS))
-    streaming_target = STREAMING_TARGET_LUFS
-    # Blend 60% toward streaming target, 40% original character
-    target_lufs = current_lufs * 0.4 + streaming_target * 0.6
-
-    # Target crest factor (preserve dynamic range character)
     current_crest = fp_dict.get(
-            'crest_db', dynamics.get('crest_db', fingerprint_default('crest_db'))
-        )
-    target_crest = max(10.0, current_crest * 0.85)  # Slight reduction
+        'crest_db', dynamics.get('crest_db', fingerprint_default('crest_db'))
+    )
+    target_lufs, target_crest = plan_level(current_lufs, current_crest)
 
-    # EQ adjustments based on frequency balance. A band missing from the
-    # fingerprint falls back to its own ideal share (so it gets no adjustment).
-    eq_adjustments = {
-        band: calculate_eq_adjustment(
-            fp_dict.get(f'{band}_pct', freq.get(f'{band}_pct', ideal)), ideal=ideal
-        )
-        for band, ideal in _IDEAL_BAND_SHARE.items()
+    # One EQ law for both render paths: what a track's band balance needs, as the
+    # per-chunk path computes it. A band missing from the fingerprint falls back
+    # to its own corpus center (no correction).
+    shares = {
+        f'{band}_pct': fp_dict.get(f'{band}_pct', freq.get(f'{band}_pct', center))
+        for band, center in CORPUS_BAND_CENTERS.items()
     }
 
     return {
@@ -79,35 +74,30 @@ def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
         # level (#5552).
         'source_lufs': current_lufs,
         'target_crest_db': target_crest,
-        'eq_adjustments_db': eq_adjustments,
+        'eq_curve_db': eq_curve_from_fingerprint(shares),
+        # The offline "compression" is a soft-clip waveshaper blended in at `amount`:
+        # it shaves every chunk's peaks (crest down ~0.5 dB, plus clipping
+        # distortion), on masters with 13-21 dB crest and on a brick-walled one
+        # alike. `plan_level` buys loudness only with free headroom, so nothing
+        # needs peak reduction; no reference record favours it either.
         'compression': {
             'ratio': 2.5,
-            'amount': 0.6
+            'amount': 0.0
         }
     }
 
 
-def calculate_eq_adjustment(current_fraction: float, ideal: float) -> float:
+def plan_level(current_lufs: float, current_crest: float) -> tuple[float, float]:
+    """(target_lufs, forecast crest) for a track, spending crest only on free loudness.
+
+    Wants a 60 % move toward the streaming target. A boost is capped at the
+    track's headroom to the limiter ceiling plus ``CREST_BUDGET_DB``, so a master
+    that already peaks at full scale is not driven into the limiter; an
+    attenuation is never limited. The crest returned is the forecast after the
+    planned gain.
     """
-    Calculate EQ adjustment in dB to reach the ideal band share.
-
-    Consolidates logic from chunked_processor._calculate_eq_adjustment().
-
-    Args:
-        current_fraction: Current band energy as a FRACTION of the total
-            (0-1; the fingerprint's ``*_pct`` fields are fractions, not
-            percentages).
-        ideal: Ideal band energy fraction, same units.
-
-    Returns:
-        EQ adjustment in dB (clamped to ±6 dB)
-    """
-    # Simple proportional adjustment
-    diff = ideal - current_fraction
-    # ±1 percentage point (0.01) difference = ±0.5 dB adjustment (gentle).
-    # This used to take diff*0.5 directly on 0-1 fractions, which treated
-    # them as percentages: any band 0.12 off its ideal saturated the ±6 dB
-    # clamp, so every track got the same near-maximal tilt (#5554).
-    adjustment = diff * 100.0 * 0.5
-    # Clamp to reasonable range
-    return max(-6.0, min(6.0, adjustment))
+    wanted_gain = (current_lufs * 0.4 + STREAMING_TARGET_LUFS * 0.6) - current_lufs
+    peak_dbfs = current_lufs + _PROXY_OFFSET_DB + current_crest
+    headroom = max(0.0, SAFE_CEILING_DB - peak_dbfs)
+    gain = min(wanted_gain, headroom + CREST_BUDGET_DB)
+    return current_lufs + gain, current_crest - max(0.0, gain - headroom)

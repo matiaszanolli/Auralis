@@ -132,7 +132,7 @@ class HybridProcessor:
 
         When fixed targets are set, content analysis is skipped and the
         pre-computed targets (target_lufs, target_crest_db,
-        eq_adjustments_db, compression) are used directly — 8x faster
+        eq_curve_db, compression) are used directly — 8x faster
         processing and instant preset switching. `None` disables fixed-target
         mode and restores normal content analysis.
 

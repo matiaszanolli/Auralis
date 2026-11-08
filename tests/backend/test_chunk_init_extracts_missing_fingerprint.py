@@ -17,7 +17,7 @@ from core.chunk_processor_init import init_fingerprint_and_processor
 from core.mastering_target_service import MasteringTargetService
 
 _FINGERPRINT = {"lufs": -13.0, "crest_db": 12.0, "bass_pct": 0.4}
-_TARGETS = {"target_lufs": -14.0, "source_lufs": -13.0, "eq_adjustments_db": {}}
+_TARGETS = {"target_lufs": -14.0, "source_lufs": -13.0, "eq_curve_db": {}}
 
 
 class _Factory:

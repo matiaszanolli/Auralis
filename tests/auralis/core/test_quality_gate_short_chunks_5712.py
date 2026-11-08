@@ -81,7 +81,7 @@ def test_hybrid_processor_returns_a_short_chunk_with_the_gate_enabled(frames):
     config.quality_gate_enabled = True
     processor = HybridProcessor(config)
     processor.set_fixed_mastering_targets(
-        {'target_lufs': -14.0, 'target_crest_db': 12.0, 'eq_adjustments_db': {}, 'compression': {}}
+        {'target_lufs': -14.0, 'target_crest_db': 12.0, 'eq_curve_db': {}, 'compression': {}}
     )
     audio = _noise(frames)
 

@@ -26,6 +26,9 @@ from .loudness_meter import LoudnessMeter, LUFSMeasurement
 #: Analysis bands (Hz) for tonal balance and stereo image.
 BAND_EDGES_HZ: tuple[int, ...] = (40, 80, 160, 315, 630, 1250, 2500, 5000, 10000)
 
+#: The renderer's true-peak safety ceiling (continuous_dsp_ops.SAFE_CEILING_DB).
+SAFE_CEILING_DBFS = -0.3
+
 _BLOCK_S = 0.4          # BS.1770 block length
 _WINDOW_S = 3.0         # short-term window for crest and level spread
 _SILENCE_DB = -120.0
@@ -136,13 +139,20 @@ NEAR_IDENTITY_LIMITS: dict[str, float] = {
 def near_identity_violations(
     before: ReferenceProfile, after: ReferenceProfile,
     limits: dict[str, float] | None = None,
+    ceiling_dbfs: float = SAFE_CEILING_DBFS,
 ) -> list[str]:
-    """Ways ``after`` fails to leave ``before`` (a good master) essentially alone."""
+    """Ways ``after`` fails to leave ``before`` (a good master) essentially alone.
+
+    A source whose true peak is over the safety ceiling (an MP3 decoding to
+    +0.3 dBTP, say) is allowed to lose exactly that much PLR: bringing it under
+    the ceiling is the renderer doing its job, not damage.
+    """
     lim = {**NEAR_IDENTITY_LIMITS, **(limits or {})}
+    forced_by_ceiling = max(0.0, before.true_peak_dbfs - ceiling_dbfs)
     found: list[str] = []
     if abs(after.integrated_lufs - before.integrated_lufs) > lim["loudness_lu"]:
         found.append(f"loudness moved {after.integrated_lufs - before.integrated_lufs:+.1f} LU")
-    if before.plr_db - after.plr_db > lim["plr_loss_db"]:
+    if before.plr_db - after.plr_db > lim["plr_loss_db"] + forced_by_ceiling:
         found.append(f"PLR fell {before.plr_db - after.plr_db:.1f} dB")
     if before.crest_median_db - after.crest_median_db > lim["crest_loss_db"]:
         found.append(f"crest fell {before.crest_median_db - after.crest_median_db:.1f} dB")

@@ -5,10 +5,13 @@ compared them with percent-scaled ideals (5.0 ... 22.0) and a 0.5 dB-per-unit
 slope, so every band saturated at the +-6 dB clamp and every track received the
 same content-independent tilt.
 
-#5695: the ideals are now the 512-track corpus medians shared with the
-per-chunk EQ path (auralis/dsp/constants.CORPUS_BAND_CENTERS), not the
-hand-set "ideal shares" this file used to pin — a corpus-median track got
-bass clamped at -6 dB under those.
+#5695: the ideals are the 512-track corpus medians shared with the per-chunk EQ
+path (auralis/dsp/constants.CORPUS_BAND_CENTERS).
+
+Both paths now use ONE law (``eq_curve_from_fingerprint``: a log-ratio from the
+corpus center, saturated per band), because the earlier linear law (0.5 dB per
+percentage point) asked a track whose mids were 17 points over the center for -6 dB
+and its bass 14 points under for +12 dB -- on a record rated excellent.
 """
 
 import sys
@@ -25,6 +28,7 @@ if _BACKEND not in sys.path:
 from core.mastering_target_service import MasteringTargetService  # noqa: E402
 
 IDEALS = CORPUS_BAND_CENTERS
+BANDS = ('low_shelf_gain', 'low_mid_gain', 'mid_gain', 'high_mid_gain', 'high_shelf_gain')
 
 
 def _fingerprint(**overrides: float) -> dict[str, float]:
@@ -35,32 +39,37 @@ def _fingerprint(**overrides: float) -> dict[str, float]:
 
 
 def _eq(**overrides: float) -> dict[str, float]:
-    return MasteringTargetService().generate_targets_from_fingerprint(_fingerprint(**overrides))['eq_adjustments_db']
+    return MasteringTargetService().generate_targets_from_fingerprint(_fingerprint(**overrides))['eq_curve_db']
 
 
 def test_ideal_balance_needs_no_eq() -> None:
-    assert _eq() == {band: pytest.approx(0.0, abs=1e-6) for band in IDEALS}
+    assert _eq() == {band: pytest.approx(0.0, abs=1e-6) for band in BANDS}
 
 
-def test_adjustment_is_proportional_and_not_saturated() -> None:
-    # 2 percentage points below the bass center -> +1 dB (on the slope)
-    eq = _eq(bass_pct=CORPUS_BAND_CENTERS['bass'] - 0.02)
-    assert eq['bass'] == pytest.approx(1.0)
-    assert 0.0 < eq['bass'] < 6.0
-    assert eq['mid'] == pytest.approx(0.0, abs=1e-6)  # other bands untouched
+def test_fractions_not_percent() -> None:
+    """A band 0.02 off its center (2 percentage points) must not saturate."""
+    eq = _eq(bass_pct=IDEALS['bass'] - 0.02)
+    assert 0.0 < eq['low_shelf_gain'] < 1.0
+    assert eq['mid_gain'] == pytest.approx(0.0, abs=1e-6)  # other bands untouched
 
 
-def test_small_error_gives_small_adjustment() -> None:
-    # 2 percentage points below the presence center -> +1 dB
-    eq = _eq(presence_pct=CORPUS_BAND_CENTERS['presence'] - 0.02)
-    assert eq['presence'] == pytest.approx(1.0)
+def test_the_correction_follows_the_sign_of_the_error() -> None:
+    assert _eq(bass_pct=IDEALS['bass'] - 0.1)['low_shelf_gain'] > 0.0   # bass-light: boost
+    assert _eq(bass_pct=IDEALS['bass'] + 0.1)['low_shelf_gain'] < 0.0   # bass-heavy: cut
+    assert _eq(mid_pct=IDEALS['mid'] + 0.1)['mid_gain'] < 0.0
 
 
-def test_extreme_error_still_clamps() -> None:
-    assert _eq(bass_pct=0.9)['bass'] == -6.0
-    assert _eq(bass_pct=0.0)['bass'] == 6.0
+def test_extreme_error_stays_inside_the_band_authority() -> None:
+    assert _eq(bass_pct=0.9)['low_shelf_gain'] >= -5.0
+    assert _eq(bass_pct=0.001)['low_shelf_gain'] <= 5.0
+
+
+def test_a_large_share_difference_is_not_a_large_correction() -> None:
+    """The linear law turned 17 points of mid energy into -6 dB; a track with a
+    dominant mid range is still the same record."""
+    eq = _eq(mid_pct=IDEALS['mid'] + 0.17)
+    assert -2.0 <= eq['mid_gain'] < 0.0
 
 
 def test_different_tracks_get_different_eq() -> None:
-    # Both on the proportional slope, either side of the bass center.
     assert _eq(bass_pct=0.40) != _eq(bass_pct=0.50)

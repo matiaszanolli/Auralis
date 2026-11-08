@@ -125,3 +125,17 @@ class TestNearIdentity:
 
         assert near_identity_violations(good, louder)
         assert near_identity_violations(good, louder, {"loudness_lu": 3.0}) == []
+
+    def test_a_source_over_the_ceiling_may_lose_the_plr_the_ceiling_takes(self, good):
+        """An MP3 that decodes to +0.3 dBTP is brought under -0.3: PLR falls 0.6 dB,
+        and that is the safety ceiling working, not damage."""
+        over = dataclasses.replace(good, true_peak_dbfs=0.3, plr_db=good.plr_db)
+        limited = dataclasses.replace(over, true_peak_dbfs=-0.3, plr_db=over.plr_db - 0.7)
+
+        assert near_identity_violations(over, limited) == []
+
+    def test_the_same_loss_on_a_source_under_the_ceiling_is_reported(self, good):
+        under = dataclasses.replace(good, true_peak_dbfs=-1.0)
+        squashed = dataclasses.replace(under, plr_db=under.plr_db - 0.7)
+
+        assert any("PLR" in v for v in near_identity_violations(under, squashed))

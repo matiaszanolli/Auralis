@@ -18,7 +18,7 @@ from typing import Any
 
 from ...dsp.utils.stereo import WIDTH_FACTOR_UNITY
 from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
-from .continuous_space import ProcessingParameters
+from .continuous_space_types import ProcessingParameters
 
 
 def convert_targets_to_parameters(targets: dict[str, Any]) -> ProcessingParameters:
@@ -29,20 +29,18 @@ def convert_targets_to_parameters(targets: dict[str, Any]) -> ProcessingParamete
     continuous mode's ProcessingParameters dataclass.
 
     Args:
-        targets: Dict with keys: target_lufs, target_crest_db, eq_adjustments_db, compression,
-            and optionally source_lufs (the track-level source loudness, #5552)
+        targets: Dict with keys: target_lufs, target_crest_db, eq_curve_db (the five
+            EQ gains the per-chunk path also produces), compression, and optionally
+            source_lufs (the track-level source loudness, #5552)
 
     Returns:
         ProcessingParameters object
     """
-    # Build EQ curve from adjustments
-    eq_adjustments = targets.get('eq_adjustments_db', {})
+    # EQ curve: the five gains as the shared law produced them; a missing band is flat.
+    eq_gains = targets.get('eq_curve_db', {})
     eq_curve = {
-        'low_shelf_gain': eq_adjustments.get('sub_bass', 0.0) + eq_adjustments.get('bass', 0.0),
-        'low_mid_gain': eq_adjustments.get('low_mid', 0.0),
-        'mid_gain': eq_adjustments.get('mid', 0.0),
-        'high_mid_gain': eq_adjustments.get('upper_mid', 0.0),
-        'high_shelf_gain': eq_adjustments.get('presence', 0.0) + eq_adjustments.get('air', 0.0),
+        band: eq_gains.get(band, 0.0)
+        for band in ('low_shelf_gain', 'low_mid_gain', 'mid_gain', 'high_mid_gain', 'high_shelf_gain')
     }
 
     # Build compression parameters

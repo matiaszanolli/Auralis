@@ -18,7 +18,7 @@ original methods they replace.
 import numpy as np
 
 from ...dsp.constants import CORPUS_BAND_CENTERS
-from .continuous_space import PreferenceVector, ProcessingCoordinates
+from .continuous_space_types import PreferenceVector, ProcessingCoordinates
 
 # Corpus-calibrated band centers live in dsp/constants.CORPUS_BAND_CENTERS —
 # the single table shared with the fixed-target path (#5695). When a band is
@@ -42,6 +42,57 @@ def _signed_band_gain(
     return float(limit_db * np.tanh(delta_db / transition_db))
 
 
+def _band_gains(fp: dict[str, float]) -> dict[str, float]:
+    """Raw signed gain per EQ band (dB) from a fingerprint's band shares.
+
+    Robust centers from the deterministic 512-track corpus sample. They define the
+    origin of a signed continuous correction, not an ideal profile or a pass/fail
+    range. ``tanh`` approaches the DSP envelope smoothly instead of clipping bands
+    into deficit/excess classes.
+    """
+    high_mid_source = fp.get('upper_mid_pct', _UPPER_MID_CENTER) + fp['presence_pct']
+    return {
+        'low_shelf_gain': _signed_band_gain(fp['bass_pct'], CORPUS_BAND_CENTERS['bass'], 4.0),
+        'low_mid_gain': _signed_band_gain(
+            fp.get('low_mid_pct', _LOW_MID_CENTER), _LOW_MID_CENTER, 2.0
+        ),
+        'mid_gain': _signed_band_gain(fp['mid_pct'], CORPUS_BAND_CENTERS['mid'], 2.0),
+        'high_mid_gain': _signed_band_gain(
+            high_mid_source,
+            # Combined center: the corpus pins 0.1030 for the SUM of the two
+            # bands (presence alone has no separate measurement).
+            CORPUS_BAND_CENTERS['upper_mid'] + CORPUS_BAND_CENTERS['presence'],
+            3.0,
+        ),
+        'high_shelf_gain': _signed_band_gain(fp['air_pct'], CORPUS_BAND_CENTERS['air'], 3.0),
+    }
+
+
+#: Per-band authority (dB): the most a band's gain can reach after saturation.
+_BAND_AUTHORITY_DB: dict[str, float] = {
+    'low_shelf_gain': 5.0, 'low_mid_gain': 3.0, 'mid_gain': 2.0,
+    'high_mid_gain': 4.0, 'high_shelf_gain': 4.0,
+}
+
+
+def _saturate(gains: dict[str, float]) -> dict[str, float]:
+    return {
+        band: float(limit * np.tanh(gains[band] / limit))
+        for band, limit in _BAND_AUTHORITY_DB.items()
+    }
+
+
+def eq_curve_from_fingerprint(fp: dict[str, float]) -> dict[str, float]:
+    """The five EQ gains (dB) for a track, with no user preference applied.
+
+    The single law for "what this track's tonal balance needs": the per-chunk
+    path (``generate_eq_curve``) adds preference on top of it, and the fixed-target
+    path the app streams with (``mastering_target_generation``) uses it as is, so
+    the two cannot disagree about the same fingerprint.
+    """
+    return _saturate(_band_gains(fp))
+
+
 def generate_eq_curve(
     coords: ProcessingCoordinates,
     preference: PreferenceVector | None,
@@ -62,30 +113,9 @@ def generate_eq_curve(
     Returns:
         Dictionary with EQ curve parameters
     """
-    fp = coords.fingerprint
-
-    # Robust centers from the deterministic 512-track corpus sample. They
-    # define the origin of a signed continuous correction, not an ideal
-    # profile or a pass/fail range. ``tanh`` approaches the DSP envelope
-    # smoothly instead of clipping bands into deficit/excess classes.
-    low_shelf_gain = _signed_band_gain(
-        fp['bass_pct'], CORPUS_BAND_CENTERS['bass'], 4.0
-    )
-    low_mid_gain = _signed_band_gain(
-        fp.get('low_mid_pct', _LOW_MID_CENTER), _LOW_MID_CENTER, 2.0
-    )
-    mid_gain = _signed_band_gain(fp['mid_pct'], CORPUS_BAND_CENTERS['mid'], 2.0)
-    high_mid_source = fp.get('upper_mid_pct', _UPPER_MID_CENTER) + fp['presence_pct']
-    high_mid_gain = _signed_band_gain(
-        high_mid_source,
-        # Combined center: the corpus pins 0.1030 for the SUM of the two
-        # bands (presence alone has no separate measurement).
-        CORPUS_BAND_CENTERS['upper_mid'] + CORPUS_BAND_CENTERS['presence'],
-        3.0,
-    )
-    high_shelf_gain = _signed_band_gain(
-        fp['air_pct'], CORPUS_BAND_CENTERS['air'], 3.0
-    )
+    gains = _band_gains(coords.fingerprint)
+    low_shelf_gain, high_shelf_gain = gains['low_shelf_gain'], gains['high_shelf_gain']
+    high_mid_gain = gains['high_mid_gain']
 
     # Apply user preference adjustments
     if preference:
@@ -104,13 +134,15 @@ def generate_eq_curve(
             low_shelf_gain += abs(preference.spectral_bias) * 1.5
             high_shelf_gain -= abs(preference.spectral_bias) * 1.0
 
+    saturated = _saturate({
+        **gains,
+        'low_shelf_gain': low_shelf_gain,
+        'high_mid_gain': high_mid_gain,
+        'high_shelf_gain': high_shelf_gain,
+    })
     return {
         # Gains (dB)
-        'low_shelf_gain': float(5.0 * np.tanh(low_shelf_gain / 5.0)),
-        'low_mid_gain': float(3.0 * np.tanh(low_mid_gain / 3.0)),
-        'mid_gain': float(2.0 * np.tanh(mid_gain / 2.0)),
-        'high_mid_gain': float(4.0 * np.tanh(high_mid_gain / 4.0)),
-        'high_shelf_gain': float(4.0 * np.tanh(high_shelf_gain / 4.0)),
+        **saturated,
 
         # Frequencies (Hz)
         'low_shelf_freq': 200,

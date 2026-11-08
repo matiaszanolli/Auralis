@@ -41,10 +41,10 @@ def test_median_fingerprint_gets_zero_band_adjustments():
     """A corpus-median track needs no correction: every band within ±1 dB
     of 0 BEFORE the clamp (they are exactly 0)."""
     targets = generate_targets_from_fingerprint(_median_fingerprint())
-    eq = targets['eq_adjustments_db']
-    for band, center in CORPUS_BAND_CENTERS.items():
-        assert eq[band] == pytest.approx(0.0, abs=1.0), (
-            f'{band}: {eq[band]} dB — the fixed-target tilt is back (#5695)'
+    eq = targets['eq_curve_db']
+    for band, gain in eq.items():
+        assert gain == pytest.approx(0.0, abs=1.0), (
+            f'{band}: {gain} dB — the fixed-target tilt is back (#5695)'
         )
 
 
@@ -61,29 +61,37 @@ def test_median_fingerprint_shelves_within_1db():
         )
 
 
-def test_fixed_target_and_per_chunk_paths_agree_near_center():
-    """Cross-path consistency: the per-chunk fingerprint EQ
-    (generate_eq_curve) and the fixed-target shelves for the same
-    corpus-median material differ by < 2 dB across the spectrum."""
-    coords = SimpleNamespace(fingerprint=_median_fingerprint())
+@pytest.mark.parametrize('overrides', [
+    {},
+    {'bass_pct': 0.32, 'mid_pct': 0.37},          # tonally far from the median
+    {'bass_pct': 0.72, 'low_mid_pct': 0.13},
+    {'air_pct': 0.0, 'presence_pct': 0.003},
+])
+def test_fixed_target_and_per_chunk_paths_agree(overrides):
+    """Cross-path consistency: the per-chunk fingerprint EQ (generate_eq_curve) and
+    the fixed-target EQ come from one law, so they agree for ANY fingerprint --
+    not only near the corpus median, where the two laws used to coincide."""
+    fingerprint = {**_median_fingerprint(), **overrides}
+    coords = SimpleNamespace(fingerprint=fingerprint)
     per_chunk = generate_eq_curve(coords, None)
 
-    targets = generate_targets_from_fingerprint(_median_fingerprint())
+    targets = generate_targets_from_fingerprint(fingerprint)
     fixed = convert_targets_to_parameters(targets)
 
     for shelf in ('low_shelf_gain', 'low_mid_gain', 'mid_gain', 'high_mid_gain', 'high_shelf_gain'):
-        assert abs(fixed.eq_curve[shelf] - per_chunk[shelf]) < 2.0, (
+        assert fixed.eq_curve[shelf] == pytest.approx(per_chunk[shelf], abs=1e-9), (
             f'{shelf}: fixed-target {fixed.eq_curve[shelf]:.2f} dB vs '
             f'per-chunk {per_chunk[shelf]:.2f} dB (#5695)'
         )
 
 
 def test_no_second_copy_of_band_ideals_remains():
-    """CONSISTENCY: the fixed-target path's table IS the shared table (same
-    object), and no corpus literal lives outside dsp/constants."""
+    """CONSISTENCY: the fixed-target path reads the shared table (same object) and
+    holds no table of its own, and no corpus literal lives outside dsp/constants."""
     import core.mastering_target_generation as mtg
 
-    assert mtg._IDEAL_BAND_SHARE is CORPUS_BAND_CENTERS
+    assert mtg.CORPUS_BAND_CENTERS is CORPUS_BAND_CENTERS
+    assert not hasattr(mtg, '_IDEAL_BAND_SHARE')
     root = Path(__file__).resolve().parents[2]
     for rel in (
         'auralis/core/processing/parameter_generator_eq.py',
@@ -93,14 +101,13 @@ def test_no_second_copy_of_band_ideals_remains():
         assert '0.4561' not in (root / rel).read_text(), rel
 
 
-def test_extreme_deviation_still_clamps():
-    """The ±6 dB per-band ceiling survives the recalibration."""
+def test_extreme_deviation_stays_inside_the_band_authority():
+    """The per-band authority (low shelf: 5 dB) survives the recalibration, and the
+    direction is right at both extremes."""
     fp = _median_fingerprint()
     fp['bass_pct'] = 1.0  # everything is bass
-    eq = generate_targets_from_fingerprint(fp)['eq_adjustments_db']
-    assert eq['bass'] == -6.0
+    assert -5.0 <= generate_targets_from_fingerprint(fp)['eq_curve_db']['low_shelf_gain'] < 0.0
 
     fp = _median_fingerprint()
     fp['bass_pct'] = 0.0  # no bass at all
-    eq = generate_targets_from_fingerprint(fp)['eq_adjustments_db']
-    assert eq['bass'] == 6.0
+    assert 0.0 < generate_targets_from_fingerprint(fp)['eq_curve_db']['low_shelf_gain'] <= 5.0
