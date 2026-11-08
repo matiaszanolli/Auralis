@@ -115,7 +115,7 @@
     "auralis/player/components/queue_navigation.py": 163,
     "auralis/player/components/queue_shuffle.py": 92,
     "auralis/player/enhanced_audio_player.py": 297,
-    "auralis/player/gapless_playback_engine.py": 288,
+    "auralis/player/gapless_playback_engine.py": 279,
     "auralis/player/gapless_prebuffer.py": 242,
     "auralis/player/integration_library.py": 133,
     "auralis/player/integration_manager.py": 234,

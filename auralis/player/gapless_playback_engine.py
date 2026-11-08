@@ -146,19 +146,10 @@ class GaplessPlaybackEngine(PrebufferMixin):
                 prebuffer_matches = self._prebuffer_matches(next_track)
 
             if prebuffer_matches:
-                # Validate sample rate matches current playback (#2408)
-                with self.file_manager._audio_lock:
-                    current_sr = self.file_manager.sample_rate
-                if current_sr is not None and sample_rate != current_sr:
-                    warning(
-                        f"Sample rate mismatch: prebuffered={sample_rate}Hz, "
-                        f"current={current_sr}Hz — falling back to normal load "
-                        f"to avoid pitch/speed error"
-                    )
-                    self.invalidate_prebuffer()
-                    prebuffer_matches = False
-
-            if prebuffer_matches:
+                # A prebuffer at a different rate than the current track is used
+                # as is: the swap below installs the buffer's own rate together
+                # with its audio, exactly as the fallback decode would (#6307).
+                #
                 # `prebuffer_matches` is only True when both of these are
                 # non-None (see its definition above). Restate it here so the
                 # narrowing holds for the swap below — mypy cannot carry a
