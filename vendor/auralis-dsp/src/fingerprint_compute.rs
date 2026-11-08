@@ -131,11 +131,11 @@ fn compute_bass_mid_ratio(audio: &[f32], sample_rate: u32) -> f32 {
         return 0.5;
     }
 
-    // #5571: analyse the same 30 s span the band analysis uses (averaged
-    // frames), instead of at most 65536 samples (~3 s) — the dimensions of
-    // one fingerprint must not have inconsistent scopes.
-    let analysis_len = ((30.0 * sample_rate as f32) as usize).min(audio.len());
-    let analysis_audio = &audio[..analysis_len];
+    // #5571: analyse the same span the band analysis uses (averaged frames) -- the
+    // whole input, not its first 30 s: a quiet intro is not the track. The
+    // dimensions of one fingerprint must not have inconsistent scopes.
+    let analysis_len = audio.len();
+    let analysis_audio = audio;
 
     let fft_size = (analysis_len as usize).next_power_of_two().min(65536);
     let mut planner = FftPlanner::new();
@@ -944,5 +944,23 @@ mod tests {
     #[test]
     fn test_chroma_energy_empty_audio() {
         assert_eq!(estimate_chroma_energy(&[], 44100), 0.0);
+    }
+
+    #[test]
+    fn bass_mid_ratio_sees_the_whole_input_not_its_first_30_seconds() {
+        // 35 s of a 1 kHz tone (mid), then 25 s of a 100 Hz tone (bass): a head-only
+        // ratio read just the mid tone and returned ~0 (all mid).
+        let sample_rate = 22050u32;
+        let mut audio: Vec<f32> = (0..35 * sample_rate as usize)
+            .map(|i| (2.0 * PI * 1000.0 * i as f32 / sample_rate as f32).sin() * 0.3)
+            .collect();
+        audio.extend((0..25 * sample_rate as usize).map(|i| {
+            (2.0 * PI * 100.0 * i as f32 / sample_rate as f32).sin() * 0.3
+        }));
+
+        let ratio = compute_bass_mid_ratio(&audio, sample_rate);
+
+        // 25 s of bass against 35 s of mid at equal level: the bass share is ~0.42.
+        assert!(ratio > 0.3 && ratio < 0.55, "ratio {ratio}: the bass half of the track was ignored");
     }
 }

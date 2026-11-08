@@ -5,6 +5,10 @@ use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
 use std::f32::consts::PI;
 
+/// Longest FFT frame the band analysis uses (3 s at 22.05 kHz): bounded memory, and
+/// 0.34 Hz bins are far finer than the 20 Hz lower edge of the first band needs.
+const MAX_FRAME_SAMPLES: usize = 65536;
+
 /// Frequency bands for distribution analysis
 /// These are aligned with perceptual audio frequency ranges
 #[derive(Debug, Clone, Copy)]
@@ -21,16 +25,6 @@ pub struct FrequencyBands {
 impl FrequencyBands {
     pub fn sum(&self) -> f32 {
         self.sub_bass + self.bass + self.low_mid + self.mid + self.upper_mid + self.presence + self.air
-    }
-}
-
-/// Apply Hann window to reduce spectral leakage
-fn apply_hann_window(signal: &mut [Complex<f32>]) {
-    let n = signal.len() as f32;
-    for (i, sample) in signal.iter_mut().enumerate() {
-        let window = 0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos());
-        sample.re *= window;
-        sample.im *= window;
     }
 }
 
@@ -87,30 +81,14 @@ pub fn compute_frequency_distribution(audio: &[f32], sample_rate: u32) -> Freque
         };
     }
 
-    // Use first 30 seconds for analysis (representative sample)
-    let analysis_len = ((30.0 * sample_rate as f32) as usize).min(audio.len());
-    let analysis_audio = &audio[..analysis_len];
-
-    // Find next power of 2 FFT size
-    let fft_size = (analysis_len as f32).log2().ceil() as u32;
-    let fft_size = 2usize.pow(fft_size);
-
-    // Prepare FFT input (pad with zeros)
-    let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
-    for (i, &sample) in analysis_audio.iter().enumerate() {
-        fft_input[i].re = sample;
-    }
-
-    // Apply Hann window to reduce spectral leakage
-    apply_hann_window(&mut fft_input);
-
-    // Compute FFT
+    // Analyse the WHOLE input, not a head sample. This used to read only the first
+    // 30 s as one FFT ("representative sample"); the fingerprint hands in the whole
+    // track, and an intro (a quiet 35 s opening with no bass) is not the track.
+    // Energy is accumulated frame by frame, so memory stays at one frame however long
+    // the track is.
+    let fft_size = audio.len().next_power_of_two().min(MAX_FRAME_SAMPLES);
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(fft_size);
-    fft.process(&mut fft_input);
-
-    // Compute power spectral density
-    let psd = compute_psd(&fft_input);
 
     // Map frequency bands
     let nyquist = sample_rate as f32 / 2.0;
@@ -121,14 +99,36 @@ pub fn compute_frequency_distribution(audio: &[f32], sample_rate: u32) -> Freque
         bins[i] = hz_to_bin((freq as f32).min(nyquist), sample_rate, fft_size);
     }
 
-    // Integrate power in each band
-    let mut distribution = [0.0f32; 7];
-    for i in 0..7 {
-        distribution[i] = integrate_power_range(&psd, bins[i], bins[i + 1]);
+    // f64 accumulators: thousands of frames of f32 power would lose the quiet bands.
+    let mut distribution = [0.0f64; 7];
+    let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
+    for (index, frame) in audio.chunks(fft_size).enumerate() {
+        // A tail shorter than half a frame is mostly zero padding: it adds leakage and
+        // no information. Keep it only when it is all there is.
+        if index > 0 && frame.len() < fft_size / 2 {
+            break;
+        }
+        // Hann window over the actual frame length, zero padded to the FFT size.
+        let n = frame.len() as f32;
+        for (i, slot) in fft_input.iter_mut().enumerate() {
+            *slot = match frame.get(i) {
+                Some(&sample) => {
+                    let window = 0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos());
+                    Complex { re: sample * window, im: 0.0 }
+                }
+                None => Complex { re: 0.0, im: 0.0 },
+            };
+        }
+        fft.process(&mut fft_input);
+
+        let psd = compute_psd(&fft_input);
+        for i in 0..7 {
+            distribution[i] += integrate_power_range(&psd, bins[i], bins[i + 1]) as f64;
+        }
     }
 
     // Normalize
-    let total: f32 = distribution.iter().sum();
+    let total: f64 = distribution.iter().sum();
     if total > 0.0 {
         for band in &mut distribution {
             *band /= total;
@@ -141,13 +141,13 @@ pub fn compute_frequency_distribution(audio: &[f32], sample_rate: u32) -> Freque
     }
 
     FrequencyBands {
-        sub_bass: distribution[0],
-        bass: distribution[1],
-        low_mid: distribution[2],
-        mid: distribution[3],
-        upper_mid: distribution[4],
-        presence: distribution[5],
-        air: distribution[6],
+        sub_bass: distribution[0] as f32,
+        bass: distribution[1] as f32,
+        low_mid: distribution[2] as f32,
+        mid: distribution[3] as f32,
+        upper_mid: distribution[4] as f32,
+        presence: distribution[5] as f32,
+        air: distribution[6] as f32,
     }
 }
 
@@ -221,5 +221,39 @@ mod tests {
 
         // Sum should be ~1.0 (normalized)
         assert!((distribution.sum() - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_frequency_distribution_sees_music_after_a_silent_intro() {
+        // 35 s of silence, then 25 s of a 100 Hz tone. A head-only analysis read
+        // only the silence and returned the uniform fallback.
+        let sample_rate = 22050;
+        let mut audio = vec![0.0f32; 35 * sample_rate as usize];
+        audio.extend((0..25 * sample_rate as usize).map(|i| {
+            (2.0 * PI * 100.0 * i as f32 / sample_rate as f32).sin() * 0.5
+        }));
+
+        let distribution = compute_frequency_distribution(&audio, sample_rate);
+
+        assert!(distribution.bass > 0.9, "bass {} (uniform fallback is 0.143)", distribution.bass);
+        assert!((distribution.sum() - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_frequency_distribution_weights_the_whole_track_by_energy() {
+        // 40 s of a quiet 3 kHz tone, then 40 s of a 100 Hz tone 20 dB louder: the
+        // louder half dominates, and the head's tone is still counted.
+        let sample_rate = 22050;
+        let mut audio: Vec<f32> = (0..40 * sample_rate as usize)
+            .map(|i| (2.0 * PI * 3000.0 * i as f32 / sample_rate as f32).sin() * 0.05)
+            .collect();
+        audio.extend((0..40 * sample_rate as usize).map(|i| {
+            (2.0 * PI * 100.0 * i as f32 / sample_rate as f32).sin() * 0.5
+        }));
+
+        let distribution = compute_frequency_distribution(&audio, sample_rate);
+
+        assert!(distribution.bass > 0.9);
+        assert!(distribution.upper_mid > 0.0001, "the 3 kHz head is part of the track");
     }
 }

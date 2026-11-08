@@ -81,7 +81,15 @@ __db_schema_version__ = 31  # next scan re-reads every track so albums are owned
 #             applies to; longer tracks still use body + probes. Every stored
 #             fingerprint from v12 or earlier must be recomputed (the queue's
 #             outdated-fingerprint pass does it in the background).
-FINGERPRINT_ALGORITHM_VERSION = 13
+# v14:      the seven band shares and bass_mid_ratio were read from only the FIRST 30 s
+#             of whatever the analyzer was handed (frequency_analysis.rs,
+#             fingerprint_compute.rs). Under v12's 90 s mid-track window that was a
+#             representative 30 s; under v13's whole-track analysis it was the intro, so
+#             a track with a quiet, bass-less opening (Porcupine Tree "Dignity") read
+#             bass 0.000 / mid 0.894 and every EQ target built on it was wrong. They now
+#             accumulate over the whole input, frame by frame. Every v13 row's band
+#             shares and bass_mid_ratio must be recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 14
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app
