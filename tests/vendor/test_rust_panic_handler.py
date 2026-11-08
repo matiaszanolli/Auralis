@@ -118,9 +118,11 @@ class TestProcessStability:
     def test_fingerprint_empty_audio_no_process_crash(self):
         empty = np.array([], dtype=np.float32)
         _, exc = _call_and_catch(lambda: auralis_dsp.compute_fingerprint(empty, 44100, 1))
-        assert exc is None or isinstance(exc, RuntimeError), (
+        # Empty input is rejected by the binding's argument validation, which
+        # raises ValueError; only a panic surfaces as RuntimeError.
+        assert exc is None or isinstance(exc, (RuntimeError, ValueError)), (
             "degenerate audio must not crash the process (#2225) and any "
-            "failure must surface as RuntimeError, not another type"
+            "failure must surface as a RuntimeError (panic) or ValueError (validation)"
         )
 
 
