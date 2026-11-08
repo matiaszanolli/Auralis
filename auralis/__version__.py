@@ -65,7 +65,13 @@ __db_schema_version__ = 30  # albums unique per (title, artist) so concurrent ge
 #             reads as half tempo, and aperiodic input reports the neutral 120
 #             instead of the shortest lag (~199). Every stored tempo_bpm from
 #             v10 or earlier must be recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 11
+# v12 (#6322): loudness_variation_std, dynamic_range_variation and
+#             peak_consistency scored a trailing partial 1 s frame like a full
+#             one, so one extra sample (or the same audio at another sample
+#             rate) could double dynamic_range_variation on a track under ~90 s.
+#             Only whole frames are scored now. Every stored value of those
+#             three dimensions from v11 or earlier must be recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 12
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

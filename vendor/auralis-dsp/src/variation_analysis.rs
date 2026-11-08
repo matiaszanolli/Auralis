@@ -22,7 +22,13 @@ fn compute_dynamic_range_db(signal: &[f32]) -> f32 {
     20.0 * (peak / rms).log10()
 }
 
-/// Divide signal into frames and compute metric for each
+/// Divide signal into whole frames and compute metric for each.
+///
+/// A trailing partial frame is not scored: it would count as much as a full
+/// second in the standard deviation / coefficient of variation, so one extra
+/// sample (or the same audio read at another sample rate) could move the result
+/// by a factor of two on a short track. A signal shorter than one frame yields
+/// no frames, which the callers report as 0.0 (a single value has no variation).
 fn frame_analysis<F>(
     signal: &[f32],
     sample_rate: u32,
@@ -35,7 +41,7 @@ where
     let frame_size = ((frame_duration * sample_rate as f32) as usize).max(1);
     let mut results = Vec::new();
 
-    for chunk in signal.chunks(frame_size) {
+    for chunk in signal.chunks_exact(frame_size) {
         results.push(metric_fn(chunk));
     }
 
@@ -222,6 +228,60 @@ mod tests {
         }
         let consistency = compute_peak_consistency(&audio, 48000);
         assert!(consistency > 0.5);
+    }
+
+    /// Three seconds of a steady tone, so every whole frame has the same crest
+    /// factor, loudness and peak.
+    fn steady_tone(seconds: usize) -> Vec<f32> {
+        (0..48000 * seconds)
+            .map(|i| (i as f32 * 0.05).sin() * 0.5)
+            .collect()
+    }
+
+    #[test]
+    fn test_partial_trailing_frame_does_not_move_the_variation_metrics() {
+        // A one-sample tail has crest factor 0 dB, a different loudness and a
+        // different peak from the tone. Scored as a frame it dominated the
+        // statistics of a short track (#6322).
+        let whole = steady_tone(3);
+        for tail in [vec![0.9f32], vec![0.0f32; 7], vec![0.9f32; 20000]] {
+            let mut audio = whole.clone();
+            audio.extend_from_slice(&tail);
+            assert_eq!(
+                compute_dynamic_range_variation(&audio, 48000),
+                compute_dynamic_range_variation(&whole, 48000)
+            );
+            assert_eq!(
+                compute_loudness_variation(&audio, 48000),
+                compute_loudness_variation(&whole, 48000)
+            );
+            assert_eq!(
+                compute_peak_consistency(&audio, 48000),
+                compute_peak_consistency(&whole, 48000)
+            );
+        }
+    }
+
+    #[test]
+    fn test_same_audio_at_two_rates_agrees_on_a_steady_signal() {
+        // 3.5 s at 44.1 kHz and at 48 kHz: the rates leave different partial
+        // tails, which used to give different answers for identical content.
+        for rate in [44100u32, 48000u32] {
+            let audio: Vec<f32> = (0..(rate as usize * 7 / 2))
+                .map(|i| (i as f32 / rate as f32 * 440.0 * std::f32::consts::TAU).sin() * 0.5)
+                .collect();
+            assert!(compute_loudness_variation(&audio, rate) < 0.5);
+            assert!(compute_dynamic_range_variation(&audio, rate) < 0.5);
+            assert!(compute_peak_consistency(&audio, rate) < 0.05);
+        }
+    }
+
+    #[test]
+    fn test_signal_shorter_than_one_frame_reports_no_variation() {
+        let audio = steady_tone(1)[..30000].to_vec();
+        assert_eq!(compute_dynamic_range_variation(&audio, 48000), 0.0);
+        assert_eq!(compute_loudness_variation(&audio, 48000), 0.0);
+        assert_eq!(compute_peak_consistency(&audio, 48000), 0.0);
     }
 
     #[test]
