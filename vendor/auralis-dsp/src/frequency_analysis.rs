@@ -7,7 +7,40 @@ use std::f32::consts::PI;
 
 /// Longest FFT frame the band analysis uses (3 s at 22.05 kHz): bounded memory, and
 /// 0.34 Hz bins are far finer than the 20 Hz lower edge of the first band needs.
-const MAX_FRAME_SAMPLES: usize = 65536;
+pub(crate) const MAX_FRAME_SAMPLES: usize = 65536;
+
+/// FFT size for an input of `len` samples: the next power of two, bounded.
+pub(crate) fn frame_size(len: usize) -> usize {
+    len.next_power_of_two().min(MAX_FRAME_SAMPLES)
+}
+
+/// The frames both band analyses (`compute_frequency_distribution` and the bass/mid ratio)
+/// read: consecutive runs of `fft_size` samples. A tail shorter than half a frame is mostly
+/// zero padding: it adds leakage and no information, so it is dropped unless it is all there
+/// is. One iterator for both, so the two dimensions of a fingerprint cannot disagree about
+/// which part of the track they describe (#6341).
+pub(crate) fn analysis_frames(audio: &[f32], fft_size: usize) -> impl Iterator<Item = &[f32]> {
+    audio
+        .chunks(fft_size)
+        .enumerate()
+        .take_while(move |(index, frame)| *index == 0 || frame.len() >= fft_size / 2)
+        .map(|(_, frame)| frame)
+}
+
+/// Load `frame` into `out`: Hann window over the frame's actual length, zero padded to
+/// `out.len()`.
+pub(crate) fn windowed_into(frame: &[f32], out: &mut [Complex<f32>]) {
+    let n = frame.len() as f32;
+    for (i, slot) in out.iter_mut().enumerate() {
+        *slot = match frame.get(i) {
+            Some(&sample) => {
+                let window = 0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos());
+                Complex { re: sample * window, im: 0.0 }
+            }
+            None => Complex { re: 0.0, im: 0.0 },
+        };
+    }
+}
 
 /// Frequency bands for distribution analysis
 /// These are aligned with perceptual audio frequency ranges
@@ -86,7 +119,7 @@ pub fn compute_frequency_distribution(audio: &[f32], sample_rate: u32) -> Freque
     // track, and an intro (a quiet 35 s opening with no bass) is not the track.
     // Energy is accumulated frame by frame, so memory stays at one frame however long
     // the track is.
-    let fft_size = audio.len().next_power_of_two().min(MAX_FRAME_SAMPLES);
+    let fft_size = frame_size(audio.len());
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(fft_size);
 
@@ -102,23 +135,8 @@ pub fn compute_frequency_distribution(audio: &[f32], sample_rate: u32) -> Freque
     // f64 accumulators: thousands of frames of f32 power would lose the quiet bands.
     let mut distribution = [0.0f64; 7];
     let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
-    for (index, frame) in audio.chunks(fft_size).enumerate() {
-        // A tail shorter than half a frame is mostly zero padding: it adds leakage and
-        // no information. Keep it only when it is all there is.
-        if index > 0 && frame.len() < fft_size / 2 {
-            break;
-        }
-        // Hann window over the actual frame length, zero padded to the FFT size.
-        let n = frame.len() as f32;
-        for (i, slot) in fft_input.iter_mut().enumerate() {
-            *slot = match frame.get(i) {
-                Some(&sample) => {
-                    let window = 0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos());
-                    Complex { re: sample * window, im: 0.0 }
-                }
-                None => Complex { re: 0.0, im: 0.0 },
-            };
-        }
+    for frame in analysis_frames(audio, fft_size) {
+        windowed_into(frame, &mut fft_input);
         fft.process(&mut fft_input);
 
         let psd = compute_psd(&fft_input);

@@ -89,7 +89,14 @@ __db_schema_version__ = 31  # next scan re-reads every track so albums are owned
 #             bass 0.000 / mid 0.894 and every EQ target built on it was wrong. They now
 #             accumulate over the whole input, frame by frame. Every v13 row's band
 #             shares and bass_mid_ratio must be recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 14
+# v15 (#6341): compute_frequency_distribution dropped a trailing frame shorter than half
+#             an FFT frame while the bass/mid ratio kept it, so two dimensions of one
+#             fingerprint described different spans. Both now read the same frames
+#             (frequency_analysis::analysis_frames, tail rule included). Only a track whose
+#             length leaves a short tail changes, and by that tail's share of the energy
+#             (at most ~1.5 s); the ratio's accumulators are f64 now as the bands' are.
+#             Every v14 row's bass_mid_ratio must be recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 15
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

@@ -125,52 +125,40 @@ fn compute_crest_factor(signal: &[f32]) -> f32 {
 fn compute_bass_mid_ratio(audio: &[f32], sample_rate: u32) -> f32 {
     use rustfft::num_complex::Complex;
     use rustfft::FftPlanner;
-    use std::f32::consts::PI;
 
     if audio.is_empty() {
         return 0.5;
     }
 
-    // #5571: analyse the same span the band analysis uses (averaged frames) -- the
-    // whole input, not its first 30 s: a quiet intro is not the track. The
-    // dimensions of one fingerprint must not have inconsistent scopes.
-    let analysis_len = audio.len();
-    let analysis_audio = audio;
-
-    let fft_size = (analysis_len as usize).next_power_of_two().min(65536);
+    // #5571: the same frames the band analysis reads (the whole input, one frame iterator,
+    // one tail rule -- #6341): the dimensions of one fingerprint must not have inconsistent
+    // scopes.
+    let fft_size = frequency_analysis::frame_size(audio.len());
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(fft_size);
 
     let bass_bin = hz_to_bin(200.0, sample_rate, fft_size);
     let mid_bin = hz_to_bin(2000.0, sample_rate, fft_size);
 
-    let mut bass_total: f32 = 0.0;
-    let mut mid_total: f32 = 0.0;
-    let mut frame_count: u32 = 0;
+    // f64 accumulators, as in the band analysis.
+    let mut bass_total: f64 = 0.0;
+    let mut mid_total: f64 = 0.0;
+    let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
 
-    for frame in analysis_audio.chunks(fft_size) {
-        let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
-        let n = frame.len() as f32;
-        for (i, &sample) in frame.iter().enumerate() {
-            // Hann window over the actual frame length.
-            let window = 0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos());
-            fft_input[i].re = sample * window;
-        }
-
+    for frame in frequency_analysis::analysis_frames(audio, fft_size) {
+        frequency_analysis::windowed_into(frame, &mut fft_input);
         fft.process(&mut fft_input);
 
-        bass_total += fft_input[..bass_bin].iter().map(|c| c.norm_sqr()).sum::<f32>();
-        mid_total += fft_input[bass_bin..mid_bin].iter().map(|c| c.norm_sqr()).sum::<f32>();
-        frame_count += 1;
+        bass_total += fft_input[..bass_bin].iter().map(|c| c.norm_sqr() as f64).sum::<f64>();
+        mid_total += fft_input[bass_bin..mid_bin].iter().map(|c| c.norm_sqr() as f64).sum::<f64>();
     }
-    let _ = frame_count;
 
     let total = bass_total + mid_total;
     if total < 1e-10 {
         return 0.5;
     }
 
-    (bass_total / total).clamp(0.0, 1.0)
+    ((bass_total / total) as f32).clamp(0.0, 1.0)
 }
 
 /// Convert Hz to FFT bin index
@@ -962,5 +950,63 @@ mod tests {
 
         // 25 s of bass against 35 s of mid at equal level: the bass share is ~0.42.
         assert!(ratio > 0.3 && ratio < 0.55, "ratio {ratio}: the bass half of the track was ignored");
+    }
+
+    /// 13 whole 65536-sample frames of a 1 kHz tone at 22.05 kHz (mid energy only).
+    fn whole_frames_of_mid_tone() -> (Vec<f32>, u32) {
+        let sample_rate = 22050u32;
+        let audio = (0..13 * 65536)
+            .map(|i| (2.0 * PI * 1000.0 * i as f32 / sample_rate as f32).sin() * 0.3)
+            .collect();
+        (audio, sample_rate)
+    }
+
+    fn bass_tone(samples: usize, sample_rate: u32) -> Vec<f32> {
+        (0..samples)
+            .map(|i| (2.0 * PI * 100.0 * i as f32 / sample_rate as f32).sin() * 0.3)
+            .collect()
+    }
+
+    #[test]
+    fn both_band_analyses_drop_a_tail_shorter_than_half_a_frame() {
+        // #6341: compute_frequency_distribution dropped such a tail but the bass/mid ratio
+        // kept it, so two dimensions of one fingerprint described different spans.
+        let (whole, sample_rate) = whole_frames_of_mid_tone();
+        let mut with_tail = whole.clone();
+        with_tail.extend(bass_tone(1000, sample_rate)); // 1000 < 32768
+
+        assert_eq!(
+            frequency_analysis::compute_frequency_distribution(&with_tail, sample_rate).bass,
+            frequency_analysis::compute_frequency_distribution(&whole, sample_rate).bass,
+        );
+        assert_eq!(
+            compute_bass_mid_ratio(&with_tail, sample_rate),
+            compute_bass_mid_ratio(&whole, sample_rate),
+        );
+    }
+
+    #[test]
+    fn both_band_analyses_keep_a_tail_of_at_least_half_a_frame() {
+        let (whole, sample_rate) = whole_frames_of_mid_tone();
+        let mut with_tail = whole.clone();
+        with_tail.extend(bass_tone(40000, sample_rate)); // 40000 >= 32768
+
+        let bass_before = frequency_analysis::compute_frequency_distribution(&whole, sample_rate).bass;
+        let bass_after = frequency_analysis::compute_frequency_distribution(&with_tail, sample_rate).bass;
+        let ratio_before = compute_bass_mid_ratio(&whole, sample_rate);
+        let ratio_after = compute_bass_mid_ratio(&with_tail, sample_rate);
+
+        assert!(bass_after > bass_before, "band shares ignored the kept tail");
+        assert!(ratio_after > ratio_before, "bass/mid ratio ignored the kept tail");
+    }
+
+    #[test]
+    fn an_input_shorter_than_half_a_frame_is_still_analysed() {
+        // The tail rule never applies to the first frame: a short clip is all there is.
+        let sample_rate = 22050u32;
+        let clip = bass_tone(5000, sample_rate);
+
+        assert!(compute_bass_mid_ratio(&clip, sample_rate) > 0.9);
+        assert!(frequency_analysis::compute_frequency_distribution(&clip, sample_rate).bass > 0.5);
     }
 }
