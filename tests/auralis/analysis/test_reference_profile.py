@@ -154,3 +154,34 @@ class TestNearIdentity:
         rebalanced = dataclasses.replace(good, correlation=good.correlation - 0.1)
 
         assert near_identity_violations(good, rebalanced) == []
+
+
+class TestSilence:
+    """Digital silence is a profile, not an exception or a non-finite value (#6339)."""
+
+    @pytest.mark.parametrize("audio", [
+        np.zeros((SR * 4, 2), dtype=np.float32),
+        np.zeros(SR * 4, dtype=np.float32),
+        np.full((SR * 4, 2), 1e-7, dtype=np.float32),
+    ], ids=["stereo-silence", "mono-silence", "below-the-gate"])
+    def test_silence_profiles_with_finite_floors(self, audio):
+        profile = profile_audio(audio, SR)
+
+        assert all(np.isfinite(v) for v in dataclasses.astuple(profile)[:8])
+        assert profile.integrated_lufs == -120.0
+        assert profile.plr_db == 0.0
+        assert set(profile.band_level_db) == {f"{lo}-{hi}" for lo, hi in zip(BAND_EDGES_HZ[:-1], BAND_EDGES_HZ[1:])}
+        assert all(np.isfinite(v) for v in profile.band_level_db.values())
+
+    def test_a_silent_render_of_a_good_master_is_reported_not_swallowed(self):
+        good = profile_audio(np.stack([_noise(), _noise(seed=1)], axis=1), SR)
+        silent = profile_audio(np.zeros((SR * 12, 2), dtype=np.float32), SR)
+
+        assert any("loudness moved" in v for v in near_identity_violations(good, silent))
+
+
+def test_the_ceiling_is_the_renderers_constant():
+    from auralis.analysis import reference_profile
+    from auralis.core.processing.continuous_dsp_ops import SAFE_CEILING_DB
+
+    assert reference_profile.SAFE_CEILING_DBFS == SAFE_CEILING_DB

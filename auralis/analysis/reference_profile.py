@@ -20,14 +20,15 @@ from typing import Any
 import numpy as np
 from scipy import signal
 
+from ..core.processing.continuous_dsp_ops import SAFE_CEILING_DB
 from ..io.processing import downmix_to_stereo
 from .loudness_meter import LoudnessMeter, LUFSMeasurement
 
 #: Analysis bands (Hz) for tonal balance and stereo image.
 BAND_EDGES_HZ: tuple[int, ...] = (40, 80, 160, 315, 630, 1250, 2500, 5000, 10000)
 
-#: The renderer's true-peak safety ceiling (continuous_dsp_ops.SAFE_CEILING_DB).
-SAFE_CEILING_DBFS = -0.3
+#: The renderer's true-peak safety ceiling: the one constant, not a copy.
+SAFE_CEILING_DBFS = SAFE_CEILING_DB
 
 _BLOCK_S = 0.4          # BS.1770 block length
 _WINDOW_S = 3.0         # short-term window for crest and level spread
@@ -98,6 +99,9 @@ def _bands(left: np.ndarray, right: np.ndarray, sr: int) -> tuple[dict[str, floa
     for low, high in zip(BAND_EDGES_HZ[:-1], BAND_EDGES_HZ[1:]):
         m = (freqs >= low) & (freqs < high)
         key = f"{low}-{high}"
+        if total <= 0.0:  # digital silence: no balance to report, and nothing to divide by
+            level[key], side_mid[key] = _SILENCE_DB, 0.0
+            continue
         level[key] = float(10 * np.log10(max((p_l + p_r)[m].sum(), 1e-20) / total))
         side_mid[key] = float(10 * np.log10(max(p_s[m].sum(), 1e-20) / max(p_m[m].sum(), 1e-20)))
     return level, side_mid
@@ -112,11 +116,15 @@ def profile_audio(audio: np.ndarray, sr: int) -> ReferenceProfile:
     mid, side = (left + right) / 2, (left - right) / 2
     level, side_mid = _bands(left, right, sr)
     corr = float(np.corrcoef(left, right)[0, 1]) if left.std() > 0 and right.std() > 0 else 1.0
+    # Below the BS.1770 absolute gate the meter reports -inf; floor it so silence is a profile,
+    # not a non-finite value that turns every later comparison into NaN.
+    lufs = max(loud.integrated_lufs, _SILENCE_DB)
+    true_peak = max(loud.true_peak_dbfs, _SILENCE_DB)
     return ReferenceProfile(
-        integrated_lufs=loud.integrated_lufs,
-        loudness_range_lu=loud.loudness_range,
-        true_peak_dbfs=loud.true_peak_dbfs,
-        plr_db=loud.true_peak_dbfs - loud.integrated_lufs,
+        integrated_lufs=lufs,
+        loudness_range_lu=loud.loudness_range if np.isfinite(loud.loudness_range) else 0.0,
+        true_peak_dbfs=true_peak,
+        plr_db=true_peak - lufs,
         crest_median_db=crest,
         rms_spread_db=spread,
         correlation=corr,
