@@ -173,7 +173,6 @@ def test_eq_curve_varies_with_source_brightness():
 
     # The low shelf still differs between them.
     assert dark_params.eq_curve['low_shelf_gain'] != bright_params.eq_curve['low_shelf_gain']
-    assert dark_params.eq_curve['low_shelf_gain'] != bright_params.eq_curve['low_shelf_gain']
 
 
 # ---------------------------------------------------------------------------

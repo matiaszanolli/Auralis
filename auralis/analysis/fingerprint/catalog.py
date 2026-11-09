@@ -9,11 +9,28 @@ from typing import Any, Self
 
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint.schema import DIMENSION_SCHEMA
+from auralis.analysis.fingerprint.windows import (
+    FINGERPRINT_BODY_POSITION,
+    FINGERPRINT_BODY_WINDOW_S,
+    FINGERPRINT_FULL_TRACK_MAX_S,
+    FINGERPRINT_PROBE_POSITIONS,
+    FINGERPRINT_PROBE_WINDOW_S,
+)
 from auralis.io.formats import AUDIO_EXTENSIONS
 from auralis.version import __version__
 
 CATALOG_SCHEMA_VERSION = 1
-SAMPLING_STRATEGY = "body-50pct-90s+probes-25pct-75pct-30s"
+def _pct(fraction: float) -> str:
+    return f"{round(fraction * 100)}pct"
+
+
+# Which audio a stored fingerprint was measured on, built from the windows constants so a
+# change to the strategy changes this label (and so stales the rows measured under the old one).
+SAMPLING_STRATEGY = (
+    f"whole-track-to-{FINGERPRINT_FULL_TRACK_MAX_S:g}s;"
+    f"longer=body-{_pct(FINGERPRINT_BODY_POSITION)}-{FINGERPRINT_BODY_WINDOW_S:g}s"
+    f"+probes-{'-'.join(_pct(p) for p in FINGERPRINT_PROBE_POSITIONS)}-{FINGERPRINT_PROBE_WINDOW_S:g}s"
+)
 DIMENSION_NAMES = tuple(DIMENSION_SCHEMA)
 
 

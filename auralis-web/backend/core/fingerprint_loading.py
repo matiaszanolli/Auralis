@@ -175,10 +175,11 @@ def extract_from_audio(
     """
     Extract fingerprint from audio file (Tier 3 - slow).
 
-    Runs the shared windowed pipeline (compute_windowed_fingerprint):
-    bounded 90s-body + 2x30s-probe decoding, #4595 LUFS/crest bias
-    correction, and non-finite sanitization — identical to the batch
-    library-scan fingerprint for the same file.
+    Runs the shared pipeline (compute_windowed_fingerprint): a track up to
+    FINGERPRINT_FULL_TRACK_MAX_S is analysed whole, a longer one through a
+    90 s body window plus two 30 s probes (#4595 LUFS/crest correction), with
+    non-finite sanitization either way — identical to the batch library-scan
+    fingerprint for the same file.
 
     Args:
         filepath: Path to audio file
@@ -191,9 +192,10 @@ def extract_from_audio(
     try:
         logger.info(f"🔍 Extracting fingerprint from audio: {Path(filepath).name}")
 
-        # Shared windowed pipeline (#5531): bounded 90s-body + 2x30s-probe
-        # loading (no full-file decode of a multi-hour file), the #4595
-        # body+probe LUFS/crest bias correction, and sanitize_non_finite
+        # Shared pipeline (#5531): whole-track analysis up to
+        # FINGERPRINT_FULL_TRACK_MAX_S, a bounded body + probe window beyond it
+        # (no full-file decode of a multi-hour file, the #4595 LUFS/crest
+        # correction), and sanitize_non_finite
         # (via AudioFingerprintAnalyzer.analyze). The two fingerprint
         # producers used to call the raw Rust schema glue on a full-file
         # decode here — unsanitized, uncapped, and disagreeing with the

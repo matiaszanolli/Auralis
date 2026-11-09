@@ -149,3 +149,9 @@ def test_folder_run_writes_database_only_and_resumes(
     assert second.skipped == 1
     assert calls == [track.resolve()]
     assert list(album.iterdir()) == [track]
+
+
+def test_sampling_strategy_names_the_whole_track_limit_and_the_window_fallback() -> None:
+    """The label says which audio a stored fingerprint was measured on (#6340): whole
+    tracks up to FINGERPRINT_FULL_TRACK_MAX_S, a body + probe window beyond it."""
+    assert SAMPLING_STRATEGY == "whole-track-to-900s;longer=body-50pct-90s+probes-25pct-75pct-30s"

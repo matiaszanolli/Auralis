@@ -60,9 +60,8 @@ def _decode_window(
     transient_density; with 0.5 s of pre-roll the samples are bit-identical to
     the full-decode span.
 
-    That is what keeps this a pure performance change: stored fingerprints
-    stay comparable with newly computed ones, so no FINGERPRINT_ALGORITHM_VERSION
-    bump (and no library-wide re-fingerprint) is required.
+    That keeps a bounded decode comparable with the same span of a full decode, so
+    the windows (and the whole-track segments of ``track_audio``) agree with it.
     """
     from auralis.io.loaders import load_with_ffmpeg
 
