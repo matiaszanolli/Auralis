@@ -96,7 +96,7 @@ auralis/                          Core Python audio engine
 ├── dsp/                          Signal processing
 │   ├── basic.py                    DSP primitives
 │   ├── eq/                         Psychoacoustic EQ (psychoacoustic_eq.py)
-├── analysis/                     Audio analysis (largest module, 67 files)
+├── analysis/                     Audio analysis (largest module, 70 files)
 │   ├── fingerprint/                25D fingerprinting system (audio_fingerprint_analyzer,
 │   │   ├── metrics/                  rust_fingerprint, windowed_compute, schema, distance,
 │   │                                 similarity, knn_graph, normalizer)
@@ -161,7 +161,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (25D fingerprint only, #5764)
 desktop/                          Electron wrapper
-tests/                            ~8,000 test functions (918 files) across 16 subdirs (auralis, backend,
+tests/                            ~8,000 test functions (933 files) across 16 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)
 docs/                             18 topic dirs (development, features, frontend...)
 ```
