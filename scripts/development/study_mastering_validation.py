@@ -278,7 +278,7 @@ def study3_makeup_gain():
     print("=" * 80)
 
     from auralis.analysis.fingerprint.fingerprint_service import FingerprintService
-    svc = FingerprintService(fingerprint_strategy="sampling")
+    svc = FingerprintService()
 
     TARGET_LUFS = -11.0
 
