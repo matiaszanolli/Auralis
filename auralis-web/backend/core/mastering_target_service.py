@@ -105,11 +105,12 @@ class MasteringTargetService:
         )
 
     def extract_fingerprint_from_audio(
-        self, filepath: str, save_to_file: bool = True
+        self, filepath: str, save_to_file: bool = True,
+        should_stop: Callable[[], bool] | None = None,
     ) -> tuple[Any, dict[str, Any] | None] | None:
         """Tier 3 (decode + analyse); see :func:`fingerprint_loading.extract_from_audio`."""
         return fingerprint_loading.extract_from_audio(
-            filepath, self.generate_targets_from_fingerprint, save_to_file
+            filepath, self.generate_targets_from_fingerprint, save_to_file, should_stop
         )
 
     def load_fingerprint(
@@ -119,6 +120,7 @@ class MasteringTargetService:
         extract_if_missing: bool = True,
         save_extracted: bool = True,
         file_signature: str | None = None,
+        should_stop: Callable[[], bool] | None = None,
     ) -> tuple[Any, dict[str, Any] | None] | None:
         """
         Load fingerprint using 3-tier hierarchy.
@@ -134,11 +136,11 @@ class MasteringTargetService:
             save_extracted: If True, save extracted fingerprint to .25d file
             file_signature: The file's FileSignatureService signature, when
                 the caller already computed it; generated here otherwise.
+            should_stop: Abandons a tier-3 wait on the analysis gate (#6336).
 
         Returns:
             Tuple of (fingerprint, mastering_targets) or None if not found
         """
-        # Check cache first
         cache_key = self._get_cache_key(track_id, filepath, file_signature)
         with self._lock:
             if cache_key in self.cache:
@@ -173,10 +175,8 @@ class MasteringTargetService:
         # Tier 3: Extract from audio (if requested)
         if extract_if_missing:
             extract_result = self.extract_fingerprint_from_audio(
-                filepath,
-                save_to_file=save_extracted
+                filepath, save_to_file=save_extracted, should_stop=should_stop
             )
-
             if extract_result is not None:
                 # Cache result (LRU-bounded, #3532)
                 with self._lock:

@@ -30,7 +30,7 @@ class _StubExtractor:
         self._behaviour = behaviour
         self.calls: list[int] = []
 
-    def extract_and_store(self, track_id: int, filepath: str) -> bool:
+    def extract_and_store(self, track_id: int, filepath: str, should_stop=None) -> bool:
         self.calls.append(track_id)
         return self._behaviour(track_id, filepath)
 

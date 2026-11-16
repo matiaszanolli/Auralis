@@ -10,6 +10,7 @@ Extracts 25D audio fingerprints during library scanning
 
 import gc
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +51,9 @@ class FingerprintExtractor:
         debug("FingerprintExtractor initialized")
 
 
-    def extract_and_store(self, track_id: int, filepath: str) -> bool:
+    def extract_and_store(
+        self, track_id: int, filepath: str, should_stop: Callable[[], bool] | None = None
+    ) -> bool:
         """
         Extract fingerprint from audio file and store in database
 
@@ -70,6 +73,7 @@ class FingerprintExtractor:
         Args:
             track_id: ID of the track in the database
             filepath: Path to the audio file
+            should_stop: Abandons a wait on the analysis gate when it returns True
 
         Returns:
             True if successful, False otherwise
@@ -84,7 +88,7 @@ class FingerprintExtractor:
             # Strategy 2: analyse the audio (slow path: decode + ~1 s of DSP
             # on a release build — see the workflow note above, #4599).
             if fingerprint is None:
-                fingerprint = self._compute_fingerprint(track_id, filepath_obj)
+                fingerprint = self._compute_fingerprint(track_id, filepath_obj, should_stop)
 
             if fingerprint is None:
                 return False
@@ -147,7 +151,9 @@ class FingerprintExtractor:
         info(f"Loaded fingerprint from .25d file for track {track_id}")
         return fingerprint
 
-    def _compute_fingerprint(self, track_id: int, filepath_obj: Path) -> dict[str, Any] | None:
+    def _compute_fingerprint(
+        self, track_id: int, filepath_obj: Path, should_stop: Callable[[], bool] | None = None
+    ) -> dict[str, Any] | None:
         """Analyse the audio file with the in-process windowed analyzer.
 
         Returns None if the analyzer could not produce a fingerprint.
@@ -162,14 +168,16 @@ class FingerprintExtractor:
         # DB row, essentially every scanned track was stamped with the
         # less accurate fingerprint and never recomputed.
         #
-        # compute_windowed_fingerprint() does its own bounded loading
-        # (body window + two 30 s probes at the analysis rate), so it
-        # never materialises the whole decoded file, so memory does not scale
-        # with file size and no size guard is needed (a hi-res or hours-long
-        # file is fingerprinted like any other, #6145).
+        # compute_windowed_fingerprint() does its own loading at the analysis
+        # rate -- the whole track up to FINGERPRINT_FULL_TRACK_MAX_S, the body +
+        # probe windows beyond it -- and only after the analysis_budget gate
+        # admits it, so memory is bounded by the gate, not by file size or the
+        # worker count, and no size guard is needed (#6145, #6338).
         try:
             debug(f"Extracting fingerprint for track {track_id}")
-            fingerprint = compute_windowed_fingerprint(self.analyzer, filepath_obj)
+            fingerprint = compute_windowed_fingerprint(
+                self.analyzer, filepath_obj, should_stop=should_stop
+            )
         finally:
             # Release any large intermediates promptly; with many
             # concurrent workers these accumulate and cause unbounded

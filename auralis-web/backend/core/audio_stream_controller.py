@@ -123,13 +123,12 @@ _global_stream_semaphore: asyncio.Semaphore = asyncio.Semaphore(MAX_CONCURRENT_S
 # the client disconnects. Bounding it lets the failure flow into the normal
 # skip-failed-chunk recovery branch (sibling of #2747, fixes #3852).
 CHUNK_PROCESS_TIMEOUT: float = 30.0
+PROCESSOR_INIT_TIMEOUT: float = 90.0  # init also runs a missing whole-track analysis (#6336)
 
 # How long a stream waits for a slot in _global_stream_semaphore before giving
 # up and returning "server busy" (#4930). Was a bare `timeout=5.0` repeated in
-# all three streaming entry points, the one value in this cluster that never
-# got promoted alongside MAX_CONCURRENT_STREAMS and CHUNK_PROCESS_TIMEOUT — so
-# retuning it (longer under slow disks, shorter to shed load faster) meant
-# editing three files in lockstep with nothing to catch a missed one.
+# all three streaming entry points, so retuning it (longer under slow disks,
+# shorter to shed load faster) meant editing three files in lockstep.
 STREAM_ACQUIRE_TIMEOUT_SECONDS: float = 5.0
 
 def ws_id(websocket: WebSocket) -> str:

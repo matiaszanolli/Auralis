@@ -32,6 +32,7 @@ from .windowed_loading import (
     load_librosa_windows,
 )
 from .windows import (
+    FINGERPRINT_BODY_WINDOW_S,
     FINGERPRINT_SAMPLE_RATE,
     FINGERPRINT_SEGMENT_MARGIN_S,
     FINGERPRINT_SEGMENT_S,
@@ -109,14 +110,35 @@ def _load_whole_file(audio_path: Path, total_s: float) -> np.ndarray:
     return join_segments(total_s, _segment)
 
 
-def load_track_audio(
+def analysis_span_s(
     audio_path: Path, audio: np.ndarray | None = None, sr: int | None = None
+) -> tuple[float, float | None]:
+    """``(seconds the analyzer will hold, track duration)``, known before any decode.
+
+    The duration comes from the pre-loaded buffer or a header probe (None when
+    unreadable). Callers size their ``analysis_budget`` reservation from the first
+    value BEFORE decoding (#6338) and pass the second to ``load_track_audio`` so
+    the header is read once.
+    """
+    total_s = audio.shape[-1] / sr if audio is not None and sr else probe_duration_s(audio_path)
+    if total_s is not None and analyses_whole_track(total_s):
+        return total_s, total_s
+    return FINGERPRINT_BODY_WINDOW_S, total_s
+
+
+def load_track_audio(
+    audio_path: Path,
+    audio: np.ndarray | None = None,
+    sr: int | None = None,
+    *,
+    total_s: float | None = None,
 ) -> WindowSet:
     """``(audio, rate, probes)`` to analyse, from the file or from a pre-loaded buffer.
 
     A track within ``FINGERPRINT_FULL_TRACK_MAX_S`` comes back whole with no probes
     (the analyzer's own loudness and crest stand). Anything else gets the body
     window plus two 30 s probes, whose median corrects a single window's bias (#4595).
+    ``total_s`` is the file's duration when the caller already probed it.
     """
     if audio is not None and sr is not None:
         if not analyses_whole_track(audio.shape[-1] / sr):
@@ -126,7 +148,8 @@ def load_track_audio(
             whole = _resample_channels(whole, sr, FINGERPRINT_SAMPLE_RATE)
         return whole, FINGERPRINT_SAMPLE_RATE, []
 
-    total_s = probe_duration_s(audio_path)
+    if total_s is None:
+        total_s = probe_duration_s(audio_path)
     if total_s is not None and analyses_whole_track(total_s):
         return _load_whole_file(audio_path, total_s), FINGERPRINT_SAMPLE_RATE, []
 

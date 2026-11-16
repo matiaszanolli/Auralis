@@ -103,7 +103,7 @@ def library_database_mock():
 def fingerprint_extractor_mock():
     """Mock fingerprint extractor"""
     class MockFingerprintExtractor:
-        def extract_and_store(self, track_id: int, filepath: str) -> bool:
+        def extract_and_store(self, track_id: int, filepath: str, should_stop=None) -> bool:
             """Simulate fingerprint extraction"""
             return True
 

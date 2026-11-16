@@ -171,9 +171,14 @@ def extract_from_audio(
     filepath: str,
     derive_targets: TargetDeriver,
     save_to_file: bool = True,
+    should_stop: Callable[[], bool] | None = None,
 ) -> tuple[Any, dict[str, Any] | None] | None:
     """
     Extract fingerprint from audio file (Tier 3 - slow).
+
+    A listener is waiting on this one, so it queues on the analysis gate AHEAD of
+    the background fingerprint queue; ``should_stop`` (the stream's cancel event)
+    abandons that wait so a torn-down stream leaves no analysis behind (#6336).
 
     Runs the shared pipeline (compute_windowed_fingerprint): a track up to
     FINGERPRINT_FULL_TRACK_MAX_S is analysed whole, a longer one through a
@@ -185,6 +190,7 @@ def extract_from_audio(
         filepath: Path to audio file
         derive_targets: Derives the mastering targets from the fingerprint
         save_to_file: If True, save extracted fingerprint to .25d file
+        should_stop: Abandons the wait on the analysis gate when it returns True
 
     Returns:
         Tuple of (fingerprint, mastering_targets) or None if extraction fails
@@ -205,7 +211,7 @@ def extract_from_audio(
         )
 
         fingerprint_data: dict[str, Any] | None = compute_windowed_fingerprint(
-            AudioFingerprintAnalyzer(), Path(filepath)
+            AudioFingerprintAnalyzer(), Path(filepath), interactive=True, should_stop=should_stop
         )
         if not fingerprint_data:
             logger.warning(f"Windowed fingerprint extraction failed for {Path(filepath).name}")

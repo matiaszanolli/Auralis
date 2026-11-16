@@ -20,7 +20,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
+import core.audio_stream_controller as asc
 from core.audio_stream_controller import AudioStreamController, MAX_CONCURRENT_STREAMS
+from core.stream_gates import stream_chunk_cancel_events
 
 
 @pytest.mark.asyncio
@@ -121,8 +123,11 @@ class TestProcessorInitTimeout:
         # Patch asyncio.wait_for to simulate timeout
         original_wait_for = asyncio.wait_for
 
+        init_cancel_events: list = []
+
         async def mock_wait_for(coro, *, timeout):
-            if timeout == 30.0:
+            if timeout == asc.PROCESSOR_INIT_TIMEOUT:
+                init_cancel_events.extend(stream_chunk_cancel_events.values())
                 # Cancel the coroutine
                 coro.close() if hasattr(coro, 'close') else None
                 raise TimeoutError()
@@ -141,6 +146,8 @@ class TestProcessorInitTimeout:
         calls = [str(c) for c in mock_ws.send_text.call_args_list]
         timeout_sent = any("timed out" in c.lower() for c in calls)
         assert timeout_sent, "Client must receive 'initialization timed out' error"
+        # #6336: the abandoned init thread is told to drop its analysis wait.
+        assert len(init_cancel_events) == 1 and init_cancel_events[0].is_set()
 
 
 @pytest.mark.asyncio

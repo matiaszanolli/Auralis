@@ -10,6 +10,7 @@ These tests pin that the missing-fingerprint case now extracts before the proces
 is leased, and that a failed extraction still degrades instead of raising.
 """
 
+import threading
 from types import SimpleNamespace
 
 from core import fingerprint_loading
@@ -57,7 +58,7 @@ def test_unstored_track_gets_targets_from_extraction_before_any_chunk(monkeypatc
     """Through the real service: no DB row (no repository), no .25d, extraction runs."""
     extracted: list[str] = []
 
-    def fake_extract(filepath, derive_targets, save_to_file=True):
+    def fake_extract(filepath, derive_targets, save_to_file=True, should_stop=None):
         extracted.append(filepath)
         return dict(_FINGERPRINT), derive_targets(_FINGERPRINT)
 
@@ -74,6 +75,31 @@ def test_unstored_track_gets_targets_from_extraction_before_any_chunk(monkeypatc
     assert targets is not None
     assert "target_lufs" in targets
     assert factory.targets_seen == [targets]
+
+
+def test_stream_cancel_event_reaches_the_extraction_as_its_stop_predicate(monkeypatch):
+    """#6336 WIRING: init -> load_fingerprint -> extract_from_audio carries the
+    stream's cancel event, so a torn-down / timed-out stream abandons its analysis
+    wait instead of analysing for nobody."""
+    seen: list = []
+
+    def fake_extract(filepath, derive_targets, save_to_file=True, should_stop=None):
+        seen.append(should_stop)
+        return None
+
+    monkeypatch.setattr(fingerprint_loading, "load_from_file", lambda *_a, **_k: None)
+    monkeypatch.setattr(fingerprint_loading, "extract_from_audio", fake_extract)
+    cancel_event = threading.Event()
+
+    init_fingerprint_and_processor(
+        MasteringTargetService(), _Factory(), 6336, "long.flac", "adaptive", 1.0, 44100,
+        cancel_event=cancel_event,
+    )
+
+    (should_stop,) = seen
+    assert should_stop() is False
+    cancel_event.set()
+    assert should_stop() is True
 
 
 def test_failed_extraction_degrades_to_no_targets_without_raising(monkeypatch):

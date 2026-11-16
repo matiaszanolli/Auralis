@@ -153,12 +153,12 @@ async def stream_enhanced_audio(
                     intensity=intensity,
                     cancel_event=chunk_cancel_event,
                 ),
-                timeout=_asc.CHUNK_PROCESS_TIMEOUT,
+                timeout=_asc.PROCESSOR_INIT_TIMEOUT,
             )
         except TimeoutError:
-            error_msg = "Audio processor initialization timed out. File may be corrupt or on slow storage."
-            logger.error(f"Processor instantiation timed out for track {track_id} (30s)")
-            await controller._send_error(websocket, track_id, error_msg)
+            chunk_cancel_event.set()  # the abandoned init thread drops its analysis wait (#6336)
+            logger.error(f"Processor instantiation timed out for track {track_id} ({_asc.PROCESSOR_INIT_TIMEOUT:.0f}s)")
+            await controller._send_error(websocket, track_id, "Audio processor initialization timed out. File may be corrupt or on slow storage.")
             return
 
         # Ensure processor has loaded metadata (fixes #2735)

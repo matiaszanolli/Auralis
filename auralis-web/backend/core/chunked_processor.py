@@ -135,7 +135,7 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
             self.preset,
             intensity,
             sample_rate_valid,
-            file_signature=self.file_signature,
+            file_signature=self.file_signature, cancel_event=self._cancel_event,
         )
         # Same helper ProcessorFactory keys its cache on (#3720/#4666).
         self.targets_hash: str = get_targets_hash(self.mastering_targets)

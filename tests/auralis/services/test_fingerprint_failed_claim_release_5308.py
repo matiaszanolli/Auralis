@@ -47,7 +47,7 @@ class _Extractor:
         self.failures = failures
         self.calls = 0
 
-    def extract_and_store(self, track_id: int, filepath: str) -> bool:
+    def extract_and_store(self, track_id: int, filepath: str, should_stop=None) -> bool:
         self.calls += 1
         if self.calls <= self.failures:
             raise RuntimeError("decode hiccup")
@@ -123,6 +123,43 @@ def test_permanently_failing_track_is_retried_a_bounded_number_of_times(
     assert extractor.calls == MAX_EXTRACTION_ATTEMPTS
     row = _fingerprint_row(session_factory, track_id)
     assert row is not None and row.lufs == -100.0  # claim left for startup cleanup
+
+
+class _GateWaitingExtractor:
+    """Stands in for a worker queued on the analysis gate: gives up once stopped."""
+
+    def __init__(self, queue_ref: list) -> None:
+        self.queue_ref = queue_ref
+        self.saw_stop: list[bool] = []
+
+    def extract_and_store(self, track_id: int, filepath: str, should_stop=None) -> bool:
+        self.queue_ref[0].should_stop = True  # stop() lands while this worker waits
+        self.saw_stop.append(should_stop is not None and should_stop())
+        return False  # what compute_windowed_fingerprint yields on AnalysisCancelled
+
+
+def test_stop_while_waiting_on_the_gate_releases_the_claim_without_a_failure(
+    session_factory, scheduler
+) -> None:
+    """#6338: the queue's should_stop reaches the extractor, and a worker that
+    gives up its gate wait on stop hands the claim back without spending one of
+    its MAX_EXTRACTION_ATTEMPTS or being logged as a failed track."""
+    track_id = _make_track(session_factory, "stopped")
+    queue_ref: list = [None]
+    extractor = _GateWaitingExtractor(queue_ref)
+    queue = _queue(extractor, scheduler)  # type: ignore[arg-type]
+    queue_ref[0] = queue
+
+    claimed = scheduler.claim_next_unfingerprinted_track()
+    assert claimed is not None and claimed.id == track_id
+    queue._process_track(claimed, worker_id=0)
+
+    assert extractor.saw_stop == [True]
+    assert queue.stats['failed'] == 0
+    assert queue._failed_attempts == {}
+    assert _fingerprint_row(session_factory, track_id) is None  # placeholder gone
+    retried = scheduler.claim_next_unfingerprinted_track()
+    assert retried is not None and retried.id == track_id
 
 
 @pytest.mark.skipif(

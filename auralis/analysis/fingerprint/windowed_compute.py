@@ -7,20 +7,9 @@ Windowed Fingerprint Computation
 The single implementation of the 25D fingerprint's load / crop / window-select /
 analyze sequence (#4595).
 
-Two independent implementations used to exist: the batch library-scan path
-(`services/fingerprint_extractor.py`) truncated to the first 90 s from the start
-and ran a single-window analysis, while the on-demand path
-(`fingerprint_service.py`) used the empirically validated body+probe strategy.
-Whichever path wrote the DB row first won permanently — and the background queue
-almost always ran first, so essentially every track in a scanned library was
-stamped with the less accurate fingerprint.
-
-Both paths now call `compute_windowed_fingerprint()`, so they cannot drift again.
-This holds at the call-site level only if the function's own internal branches
-also agree — #4994 fixed a case where they didn't: the `audio is None` branch
-used the body+probe strategy below, but the pre-loaded-audio branch instead did
-a plain start-crop with no probe correction. Both branches now share the exact
-same windowing math (see `_crop_and_resample()` below).
+The batch library-scan path and the on-demand path both call
+`compute_windowed_fingerprint()`, so they cannot drift again; its file and
+pre-loaded-audio branches share the same windowing math too (#4994).
 
 A track up to `FINGERPRINT_FULL_TRACK_MAX_S` is analysed WHOLE (algorithm v13;
 `track_audio.py`). Longer files use the windowing strategy below (validated June
@@ -34,15 +23,16 @@ multi-window 1.07 dB / max 3.6 dB.
 """
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from ...dsp.utils.audio_info import to_mono
+from .analysis_budget import AnalysisCancelled, analysis_budget
 from .audio_fingerprint_analyzer import sanitize_non_finite
-from .analysis_budget import analysis_budget
-from .track_audio import load_track_audio
+from .track_audio import analysis_span_s, load_track_audio
 
 logger = logging.getLogger(__name__)
 
@@ -111,26 +101,30 @@ def compute_windowed_fingerprint(
     analyzer: Any,
     audio_path: Path,
     audio: np.ndarray | None = None,
-    sr: int | None = None
+    sr: int | None = None,
+    *,
+    interactive: bool = False,
+    should_stop: Callable[[], bool] | None = None,
 ) -> dict[str, Any] | None:
-    """Compute fingerprint using AudioFingerprintAnalyzer."""
-    try:
-        audio, sr, probe_audios = load_track_audio(audio_path, audio, sr)
+    """Compute fingerprint using AudioFingerprintAnalyzer.
 
+    The ``analysis_budget`` slot is taken BEFORE decoding, so a waiting job holds
+    no buffer (#6338). ``interactive`` (a listener is waiting) goes ahead of the
+    background queue; ``should_stop`` abandons the wait and returns None (#6336).
+    """
+    try:
+        span_s, total_s = analysis_span_s(audio_path, audio, sr)
         # No float64 cast: the analyzer feeds the Rust engine float32 either way,
         # and a float64 copy of a whole track would double its footprint.
-        with analysis_budget.reserve(audio.shape[-1] / sr / 60.0):
+        with analysis_budget.reserve(span_s / 60.0, interactive=interactive, should_stop=should_stop):
+            audio, sr, probe_audios = load_track_audio(audio_path, audio, sr, total_s=total_s)
             fingerprint = analyzer.analyze(audio, sr)
 
         _apply_probe_correction(fingerprint, audio, probe_audios)
 
-        # #3767: validate completeness before returning. `analyze()` returns {}
-        # from its outer except-all on any exception. The downstream
-        # `get_or_compute` check `if fingerprint:` already skips empty dicts (so
-        # they don't reach the cache), but an incomplete fingerprint (e.g., 12 of
-        # 25 dimensions) would be truthy and get cached as if valid. The official
-        # fingerprint dimensionality is 25; anything less is a partial result
-        # that should be re-tried, not cached.
+        # #3767: `analyze()` returns {} on any exception, which callers already
+        # skip, but a partial result (e.g. 12 of 25 dimensions) is truthy and
+        # would be cached as valid; discard it so it is retried instead.
         if fingerprint and len(fingerprint) < 25:
             logger.warning(
                 f"Incomplete fingerprint for {audio_path.name}: "
@@ -150,6 +144,9 @@ def compute_windowed_fingerprint(
 
         return fingerprint_clean
 
+    except AnalysisCancelled:
+        logger.info(f"Fingerprint analysis of {audio_path.name} cancelled while waiting")
+        return None
     except Exception as e:
         logger.error(f"Fingerprint computation failed: {e}")
         return None

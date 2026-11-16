@@ -239,3 +239,33 @@ async def test_a_stored_path_outside_allowed_directories_is_not_analysed(monkeyp
     assert result == {}
     mock_thread.assert_not_awaited()
 
+
+
+@pytest.mark.asyncio
+async def test_timed_out_analysis_cancels_its_abandoned_worker_thread(monkeypatch):
+    """#6336: wait_for cannot stop the to_thread worker, so on timeout the
+    processor's cancel_event must be set — a missing-fingerprint analysis still
+    queued on the analysis gate then gives up instead of running for nobody."""
+    import threading
+
+    from core import audio_stream_controller as _asc
+    from services.recommendation_analysis import cached_or_analyzed_recommendation
+
+    seen: list[threading.Event] = []
+    release = threading.Event()
+
+    def blocking_processor(**kwargs):
+        seen.append(kwargs["cancel_event"])
+        release.wait(5.0)  # stands in for the queued analysis
+        return MagicMock()
+
+    monkeypatch.setattr(_asc, "CHUNK_PROCESS_TIMEOUT", 0.05)
+    cache = MagicMock()
+    cache.get_mastering_recommendation.return_value = None
+    try:
+        with patch("core.chunked_processor.ChunkedAudioProcessor", side_effect=blocking_processor):
+            with pytest.raises(TimeoutError):
+                await cached_or_analyzed_recommendation(cache, 1, "/music/long.flac", 0.5)
+        assert len(seen) == 1 and seen[0].is_set()
+    finally:
+        release.set()

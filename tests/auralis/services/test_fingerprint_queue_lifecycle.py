@@ -235,7 +235,7 @@ class TestWorkerLoop:
         processed = threading.Event()
         queue, extractor, factory = _make_queue(num_workers=1)
 
-        def slow_extract(track_id, filepath):
+        def slow_extract(track_id, filepath, should_stop=None):
             processed.set()
             time.sleep(0.05)  # brief pause — should_stop gets set during this
             return True
@@ -329,7 +329,7 @@ class TestProcessTrack:
         in_flight = [0]
         errors: list[str] = []
 
-        def slow_extract(track_id, filepath):
+        def slow_extract(track_id, filepath, should_stop=None):
             with lock:
                 in_flight[0] += 1
                 if in_flight[0] > sem_size:
@@ -419,7 +419,7 @@ class TestGracefulShutdown:
             None,
         ]
 
-        def slow_extract(track_id, filepath):
+        def slow_extract(track_id, filepath, should_stop=None):
             time.sleep(0.05)
             track_done.set()
             return True

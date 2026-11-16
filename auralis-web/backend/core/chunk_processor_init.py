@@ -28,6 +28,7 @@ that HAS targets ended up being served chunks rendered without them.
 """
 
 import logging
+import threading
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -110,6 +111,7 @@ def init_fingerprint_and_processor(
     intensity: float,
     sample_rate: int,
     file_signature: str | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> tuple[Any | None, Any | None, Any | None, UnifiedConfig | None]:
     """Load the track's fingerprint/targets and create its shared HybridProcessor.
 
@@ -133,6 +135,10 @@ def init_fingerprint_and_processor(
     #5274 invalidation path can pass the SAME config object back to the
     factory — see below.
 
+    ``cancel_event`` is the owning stream's: once set (stream torn down, or its
+    init timed out) a tier-3 extraction still queued on the analysis gate gives up
+    instead of analysing for nobody (#6336).
+
     Returns (fingerprint, mastering_targets, processor, processor_config).
     """
     fingerprint = None
@@ -152,6 +158,7 @@ def init_fingerprint_and_processor(
             extract_if_missing=True,
             save_extracted=True,
             file_signature=file_signature,
+            should_stop=cancel_event.is_set if cancel_event is not None else None,
         )
         if result is not None:
             fingerprint, mastering_targets = result

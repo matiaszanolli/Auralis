@@ -87,6 +87,7 @@ class FingerprintWorkerExecution:
     # stats_lock.
     _failed_attempts: dict[int, int]
     track_timeout: float
+    should_stop: bool  # Provided by FingerprintExtractionQueue.
     processing_semaphore: ResizableSemaphore
     workers: list[threading.Thread]
     initial_num_workers: int
@@ -167,7 +168,10 @@ class FingerprintWorkerExecution:
 
         def _run() -> None:
             try:
-                outcome['result'] = self.extractor.extract_and_store(track_id, filepath)
+                # A worker queued on the analysis gate must still honour stop() (#6338).
+                outcome['result'] = self.extractor.extract_and_store(
+                    track_id, filepath, should_stop=lambda: self.should_stop
+                )
             except BaseException as exc:  # noqa: BLE001 - re-raised on the calling thread
                 outcome['error'] = exc
 
@@ -254,6 +258,10 @@ class FingerprintWorkerExecution:
                     'time': time.time() - job_start
                 })
 
+            elif self.should_stop:
+                # Stopped while queued on the analysis gate (#6338): hand the
+                # claim back without counting a failed attempt.
+                self._get_repository_factory().fingerprint_scheduler.release_claim(track.id)
             else:
                 raise Exception(f"Extractor returned False for track {track.id}")
 

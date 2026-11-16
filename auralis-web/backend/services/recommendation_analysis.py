@@ -13,6 +13,7 @@ Callers validate the path first and own their error mapping: the route turns a
 
 import asyncio
 import logging
+import threading
 from typing import Any, cast
 
 from cache import StreamlinedCacheManager
@@ -39,6 +40,10 @@ async def cached_or_analyzed_recommendation(
         logger.debug(f"Returning cached mastering recommendation for track {track_id}")
         return cached
 
+    # wait_for cannot stop the worker thread; setting this on timeout makes a
+    # missing-fingerprint analysis still queued on the gate give up (#6336).
+    abandoned = threading.Event()
+
     def _analyze() -> dict[str, Any] | None:
         from core.chunked_processor import ChunkedAudioProcessor
 
@@ -48,12 +53,17 @@ async def cached_or_analyzed_recommendation(
             preset=DEFAULT_PRESET,  # analysis only
             intensity=1.0,
             chunk_cache={},
+            cancel_event=abandoned,
         )
         rec = processor.get_mastering_recommendation(confidence_threshold=confidence_threshold)
         # to_response (not to_dict): carries track_id + is_hybrid (#3840).
         return cast(dict[str, Any], rec.to_response(track_id)) if rec is not None else None
 
-    result = await asyncio.wait_for(asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT)
+    try:
+        result = await asyncio.wait_for(asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT)
+    except TimeoutError:
+        abandoned.set()
+        raise
     if result is not None:
         cache_manager.set_mastering_recommendation(track_id, result, confidence_threshold)
     return result
