@@ -213,3 +213,7 @@ research/
 appimage-log.txt
 *-test-output.txt
 auralis-web/frontend/auralis-web/
+
+# Runtime artifacts that leaked into the tree
+.:memory:.migration.lock
+.claude/settings.local.json.backup
