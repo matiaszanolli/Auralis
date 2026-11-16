@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from auralis.core.simple_mastering import SimpleMasteringPipeline  # noqa: E402
 
@@ -214,7 +214,7 @@ TRACKS = [
     ),
 ]
 
-OUTPUT_DIR = Path(__file__).parent / "output_diverse_test9"
+OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output_diverse_test9"
 RESULTS_FILE = OUTPUT_DIR / "results.json"
 
 

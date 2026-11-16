@@ -31,7 +31,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 # ---------------------------------------------------------------------------
 # Track list  (label, input_path, tier)
@@ -73,7 +73,7 @@ TRACKS = [
     ("Motörhead / Fast and Loose", "/mnt/Musica/Musica/Motörhead/Ace of Spades [2020]/05 Fast and Loose (40th Anniversary Master).flac",         "bad"),
 ]
 
-OUTPUT_DIR = Path(__file__).parent / "output_diverse_test8"
+OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output_diverse_test8"
 
 # ---------------------------------------------------------------------------
 # Measurement helpers
@@ -230,14 +230,6 @@ def study2_true_peak_audit():
     print("\n" + "=" * 80)
     print("  STUDY 2 — TRUE PEAK AUDIT  (test8 outputs, EBU R128 intersample measurement)")
     print("=" * 80)
-
-    THRESHOLDS = {
-        "EBU R128 broadcast (−1 dBFS)": -1.0,
-        "Streaming services  (−1 dBFS)": -1.0,
-        "Practical safe zone (−0.5 dBFS)": -0.5,
-        "Over 0 dBFS":  0.0,
-        "Over +1 dBFS": 1.0,
-    }
 
     results = []
     files = sorted(OUTPUT_DIR.glob("*.flac"))
