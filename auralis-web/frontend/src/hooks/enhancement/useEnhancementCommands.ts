@@ -72,199 +72,143 @@ export function useEnhancementCommands({
   const beginPresetRequest = useLatestRequestGuard();
   const beginIntensityRequest = useLatestRequestGuard();
 
+  /**
+   * Run one command: POST it, apply the result optimistically (the server confirms over the
+   * WebSocket), and map a failure to an ApiError. `isStale` (preset/intensity only) reports that a
+   * newer call of the same kind was dispatched while this POST was in flight - then its own
+   * resolution is authoritative and neither this success nor this failure is applied (#4339).
+   */
+  const runCommand = useCallback(
+    async (spec: {
+      errorCode: string;
+      request: () => Promise<unknown>;
+      apply: () => void;
+      isStale?: () => boolean;
+    }): Promise<void> => {
+      beginLoading();
+      setError(null);
+      try {
+        await spec.request();
+        if (spec.isStale?.()) return;
+        spec.apply();
+      } catch (err) {
+        if (spec.isStale?.()) return;
+        const apiError = ApiErrorHandler.parseWithCode(err, spec.errorCode);
+        setError(apiError);
+        throw apiError;
+      } finally {
+        endLoading();
+      }
+    },
+    [beginLoading, endLoading, setError]
+  );
+
+  const reportInvalid = useCallback(
+    (apiError: ApiError): never => {
+      setError(apiError);
+      throw apiError;
+    },
+    [setError]
+  );
+
+  /** Merge a change into the state, stamping lastUpdated. */
+  const applyState = useCallback(
+    (change: Partial<EnhancementState>) =>
+      setState((prevState) => ({ ...prevState, ...change, lastUpdated: Date.now() })),
+    [setState]
+  );
+
+  /** #3763: ChunkedAudioProcessor binds preset/intensity at construction, so a live change needs a
+   *  stream restart from the current position. */
+  const reissueEnhanced = useCallback(
+    (preset: EnhancementPreset, intensity: number) => {
+      markLocalEnhancementCommand();
+      reissueRef.current('play_enhanced', { preset, intensity });
+    },
+    [reissueRef]
+  );
+
   const toggleEnabled = useCallback(async (): Promise<void> => {
     if (isTogglingRef.current) return;
     isTogglingRef.current = true;
-    beginLoading();
-    setError(null);
-
     const newEnabled = !enabledRef.current;
-
     try {
-      await post('/api/player/enhancement/toggle', { enabled: newEnabled });
-
-      // Optimistic update - server will broadcast confirmation via WebSocket
-      setState((prevState) => ({
-        ...prevState,
-        enabled: newEnabled,
-        lastUpdated: Date.now(),
-      }));
-
-      // #3759: re-issue the active stream as the appropriate type so the
-      // user keeps hearing audio after the toggle. The backend's
-      // `stream_enhanced_audio` loop sees enabled=false and breaks, so the
-      // old stream ends here regardless — switching stream type is required
-      // behaviour, not a workaround.
-      //
-      // #4659 re-grounded the signal this compensates for: that terminal
-      // `audio_stream_end` now carries `reason: 'stopped'` and reports the
-      // samples actually delivered, so a consumer can distinguish it from a
-      // finished track instead of seeing a success-shaped completion.
-      if (newEnabled) {
-        markLocalEnhancementCommand();
-        reissueRef.current('play_enhanced', {
-          preset: presetRef.current,
-          intensity: intensityRef.current,
-        });
-      } else {
-        markLocalEnhancementCommand();
-        reissueRef.current('play_normal');
-      }
-    } catch (err) {
-      const apiError = ApiErrorHandler.parseWithCode(err, 'TOGGLE_ERROR');
-
-      setError(apiError);
-      throw apiError;
+      await runCommand({
+        errorCode: 'TOGGLE_ERROR',
+        request: () => post('/api/player/enhancement/toggle', { enabled: newEnabled }),
+        apply: () => {
+          applyState({ enabled: newEnabled });
+          // #3759: re-issue the active stream as the appropriate type so the user keeps hearing
+          // audio after the toggle. The backend's stream_enhanced_audio loop sees enabled=false
+          // and breaks, so the old stream ends here regardless - switching stream type is
+          // required behaviour. (#4659: that terminal audio_stream_end now carries
+          // reason 'stopped', distinguishing it from a finished track.)
+          if (newEnabled) {
+            reissueEnhanced(presetRef.current, intensityRef.current);
+          } else {
+            markLocalEnhancementCommand();
+            reissueRef.current('play_normal');
+          }
+        },
+      });
     } finally {
       isTogglingRef.current = false;
-      endLoading();
     }
-  }, [post, beginLoading, endLoading]);
+  }, [post, runCommand, applyState, reissueEnhanced, enabledRef, presetRef, intensityRef, reissueRef]);
 
-  /**
-   * Set enhancement enabled/disabled explicitly
-   */
+  /** Set enhancement enabled/disabled explicitly; only toggles if the requested state differs. */
   const setEnabled = useCallback(async (enabled: boolean): Promise<void> => {
-    // Only toggle if the requested state differs from current
     if (enabledRef.current === enabled) return;
     await toggleEnabled();
-  }, [toggleEnabled]);
+  }, [toggleEnabled, enabledRef]);
 
-  /**
-   * Change enhancement preset
-   *
-   * @param preset New preset (only 'adaptive' is valid)
-   * @throws Error if preset change fails
-   */
+  /** Change the preset (only 'adaptive' is valid). */
   const setPreset = useCallback(async (preset: EnhancementPreset): Promise<void> => {
-    beginLoading();
-    setError(null);
-
-    // Validate preset. EnhancementPreset is now a single-member literal type
-    // ('adaptive' -- #4861 follow-up), so this can only fail for a caller
-    // that bypasses the type via `as` or an untyped source (e.g. a
-    // WebSocket message); kept as a runtime guard for exactly that case.
+    // EnhancementPreset is a single-member literal type ('adaptive', #4861 follow-up), so this can
+    // only fail for a caller that bypasses the type (`as`, or an untyped WebSocket message).
     if (!ENHANCEMENT_PRESETS.includes(preset)) {
-      const apiError = {
-        message: `Invalid preset: ${preset}`,
-        code: 'INVALID_PRESET',
-        status: 400,
-      };
-      setError(apiError);
-      endLoading();
-      throw apiError;
+      reportInvalid({ message: `Invalid preset: ${preset}`, code: 'INVALID_PRESET', status: 400 });
     }
+    await runCommand({
+      errorCode: 'PRESET_ERROR',
+      // Captured before awaiting so a later, overlapping setPreset can supersede this one (#4339).
+      isStale: beginPresetRequest(),
+      request: () => post('/api/player/enhancement/preset', { preset }),
+      apply: () => {
+        applyState({ preset });
+        // Only when enhancement is on: otherwise the user is on play_normal and preset/intensity
+        // do not affect the audio path.
+        if (enabledRef.current) reissueEnhanced(preset, intensityRef.current);
+      },
+    });
+  }, [post, runCommand, reportInvalid, applyState, reissueEnhanced, beginPresetRequest, enabledRef, intensityRef]);
 
-    // #4339: capture this call's id before awaiting so a later, overlapping
-    // setPreset call can supersede it.
-    const isStale = beginPresetRequest();
-
-    try {
-      await post('/api/player/enhancement/preset', { preset });
-
-      // A newer setPreset call was dispatched while this POST was in
-      // flight — its own resolution is authoritative, not this stale one.
-      // Prevents out-of-order resolution from clobbering the UI with an
-      // older preset (#4339).
-      if (isStale()) return;
-
-      // Optimistic update - server will broadcast confirmation via WebSocket
-      setState((prevState) => ({
-        ...prevState,
-        preset,
-        lastUpdated: Date.now(),
-      }));
-
-      // #3763: ChunkedAudioProcessor binds preset/intensity at construction,
-      // so live changes need a stream restart from the current position.
-      // Only re-issue when enhancement is currently enabled — when it's
-      // off, the user is on play_normal and preset/intensity don't affect
-      // the audio path.
-      if (enabledRef.current) {
-        markLocalEnhancementCommand();
-        reissueRef.current('play_enhanced', {
-          preset,
-          intensity: intensityRef.current,
-        });
-      }
-    } catch (err) {
-      if (isStale()) return;
-
-      const apiError = ApiErrorHandler.parseWithCode(err, 'PRESET_ERROR');
-
-      setError(apiError);
-      throw apiError;
-    } finally {
-      endLoading();
-    }
-  }, [post, beginLoading, endLoading, beginPresetRequest]);
-
-  /**
-   * Adjust enhancement intensity
-   *
-   * @param intensity Intensity level 0.0-1.0
-   * @throws Error if intensity change fails
-   */
+  /** Adjust the intensity, 0.0-1.0. */
   const setIntensity = useCallback(async (intensity: number): Promise<void> => {
-    beginLoading();
-    setError(null);
-
-    // Clamp intensity to valid range. Reject non-finite input outright (#4600):
-    // Math.max/Math.min propagate NaN rather than clamping it, so a NaN would
-    // survive to JSON.stringify — which serialises it as `null` — and come back
-    // as an opaque 422. The server rejects out-of-range values now instead of
-    // silently clamping, so the client must not send something it cannot mean.
+    // Reject non-finite input outright (#4600): Math.max/Math.min propagate NaN rather than
+    // clamping it, so a NaN would survive to JSON.stringify - which serialises it as `null` - and
+    // come back as an opaque 422. The server rejects out-of-range values now instead of silently
+    // clamping, so the client must not send something it cannot mean.
     if (!Number.isFinite(intensity)) {
-      const apiError: ApiError = {
+      reportInvalid({
         status: 422,
         message: 'Intensity must be a finite number between 0.0 and 1.0',
         code: 'INVALID_INTENSITY',
-      };
-      setError(apiError);
-      endLoading();
-      throw apiError;
+      });
     }
     const validIntensity = Math.max(0.0, Math.min(1.0, intensity));
-
-    // #4339: capture this call's id before awaiting so a later, overlapping
-    // setIntensity call (e.g. the next tick of a slider drag) can supersede
-    // it — collapses a rapid-drag burst to a single applied value/reissue
-    // instead of one per intermediate value.
-    const isStale = beginIntensityRequest();
-
-    try {
-      await post('/api/player/enhancement/intensity', { intensity: validIntensity });
-
-      // A newer setIntensity call was dispatched while this POST was in
-      // flight — its own resolution is authoritative, not this stale one.
-      if (isStale()) return;
-
-      // Optimistic update - server will broadcast confirmation via WebSocket
-      setState((prevState) => ({
-        ...prevState,
-        intensity: validIntensity,
-        lastUpdated: Date.now(),
-      }));
-
-      // #3763: live intensity changes require stream restart — see setPreset.
-      if (enabledRef.current) {
-        markLocalEnhancementCommand();
-        reissueRef.current('play_enhanced', {
-          preset: presetRef.current,
-          intensity: validIntensity,
-        });
-      }
-    } catch (err) {
-      if (isStale()) return;
-
-      const apiError = ApiErrorHandler.parseWithCode(err, 'INTENSITY_ERROR');
-
-      setError(apiError);
-      throw apiError;
-    } finally {
-      endLoading();
-    }
-  }, [post, beginLoading, endLoading]);
+    await runCommand({
+      errorCode: 'INTENSITY_ERROR',
+      // Captured before awaiting: the next tick of a slider drag supersedes this call, collapsing a
+      // rapid-drag burst to one applied value/reissue instead of one per intermediate value (#4339).
+      isStale: beginIntensityRequest(),
+      request: () => post('/api/player/enhancement/intensity', { intensity: validIntensity }),
+      apply: () => {
+        applyState({ intensity: validIntensity });
+        if (enabledRef.current) reissueEnhanced(presetRef.current, validIntensity);
+      },
+    });
+  }, [post, runCommand, reportInvalid, applyState, reissueEnhanced, beginIntensityRequest, enabledRef, presetRef]);
 
   return { toggleEnabled, setEnabled, setPreset, setIntensity };
 }
