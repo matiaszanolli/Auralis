@@ -121,20 +121,17 @@ class AdaptiveLoudnessControl:
         Returns:
             Tuple of (target_peak_linear, target_peak_db)
         """
-        if source_lufs > AdaptiveLoudnessControl.VERY_LOUD_THRESHOLD:
-            # Already very loud - conservative peak target
-            target_peak = 0.85
-            target_peak_db = 20 * np.log10(target_peak)
-            return target_peak, target_peak_db
+        # Three plateaus (0.85 above -12 LUFS, 0.88 above -14, 0.90 below) joined by the same smooth_gate knees
+        # calculate_adaptive_gain uses, so two near-identical tracks straddling a threshold no longer end up a fixed
+        # 0.3 dB / 0.2 dB apart (#6303). Away from the knees the values are exactly the old plateaus.
+        from ...core.processing.cross_dimensional_guard import smooth_gate  # deferred: core.processing imports this package
 
-        elif source_lufs > AdaptiveLoudnessControl.MODERATELY_LOUD_THRESHOLD:
-            # Moderately loud - moderate peak target
-            target_peak = 0.88
-            target_peak_db = 20 * np.log10(target_peak)
-            return target_peak, target_peak_db
-
-        else:
-            # Quiet source - can go a bit higher
-            target_peak = 0.90
-            target_peak_db = 20 * np.log10(target_peak)
-            return target_peak, target_peak_db
+        cls = AdaptiveLoudnessControl
+        half = cls.LOUDNESS_KNEE_LU / 2
+        quietness = -source_lufs
+        to_moderate = smooth_gate(quietness, -cls.VERY_LOUD_THRESHOLD - half, -cls.VERY_LOUD_THRESHOLD + half)
+        to_quiet = smooth_gate(
+            quietness, -cls.MODERATELY_LOUD_THRESHOLD - half, -cls.MODERATELY_LOUD_THRESHOLD + half
+        )
+        target_peak = 0.85 + (0.88 - 0.85) * to_moderate + (0.90 - 0.88) * to_quiet
+        return target_peak, 20 * np.log10(target_peak)
