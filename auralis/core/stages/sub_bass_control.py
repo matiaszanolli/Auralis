@@ -1,12 +1,12 @@
 """Sub-Bass Control Stage — adaptive 20-60Hz tightening."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from . import no_op
 from scipy.signal import butter
-from ...dsp.utils.filters import sosfiltfilt_safe
+from ...dsp.utils.filters import normalized_corner, sosfiltfilt_safe
 
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
@@ -22,7 +22,7 @@ def apply(
     sample_rate: int,
     verbose: bool,
     config: 'SimpleMasteringConfig',
-) -> tuple[np.ndarray, dict | None]:
+) -> tuple[np.ndarray, dict[str, Any] | None]:
     """Apply adaptive sub-bass control (20-60Hz).
 
     High sub-bass → tighten (reduce rumble). Inside the tolerance band
@@ -63,12 +63,9 @@ def apply(
         sub_bass_pct, config.SUB_HP_RAMP_START_PCT, config.SUB_HP_RAMP_FULL_PCT
     )
     if hp_depth > 0.0:
-        nyq = sample_rate / 2.0
-        # Floor is a numerical-stability minimum, NOT a musical cutoff. The old
-        # 0.005 floor mapped to 110 Hz @ 44.1 kHz, so the 25 Hz rumble HP
-        # actually high-passed at 110 Hz and gutted the whole bass region when
-        # it fired (#4211). butter(order<=2) is stable down to ~1e-4 normalized.
-        hp_norm = min(0.99, max(1e-4, config.SUBBASS_HP_FREQ_HZ / nyq))
+        # Stability floor only, NOT a musical cutoff: the old 0.005 floor turned
+        # the 25 Hz rumble HP into a 110 Hz one at 44.1 kHz (#4211).
+        hp_norm = normalized_corner(config.SUBBASS_HP_FREQ_HZ, sample_rate)
         hp_sos = butter(config.SUBBASS_HP_ORDER, hp_norm, btype='high', output='sos')
         axis = -1 if processed.ndim > 1 else 0
         # Zero-phase (sosfiltfilt) so the rumble HP does not add group delay that

@@ -27,7 +27,25 @@ from scipy.signal import sosfiltfilt
 
 from ...utils.logging import debug
 
-__all__ = ["sosfiltfilt_padlen", "is_long_enough_for_sosfiltfilt", "sosfiltfilt_safe"]
+__all__ = [
+    "normalized_corner",
+    "sosfiltfilt_padlen",
+    "is_long_enough_for_sosfiltfilt",
+    "sosfiltfilt_safe",
+]
+
+#: Lowest normalized corner handed to ``butter``: a numerical-stability floor, NOT
+#: a frequency limit. ``butter(order<=2, output='sos')`` is stable down to ~1e-4
+#: (#4211). The 0.01 floor this replaces silently moved every corner below
+#: ``0.01 * nyquist`` up to it -- 220 Hz at 44.1 kHz, 960 Hz at 192 kHz -- so a
+#: 60 Hz cut acted at 220 Hz and the same config EQ'd differently per rate (#6300).
+MIN_NORMALIZED_CORNER: float = 1e-4
+MAX_NORMALIZED_CORNER: float = 0.99
+
+
+def normalized_corner(freq_hz: float, sample_rate: float) -> float:
+    """``freq_hz`` as a fraction of Nyquist, clamped only to what ``butter`` accepts."""
+    return min(MAX_NORMALIZED_CORNER, max(MIN_NORMALIZED_CORNER, 2.0 * freq_hz / sample_rate))
 
 
 def sosfiltfilt_padlen(sos: np.ndarray) -> int:

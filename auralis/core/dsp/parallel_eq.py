@@ -15,7 +15,12 @@ enabling precise spectral shaping.
 from auralis.dsp.utils.conversion import db_to_amplitude
 import numpy as np
 from scipy.signal import butter
-from ...dsp.utils.filters import sosfiltfilt_safe
+from ...dsp.utils.filters import (
+    MAX_NORMALIZED_CORNER,
+    MIN_NORMALIZED_CORNER,
+    normalized_corner,
+    sosfiltfilt_safe,
+)
 
 
 class ParallelEQUtilities:
@@ -108,13 +113,11 @@ class ParallelEQUtilities:
 
         Notes:
             - Negative boost_db reduces bass (parallel cut)
-            - freq_hz automatically clamped to valid range (Nyquist/100 to Nyquist*0.99)
+            - freq_hz is clamped only for filter stability (see normalized_corner)
             - Preserves DC offset (if present)
             - Phase-coherent with original signal
         """
-        nyquist = sample_rate / 2
-        # Clamp frequency to valid range
-        normalized_freq = min(0.99, max(0.01, freq_hz / nyquist))
+        normalized_freq = normalized_corner(freq_hz, sample_rate)
 
         # Create low-pass filter
         sos_filter = butter(order, normalized_freq, btype='low', output='sos')
@@ -181,9 +184,7 @@ class ParallelEQUtilities:
             - Preserves phase coherence
             - Gentle on high-frequency transients
         """
-        nyquist = sample_rate / 2
-        # Clamp frequency to valid range
-        normalized_freq = min(0.99, max(0.01, freq_hz / nyquist))
+        normalized_freq = normalized_corner(freq_hz, sample_rate)
 
         # Create high-pass filter
         sos_filter = butter(order, normalized_freq, btype='high', output='sos')
@@ -244,17 +245,14 @@ class ParallelEQUtilities:
             - Ideal for mid-range body and presence enhancement
             - Can be used for surgical frequency shaping
         """
-        nyquist = sample_rate / 2
-
-        # Clamp frequencies to valid range
-        low_norm = min(0.99, max(0.01, low_hz / nyquist))
-        high_norm = min(0.99, max(0.01, high_hz / nyquist))
+        low_norm = normalized_corner(low_hz, sample_rate)
+        high_norm = normalized_corner(high_hz, sample_rate)
 
         # Ensure low < high (swap if needed)
         if low_norm >= high_norm:
             low_norm, high_norm = high_norm * 0.9, low_norm * 1.1
-            low_norm = min(0.99, max(0.01, low_norm))
-            high_norm = min(0.99, max(0.01, high_norm))
+            low_norm = min(MAX_NORMALIZED_CORNER, max(MIN_NORMALIZED_CORNER, low_norm))
+            high_norm = min(MAX_NORMALIZED_CORNER, max(MIN_NORMALIZED_CORNER, high_norm))
 
         # Create bandpass filter
         sos_filter = butter(order, [low_norm, high_norm], btype='band', output='sos')

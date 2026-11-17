@@ -33,7 +33,7 @@ import numpy as np
 from scipy.signal import butter
 
 from ..basic import mid_side_decode, mid_side_encode
-from .filters import sosfiltfilt_safe
+from .filters import normalized_corner, sosfiltfilt_safe
 
 #: Width factor that leaves the signal unchanged (side gain of exactly 1.0).
 #: Audio that has not been width-adjusted sits here *by definition*, which is
@@ -160,8 +160,6 @@ def adjust_stereo_width_multiband(
     if abs(width_factor - 0.5) < 0.01:
         return stereo_audio.copy()
 
-    nyquist = sample_rate / 2
-
     # Band extraction frequencies (using simple Butterworth, not LR4)
     # We only need to extract bands, not split perfectly.
     #
@@ -175,11 +173,13 @@ def adjust_stereo_width_multiband(
     # Verified by measurement, not inspection — see
     # tests/auralis/dsp/test_stereo_width_scales_4503.py, which pins the width
     # response as monotonic across 1.5-2.5 kHz.
-    freq_lowmid_lo = min(0.99, max(0.01, 300.0 / nyquist))
-    freq_lowmid_hi = min(0.99, max(0.01, 2000.0 / nyquist))
-    freq_highmid_lo = min(0.99, max(0.01, 2000.0 / nyquist))
-    freq_highmid_hi = min(0.99, max(0.01, 8000.0 / nyquist))
-    freq_high = min(0.99, max(0.01, 8000.0 / nyquist))
+    # The lows (<300 Hz) stay mono at every rate: the old 0.01 floor moved this
+    # edge to 441/480/960 Hz at 88.2/96/192 kHz (#6300).
+    freq_lowmid_lo = normalized_corner(300.0, sample_rate)
+    freq_lowmid_hi = normalized_corner(2000.0, sample_rate)
+    freq_highmid_lo = normalized_corner(2000.0, sample_rate)
+    freq_highmid_hi = normalized_corner(8000.0, sample_rate)
+    freq_high = normalized_corner(8000.0, sample_rate)
 
     # Simple bandpass filters for extraction (order 2 is gentle enough)
     sos_lowmid = butter(2, [freq_lowmid_lo, freq_lowmid_hi], btype='band', output='sos')
