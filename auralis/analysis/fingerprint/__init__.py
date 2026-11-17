@@ -44,6 +44,7 @@ from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
 from auralis.analysis.fingerprint.knn_graph import GraphStats, KNNGraphBuilder
 from auralis.analysis.fingerprint.normalizer import FingerprintNormalizer
 from auralis.analysis.fingerprint.normalizer_stats import DimensionStats
+from auralis.analysis.fingerprint.preloaded_fingerprint import fingerprint_preloaded
 from auralis.analysis.fingerprint.similarity import (
     FingerprintSimilarity,
     SimilarityResult,
@@ -60,6 +61,7 @@ __all__ = [
     'KNNGraphBuilder',
     'GraphStats',
     'FingerprintStorage',
+    'fingerprint_preloaded',
     'FingerprintConstants',
     'SafeOperations',
     'MetricUtils',

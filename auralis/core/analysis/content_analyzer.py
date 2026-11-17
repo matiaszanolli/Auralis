@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from ...analysis.fingerprint import AudioFingerprintAnalyzer
+from ...analysis.fingerprint import AudioFingerprintAnalyzer, fingerprint_preloaded
 from ...analysis.ml import create_ml_genre_classifier
 from ...dsp.basic import rms
 from ...dsp.utils.adaptive import calculate_loudness_units
@@ -144,7 +144,7 @@ class ContentAnalyzer(GenreClassificationMixin):
         # Extract 25D audio fingerprint if enabled
         if self.use_fingerprint_analysis and self.fingerprint_analyzer is not None:
             try:
-                fingerprint = self.fingerprint_analyzer.analyze(audio, self.sample_rate)
+                fingerprint = fingerprint_preloaded(self.fingerprint_analyzer, audio, self.sample_rate)
                 content_profile["fingerprint"] = fingerprint
 
                 debug(f"25D fingerprint extracted: LUFS={fingerprint.get('lufs', 0):.1f}, "

@@ -22,6 +22,7 @@ from typing import Any
 
 import numpy as np
 
+from auralis.analysis.fingerprint import fingerprint_preloaded
 from auralis.core.analysis import ContentAnalyzer
 
 from ...dsp.utils.adaptive import proxy_to_k_offset_db
@@ -209,9 +210,8 @@ class ContinuousMode(ContinuousStagesMixin):
             return params
 
         # Step 1: Extract 25D fingerprint
-        fingerprint = self.fingerprint_analyzer.analyze(
-            processed_audio,
-            self.config.internal_sample_rate
+        fingerprint = fingerprint_preloaded(
+            self.fingerprint_analyzer, processed_audio, self.config.internal_sample_rate
         )
         self.last_fingerprint = fingerprint
 
