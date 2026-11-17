@@ -46,5 +46,5 @@ def test_an_unprobeable_ffmpeg_file_still_skips_the_sidecar_without_failing(tmp_
             patch("auralis.analysis.fingerprint.fingerprint_service.FingerprintStorage") as storage:
         result = service.get_or_compute(audio_path)
 
-    assert result is not None
+    assert set(result) >= set(DIMENSION_NAMES)  # the fingerprint itself is still returned
     storage.save.assert_not_called()
