@@ -25,6 +25,13 @@ MAX_UPLOAD_BYTES: int = 500 * 1024 * 1024
 # Maximum number of files accepted in one multipart upload request (#4349).
 MAX_UPLOAD_FILES: int = 200
 
+# Per-request and on-disk ceilings for uploads (#6167). The per-file cap alone allowed 200 x 500 MB
+# in one request and, repeated, an unbounded ~/.auralis/uploads. Both are generous for a single-user
+# desktop app (a request is a handful of albums; the directory holds a library's worth) and exist to
+# bound a runaway client, not to ration normal use.
+MAX_UPLOAD_REQUEST_BYTES: int = 2 * 1024 * 1024 * 1024
+MAX_UPLOAD_DIR_BYTES: int = 20 * 1024 * 1024 * 1024
+
 # Temp-directory names under tempfile.gettempdir(), previously re-typed as bare
 # string literals at each call site (#5021). Upload handling, job cleanup,
 # startup sweeps, and chunked processing must all agree on these exact names

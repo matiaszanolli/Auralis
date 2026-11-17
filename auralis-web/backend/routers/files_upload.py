@@ -11,6 +11,7 @@ from auralis.io.audio_probe import get_audio_info
 from auralis.utils.logging import sanitize_log_value
 from collections.abc import Callable
 from config.limits import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
+from config.limits import MAX_UPLOAD_DIR_BYTES, MAX_UPLOAD_REQUEST_BYTES
 from config.limits import MAX_UPLOAD_FILES as _MAX_UPLOAD_FILES
 from core.processing_engine import _safe_error_message
 from fastapi import Depends, File, HTTPException, UploadFile
@@ -23,6 +24,7 @@ import tempfile
 
 from .errors import BadRequestError
 from .files_deps import _get_repos_provider
+from .files_upload_budget import UploadBudget, UploadQuotaFull
 from .files_validation import _has_valid_audio_magic
 
 logger = logging.getLogger(__name__)
@@ -66,6 +68,8 @@ async def upload_files(
         )
 
     repos = get_repos()
+    upload_dir = Path.home() / ".auralis" / "uploads"
+    budget = UploadBudget(MAX_UPLOAD_REQUEST_BYTES, MAX_UPLOAD_DIR_BYTES, upload_dir)
 
     results: list[dict[str, Any]] = []
     supported_extensions = tuple(SUPPORTED_FORMATS.keys())
@@ -101,6 +105,15 @@ async def upload_files(
                     "filename": file.filename or "",
                     "status": "error",
                     "message": "File exceeds maximum upload size of 500 MB"
+                })
+                continue
+
+            if not budget.admit_request(len(content)):
+                logger.warning(f"Rejected upload over the per-request byte budget: {file.filename!r}")
+                results.append({
+                    "filename": file.filename or "",
+                    "status": "error",
+                    "message": f"Request exceeds the {MAX_UPLOAD_REQUEST_BYTES // 2**30} GiB upload budget",
                 })
                 continue
 
@@ -144,10 +157,13 @@ async def upload_files(
                 # Move to permanent library storage before committing the DB record
                 # (issue #2392: storing temp_path then deleting it made every upload
                 # unplayable immediately after the finally block ran).
-                upload_dir = Path.home() / ".auralis" / "uploads"
+                size = Path(temp_path).stat().st_size
+                if not await budget.admit_storage(size):
+                    raise UploadQuotaFull()
                 await asyncio.to_thread(upload_dir.mkdir, parents=True, exist_ok=True)
                 permanent_path = upload_dir / f"{uuid4().hex}{suffix}"
                 await asyncio.to_thread(shutil.move, str(temp_path), str(permanent_path))
+                budget.record_stored(size)
 
                 # Extract file name without extension
                 file_stem = Path(file.filename).stem if file.filename else "track"
@@ -183,6 +199,14 @@ async def upload_files(
                         "status": "error",
                         "message": "Failed to add track to library"
                     })
+
+            except UploadQuotaFull:
+                logger.warning(f"Rejected upload, uploads directory is at its quota: {sanitize_log_value(file.filename)}")
+                results.append({
+                    "filename": file.filename or "",
+                    "status": "error",
+                    "message": f"Upload storage is full ({MAX_UPLOAD_DIR_BYTES // 2**30} GiB); remove tracks to free space",
+                })
 
             except Exception as e:
                 logger.error(f"Audio processing error for {sanitize_log_value(file.filename)}: {e}", exc_info=True)
