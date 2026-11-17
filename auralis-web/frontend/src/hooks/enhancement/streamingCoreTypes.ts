@@ -7,6 +7,7 @@
  * @module hooks/enhancement/streamingCoreTypes
  */
 
+import type { StreamCommand } from '@/types/ws/commands';
 import type PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import type { StreamType } from '@/types/domain';
 import type AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
@@ -32,7 +33,7 @@ export interface StreamingCoreOptions {
   /** Let one shared session consume normal PCM as well as enhanced PCM. */
   acceptNormalStream?: boolean;
   /** Key used for `wsContext.setResumePositionGetter` (e.g. 'play_normal'). */
-  sendType: string;
+  sendType: StreamCommand['type'];
   /** Console log prefix, e.g. '[usePlayNormal]'. */
   logPrefix: string;
   /** Buffered-sample threshold at which playback auto-starts. */

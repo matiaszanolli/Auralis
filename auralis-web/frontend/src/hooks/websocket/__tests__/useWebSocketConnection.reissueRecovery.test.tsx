@@ -107,6 +107,36 @@ describe('useWebSocketConnection.reissueActiveStreamAs — startPositionOverride
     expect(payload.data.start_position).toBe(0);
   });
 
+  // #6050: overrides are typed, and the tracked track can no longer be replaced by one.
+  it('carries preset and intensity overrides but never lets them replace the tracked track_id', async () => {
+    const { mgr, result } = await connectWithActiveStream();
+
+    act(() => {
+      // The cast stands in for an untyped caller: the type forbids track_id here, the runtime must too.
+      result.current.reissueActiveStreamAs('play_enhanced', { preset: 'adaptive', intensity: 0.4, track_id: 999 } as never);
+    });
+
+    const payload = JSON.parse(mgr.send.mock.calls[0][0]);
+    expect(payload).toEqual({
+      type: 'play_enhanced',
+      data: { track_id: 7, preset: 'adaptive', intensity: 0.4, start_position: 999 },
+    });
+  });
+
+  it('re-issues as play_normal without enhancement fields', async () => {
+    const { mgr, result } = await connectWithActiveStream();
+    result.current.setResumePositionGetter('play_normal', () => 12);
+
+    act(() => {
+      result.current.reissueActiveStreamAs('play_normal', { preset: 'adaptive', intensity: 0.4 });
+    });
+
+    expect(JSON.parse(mgr.send.mock.calls[0][0])).toEqual({
+      type: 'play_normal',
+      data: { track_id: 7, start_position: 12 },
+    });
+  });
+
   // #6044: queued while the socket is down, the position must be re-read at replay.
   it('queues a disconnected re-issue whose position is refreshed when the queue replays', async () => {
     const { mgr, result } = await connectWithActiveStream();

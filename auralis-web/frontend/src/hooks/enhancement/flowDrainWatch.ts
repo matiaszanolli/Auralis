@@ -11,13 +11,14 @@
  * `buffer_ready` once it drains below the resume threshold.
  */
 
+import type { OutgoingCommand } from '@/types/ws/commands';
 import { FLOW_RESUME_FILL_PCT } from './audioChunkIngest';
 import type PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 
 export interface FlowDrainWatchDeps {
   flowPausedRef: React.MutableRefObject<boolean>;
   pcmBufferRef: React.MutableRefObject<PCMStreamBuffer | null>;
-  send: (message: { type: string; data: Record<string, unknown> }) => void;
+  send: (message: OutgoingCommand) => void;
 }
 
 /** How often the fill level is sampled while flow is paused (#5863). */

@@ -9,6 +9,7 @@
  */
 
 import { WebSocketManager } from '@/utils/errorHandling';
+import type { OutgoingCommand, StreamCommand } from '@/types/ws/commands';
 import type {
   AnyWebSocketMessage,
   AudioChunkMetaMessage,
@@ -19,10 +20,8 @@ import type {
 // Public types
 // ============================================================================
 
-export interface OutgoingWebSocketMessage {
-  type: string;
-  data?: Record<string, unknown>;
-}
+/** A client-to-server command: a discriminated union, see types/ws/commands.ts (#6050). */
+export type OutgoingWebSocketMessage = OutgoingCommand;
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
 
@@ -66,9 +65,9 @@ export interface ConnectionState {
   connectPromise: Promise<void> | null;
   refCount: number;
   pendingMeta: AudioChunkMetaMessage | null;
-  lastStreamCommand: OutgoingWebSocketMessage | null;
+  lastStreamCommand: StreamCommand | null;
   streamActive: boolean;
-  resumeGetters: Record<string, () => number>;
+  resumeGetters: Partial<Record<StreamCommand['type'], () => number>>;
   expectedSeq: number | null;
   seqStreamEpoch: number | null;
 }
@@ -145,9 +144,7 @@ export function resetConnectionSingletons(): void {
   connState.refCount = 0;
   connState.lastStreamCommand = null;
   connState.streamActive = false;
-  for (const key of Object.keys(connState.resumeGetters)) {
-    delete connState.resumeGetters[key];
-  }
+  connState.resumeGetters = {};
   resetStreamFrameTracking();
 }
 
@@ -159,7 +156,7 @@ export function resetConnectionSingletons(): void {
  * track's late end frame cannot end the current stream.
  */
 export function endActiveStream(trackId?: number): void {
-  const tracked = (connState.lastStreamCommand?.data as { track_id?: unknown } | undefined)?.track_id;
+  const tracked = connState.lastStreamCommand?.data.track_id;
   if (trackId !== undefined && tracked !== trackId) return;
   connState.streamActive = false;
 }

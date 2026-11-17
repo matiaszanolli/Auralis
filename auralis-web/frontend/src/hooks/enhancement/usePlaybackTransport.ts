@@ -16,6 +16,7 @@
 
 const DEBUG = import.meta.env.DEV;
 
+import type { StreamCommand } from '@/types/ws/commands';
 import { useCallback, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch } from '@/store';
@@ -35,7 +36,7 @@ export interface PlaybackTransportDeps {
   wsContext: ReturnType<typeof useWebSocketContext>;
 
   streamType: StreamType;
-  sendType: string;
+  sendType: StreamCommand['type'];
   logPrefix: string;
   acceptNormalStream: boolean;
   onDisconnectExtra?: () => void;

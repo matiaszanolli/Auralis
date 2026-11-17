@@ -10,6 +10,7 @@
  * stream resume.
  */
 
+import type { StreamCommand } from '@/types/ws/commands';
 import type { WebSocketManager } from '@/utils/errorHandling';
 import {
   connState,
@@ -43,9 +44,9 @@ export function replayQueueAndResume(
   let queueHadStreamCommand = false;
   while (queue.length > 0) {
     let message = queue.shift();
-    if (message && positionRefreshedOnReplay.has(message)) {
+    if ((message?.type === 'play_enhanced' || message?.type === 'play_normal') && positionRefreshedOnReplay.has(message)) {
       const resumePos = connState.resumeGetters[message.type]?.() ?? 0;
-      message = { ...message, data: { ...(message.data ?? {}), start_position: resumePos } };
+      message = { ...message, data: { ...message.data, start_position: resumePos } };
     }
     if (message?.type === 'play_enhanced' || message?.type === 'play_normal') {
       connState.lastStreamCommand = message;
@@ -63,12 +64,9 @@ export function replayQueueAndResume(
   // finished, was stopped or failed must not restart on reconnect (#5876).
   if (connState.lastStreamCommand && connState.streamActive && !queueHadStreamCommand) {
     const resumePos = connState.resumeGetters[connState.lastStreamCommand.type]?.() ?? 0;
-    const resumeCommand = {
+    const resumeCommand: StreamCommand = {
       ...connState.lastStreamCommand,
-      data: {
-        ...(connState.lastStreamCommand.data ?? {}),
-        start_position: resumePos,
-      },
+      data: { ...connState.lastStreamCommand.data, start_position: resumePos },
     };
     console.log(`🔄 Reconnected - re-issuing stream command: ${connState.lastStreamCommand.type} at ${resumePos.toFixed(1)}s`);
     manager.send(JSON.stringify(resumeCommand));

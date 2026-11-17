@@ -9,6 +9,7 @@
  * @module hooks/websocket/useOutgoingChannel
  */
 
+import type { StreamCommand, StreamOverrides } from '@/types/ws/commands';
 import { useCallback, type MutableRefObject } from 'react';
 import type { WebSocketManager } from '@/utils/errorHandling';
 import {
@@ -19,10 +20,10 @@ import {
 
 export interface OutgoingChannel {
   send: (message: OutgoingWebSocketMessage) => void;
-  setResumePositionGetter: (streamType: string, getter: (() => number) | null) => void;
+  setResumePositionGetter: (streamType: StreamCommand['type'], getter: (() => number) | null) => void;
   reissueActiveStreamAs: (
     type: 'play_enhanced' | 'play_normal',
-    dataOverrides?: Record<string, unknown>,
+    dataOverrides?: StreamOverrides,
     startPositionOverride?: number
   ) => boolean;
 }
@@ -67,7 +68,7 @@ export function useOutgoingChannel(
   // value doesn't break on every render. The singleton getter map is
   // module-level so this callback never needs to close over component state.
   const setResumePositionGetter = useCallback(
-    (streamType: string, getter: (() => number) | null) => {
+    (streamType: StreamCommand['type'], getter: (() => number) | null) => {
       if (getter) {
         connState.resumeGetters[streamType] = getter;
       } else {
@@ -85,7 +86,7 @@ export function useOutgoingChannel(
   const reissueActiveStreamAs = useCallback(
     (
       type: 'play_enhanced' | 'play_normal',
-      dataOverrides: Record<string, unknown> = {},
+      dataOverrides: StreamOverrides = {},
       // #4655: an explicit resume point (e.g. a chunk-failure recovery_position)
       // takes priority over the live resumeGetters lookup below, which reports
       // *current playback position* — not the same quantity when recovering
@@ -97,19 +98,14 @@ export function useOutgoingChannel(
       // the last track again.
       const last = connState.lastStreamCommand;
       if (!last || !connState.streamActive) return false;
-      const prevData = (last.data ?? {}) as Record<string, unknown>;
-      const trackId = prevData.track_id;
-      if (trackId == null) return false;
+      const trackId = last.data.track_id;
 
       const resumePos = startPositionOverride ?? connState.resumeGetters[type]?.() ?? 0;
-      const next: OutgoingWebSocketMessage = {
-        type,
-        data: {
-          track_id: trackId,
-          ...dataOverrides,
-          start_position: resumePos,
-        },
-      };
+      // track_id goes AFTER the overrides, so an override can never clobber the tracked track.
+      const next: StreamCommand =
+        type === 'play_enhanced'
+          ? { type, data: { ...dataOverrides, track_id: trackId, start_position: resumePos } }
+          : { type, data: { track_id: trackId, start_position: resumePos } };
 
       if (wsManagerRef.current?.isConnected()) {
         connState.lastStreamCommand = next;
