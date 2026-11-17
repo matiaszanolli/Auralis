@@ -24,8 +24,8 @@
  * ```
  */
 
-import { useEffect } from 'react';
-import { Dialog, DialogContent, Box, Typography, CircularProgress, List } from '@mui/material';
+import { useCallback, useEffect } from 'react';
+import { Dialog, DialogContent, Box, Typography, CircularProgress, List, Button } from '@mui/material';
 import { tokens } from '@/design-system';
 import { useSimilarTracks, type SimilarTrack } from '@/hooks/fingerprint';
 // Imported from its own module rather than the barrel: this is a pure function,
@@ -72,19 +72,23 @@ export const SimilarTracksModal = ({
   // must not render as a red error (#4626).
   const errorState = error ? classifySimilarityError(error, errorStatus) : null;
 
+  // One fetch path for the open effect and the "Try again" button (#5924).
+  const load = useCallback(() => {
+    if (!trackId) return;
+    findSimilar(trackId, { limit, includeDetails: true }).catch((err) => {
+      console.error('[SimilarTracksModal] Failed to find similar tracks:', err);
+    });
+  }, [trackId, limit, findSimilar]);
+
   // Fetch similar tracks when modal opens with a valid trackId
   useEffect(() => {
-    if (open && trackId) {
-      findSimilar(trackId, { limit, includeDetails: true }).catch((err) => {
-        console.error('[SimilarTracksModal] Failed to find similar tracks:', err);
-      });
-    }
-
-    // Clear results when modal closes
-    if (!open) {
+    if (open) {
+      load();
+    } else {
+      // Clear results when modal closes
       clear();
     }
-  }, [open, trackId, limit, findSimilar, clear]);
+  }, [open, load, clear]);
 
   /**
    * Handle track click - play track and close modal
@@ -166,6 +170,11 @@ export const SimilarTracksModal = ({
             }}>
               {errorState.hint}
             </Typography>
+            {errorState.retryable && (
+              <Button onClick={load} sx={{ marginTop: tokens.spacing.md }}>
+                Try again
+              </Button>
+            )}
           </Box>
         )}
 

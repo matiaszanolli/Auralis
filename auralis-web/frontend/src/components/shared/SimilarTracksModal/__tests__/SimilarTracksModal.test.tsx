@@ -148,6 +148,28 @@ describe('SimilarTracksModal', () => {
       expect(screen.getByText(/similarity engine ready/i)).toBeInTheDocument();
     });
 
+    it.each([
+      ['queued', 'Track 7 does not have a fingerprint. Queued for background processing.', 404],
+      ['initialising', 'Similarity system not initialized.', 503],
+      ['queue-rejected', 'Track 7 was not queued: the analysis queue is full.', 404],
+    ])('offers "Try again" for a retryable %s state and re-runs the lookup (#5924)', (_kind, message, status) => {
+      withError(message, status);
+      render(<SimilarTracksModal {...defaultProps} trackId={42} />);
+      mockFindSimilar.mockClear();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+      expect(mockFindSimilar).toHaveBeenCalledTimes(1);
+      expect(mockFindSimilar).toHaveBeenCalledWith(42, { limit: 20, includeDetails: true });
+    });
+
+    it('offers no retry for a track that is gone from the library', () => {
+      withError('Track 7 not found', 404);
+      render(<SimilarTracksModal {...defaultProps} />);
+
+      expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+    });
+
     it('renders a genuine 404 differently from the queued one', () => {
       withError('Track 7 not found', 404);
       render(<SimilarTracksModal {...defaultProps} />);
