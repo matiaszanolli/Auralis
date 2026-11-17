@@ -115,4 +115,4 @@ class CacheClearingMixin:
             except FileNotFoundError:
                 pass
             except OSError as e:
-                logger.warning(f"Could not delete cached chunk file {path}: {e}")
+                logger.warning(f"Could not delete cached chunk file {path.name}: {e}")

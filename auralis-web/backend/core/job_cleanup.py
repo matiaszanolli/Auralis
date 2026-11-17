@@ -90,7 +90,7 @@ async def cleanup_expired_jobs(
             try:
                 file_path.unlink(missing_ok=True)
             except OSError as e:
-                logger.warning(f"Failed to delete {file_path}: {e}")
+                logger.warning(f"Failed to delete {file_path.name}: {e}")
 
     await asyncio.to_thread(_delete_expired_files)
     if on_removed is not None and jobs_to_remove:

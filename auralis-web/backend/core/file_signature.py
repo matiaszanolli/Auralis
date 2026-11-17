@@ -97,7 +97,7 @@ class FileSignatureService:
             # File doesn't exist or can't be read. Fall back to a stable
             # path-only signature (unique, but unable to detect modifications).
             logger.warning(
-                f"Failed to read file {filepath}: {e}. "
+                f"Failed to read file {Path(filepath).name}: {e}. "
                 f"Using path-only signature (cache invalidation disabled)."
             )
             return hashlib.sha256(filepath.encode()).hexdigest()[:8]
@@ -105,7 +105,7 @@ class FileSignatureService:
         except Exception as e:
             # Unexpected error - use path-only fallback
             logger.error(
-                f"Unexpected error generating signature for {filepath}: {e}. "
+                f"Unexpected error generating signature for {Path(filepath).name}: {e}. "
                 f"Using path-only fallback."
             )
             return hashlib.sha256(filepath.encode()).hexdigest()[:8]
