@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from config.limits import chunk_cache_dir
-from schemas import DEFAULT_PRESET
+from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET
 
 from core.encoding.atomic_io import is_wav_complete
 
@@ -103,7 +103,7 @@ class StreamlinedCacheManager(
         self.current_track_id: int | None = None
         self.current_position: float = 0.0
         self.current_preset: str = DEFAULT_PRESET
-        self.intensity: float = 1.0
+        self.intensity: float = DEFAULT_INTENSITY
 
         # Statistics
         self.tier1_hits: int = 0
@@ -121,7 +121,7 @@ class StreamlinedCacheManager(
         track_id: int,
         chunk_idx: int,
         preset: str | None = None,
-        intensity: float = 1.0,
+        intensity: float = DEFAULT_INTENSITY,
         file_signature: str = ""
     ) -> tuple[Path | None, str]:
         """
@@ -185,7 +185,7 @@ class StreamlinedCacheManager(
         chunk_idx: int,
         chunk_path: Path,
         preset: str | None = None,
-        intensity: float = 1.0,
+        intensity: float = DEFAULT_INTENSITY,
         tier: str = "auto",
         file_signature: str = ""
     ) -> bool:

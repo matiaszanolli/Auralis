@@ -37,6 +37,10 @@ EnhancementPresetLiteral = Literal["adaptive"]
 # core/proactive_buffer.py).
 DEFAULT_PRESET: EnhancementPresetLiteral = "adaptive"
 
+# Full-strength intensity: the default of a fresh runtime dict, a play command with no intensity, and every
+# fallback of last resort. core/ keeps its own local copy for the same reason as DEFAULT_PRESET (#5982).
+DEFAULT_INTENSITY: float = 1.0
+
 # Canonical constraint for enhancement intensity (#4600). The same quantity used
 # to be validated three different ways: the enhancement router silently CLAMPED
 # and returned 200 with a value the caller never sent, the settings route

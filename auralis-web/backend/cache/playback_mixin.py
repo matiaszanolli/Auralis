@@ -14,7 +14,7 @@ import asyncio
 import logging
 
 from core.chunk_boundaries import chunk_for_position, content_chunk_count
-from schemas import DEFAULT_PRESET
+from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET
 
 from .eviction_mixin import CacheEvictionMixin
 from .models import PlaybackSnapshot, TrackCacheStatus
@@ -96,7 +96,7 @@ class CachePlaybackMixin(CacheEvictionMixin):
         track_id: int,
         position: float,
         preset: str = DEFAULT_PRESET,
-        intensity: float = 1.0,
+        intensity: float = DEFAULT_INTENSITY,
         track_duration: float | None = None
     ) -> None:
         """

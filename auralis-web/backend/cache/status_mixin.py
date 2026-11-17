@@ -11,6 +11,7 @@ StreamlinedCacheManager. Split out of cache/manager.py (#5238).
 
 import asyncio
 import logging
+from schemas import DEFAULT_INTENSITY
 from pathlib import Path
 from typing import Any
 
@@ -95,7 +96,7 @@ class CacheStatusMixin(CacheEvictionMixin):
         self,
         track_id: int,
         chunk_paths: list[tuple[int, Path, str | None]],
-        intensity: float = 1.0,
+        intensity: float = DEFAULT_INTENSITY,
         file_signature: str = ""
     ) -> int:
         """

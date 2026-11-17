@@ -15,7 +15,7 @@ from collections.abc import Callable
 from core.audio_stream_controller import AudioStreamController
 from core.processing_engine import _safe_error_message
 from fastapi import WebSocket
-from schemas import DEFAULT_PRESET
+from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ async def stream_audio(
     *,
     track_id: int = 0,
     preset: str = DEFAULT_PRESET,
-    intensity: float = 1.0,
+    intensity: float = DEFAULT_INTENSITY,
     force: bool = False,
     start_position: float = 0.0,
     ws_id: str = "",
@@ -184,7 +184,7 @@ async def stream_from_position(
     *,
     track_id: int = 0,
     preset: str = DEFAULT_PRESET,
-    intensity: float = 1.0,
+    intensity: float = DEFAULT_INTENSITY,
     position: float = 0.0,
     enhancement_enabled: bool = True,
     ws_id: str = "",

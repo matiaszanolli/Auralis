@@ -55,3 +55,24 @@ def test_no_module_above_core_spells_the_default_as_a_literal(rel):
         line for line in (_BACKEND / rel).read_text().split("\n") if not line.lstrip().startswith("#")
     )
     assert not re.search(r"""(?:preset["']?\s*[:=,(]\s*|get\(["']preset["'],\s*)["']adaptive["']""", code), rel
+
+
+def test_default_intensity_is_one_definition_in_schemas_and_in_range():
+    """The default intensity is `schemas.DEFAULT_INTENSITY` and valid (#5982)."""
+    from schemas import DEFAULT_INTENSITY, INTENSITY_MAX
+    from ws_handlers import enhancement_params
+
+    assert 0.0 <= DEFAULT_INTENSITY <= INTENSITY_MAX
+    assert enhancement_params.DEFAULT_INTENSITY is DEFAULT_INTENSITY
+
+
+@pytest.mark.parametrize(
+    "rel",
+    ["main.py", "helpers.py", "ws_handlers/connection.py", "services/recommendation_analysis.py",
+     "routers/system_streams.py", "cache/manager.py", "cache/playback_mixin.py", "cache/status_mixin.py"],
+)
+def test_no_module_above_core_spells_the_default_intensity_as_a_literal(rel):
+    code = "\n".join(
+        line for line in (_BACKEND / rel).read_text().split("\n") if not line.lstrip().startswith("#")
+    )
+    assert not re.search(r"""intensity["']?(?::\s*float)?\s*[:=,(]\s*1\.0\b|get\(["']intensity["'],\s*1\.0\)""", code), rel

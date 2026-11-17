@@ -36,7 +36,7 @@ from config.middleware import setup_middleware
 from config.origins import BACKEND_PORT
 from config.routes import setup_routers
 from config.startup import create_lifespan
-from schemas import DEFAULT_PRESET
+from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET
 
 install_log_sanitizer()
 
@@ -71,7 +71,7 @@ globals_dict = {
     'enhancement_settings': {
         "enabled": True,
         "preset": DEFAULT_PRESET,
-        "intensity": 1.0
+        "intensity": DEFAULT_INTENSITY,
     },
 }
 

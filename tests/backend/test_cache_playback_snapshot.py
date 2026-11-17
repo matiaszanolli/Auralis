@@ -151,10 +151,9 @@ class TestProcessPrioritiesUsesSnapshot:
                 track_id=track_id, chunk_idx=chunk_idx, preset=preset, intensity=intensity
             )
 
-        async def _capture_tier2(track, track_id, chunk_idx, preset, intensity):
-            tier2.update(
-                track_id=track_id, chunk_idx=chunk_idx, preset=preset, intensity=intensity
-            )
+        async def _capture_tier2(track, track_id, preset, intensity):
+            # Tier 2 builds the whole track now, so it has no chunk index.
+            tier2.update(track_id=track_id, preset=preset, intensity=intensity)
 
         monkeypatch.setattr(worker, "_ensure_tier1_chunk", _capture_tier1)
         monkeypatch.setattr(worker, "_build_tier2_cache", _capture_tier2)
@@ -164,8 +163,7 @@ class TestProcessPrioritiesUsesSnapshot:
         assert tier1["preset"] == "warm", "preset must come from the snapshot"
         assert tier1["intensity"] == 0.8, "intensity must come from the snapshot"
         assert tier1["chunk_idx"] == mgr._get_current_chunk(5.0) + 1
-        # Tier 2 must see the same generation, derived from the same position.
-        assert tier2["chunk_idx"] == mgr._get_current_chunk(5.0)
+        # Tier 2 sees the same snapshot.
         assert (tier2["preset"], tier2["intensity"]) == ("warm", 0.8)
 
     @pytest.mark.asyncio

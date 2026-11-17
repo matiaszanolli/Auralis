@@ -119,8 +119,9 @@ def test_production_emitters_use_literal_discriminators() -> None:
 
     assert not invalid
     # A floor so an AST scan that finds nothing cannot pass vacuously; 45 -> 44
-    # when NavigationService.jump_to_track and its 'jumped' broadcast went (#6199).
-    assert len(calls) >= 44
+    # when NavigationService.jump_to_track and its 'jumped' broadcast went (#6199),
+    # 44 -> 41 with the pre-warm and other dead emitters deleted since (#5908 and after).
+    assert len(calls) >= 41
 
 
 def test_playlist_reorder_uses_the_frontend_contract_literal() -> None:

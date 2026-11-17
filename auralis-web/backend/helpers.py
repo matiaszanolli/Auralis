@@ -22,7 +22,7 @@ import asyncio
 import logging
 from typing import Any
 
-from schemas import INTENSITY_MAX, is_valid_intensity
+from schemas import DEFAULT_INTENSITY, INTENSITY_MAX, is_valid_intensity
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,6 @@ def seed_enhancement_settings(
             logger.warning(
                 f"Stored enhancement_intensity {intensity!r} is outside "
                 f"0.0-{INTENSITY_MAX}; keeping "
-                f"{enhancement_settings.get('intensity', 1.0)!r}"
+                f"{enhancement_settings.get('intensity', DEFAULT_INTENSITY)!r}"
             )
     enhancement_settings['enabled'] = bool(getattr(user_settings, 'auto_enhance', True))

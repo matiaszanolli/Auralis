@@ -11,6 +11,7 @@ handlers. The command handlers import these; no re-exports.
 
 import logging
 import math
+from schemas import DEFAULT_INTENSITY  # noqa: F401  (re-exported: the ws handlers import it from here)
 from collections.abc import Mapping
 from typing import Any
 
@@ -26,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 # Fallbacks of last resort, used only when neither the client payload nor any
 # stored settings dict yields a valid value.
-DEFAULT_INTENSITY = 1.0
 
 # Sentinel distinguishing "the client omitted this key" from "the client sent
 # null/garbage" — only the latter is worth a warning.

@@ -18,7 +18,7 @@ from typing import Any, cast
 
 from cache import StreamlinedCacheManager
 from core import audio_stream_controller as _asc
-from schemas import DEFAULT_PRESET
+from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ async def cached_or_analyzed_recommendation(
             track_id=track_id,
             filepath=filepath,
             preset=DEFAULT_PRESET,  # analysis only
-            intensity=1.0,
+            intensity=DEFAULT_INTENSITY,
             chunk_cache={},
             cancel_event=abandoned,
         )
