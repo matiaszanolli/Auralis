@@ -18,6 +18,8 @@ state, passed explicitly, not a second owner of it.
 import asyncio
 import logging
 from collections import OrderedDict
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from core.intensity_key import intensity_cache_key
@@ -61,20 +63,56 @@ def intensity_key(intensity: float) -> float:
     return intensity_cache_key(intensity)
 
 
-def close_dropped_processor(cache_key: ProcessorCacheKey, processor: Any) -> None:
-    """Release a dropped processor's temp WAV, if it made one (#4737).
+# Processors a render is running in right now (id -> renders), and dropped ones whose close waits for
+# the last of them (#5064). Touched only on the event loop, so no lock.
+_leases: dict[int, int] = {}
+_close_when_idle: dict[int, tuple[ProcessorCacheKey, Any]] = {}
 
-    The single close-on-drop point for every path that removes an entry
-    from ``_processor_cache`` — LRU eviction in :func:`remember_processor`, the
-    track-change prune in :func:`prune_processors_for_track` (#5062) and the
-    timeout eviction in :func:`discard_timed_out_processor` (#5059) — so a
-    future removal path can't reintroduce the leak by forgetting to close. Never allowed to raise: a cleanup failure here would otherwise break
-    the caller's eviction/prune loop.
+
+@contextmanager
+def leased(processor: Any) -> Iterator[None]:
+    """Mark ``processor`` in use for the duration of a render.
+
+    An eviction, track-change prune or timeout discard that lands meanwhile cannot ``close()`` it
+    (which would rmtree the temp WAV under the render's thread, #5064); it is closed here when the
+    last lease ends instead.
     """
+    key = id(processor)
+    _leases[key] = _leases.get(key, 0) + 1
+    try:
+        yield
+    finally:
+        remaining = _leases[key] - 1
+        if remaining:
+            _leases[key] = remaining
+        else:
+            del _leases[key]
+            deferred = _close_when_idle.pop(key, None)
+            if deferred is not None:
+                _close_now(*deferred)
+
+
+def _close_now(cache_key: ProcessorCacheKey, processor: Any) -> None:
     try:
         processor.close()
     except Exception as exc:
         logger.warning(f"Failed to close dropped processor {cache_key}: {exc}")
+
+
+def close_dropped_processor(cache_key: ProcessorCacheKey, processor: Any) -> None:
+    """Release a dropped processor's temp WAV, if it made one (#4737).
+
+    The single close-on-drop point for every path that removes an entry from ``_processor_cache`` —
+    LRU eviction in :func:`remember_processor`, the track-change prune in
+    :func:`prune_processors_for_track` (#5062) and the timeout eviction in
+    :func:`discard_timed_out_processor` (#5059) — so a future removal path can't reintroduce the leak
+    by forgetting to close. A processor with a render in flight is closed when :func:`leased` ends
+    (#5064). Never raises: a cleanup failure must not break the caller's eviction/prune loop.
+    """
+    if id(processor) in _leases:
+        _close_when_idle[id(processor)] = (cache_key, processor)
+        return
+    _close_now(cache_key, processor)
 
 
 def remember_processor(

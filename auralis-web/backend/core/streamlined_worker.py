@@ -31,6 +31,7 @@ from core.streamlined_processor_cache import (
     ProcessorCacheKey,
     discard_timed_out_processor,
     get_or_build_processor,
+    leased,
     remember_processor,
 )
 from core.streamlined_lifecycle import WorkerLifecycleMixin
@@ -159,15 +160,8 @@ class StreamlinedCacheWorker(WorkerLifecycleMixin):
             # get-or-build dance (LRU recency, per-key build lock, waiter
             # accounting) lives in core/streamlined_processor_cache.py.
             #
-            # file_signature is folded into the key (#5349): every lookup
-            # path (streamlined_tiers.py, cache.manager) recomputes a fresh
-            # signature on every check, but this cache_key previously didn't
-            # — so a warm processor built before an in-place file edit (e.g.
-            # a tag rewrite) kept being reused after it, and its chunks kept
-            # being recorded under its now-stale, frozen signature. Computed
-            # once per call here rather than threaded in from each of the
-            # three callers, so no future caller can add a fourth path that
-            # forgets to pass it.
+            # file_signature is part of the key (#5349) so a warm processor built before an in-place
+            # file edit is never reused; computed here, once, so no caller can forget it.
             file_signature = await asyncio.to_thread(
                 FileSignatureService.generate, track.filepath
             )
@@ -183,29 +177,30 @@ class StreamlinedCacheWorker(WorkerLifecycleMixin):
             render: asyncio.Future[tuple[str | None, Any]] = asyncio.ensure_future(
                 processor.process_chunk_safe(chunk_idx)
             )
-            try:
-                # process_chunk_safe now returns (path, audio_array) tuple
-                chunk_path, audio_array = await asyncio.wait_for(
-                    asyncio.shield(render),
-                    timeout=timeout_seconds
-                )
-            except TimeoutError:
-                logger.error(
-                    f"[{tier}] Timeout processing chunk {chunk_idx} "
-                    f"(exceeded {timeout_seconds}s limit)"
-                )
-                discard_timed_out_processor(self, cache_key, processor, render)
-                return None
-            except asyncio.CancelledError:
-                # Worker shutdown: cancel the render as the unshielded call did.
-                render.cancel()
-                raise
-            except FileNotFoundError as e:
-                logger.error(f"[{tier}] File not found: {e}")
-                return None
-            except PermissionError as e:
-                logger.error(f"[{tier}] Permission denied: {e}")
-                return None
+            with leased(processor):  # no eviction may close it mid-render (#5064)
+                try:
+                    # process_chunk_safe now returns (path, audio_array) tuple
+                    chunk_path, audio_array = await asyncio.wait_for(
+                        asyncio.shield(render),
+                        timeout=timeout_seconds
+                    )
+                except TimeoutError:
+                    logger.error(
+                        f"[{tier}] Timeout processing chunk {chunk_idx} "
+                        f"(exceeded {timeout_seconds}s limit)"
+                    )
+                    discard_timed_out_processor(self, cache_key, processor, render)
+                    return None
+                except asyncio.CancelledError:
+                    # Worker shutdown: cancel the render as the unshielded call did.
+                    render.cancel()
+                    raise
+                except FileNotFoundError as e:
+                    logger.error(f"[{tier}] File not found: {e}")
+                    return None
+                except PermissionError as e:
+                    logger.error(f"[{tier}] Permission denied: {e}")
+                    return None
 
             # Add to cache
             if chunk_path:
