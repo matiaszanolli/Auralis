@@ -17,7 +17,7 @@ import numpy as np
 from scipy.signal.windows import hann
 
 
-def process_with_psychoacoustic_eq(eq, audio: np.ndarray, eq_curve: dict[str, float],
+def process_with_psychoacoustic_eq(eq: Any, audio: np.ndarray, eq_curve: dict[str, float],
                                    content_profile: dict[str, Any] | None = None) -> np.ndarray:
     """
     Process audio using psychoacoustic EQ with content awareness

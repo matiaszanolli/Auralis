@@ -18,7 +18,7 @@ original methods they replace.
 import numpy as np
 
 from ...dsp.constants import CORPUS_BAND_CENTERS
-from .continuous_space_types import PreferenceVector, ProcessingCoordinates
+from .continuous_space_types import ProcessingCoordinates
 
 # Corpus-calibrated band centers live in dsp/constants.CORPUS_BAND_CENTERS —
 # the single table shared with the fixed-target path (#5695). When a band is
@@ -69,7 +69,6 @@ def _band_gains(fp: dict[str, float]) -> dict[str, float]:
         # corpus center comes from the same truncated spectrum. On six reference
         # records it was the largest remaining EQ move on excellent masters (+1.8 dB
         # on one, +2.5 dB on another) and the cause of every remaining bench miss.
-        # User treble preferences still reach the shelf (``generate_eq_curve``).
         # Revisit once the fingerprint measures above 11 kHz (no tracking issue yet).
         'high_shelf_gain': 0.0,
     }
@@ -90,66 +89,34 @@ def _saturate(gains: dict[str, float]) -> dict[str, float]:
 
 
 def eq_curve_from_fingerprint(fp: dict[str, float]) -> dict[str, float]:
-    """The five EQ gains (dB) for a track, with no user preference applied.
+    """The five EQ gains (dB) for a track.
 
-    The single law for "what this track's tonal balance needs": the per-chunk
-    path (``generate_eq_curve``) adds preference on top of it, and the fixed-target
-    path the app streams with (``mastering_target_generation``) uses it as is, so
-    the two cannot disagree about the same fingerprint.
+    The single law for "what this track's tonal balance needs": the per-chunk path
+    (``generate_eq_curve``) and the fixed-target path the app streams with
+    (``mastering_target_generation``) both use it, so the two cannot disagree about
+    the same fingerprint.
     """
     return _saturate(_band_gains(fp))
 
 
-def generate_eq_curve(
-    coords: ProcessingCoordinates,
-    preference: PreferenceVector | None,
-) -> dict[str, float]:
+def generate_eq_curve(coords: ProcessingCoordinates) -> dict[str, float]:
     """
     Generate frequency-specific EQ adjustments.
 
     Strategy:
     - Analyze what's missing (bass deficit, air deficit)
     - Boost deficits to bring balance
-    - Respect user bass/treble preferences
     - Use actual frequency percentages from fingerprint
 
     Args:
         coords: Processing space coordinates
-        preference: Optional user preference
 
     Returns:
         Dictionary with EQ curve parameters
     """
-    gains = _band_gains(coords.fingerprint)
-    low_shelf_gain, high_shelf_gain = gains['low_shelf_gain'], gains['high_shelf_gain']
-    high_mid_gain = gains['high_mid_gain']
-
-    # Apply user preference adjustments
-    if preference:
-        # Bass preference (0 to 1) adds extra bass boost
-        low_shelf_gain += preference.bass_boost * 2.0
-
-        # Treble preference (0 to 1) adds extra treble boost
-        high_shelf_gain += preference.treble_boost * 2.0
-        high_mid_gain += preference.treble_boost * 1.5
-
-        # Spectral bias shifts overall tonality
-        if preference.spectral_bias > 0:  # Brighter
-            high_shelf_gain += preference.spectral_bias * 1.5
-            low_shelf_gain -= preference.spectral_bias * 1.0
-        else:  # Darker
-            low_shelf_gain += abs(preference.spectral_bias) * 1.5
-            high_shelf_gain -= abs(preference.spectral_bias) * 1.0
-
-    saturated = _saturate({
-        **gains,
-        'low_shelf_gain': low_shelf_gain,
-        'high_mid_gain': high_mid_gain,
-        'high_shelf_gain': high_shelf_gain,
-    })
     return {
         # Gains (dB)
-        **saturated,
+        **eq_curve_from_fingerprint(coords.fingerprint),
 
         # Frequencies (Hz)
         'low_shelf_freq': 200,
@@ -163,36 +130,17 @@ def generate_eq_curve(
 def generate_eq_curve_from_target(
     coords: ProcessingCoordinates,
     target_spectrum: dict[str, float],
-    preference: PreferenceVector | None,
 ) -> dict[str, float]:
     """Compute the 5-shelf curve via delta-from-target (Phase 4).
 
     Replaces the deficit-based math when the mastering pipeline has a
     reference cloud and was able to derive a target. Symmetric (can cut),
     capped per-band, smoothly saturated via tanh — see delta_eq.py.
-
-    User preference still applies as additive bias on top of the delta
-    curve, but with reduced strength since the cloud already encodes
-    most of the "what should this sound like" intent.
     """
     from .delta_eq import compute_delta_eq, to_eq_curve
 
     delta_result = compute_delta_eq(coords.fingerprint, target_spectrum)
     curve = to_eq_curve(delta_result)
-
-    # Apply user preference adjustments at half-strength (cloud carries
-    # most of the intent; preference becomes a gentle nudge, not the
-    # primary signal it was in the deficit-based path).
-    if preference is not None:
-        curve['low_shelf_gain']  += preference.bass_boost * 1.0
-        curve['high_shelf_gain'] += preference.treble_boost * 1.0
-        curve['high_mid_gain']   += preference.treble_boost * 0.75
-        if preference.spectral_bias > 0:        # brighter
-            curve['high_shelf_gain'] += preference.spectral_bias * 0.75
-            curve['low_shelf_gain']  -= preference.spectral_bias * 0.5
-        elif preference.spectral_bias < 0:      # darker
-            curve['low_shelf_gain']  += abs(preference.spectral_bias) * 0.75
-            curve['high_shelf_gain'] -= abs(preference.spectral_bias) * 0.5
 
     # Re-clamp to the existing ProcessingParameters envelope so
     # downstream EQProcessor sees values it expects.

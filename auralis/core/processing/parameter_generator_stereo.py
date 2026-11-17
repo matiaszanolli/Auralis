@@ -6,8 +6,8 @@ Target stereo width for the continuous processing space.
 
 Split out of ``parameter_generator.py`` (#4511) so each parameter family
 lives in its own module behind the ``ContinuousParameterGenerator`` facade.
-Pure function of ``(coords, preference)`` — no state, no behavior change
-from the original method it replaces.
+Pure function of ``coords`` — no state, no behavior change from the original
+method it replaces.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -16,12 +16,11 @@ from the original method it replaces.
 import numpy as np
 
 from ..utils.fingerprint_unpacker import FingerprintUnpacker
-from .continuous_space import PreferenceVector, ProcessingCoordinates
+from .continuous_space_types import ProcessingCoordinates
 
 
 def calculate_stereo_width(
     coords: ProcessingCoordinates,
-    preference: PreferenceVector | None,
 ) -> float:
     """
     Calculate target stereo width.
@@ -31,7 +30,6 @@ def calculate_stereo_width(
 
     Args:
         coords: Processing space coordinates
-        preference: Optional user preference
 
     Returns:
         Target stereo width (0.0 to 1.0)
@@ -44,10 +42,5 @@ def calculate_stereo_width(
         + 0.45 * (0.72 - current_width)
         + 0.04 * (coords.spectral_balance - 0.5)
     )
-
-    # Apply user stereo preference
-    if preference:
-        # Stereo bias shifts target (-1 = narrower, +1 = wider)
-        target_width += preference.stereo_bias * 0.2
 
     return float(0.5 + 0.45 * np.tanh((target_width - 0.5) / 0.45))

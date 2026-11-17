@@ -29,7 +29,7 @@ from ...dsp.utils.adaptive import proxy_to_k_offset_db
 from ...utils.logging import debug
 from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from .continuous_space import ProcessingSpaceMapper
-from .continuous_space_types import PreferenceVector, ProcessingParameters
+from .continuous_space_types import ProcessingParameters
 from .continuous_stages import ContinuousStagesMixin
 from .fixed_target_params import convert_targets_to_parameters
 from .parameter_generator import ContinuousParameterGenerator
@@ -226,21 +226,14 @@ class ContinuousMode(ContinuousStagesMixin):
         self.last_coordinates = coords
         debug(f"[Continuous Space] Coordinates: {coords}")
 
-        # Step 3: Get user preference (from preset if using legacy mode)
-        preset_name = self.config.mastering_profile or 'adaptive'
-        preference = PreferenceVector.from_preset_name(preset_name)
-        debug(f"[Continuous Space] Preference: {preference}")
-
-        # Step 4: Derive a continuous target spectrum from the reference
+        # Step 3: Derive a continuous target spectrum from the reference
         # cloud (Phase 4). If no cloud is available (no repository, or
         # nothing flagged is_reference yet), target_spectrum is None and
         # generate_parameters falls back to the legacy deficit-based curve.
         target_spectrum = self._derive_target_spectrum(fingerprint)
 
-        # Step 5: Generate processing parameters
-        params = self.param_generator.generate_parameters(
-            coords, preference, target_spectrum=target_spectrum,
-        )
+        # Step 4: Generate processing parameters
+        params = self.param_generator.generate_parameters(coords, target_spectrum=target_spectrum)
 
         # #5700: target_lufs was built on the fingerprint's RMS-proxy scale but
         # the final normalisation chases it with the K-weighted meter, which

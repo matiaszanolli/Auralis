@@ -66,7 +66,7 @@ def _intended_lift(mode: ContinuousMode, audio: np.ndarray) -> float:
     """The generator's own lift, on the proxy scale it was computed on."""
     fp = mode.fingerprint_analyzer.analyze(audio, SR)
     coords = mode.space_mapper.map_fingerprint_to_space(fp)
-    return calculate_target_lufs(coords, None) - fp["lufs"]
+    return calculate_target_lufs(coords) - fp["lufs"]
 
 
 def _realised_lift(mode: ContinuousMode, audio: np.ndarray) -> float:
@@ -136,7 +136,7 @@ class TestIntendedLiftIsRealised:
         audio = _correlated_noise(-22.0)
         fp = mode.fingerprint_analyzer.analyze(audio, SR)
         coords = mode.space_mapper.map_fingerprint_to_space(fp)
-        proxy_target = calculate_target_lufs(coords, None)
+        proxy_target = calculate_target_lufs(coords)
 
         per_chunk = mode._apply_final_normalization(
             audio.copy(), mode._resolve_parameters(audio.copy(), None)

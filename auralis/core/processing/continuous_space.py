@@ -10,7 +10,6 @@ Replaces discrete presets with intelligent parameter generation.
 """
 
 import math
-from dataclasses import dataclass
 
 
 def _smooth_unit(value: float, center: float, scale: float) -> float:
@@ -32,7 +31,7 @@ def _smooth_unit(value: float, center: float, scale: float) -> float:
     return 0.5 + 0.5 * math.tanh((value - center) / (2.0 * scale))
 
 
-from .continuous_space_types import PreferenceVector, ProcessingCoordinates, ProcessingParameters  # noqa: E402
+from .continuous_space_types import ProcessingCoordinates, ProcessingParameters  # noqa: E402, F401 (ProcessingParameters is re-exported)
 
 
 class ProcessingSpaceMapper:

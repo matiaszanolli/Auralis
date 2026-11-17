@@ -9,7 +9,7 @@ source above -2 LUFS was attenuated.
 import numpy as np
 import pytest
 
-from auralis.core.processing.continuous_space_types import PreferenceVector, ProcessingCoordinates
+from auralis.core.processing.continuous_space_types import ProcessingCoordinates
 from auralis.core.processing.parameter_generator_dynamics import (
     TARGET_LUFS_CEILING,
     calculate_target_lufs,
@@ -18,19 +18,19 @@ from auralis.core.processing.parameter_generator_dynamics import (
 SOURCES = np.arange(-60.0, 0.01, 0.5)
 
 
-def _target(source_lufs: float, dynamics: float = 0.2, preference: PreferenceVector | None = None) -> float:
+def _target(source_lufs: float, dynamics: float = 0.2) -> float:
     coords = ProcessingCoordinates(
         spectral_balance=0.5, dynamic_range=dynamics, energy_level=0.5,
         fingerprint={'lufs': source_lufs},
     )
-    return calculate_target_lufs(coords, preference)
+    return calculate_target_lufs(coords)
 
 
 @pytest.mark.parametrize("dynamics", [0.0, 0.2, 1.0])
 def test_lift_never_exceeds_the_documented_bound(dynamics):
     lifts = [_target(s, dynamics) - s for s in SOURCES]
     assert max(lifts) <= 8.25 - dynamics + 1e-9
-    assert min(lifts) >= 0.0, "the target law never attenuates without a preference"
+    assert min(lifts) >= 0.0, "the target law never attenuates"
 
 
 def test_very_quiet_sources_keep_their_order():
@@ -51,15 +51,6 @@ def test_a_source_above_the_ceiling_is_not_pulled_down():
     assert _target(-1.0) == pytest.approx(-1.0, abs=1e-6)
 
 
-def test_a_negative_preference_still_attenuates():
-    quieter = PreferenceVector(loudness_bias=-1.0)
-    assert _target(-1.0, preference=quieter) == pytest.approx(-3.0, abs=1e-6)
-    assert _target(-50.0, preference=quieter) == pytest.approx(_target(-50.0) - 2.0)
-
-
-def test_a_positive_preference_cannot_lift_past_the_ceiling():
-    louder = PreferenceVector(loudness_bias=1.0)
-    assert _target(-6.0, preference=louder) == pytest.approx(-4.0, abs=1e-3)
-    assert _target(-3.0, preference=louder) == pytest.approx(TARGET_LUFS_CEILING)
-    # Already above the ceiling: not lifted further, not pulled down either.
-    assert _target(-1.0, preference=louder) == pytest.approx(-1.0, abs=1e-6)
+def test_a_source_at_the_ceiling_is_left_alone():
+    assert _target(TARGET_LUFS_CEILING) == pytest.approx(TARGET_LUFS_CEILING, abs=1e-6)
+    assert _target(-3.0) <= TARGET_LUFS_CEILING + 1e-9

@@ -4,13 +4,12 @@
 Tests for Continuous Processing Space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Tests coordinate mapping, parameter generation, and preference biasing.
+Tests coordinate mapping and parameter generation.
 """
 
 import pytest
 
 from auralis.core.processing.continuous_space import (
-    PreferenceVector,
     ProcessingCoordinates,
     ProcessingSpaceMapper,
 )
@@ -192,70 +191,6 @@ class TestContinuousParameterGenerator:
         assert params.eq_blend > 0.5
 
 
-class TestPreferenceVector:
-    """Test user preference system"""
-
-    def test_preset_to_preference_conversion(self):
-        """Only 'adaptive' is a recognized preset name; it's the neutral vector.
-
-        The 'gentle'/'warm'/'bright'/'punchy'/'live' variants this used to
-        assert biases for were removed: none was reachable through any live
-        API surface once the enhancement preset system was narrowed to a
-        single preset. Any other name -- including the five retired ones,
-        for backward compatibility with anything still holding an old
-        value -- degrades to this same neutral vector rather than raising.
-        """
-        adaptive = PreferenceVector.from_preset_name('adaptive')
-        assert adaptive == PreferenceVector()
-
-        for retired in ('warm', 'bright', 'punchy', 'gentle', 'live', 'unknown-preset'):
-            assert PreferenceVector.from_preset_name(retired) == PreferenceVector(), (
-                f"{retired!r} must degrade to the neutral vector, not raise or bias"
-            )
-
-    def test_preference_bias_application(self):
-        """Test that preferences bias parameter generation"""
-        coords = ProcessingCoordinates(
-            spectral_balance=0.5,
-            dynamic_range=0.5,
-            energy_level=0.5,
-            fingerprint={
-                'bass_pct': 0.28, 'mid_pct': 0.35, 'air_pct': 0.012,
-                'presence_pct': 0.015, 'crest_db': 12.0, 'lufs': -16.0,
-                'stereo_width': 0.7
-            }
-        )
-
-        generator = ContinuousParameterGenerator()
-
-        # No preference (baseline)
-        params_neutral = generator.generate_parameters(coords, None)
-
-        # Bass boost preference
-        bass_pref = PreferenceVector(bass_boost=0.8)
-        params_bass = generator.generate_parameters(coords, bass_pref)
-
-        # Bass boost should increase low shelf gain
-        assert params_bass.eq_curve['low_shelf_gain'] > params_neutral.eq_curve['low_shelf_gain'], \
-            "Bass preference should increase bass EQ"
-
-        # Loudness preference
-        loud_pref = PreferenceVector(loudness_bias=0.5)
-        params_loud = generator.generate_parameters(coords, loud_pref)
-
-        # Loudness bias should increase target LUFS
-        assert params_loud.target_lufs > params_neutral.target_lufs, \
-            "Loudness preference should increase target LUFS"
-
-        # Dynamic preservation preference
-        dynamic_pref = PreferenceVector(dynamic_bias=0.5)
-        params_dynamic = generator.generate_parameters(coords, dynamic_pref)
-
-        # Dynamic bias should reduce compression amount
-        assert params_dynamic.compression_params['amount'] <= params_neutral.compression_params['amount'], \
-            "Dynamic preference should reduce compression"
-
-
 class TestEndToEndProcessing:
     """Test complete coordinate → parameters pipeline"""
 
@@ -303,3 +238,19 @@ class TestEndToEndProcessing:
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
+
+
+class TestNoPreferenceMachinery:
+    """The PreferenceVector bias layer is gone (#6123): it only ever saw the neutral vector."""
+
+    def test_generate_parameters_takes_coordinates_and_an_optional_target(self):
+        import inspect
+
+        params = list(inspect.signature(ContinuousParameterGenerator.generate_parameters).parameters)
+        assert params == ["self", "coords", "target_spectrum"]
+
+    def test_the_preference_vector_type_no_longer_exists(self):
+        import auralis.core.processing.continuous_space as space
+        import auralis.core.processing.continuous_space_types as types
+
+        assert not hasattr(space, "PreferenceVector") and not hasattr(types, "PreferenceVector")

@@ -39,7 +39,6 @@ def test_stereo_width_fallback_follows_the_unpacker():
                 spectral_balance=0.5, dynamic_range=0.5, energy_level=0.5,
                 fingerprint=fingerprint,
             ),
-            None,
         )
 
     # Was 0.7 locally (the one site that disagreed with the unpacker's 0.5).

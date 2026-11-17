@@ -2,7 +2,7 @@
 Continuous Space Types
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The coordinate/parameter/preference dataclasses of the continuous processing space,
+The coordinate/parameter dataclasses of the continuous processing space,
 split from continuous_space.py (#6272); the mapper stays there.
 
 :copyright: (C) 2024 Auralis Team
@@ -39,7 +39,7 @@ class ProcessingParameters:
     """
     Complete set of DSP processing parameters.
 
-    Generated from processing space coordinates and user preferences.
+    Generated from processing space coordinates.
 
     Not every field reaches a DSP stage: ``REPORTING_ONLY_FIELDS`` (in
     ``processing_parameter_readers``) names the display-only ones.
@@ -75,58 +75,3 @@ class ProcessingParameters:
                 f"peak={self.peak_target_db:.2f}dB, "
                 f"eq_blend={self.eq_blend:.2f}, "
                 f"dynamics_blend={self.dynamics_blend:.2f})")
-
-
-@dataclass
-class PreferenceVector:
-    """
-    User preference as a bias in processing space.
-
-    Instead of rigid presets, preferences act as gentle biases that
-    shift the processing behavior in desired directions.
-    """
-    # Spectral preference: -1.0 (darker) to +1.0 (brighter)
-    spectral_bias: float = 0.0
-
-    # Dynamic preference: -1.0 (more compression) to +1.0 (more dynamics)
-    dynamic_bias: float = 0.0
-
-    # Loudness preference: -1.0 (quieter) to +1.0 (louder)
-    loudness_bias: float = 0.0
-
-    # Bass boost: 0.0 (none) to 1.0 (strong)
-    bass_boost: float = 0.0
-
-    # Treble boost: 0.0 (none) to 1.0 (strong)
-    treble_boost: float = 0.0
-
-    # Stereo width preference: -1.0 (narrower) to +1.0 (wider)
-    stereo_bias: float = 0.0
-
-    @classmethod
-    def from_preset_name(cls, preset: str) -> PreferenceVector:
-        """
-        Convert a preset name to a preference vector.
-
-        Auralis ships a single preset: 'adaptive' (content-driven, all biases neutral). The
-        retired 'gentle'/'warm'/'bright'/'punchy'/'live' were removed rather than deprecated:
-        none was reachable through a live API ('live' never was, #4861). Any other name,
-        including those five, falls back to the neutral vector rather than raising.
-
-        Args:
-            preset: Preset name (only 'adaptive' is recognized)
-
-        Returns:
-            PreferenceVector representing the preset's characteristics
-        """
-        presets = {
-            'adaptive': cls(),  # Neutral - pure content-driven processing
-        }
-
-        return presets.get(preset.lower(), cls())
-
-    def __str__(self) -> str:
-        return (f"PreferenceVector("
-                f"spectral={self.spectral_bias:+.1f}, "
-                f"dynamic={self.dynamic_bias:+.1f}, "
-                f"loudness={self.loudness_bias:+.1f})")

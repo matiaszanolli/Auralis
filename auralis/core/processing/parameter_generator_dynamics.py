@@ -7,8 +7,8 @@ parameters for the continuous processing space.
 
 Split out of ``parameter_generator.py`` (#4511) so each parameter family
 lives in its own module behind the ``ContinuousParameterGenerator`` facade.
-Pure functions of ``(coords, preference)`` — no state, no behavior change
-from the original methods they replace.
+Pure functions of ``coords`` — no state, no behavior change from the original
+methods they replace.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -17,7 +17,7 @@ from the original methods they replace.
 import numpy as np
 
 from ..utils.fingerprint_unpacker import FingerprintUnpacker
-from .continuous_space_types import PreferenceVector, ProcessingCoordinates
+from .continuous_space_types import ProcessingCoordinates
 
 # The loudest target a lift may reach (#6305).
 TARGET_LUFS_CEILING = -2.0
@@ -25,7 +25,6 @@ TARGET_LUFS_CEILING = -2.0
 
 def calculate_target_lufs(
     coords: ProcessingCoordinates,
-    preference: PreferenceVector | None,
 ) -> float:
     """
     Calculate target LUFS based on input energy and dynamic range.
@@ -38,7 +37,6 @@ def calculate_target_lufs(
 
     Args:
         coords: Processing space coordinates
-        preference: Optional user preference
 
     Returns:
         Target LUFS value
@@ -57,25 +55,17 @@ def calculate_target_lufs(
     gain_db = maximum_lift * np.tanh(desired_lift / maximum_lift)
     target_lufs = input_lufs + gain_db
 
-    # Apply user loudness preference if provided
-    # This is applied AFTER automatic boost calculation
-    if preference:
-        # Loudness bias affects target (-1 = -2dB quieter, +1 = +2dB louder)
-        preference_adjustment = preference.loudness_bias * 2.0
-        target_lufs += preference_adjustment
-
     # #6305: bound the boost, not the absolute target. The tanh above already
     # caps the lift at maximum_lift; the old clip to [-28, -2] overrode it,
     # pinning every source below ~-36 LUFS to -28 (a lift of +12 to +24 dB,
     # all landing on one loudness) and attenuating a source above -2. The
     # ceiling still stops a lift past -2 LUFS, but never pulls a hotter source
-    # down; a negative loudness preference still can.
+    # down.
     return float(min(target_lufs, max(TARGET_LUFS_CEILING, input_lufs)))
 
 
 def calculate_peak_target(
     coords: ProcessingCoordinates,
-    preference: PreferenceVector | None,
 ) -> float:
     """
     Calculate peak normalization target.
@@ -86,7 +76,6 @@ def calculate_peak_target(
 
     Args:
         coords: Processing space coordinates
-        preference: Optional user preference
 
     Returns:
         Peak target in dBFS (negative value)
@@ -98,21 +87,12 @@ def calculate_peak_target(
     # Compressed (0.0) → -0.3 dB
     base_peak = -1.0 + (1.0 - dynamics) * 0.7
 
-    # Apply loudness preference (affects headroom slightly)
-    preference_adjustment = 0.0
-    if preference:
-        # Louder preference = less headroom
-        preference_adjustment = preference.loudness_bias * 0.2
-
-    peak_target = base_peak + preference_adjustment
-
     # Clamp to safe range
-    return float(np.clip(peak_target, -1.5, -0.2))
+    return float(np.clip(base_peak, -1.5, -0.2))
 
 
 def generate_compression(
     coords: ProcessingCoordinates,
-    preference: PreferenceVector | None,
 ) -> dict[str, float]:
     """
     Generate compression parameters.
@@ -122,7 +102,6 @@ def generate_compression(
 
     Args:
         coords: Processing space coordinates
-        preference: Optional user preference
 
     Returns:
         Compression parameters dictionary. ``ratio`` and ``amount`` drive
@@ -131,16 +110,7 @@ def generate_compression(
         compressor character for reporting and are not read by the DSP (the
         stage is an instantaneous, peak-relative waveshaper, #5576).
     """
-    dynamics = coords.dynamic_range
-
-    # Adjust dynamics based on user preference
-    effective_dynamics = dynamics
-    if preference:
-        # Dynamic bias affects how much we compress
-        # Positive bias (preserve dynamics) → treat as more dynamic
-        # Negative bias (allow compression) → treat as less dynamic
-        effective_dynamics += preference.dynamic_bias * 0.3
-        effective_dynamics = np.clip(effective_dynamics, 0.0, 1.0)
+    effective_dynamics = coords.dynamic_range
 
     compression_response = np.exp(
         -0.5 * ((effective_dynamics - 0.55) / 0.18) ** 2
@@ -156,7 +126,6 @@ def generate_compression(
 
 def generate_expansion(
     coords: ProcessingCoordinates,
-    preference: PreferenceVector | None,
 ) -> dict[str, float]:
     """
     Generate expansion parameters (de-mastering).
@@ -165,21 +134,11 @@ def generate_expansion(
 
     Args:
         coords: Processing space coordinates
-        preference: Optional user preference
 
     Returns:
         Expansion parameters dictionary
     """
-    dynamics = coords.dynamic_range
-
-    # Adjust dynamics based on user preference
-    effective_dynamics = dynamics
-    if preference:
-        # Dynamic bias affects expansion threshold
-        effective_dynamics += preference.dynamic_bias * 0.3
-        effective_dynamics = np.clip(effective_dynamics, 0.0, 1.0)
-
-    inverse_dynamics = 1.0 - effective_dynamics
+    inverse_dynamics = 1.0 - coords.dynamic_range
     return {
         'target_crest_increase': float(3.0 * inverse_dynamics),
         'amount': float(0.85 * inverse_dynamics ** 2),
@@ -188,14 +147,12 @@ def generate_expansion(
 
 def calculate_dynamics_blend(
     coords: ProcessingCoordinates,
-    preference: PreferenceVector | None,
 ) -> float:
     """
     Calculate dynamics processing blend.
 
     Args:
         coords: Processing space coordinates
-        preference: Optional user preference
 
     Returns:
         Dynamics blend factor (0.0 to 1.0)
@@ -203,12 +160,6 @@ def calculate_dynamics_blend(
     # Base blend from dynamic range
     # Less dynamic = more processing
     base_blend = 0.3 + ((1.0 - coords.dynamic_range) * 0.4)
-
-    # User preference can increase/decrease
-    if preference and preference.dynamic_bias != 0:
-        # Positive bias (preserve dynamics) → less processing
-        # Negative bias (allow compression) → more processing
-        base_blend -= preference.dynamic_bias * 0.2
 
     return float(np.clip(base_blend, 0.2, 0.9))
 

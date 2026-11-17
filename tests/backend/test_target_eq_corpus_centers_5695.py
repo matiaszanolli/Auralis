@@ -73,7 +73,7 @@ def test_fixed_target_and_per_chunk_paths_agree(overrides):
     not only near the corpus median, where the two laws used to coincide."""
     fingerprint = {**_median_fingerprint(), **overrides}
     coords = SimpleNamespace(fingerprint=fingerprint)
-    per_chunk = generate_eq_curve(coords, None)
+    per_chunk = generate_eq_curve(coords)
 
     targets = generate_targets_from_fingerprint(fingerprint)
     fixed = convert_targets_to_parameters(targets)
