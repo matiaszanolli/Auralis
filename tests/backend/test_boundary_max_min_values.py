@@ -27,18 +27,15 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import os
 
 # Import the modules under test
 import sys
-import tempfile
 import threading
 import time
 from pathlib import Path
 
 import numpy as np
 import pytest
-from sqlalchemy.exc import SQLAlchemyError
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -383,37 +380,37 @@ def test_digital_silence():
 
 @pytest.mark.boundary
 @pytest.mark.loudness
-@pytest.mark.skip(reason="#5187: HybridProcessor performs no DC-offset removal at any level; awaiting an /audit-engine decision on whether to add one")
 def test_dc_offset_at_maximum():
     """
     BOUNDARY: Audio with maximum DC offset (mean = 1.0).
 
-    Tests DC removal/filtering.
-
-    Still skipped, but now against a live issue (#5187) rather than as a
-    permanent fact. The old reason claimed this was an extreme-edge-case
-    limitation and that "the processor's DC removal works well for realistic
-    audio"; measuring it for #5155 showed there is no DC-removal stage in the
-    pipeline at all. A realistic 0.01 DC offset comes out at 0.026 — scaled
-    with the signal, not filtered — and a grep for any DC/highpass stage
-    across auralis/core/ and auralis/dsp/ returns nothing.
-
-    #5187 carries the measurements and the design questions (where in the
-    chain, whether it must be state-continuous across chunk boundaries). Once
-    that is decided this test is either un-skipped with a near-zero-mean
-    assertion, or deleted.
+    HybridProcessor high-passes its input at 5 Hz (#5187); a constant buffer is
+    pure DC, so only the filter's settling transient is left of it.
     """
     config = UnifiedConfig()
     processor = HybridProcessor(config)
 
-    # Audio with full positive DC offset
     audio = np.ones((44100, 2), dtype=np.float32)
 
     result = processor.process(audio)
 
-    # DC should be removed or handled
     mean = np.mean(result)
     assert abs(mean) < 0.1, f"DC offset should be removed, got mean={mean}"
+
+
+@pytest.mark.boundary
+@pytest.mark.loudness
+def test_realistic_dc_offset_is_removed_not_amplified():
+    """The row the old skip reason got wrong: 0.01 DC under noise came out at ~0.026 (#5187)."""
+    processor = HybridProcessor(UnifiedConfig())
+    rng = np.random.default_rng(5187)
+    audio = (rng.standard_normal((44100 * 3, 2)) * 0.1 + 0.01).astype(np.float32)
+
+    result = processor.process(audio)
+
+    assert result.shape == audio.shape
+    # Skip the first 0.2 s, where the high-pass settles from rest.
+    assert abs(float(np.mean(result[8820:]))) < 0.001
 
 
 @pytest.mark.boundary

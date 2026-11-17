@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from ..dsp.dc_blocker import remove_dc
 from ..utils.audio_validation import validate_audio_finite
 from ..utils.logging import debug, info, warning
 from .processors import apply_reference_matching
@@ -105,7 +106,8 @@ def validate_and_normalize_input(
     if np.allclose(target_audio, 0.0, atol=1e-10):
         return target_audio, target_audio.copy()
 
-    return target_audio, None
+    # Before any measurement, so an offset biases neither loudness nor peak normalisation (#5187).
+    return remove_dc(target_audio, processor.config.internal_sample_rate), None
 
 
 def process_reference_mode(
