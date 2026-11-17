@@ -56,7 +56,9 @@ def get_similarity_explanation(
 
     # Calculate overall similarity
     distance = similarity.distance_calc.calculate(vec1, vec2)
-    similarity_score = similarity.distance_calc.calculate_similarity_score(distance)
+    similarity_score = similarity.distance_calc.calculate_similarity_score(
+        distance, similarity.reference_distance
+    )
 
     # Get dimension contributions
     contributions = similarity.distance_calc.get_dimension_contributions(vec1, vec2)

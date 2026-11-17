@@ -18,6 +18,7 @@ from .dimension_weights import DimensionWeights
 from .distance import FingerprintDistance
 from .similarity_explanation import get_prefiltered_candidates, get_similarity_explanation
 from .normalizer import FingerprintNormalizer
+from .similarity_calibration import DEFAULT_REFERENCE_DISTANCE, calibrate_reference_distance
 
 # A fitted system refits once the current-version fingerprint count reaches
 # this multiple of the sample its statistics came from (#5716).
@@ -86,6 +87,7 @@ class FingerprintSimilarity:
         self.normalizer = FingerprintNormalizer(use_robust=use_robust_normalization)
         self.distance_calc = FingerprintDistance(weights=weights)
         self.fitted = False
+        self.reference_distance = DEFAULT_REFERENCE_DISTANCE  # scale of the 0-1 score, set by fit() (#5923)
         self._fit_lock = threading.Lock()
 
     def needs_refit(self) -> bool:
@@ -139,6 +141,9 @@ class FingerprintSimilarity:
             )
 
             if success:
+                self.reference_distance = calibrate_reference_distance(
+                    self.fingerprint_repo, self.normalizer, self.distance_calc
+                )
                 self.fitted = True
                 info("Similarity system ready")
             else:
@@ -220,7 +225,7 @@ class FingerprintSimilarity:
         # Convert to SimilarityResult objects
         results = []
         for track_id, distance in closest:
-            similarity_score = self.distance_calc.calculate_similarity_score(distance)
+            similarity_score = self.distance_calc.calculate_similarity_score(distance, self.reference_distance)
             results.append(SimilarityResult(track_id, distance, similarity_score))
 
         info(f"Found {len(results)} similar tracks for track {track_id}")
@@ -255,7 +260,7 @@ class FingerprintSimilarity:
 
         # Calculate distance
         distance = self.distance_calc.calculate(vec1, vec2)
-        similarity_score = self.distance_calc.calculate_similarity_score(distance)
+        similarity_score = self.distance_calc.calculate_similarity_score(distance, self.reference_distance)
 
         return SimilarityResult(track_id2, distance, similarity_score)
 
