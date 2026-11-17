@@ -36,12 +36,11 @@ import type { AppDispatch } from '@/store';
 import type { useWebSocketContext } from '@/contexts/WebSocketContext';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
-import { setStreamingError } from '@/store/slices/playerSlice';
 import { useStreamMessageHandlers } from './useStreamMessageHandlers';
 import { startFlowDrainWatch } from './flowDrainWatch';
 import { useStreamSubscriptions } from './useStreamSubscriptions';
 import { usePlaybackTransport } from './usePlaybackTransport';
-import { STREAM_START_WATCHDOG_MS, useStreamStartWatchdog } from './useStreamStartWatchdog';
+import { useAutoStartWhenBuffered, useStreamingTeardown } from './streamingCoreLifecycle';
 import type {
   AudioStreamStartMessage,
   AudioChunkMessage,
@@ -94,8 +93,6 @@ export function useAudioStreamingCore(
     onDisconnectExtra,
   } = options;
 
-  // The watchdog's timeout handler dispatches the error; the message-handler
-  // sub-hook gets its own (identical) dispatcher.
   const dispatch = useDispatch<AppDispatch>();
 
   const pcmBufferRef = useRef<PCMStreamBuffer | null>(null);
@@ -134,78 +131,17 @@ export function useAudioStreamingCore(
     [acceptNormalStream, streamType]
   );
 
-  // Watchdog for the first stream message after a play command (#4433).
-  //
-  // The timeout handler reaches cleanupStreaming through a ref rather than
-  // closing over it: cleanupStreaming itself calls `clear`, so a direct
-  // dependency would be circular and neither could be memoized (#5041).
-  const cleanupStreamingRef = useRef<() => void>(() => {});
-  const { arm: armStreamStartWatchdog, clear: clearStreamStartWatchdog } =
-    useStreamStartWatchdog(() => {
-      console.error(
-        `${logPrefix} No audio stream started within ${STREAM_START_WATCHDOG_MS}ms — surfacing error`
-      );
-      dispatch(
-        setStreamingError({
-          streamType,
-          error: 'Timed out waiting for the audio stream to start. Please try again.',
-        })
-      );
-      cleanupStreamingRef.current();
-    });
+  const { armStreamStartWatchdog, clearStreamStartWatchdog, cleanupStreaming } = useStreamingTeardown(
+    {
+      abortRef, pcmBufferRef, playbackEngineRef, audioContextRef, streamingMetadataRef,
+      pendingChunksRef, lastReceivedChunkIndexRef, streamEpochRef, bufferEpochRef,
+    },
+    { streamType, logPrefix, closeContextOnCleanup, onCleanupExtra }
+  );
 
-  const cleanupStreaming = useCallback(() => {
-    clearStreamStartWatchdog();
-    abortRef.current?.abort();
-
-    pcmBufferRef.current?.dispose();
-    pcmBufferRef.current = null;
-    playbackEngineRef.current?.dispose();
-    playbackEngineRef.current = null;
-    streamingMetadataRef.current = null;
-    pendingChunksRef.current = [];
-    lastReceivedChunkIndexRef.current = -1;
-    streamEpochRef.current = null;
-    bufferEpochRef.current = null;
-
-    if (closeContextOnCleanup) {
-      audioContextRef.current?.close();
-      audioContextRef.current = null;
-    }
-
-    onCleanupExtra?.();
-  }, [closeContextOnCleanup, onCleanupExtra, clearStreamStartWatchdog]);
-
-  useEffect(() => {
-    cleanupStreamingRef.current = cleanupStreaming;
-  }, [cleanupStreaming]);
-
-  // #5459: set by a user pause and kept across a seek, a WS reconnect-resume or
-  // an error auto-resume, so a stream that buffers while paused stays paused.
-  // Pause here is client-side only — the backend keeps streaming — and a seek
-  // stops the engine outright, so without this the next buffered chunk started
-  // playback on its own. Cleared by resume, stop and a new play command. The
-  // Redux isPlaying effect below does NOT set it: backend player_state
-  // broadcasts write that flag, and a stray `false` must not wedge the next track.
-  const pauseHoldRef = useRef(false);
-  const getStartThresholdRef = useRef(getStartThreshold);
-  getStartThresholdRef.current = getStartThreshold;
-
-  /** The one auto-start rule (#5459): every path that might begin playback —
-   *  a chunk landing, the stream-start drain, a resume — goes through here. */
-  const startPlaybackWhenBuffered = useCallback(() => {
-    const engine = playbackEngineRef.current;
-    const buffer = pcmBufferRef.current;
-    const metadata = streamingMetadataRef.current;
-    if (!engine || !buffer || !metadata || pauseHoldRef.current || engine.isPlaying()) return;
-    const available = buffer.getAvailableSamples();
-    // A stream that has ended will not grow: start with whatever it delivered (#5900).
-    const shortStream = engine.hasStreamEnded() && available > 0;
-    if (shortStream || available >= getStartThresholdRef.current(metadata, engine)) {
-      engine.startPlayback();
-      setIsPaused(false);
-    }
-  }, []);
+  const { pauseHoldRef, startPlaybackWhenBuffered } = useAutoStartWhenBuffered({
+    pcmBufferRef, playbackEngineRef, streamingMetadataRef, getStartThreshold, setIsPaused,
+  });
 
   // #5863: the resume half of flow control cannot wait for the next chunk
   // (the server parks on its flow gate after buffer_full and sends nothing).
