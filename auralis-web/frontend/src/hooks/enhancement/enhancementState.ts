@@ -30,8 +30,13 @@ export interface EnhancementState {
  * Initial enhancement state
  */
 export const INITIAL_STATE: EnhancementState = {
-  enabled: false,
+  // The backend's runtime and stored default is enabled (auto_enhance, main.py's enhancement_settings),
+  // so until the first status GET answers - or if it never does - the first play starts the enhanced
+  // stream the server would have started, not a plain one (#5655).
+  enabled: true,
   preset: 'adaptive',
   intensity: 1.0,
-  lastUpdated: Date.now(),
+  // 0 = never written. A real timestamp here would be "module load time", which a status GET issued
+  // later could not be ordered against by a clock that stepped back (#5655).
+  lastUpdated: 0,
 };

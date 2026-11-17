@@ -97,6 +97,10 @@ export function useEnhancementStatusSync(
   useEffect(() => {
     let cancelled = false;
     const fetchInitialState = async () => {
+      // Anything that writes the state - a WS broadcast or a local command - stamps lastUpdated.
+      // The GET reports the server as of when it was asked, so it must not overwrite a newer write
+      // that landed while it was in flight (#5655).
+      const requestedAt = Date.now();
       try {
         // Shared module-level fetch — concurrent consumers dedupe to one GET (#3955). The GET
         // runs on whichever consumer mounted first; if that one unmounts mid-flight its hook
@@ -113,12 +117,16 @@ export function useEnhancementStatusSync(
         }
 
         if (response && !cancelled) {
-          setState({
-            enabled: response.enabled,
-            preset: response.preset,
-            intensity: response.intensity,
-            lastUpdated: Date.now(),
-          });
+          setState((prev) =>
+            prev.lastUpdated > requestedAt
+              ? prev
+              : {
+                  enabled: response.enabled,
+                  preset: response.preset,
+                  intensity: response.intensity,
+                  lastUpdated: Date.now(),
+                }
+          );
         }
       } catch (err) {
         // An unmount (or a retry that was itself aborted) is not a failure.

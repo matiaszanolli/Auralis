@@ -197,14 +197,15 @@ describe('useEnhancementControl', () => {
 
       const { result } = renderHook(() => useEnhancementControl());
 
-      expect(result.current.enabled).toBe(false);
+      // Enabled, like the backend's own default, until the status GET says otherwise (#5655).
+      expect(result.current.enabled).toBe(true);
       expect(result.current.preset).toBe('adaptive');
       expect(result.current.intensity).toBe(1.0);
     });
 
     it('should fetch initial enhancement state on mount', async () => {
       const mockEnhancementState = {
-        enabled: true,
+        enabled: false, // differs from the enabled default, so waiting for it proves the GET was applied
         preset: 'adaptive' as const,
         intensity: 0.8,
         lastUpdated: Date.now(),
@@ -226,7 +227,7 @@ describe('useEnhancementControl', () => {
       const { result } = renderHook(() => useEnhancementControl());
 
       await waitFor(() => {
-        expect(result.current.enabled).toBe(true);
+        expect(result.current.enabled).toBe(false);
       });
 
       expect(result.current.preset).toBe('adaptive');
@@ -250,7 +251,7 @@ describe('useEnhancementControl', () => {
       const { result } = renderHook(() => useEnhancementControl());
 
       // Should still have default state even if fetch fails
-      expect(result.current.enabled).toBe(false);
+      expect(result.current.enabled).toBe(true);
       expect(result.current.preset).toBe('adaptive');
     });
 
@@ -294,17 +295,17 @@ describe('useEnhancementControl', () => {
 
       const { result } = renderHook(() => useEnhancementControl());
 
-      expect(result.current.enabled).toBe(false);
+      expect(result.current.enabled).toBe(true);
 
       await act(async () => {
         await result.current.toggleEnabled();
       });
 
-      expect(result.current.enabled).toBe(true);
+      expect(result.current.enabled).toBe(false);
       // post(url, body) - enabled is sent as the JSON body (#4149)
       expect(mockPost).toHaveBeenCalledWith(
         '/api/player/enhancement/toggle',
-        expect.objectContaining({ enabled: true })
+        expect.objectContaining({ enabled: false })
       );
     });
 
