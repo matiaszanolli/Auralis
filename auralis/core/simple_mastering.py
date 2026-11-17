@@ -182,8 +182,7 @@ class SimpleMasteringPipeline(StageDelegatesMixin):
                 # measurements and the chunk loop — the loop would otherwise
                 # truncate to L+R, silently dropping Center/LFE/surround (the
                 # defect class #3743 removed from the loaders).
-                # load_with_soundfile applies the BS.775 downmix for canonical
-                # layouts and routes non-canonical ones through FFmpeg (#5242).
+                # load_with_soundfile applies the BS.775 downmix (canonical layouts; others via FFmpeg, #5242).
                 import soundfile as _sf
                 try:
                     native_channels = _sf.info(str(orig_path)).channels
@@ -194,7 +193,8 @@ class SimpleMasteringPipeline(StageDelegatesMixin):
                     _tmp_dir = _tempfile.TemporaryDirectory()
                     _tmp_wav = Path(_tmp_dir.name) / (orig_path.stem + "_stereo.wav")
                     _raw, _raw_sr = load_with_soundfile(orig_path)
-                    save_audio(str(_tmp_wav), _raw, _raw_sr, subtype="PCM_24")
+                    # FLOAT keeps a downmix past full scale for the two-pass correction (#6316).
+                    save_audio(str(_tmp_wav), _raw, _raw_sr, subtype="FLOAT")
                     resolved_input_path = _tmp_wav
             prep = mastering_prepare.prepare_file(
                 self, orig_path, resolved_input_path, output_path, verbose

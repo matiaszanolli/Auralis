@@ -41,28 +41,13 @@ def _make_51(samples: int = 1024) -> np.ndarray:
 
 def test_center_channel_contributes_to_both_outputs() -> None:
     """The Center channel must appear in BOTH L and R outputs (vocals
-    must not be silenced)."""
-    sq2 = 1 / math.sqrt(2)
-
-    # Build a 5.1 buffer whose ONLY non-zero channel is Center, so the
-    # downmix output must be entirely C-derived.
+    must not be silenced), at the BS.775 coefficient (no renormalisation, #6316)."""
     audio = np.zeros((100, 6), dtype=np.float32)
     audio[:, 2] = 0.5  # C only
 
     out = downmix_to_stereo(audio)
 
-    expected = 0.5 * sq2
-    # Either channel must carry the center content (possibly rescaled
-    # by the peak-renormalize step).
-    assert out[0, 0] > 0.0, "Center didn't make it into L"
-    assert out[0, 1] > 0.0, "Center didn't make it into R"
-    # When ONLY C is present, L_out and R_out are equal by construction.
-    assert math.isclose(float(out[0, 0]), float(out[0, 1]), rel_tol=1e-5)
-    # Peak-renormalize bounds output to the input peak (0.5 here).
-    assert float(np.max(np.abs(out))) <= 0.5 + 1e-5
-    # And we should have something close to expected before any rescaling.
-    assert 0.0 < float(out[0, 0]) <= 0.5
-    del expected  # The renormalize step adjusts amplitude; identity is what matters
+    np.testing.assert_allclose(out, 0.5 / math.sqrt(2), atol=1e-6)
 
 
 def test_lfe_is_dropped() -> None:
@@ -92,13 +77,13 @@ def test_surround_channels_routed_to_correct_side() -> None:
     del sq2  # rendered as visual reference for the mapping
 
 
-def test_full_51_downmix_preserves_input_peak() -> None:
+def test_full_51_downmix_is_the_plain_matrix() -> None:
+    """Every output sample is the BS.775 sum, with no level rescale (#6316)."""
     audio = _make_51()
-    in_peak = float(np.max(np.abs(audio)))
+    sq2 = 1 / math.sqrt(2)
     out = downmix_to_stereo(audio)
-    out_peak = float(np.max(np.abs(out)))
-    # Output peak must not exceed input peak (no surprise clipping).
-    assert out_peak <= in_peak + 1e-5
+    assert float(out[0, 0]) == pytest.approx(0.5 + sq2 * 0.3 + sq2 * 0.1, abs=1e-6)
+    assert float(out[0, 1]) == pytest.approx(0.4 + sq2 * 0.3 + sq2 * 0.05, abs=1e-6)
 
 
 def test_preserves_input_dtype() -> None:

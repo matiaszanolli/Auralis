@@ -18,6 +18,9 @@ from ..utils.logging import debug, info
 from .formats import soundfile_format_name
 
 
+_FLOAT_SUBTYPES = frozenset({'FLOAT', 'DOUBLE'})
+
+
 def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str = 'PCM_16') -> None:
     """
     Save audio data to file
@@ -49,8 +52,12 @@ def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str 
         # out-of-range PCM samples in current builds, but historically
         # wrapped on some. wav_encoder.py already clips defensively; this
         # matches the project's audio invariants and makes encode-boundary
-        # clipping deterministic across libsndfile builds (#3471).
-        audio_data = np.clip(audio_data, -1.0, 1.0)
+        # clipping deterministic across libsndfile builds (#3471). A float
+        # subtype stores values past full scale losslessly, so it is left
+        # alone: an intermediate file must not clip what the engine's headroom
+        # stages would have handled (#6316).
+        if subtype.upper() not in _FLOAT_SUBTYPES:
+            audio_data = np.clip(audio_data, -1.0, 1.0)
 
         # Save the audio file
         # An explicit format for `.aif`, which libsndfile cannot infer from the extension (#6319).

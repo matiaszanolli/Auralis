@@ -99,7 +99,7 @@ def validate_audio(audio_data: np.ndarray, sample_rate: int, file_type: str) -> 
     # Ensure proper data type
     if audio_data.dtype != np.float32 and audio_data.dtype != np.float64:
         audio_data = audio_data.astype(np.float32)
-        debug(f"Converted audio to float32")
+        debug("Converted audio to float32")
 
     return audio_data, sample_rate
 
@@ -178,9 +178,12 @@ def downmix_to_stereo(audio_data: np.ndarray) -> np.ndarray:
     into either channel optionally; we treat it as discardable for a
     music-master downmix). This matches `ffmpeg -ac 2` on the same layout.
 
-    After downmixing the matrix sum can exceed ±1.0, so the result is
-    rescaled so its peak ≤ the original input peak (no surprise
-    clipping introduced by the downmix). The input dtype is preserved.
+    No level normalisation follows (#6316), exactly like `ffmpeg -ac 2`, so
+    the same mix loads at the same level from any container and a window's
+    level does not depend on its content. The matrix sum can exceed ±1.0;
+    float output keeps it (the engine's headroom stages handle it, as they
+    do a lossy decode's overshoot), integer output is clamped to the dtype's
+    range. The input dtype is preserved.
 
     Args:
         audio_data: 2-D array shaped (samples, channels). Mono / stereo
@@ -241,13 +244,11 @@ def downmix_to_stereo(audio_data: np.ndarray) -> np.ndarray:
 
     stereo = np.column_stack([L_out, R_out])
 
-    # Renormalize so the downmix peak doesn't exceed the input peak —
-    # prevents surprise clipping when the matrix sum pushes a sample
-    # above ±1.0 (or above the int range for integer sources).
-    # peak_amplitude avoids a full-size temporary on these big buffers (#5591).
-    input_peak = peak_amplitude(audio)
-    out_peak = peak_amplitude(stereo)
-    if out_peak > 0.0 and out_peak > input_peak > 0.0:
-        stereo = stereo * np.float32(input_peak / out_peak)
-
+    # #6316: no peak renormalisation. Scaling to the input peak made the level
+    # depend on how much centre/surround content the buffer held: a 5.1 FLAC
+    # loaded up to ~4.5 dB below the same mix decoded by FFmpeg, and per-window
+    # loudness and fingerprint measurements shifted with each window's content.
+    if np.issubdtype(input_dtype, np.integer):
+        limits = np.iinfo(input_dtype)
+        np.clip(stereo, limits.min, limits.max, out=stereo)
     return stereo.astype(input_dtype, copy=False)
