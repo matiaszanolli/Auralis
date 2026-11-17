@@ -148,6 +148,8 @@ class RealtimeProcessor:
 
         # Apply level matching first
         if level_matching_enabled and self.level_matcher:
+            if sample_rate is not None:
+                self.level_matcher.set_sample_rate(sample_rate)  # #6310
             processed = self.level_matcher.process(processed)
 
         # Apply auto-mastering. set_sample_rate() is a no-op unless the

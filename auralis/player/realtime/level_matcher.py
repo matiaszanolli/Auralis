@@ -46,6 +46,15 @@ class RealtimeLevelMatcher:
 
         debug("RealtimeLevelMatcher initialized")
 
+    def set_sample_rate(self, sample_rate: int) -> None:
+        """Re-derive the peak ceiling's attack/release slopes for the track's rate (#6310).
+
+        Called with every chunk's rate; a no-op unless it changed. The smoother's per-sample alphas
+        are part of the AGC redesign in #6106 and are not touched here.
+        """
+        with self._lock:
+            self.peak_ceiling.set_sample_rate(sample_rate)
+
     def set_reference_audio(self, reference: np.ndarray | None) -> bool:
         """Set reference audio for level matching"""
         # The RMS is O(len(reference)); measure it before taking the lock the audio

@@ -118,3 +118,17 @@ def test_get_audio_chunk_passes_file_rate_to_processor(monkeypatch) -> None:
     assert h.processor.process_chunk.call_count == 1
     args = h.processor.process_chunk.call_args.args
     assert args[1] == SR_TRACK
+
+
+def test_level_matcher_peak_ceiling_follows_the_track_rate() -> None:
+    """The level matcher is the stage that is ON in the shipped config; it kept 44.1 kHz slopes (#6310)."""
+    processor = RealtimeProcessor(PlayerConfig(sample_rate=SR_DEFAULT, enable_level_matching=True))
+    processor.set_effect_enabled("level_matching", True)
+    processor.level_matcher.set_reference_audio(np.full((4096, 2), 0.1, dtype=np.float32))
+    attack_44k = processor.level_matcher.peak_ceiling._attack_slope
+
+    processor.process_chunk(np.full((1024, 2), 0.2, dtype=np.float32), sample_rate=96000)
+
+    ceiling = processor.level_matcher.peak_ceiling
+    assert ceiling.sample_rate == 96000
+    assert ceiling._attack_slope == pytest.approx(attack_44k * SR_DEFAULT / 96000)
