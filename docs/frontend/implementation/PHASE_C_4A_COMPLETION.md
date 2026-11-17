@@ -224,7 +224,7 @@ export const store = configureStore({
 
 ---
 
-## 🎯 Redux Hooks (`useReduxState.ts`)
+## 🎯 Redux Hooks (useReduxState, since deleted: #6046)
 
 ### Player Hooks
 
