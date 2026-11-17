@@ -17,23 +17,17 @@ Features:
 import asyncio
 import hashlib
 import logging
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import urljoin
 
 import aiohttp
 
 from auralis.library.data_dir import artwork_dir
 
+from .artwork_providers.host_throttle import HostThrottle
 from .artwork_providers.itunes import try_itunes
 from .artwork_providers.musicbrainz import try_musicbrainz
-from auralis.utils.artwork_security import (
-    MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES,
-)
 from auralis.utils.artwork_security import bound_artwork_dimensions as _bound_artwork_dimensions
 from auralis.utils.artwork_security import detect_image_extension as _detect_image_extension
-from auralis.utils.artwork_security import validate_artwork_url as _validate_artwork_url
 from auralis.utils.logging import sanitize_log_value
 
 logger = logging.getLogger(__name__)
@@ -93,6 +87,8 @@ class ArtworkDownloader:
         self.musicbrainz_api = "https://musicbrainz.org/ws/2"
         self.coverart_api = "https://coverartarchive.org"
         self.itunes_api = "https://itunes.apple.com/search"
+        # Outbound spacing per search host (#5069): MusicBrainz asks for at most 1 request a second.
+        self.throttle = HostThrottle({"musicbrainz.org": 1.1, "itunes.apple.com": 3.0})
 
         # Shared session (fixes #3915 regression of #3558): reused across
         # calls with a small connection pool so bulk artwork backfills reuse

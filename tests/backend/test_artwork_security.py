@@ -47,7 +47,7 @@ class TestArtworkPathTraversalProtection:
 
         # Mock repository to return album
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_artwork_path.return_value = (True, mock_album.artwork_path)
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
@@ -67,7 +67,7 @@ class TestArtworkPathTraversalProtection:
 
         # Mock repository to return album
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_artwork_path.return_value = (True, mock_album.artwork_path)
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
@@ -91,7 +91,7 @@ class TestArtworkPathTraversalProtection:
 
         # Mock repository to return album
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_artwork_path.return_value = (True, mock_album.artwork_path)
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
@@ -119,7 +119,7 @@ class TestArtworkPathTraversalProtection:
 
         # Mock repository to return album
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_artwork_path.return_value = (True, mock_album.artwork_path)
 
         try:
             with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
@@ -143,7 +143,7 @@ class TestArtworkPathTraversalProtection:
 
         # Mock repository to return album
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_artwork_path.return_value = (True, mock_album.artwork_path)
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
@@ -156,7 +156,7 @@ class TestArtworkPathTraversalProtection:
         """Test that nonexistent album returns 404"""
         # Mock repository to return None (album not found)
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = None
+        mock_repos.albums.get_artwork_path.return_value = (False, None)
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/999999/artwork")
@@ -173,7 +173,7 @@ class TestArtworkPathTraversalProtection:
 
         # Mock repository to return album
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_artwork_path.return_value = (True, mock_album.artwork_path)
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
@@ -197,7 +197,7 @@ class TestArtworkPathTraversalProtection:
 
         # Mock repository to return album
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_artwork_path.return_value = (True, mock_album.artwork_path)
 
         try:
             with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
@@ -222,7 +222,7 @@ class TestArtworkPathTraversalProtection:
 
         # Mock repository to return album
         mock_repos = Mock()
-        mock_repos.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_artwork_path.return_value = (True, mock_album.artwork_path)
 
         with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/artwork")
@@ -256,7 +256,7 @@ class TestArtworkPathValidationIntegration:
             mock_album.artwork_path = payload
 
             mock_repos = Mock()
-            mock_repos.albums.get_by_id.return_value = mock_album
+            mock_repos.albums.get_artwork_path.return_value = (True, mock_album.artwork_path)
 
             with patch('routers.repo_deps.require_repository_factory', return_value=mock_repos):
                 response = client.get("/api/albums/1/artwork")

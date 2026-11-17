@@ -10,12 +10,9 @@ a thin delegator so ``patch.object(downloader, ...)`` keeps working).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING
-from urllib.parse import urljoin
 
-import aiohttp
 
 from auralis.utils.artwork_security import (
     MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES,
@@ -48,7 +45,6 @@ async def try_musicbrainz(
     """
     try:
         session = downloader._get_session()
-        # Search for release
         search_url = f"{downloader.musicbrainz_api}/release/"
         params: dict[str, str | int] = {
             "query": f'artist:"{artist}" AND release:"{album}"',
@@ -59,6 +55,7 @@ async def try_musicbrainz(
             "User-Agent": "Auralis/1.0 (https://github.com/matiaszanolli/Auralis)"
         }
 
+        await downloader.throttle.wait("musicbrainz.org")
         async with session.get(
             search_url, params=params, headers=headers, allow_redirects=False
         ) as resp:

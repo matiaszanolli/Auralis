@@ -10,12 +10,9 @@ a thin delegator so ``patch.object(downloader, ...)`` keeps working).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING
-from urllib.parse import urljoin
 
-import aiohttp
 
 from services.artwork_providers.bounded_read import read_bounded, read_bounded_json
 from services.artwork_providers.trust import _get_trusted_artwork
@@ -47,7 +44,6 @@ async def try_itunes(
     """
     try:
         session = downloader._get_session()
-        # Search iTunes
         params: dict[str, str | int] = {
             "term": f"{artist} {album}",
             "media": "music",
@@ -55,6 +51,7 @@ async def try_itunes(
             "limit": 1
         }
 
+        await downloader.throttle.wait("itunes.apple.com")
         async with session.get(
             downloader.itunes_api, params=params, allow_redirects=False
         ) as resp:
