@@ -6,7 +6,6 @@ ffmpeg_loader.py, #5835).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import functools
 import json
 import re
 import subprocess
