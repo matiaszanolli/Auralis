@@ -85,8 +85,11 @@ class PlaylistOrderingMixin(BaseRepository):
         return False
 
     def clear(self, playlist_id: int) -> bool:
-        """Remove all tracks from playlist"""
-        with self._guarded("Failed to clear playlist") as session:
+        """Remove all tracks from playlist; False only if there is no such playlist.
+
+        A database failure propagates rather than reading as False (#5264).
+        """
+        with self._session_scope() as session:
             # #3707: eager-load tracks so `playlist.tracks = []` doesn't
             # trigger an implicit lazy SELECT first.
             playlist = session.execute(
@@ -101,7 +104,6 @@ class PlaylistOrderingMixin(BaseRepository):
             session.commit()
             info(f"Cleared playlist: {playlist.name}")
             return True
-        return False
 
     def reorder_track(self, playlist_id: int, from_index: int, to_index: int) -> bool:
         """Reorder a track within a playlist.
@@ -129,12 +131,13 @@ class PlaylistOrderingMixin(BaseRepository):
 
         Returns:
             True if the row was successfully repositioned, False on
-            lookup miss or out-of-range index.
+            lookup miss or out-of-range index. A database failure propagates
+            rather than reading as False (#5264).
         """
         if from_index == to_index:
             return True
 
-        with self._guarded("Failed to reorder track in playlist") as session:
+        with self._session_scope() as session:
             # #5581/#5573: resolve rows by LOGICAL index in position
             # order instead of matching position == from_index exactly.
             # Writers now keep positions contiguous, but playlists
@@ -175,4 +178,3 @@ class PlaylistOrderingMixin(BaseRepository):
                 f"from {from_index} to {to_index}"
             )
             return True
-        return False

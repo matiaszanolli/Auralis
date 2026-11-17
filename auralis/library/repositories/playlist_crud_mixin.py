@@ -132,9 +132,13 @@ class PlaylistCrudMixin(BaseRepository):
             update_data: Dictionary with fields to update
 
         Returns:
-            True if successful, False otherwise
+            True if updated, False if there is no such playlist.
+
+        A database failure PROPAGATES (``_session_scope`` rolls back and re-raises) instead of
+        reading as ``False``, so a caller that maps ``False`` to 404/400 cannot misreport a
+        locked database as a missing playlist (#5264).
         """
-        with self._guarded("Failed to update playlist") as session:
+        with self._session_scope() as session:
             playlist = session.execute(select(Playlist).where(Playlist.id == playlist_id)).scalars().first()
             if not playlist:
                 return False
@@ -147,7 +151,6 @@ class PlaylistCrudMixin(BaseRepository):
             session.commit()
             info(f"Updated playlist: {playlist.name}")
             return True
-        return False
 
     def delete(self, playlist_id: int) -> bool:
         """

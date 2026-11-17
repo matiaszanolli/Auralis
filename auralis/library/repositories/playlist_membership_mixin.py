@@ -97,9 +97,10 @@ class PlaylistMembershipMixin(BaseRepository):
         Returns:
             True if the playlist now contains the track at the requested
             position (or any position when ``position is None``), False
-            on lookup miss or DB failure.
+            on lookup miss. A database failure propagates rather than
+            reading as False (#5264).
         """
-        with self._guarded("Failed to add track to playlist") as session:
+        with self._session_scope() as session:
             try:
                 # Verify playlist + track exist BEFORE the insert so FK
                 # violations surface as a clean False/log instead of an
@@ -210,7 +211,6 @@ class PlaylistMembershipMixin(BaseRepository):
                 session.rollback()
                 error(f"Unexpected IntegrityError adding track to playlist: {e}")
                 return True
-        return False
 
     def add_tracks(self, playlist_id: int, track_ids: list[int]) -> int:
         """Add multiple tracks to a playlist in a single transaction.
