@@ -105,7 +105,7 @@ def load_audio(
             file_path, temp_folder, cancel_event=cancel_event
         )
     else:
-        audio_data, sample_rate = load_with_soundfile(file_path)
+        audio_data, sample_rate = load_with_soundfile(file_path, temp_folder, cancel_event=cancel_event)
 
     # #3671: enforce the same duration ceiling that loader.py applies for
     # FFmpeg-routed formats. load_with_ffmpeg now also enforces it pre-decode

@@ -69,7 +69,7 @@ def test_soundfile_loader_routes_unknown_layout_before_native_decode(
 
     audio, sample_rate = soundfile_loader.load_with_soundfile(source)
 
-    ffmpeg_decode.assert_called_once_with(source)
+    ffmpeg_decode.assert_called_once_with(source, None, cancel_event=None)  # forwarded since #5730
     native_decode.assert_not_called()
     assert audio is expected
     assert sample_rate == 48_000

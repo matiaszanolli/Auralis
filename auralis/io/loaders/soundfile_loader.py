@@ -9,6 +9,7 @@ Audio loading using soundfile library for WAV/FLAC
 """
 
 import struct
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -42,8 +43,16 @@ def _get_wav_declared_size(file_path: Path) -> int | None:
         return None
 
 
-def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
-    """Load audio using soundfile library"""
+def load_with_soundfile(
+    file_path: Path,
+    temp_folder: str | None = None,
+    cancel_event: threading.Event | None = None,
+) -> tuple[np.ndarray, int]:
+    """Load audio using soundfile library.
+
+    ``temp_folder`` and ``cancel_event`` only matter for the FFmpeg re-route of a non-canonical multichannel
+    file, which must honour the caller's temp location and cancellation like a direct FFmpeg load (#5730).
+    """
     try:
         # Check WAV header for truncation before loading.
         # libsndfile silently adjusts frame counts to actual data, so
@@ -95,7 +104,7 @@ def load_with_soundfile(file_path: Path) -> tuple[np.ndarray, int]:
             # loader to read its already-stereo temporary WAV.
             from .ffmpeg_loader import load_with_ffmpeg
 
-            return load_with_ffmpeg(file_path)
+            return load_with_ffmpeg(file_path, temp_folder, cancel_event=cancel_event)
 
         # #3748: explicit float32 to match `loader.py`'s sibling sf.read
         # call. Without the dtype hint, soundfile returns float64 for
