@@ -28,6 +28,11 @@ passed as explicit arguments (config, fingerprint fields).
 
 import numpy as np
 
+#: Below this a stage's computed boost is inaudible (and the filter pass would be wasted), so the stage
+#: bypasses. It was 0.3 dB (0.5 for the transient shaper), a step the size of an audible EQ move: two tracks
+#: either side of the gate got 0 dB vs 0.3 dB (#6304). 0.05 dB keeps the cost saving without the cliff.
+MIN_AUDIBLE_BOOST_DB = 0.05
+
 
 def no_op(audio: np.ndarray) -> tuple[np.ndarray, None]:
     """Shared bypass return for tuple-contract stages.

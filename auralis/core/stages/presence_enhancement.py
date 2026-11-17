@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from . import no_op
+from . import MIN_AUDIBLE_BOOST_DB, no_op
 
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
@@ -56,7 +56,7 @@ def apply(
     max_boost_db = config.MAX_PRESENCE_BOOST_DB * intensity
     boost_db = max_boost_db * presence_factor * hf_lift
 
-    if boost_db < 0.3:
+    if boost_db < MIN_AUDIBLE_BOOST_DB:
         return no_op(audio)
 
     processed = ParallelEQUtilities.apply_bandpass_boost(

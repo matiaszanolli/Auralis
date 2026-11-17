@@ -4,9 +4,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from . import no_op
+from . import MIN_AUDIBLE_BOOST_DB, no_op
 
 from ..dsp import TransientShaper
+from ..processing.cross_dimensional_guard import smooth_gate
 from ..utils import SmoothCurveUtilities
 
 if TYPE_CHECKING:
@@ -54,7 +55,7 @@ def apply(
     max_boost = config.TRANSIENT_MAX_BOOST_DB * intensity
     boost_db = max_boost * compress_factor
 
-    if boost_db < 0.5:
+    if boost_db < MIN_AUDIBLE_BOOST_DB:
         return no_op(audio)
 
     # On already bass-dominant material a full attack boost on the low band
@@ -70,24 +71,27 @@ def apply(
     # array, matching the bypass paths above (#4129). The copy is cheap next to
     # the sosfiltfilt filtering in the firing path.
     processed = audio.copy()
-    # Bass band — skip if essentially no bass to shape
-    if bass_pct >= 0.05:
+    # A band with essentially no energy has nothing to shape; the boost fades in over 0.04-0.06 of the spectrum
+    # instead of switching on at 0.05 (a hard `>=` gate: 0.0499 -> 0.0501 went from absent to full, #6304).
+    bass_boost = bass_band_boost * smooth_gate(bass_pct, 0.04, 0.06)
+    if bass_boost >= MIN_AUDIBLE_BOOST_DB:
         processed = TransientShaper.apply(
             processed, sample_rate,
             band_low_hz=config.TRANSIENT_BASS_LOW_HZ,
             band_high_hz=config.TRANSIENT_BASS_HIGH_HZ,
-            attack_boost_db=bass_band_boost,
+            attack_boost_db=bass_boost,
             fast_ms=config.TRANSIENT_FAST_MS,
             slow_ms=config.TRANSIENT_SLOW_MS,
         )
 
     # Lo-mid band — slightly gentler boost (lo-mid attacks are less critical)
-    if low_mid_pct >= 0.05:
+    lo_mid_boost = boost_db * 0.7 * smooth_gate(low_mid_pct, 0.04, 0.06)
+    if lo_mid_boost >= MIN_AUDIBLE_BOOST_DB:
         processed = TransientShaper.apply(
             processed, sample_rate,
             band_low_hz=config.TRANSIENT_LO_MID_LOW_HZ,
             band_high_hz=config.TRANSIENT_LO_MID_HIGH_HZ,
-            attack_boost_db=boost_db * 0.7,
+            attack_boost_db=lo_mid_boost,
             fast_ms=config.TRANSIENT_FAST_MS,
             slow_ms=config.TRANSIENT_SLOW_MS,
         )

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from . import no_op
+from . import MIN_AUDIBLE_BOOST_DB, no_op
 
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
@@ -84,7 +84,7 @@ def apply(
     # Stronger trigger wins; HF-budget + floor temper apply to both.
     boost_db = max(deficit_boost, mask_boost) * intensity * floor_temper * hf_lift
 
-    if boost_db < 0.3:
+    if boost_db < MIN_AUDIBLE_BOOST_DB:
         return no_op(audio)
 
     processed = ParallelEQUtilities.apply_bandpass_boost(
