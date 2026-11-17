@@ -33,6 +33,7 @@ function asGuard<T extends (value: unknown) => boolean>(mock: Mock<T>): T {
 }
 
 import { useRestAPI } from '../useRestAPI';
+import { unhandledApiRequests } from '@/test/unhandledRequests';
 
 /** What `fn` rejects with, or undefined if it resolves — lets a test assert the failure happened
  *  instead of swallowing it in a try/catch that passes either way (#5674). */
@@ -48,6 +49,12 @@ async function rejectionOf(fn: () => Promise<unknown>): Promise<unknown> {
 // Mock fetch globally
 const mockFetch = vi.fn();
 global.fetch = mockFetch as any;
+
+// This spec drives /api/test* requests no MSW handler answers (it asserts on mockFetch instead),
+// so the harness's unhandled-request failure (#5681) does not apply to it.
+afterEach(() => {
+  unhandledApiRequests.length = 0;
+});
 
 /**
  * Extract URL string from a fetch spy call.
@@ -1084,8 +1091,9 @@ describe('useRestAPI Hook', () => {
       let read!: Promise<unknown>;
       let mutate!: Promise<unknown>;
       act(() => {
-        read = result.current.get('/api/player/queue');
-        mutate = result.current.post('/api/player/queue', { tracks: [1] });
+        // A path with no MSW handler, so the call reaches mockFetch (a handled one is answered by MSW).
+        read = result.current.get('/api/test/queue');
+        mutate = result.current.post('/api/test/queue', { tracks: [1] });
       });
       await flushDispatch();
       gates[0](createMockResponse({ queue: [] }, { ok: true, status: 200, statusText: 'OK' }));

@@ -221,7 +221,7 @@ export const handlers = [
   }),
 
   // GET /api/artists - Get artists (updated from /api/library/artists per #2509)
-  http.get(`${API_BASE}/artists`, async ({ request }) => {
+  http.get('*/api/artists', async ({ request }) => {
     const url = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const offset = parseInt(url.searchParams.get('offset') || '0');
@@ -1227,6 +1227,44 @@ export const handlers = [
       total: mockTracks.length,
       limit,
       offset
+    });
+  }),
+  // ============================================================
+  // Initial-state reads that mounted components fire on their own (#5681). Without a default,
+  // each became a swallowed network failure; onUnhandledRequest now fails the test instead, so a
+  // spec that needs different data overrides these with server.use().
+  // ============================================================
+  http.get('*/api/player/enhancement/status', () =>
+    HttpResponse.json({ enabled: true, preset: 'adaptive', intensity: 1.0 })),
+  http.get('*/api/player/queue', () =>
+    HttpResponse.json({ tracks: [], current_index: 0, total_tracks: 0, shuffle_enabled: false, repeat_mode: 'off' })),
+  http.get('*/api/settings', () =>
+    HttpResponse.json({
+      id: 1, scan_folders: [], file_types: ['mp3', 'flac'], auto_scan: false, scan_interval: 3600,
+      crossfade_enabled: false, crossfade_duration: 3, gapless_enabled: true, replay_gain_enabled: false,
+      volume: 0.8, output_device: 'default', bit_depth: 16, sample_rate: 44100,
+      theme: 'dark', language: 'en', show_visualizations: true, mini_player_on_close: false,
+      default_preset: 'adaptive', auto_enhance: true, enhancement_intensity: 1.0,
+      cache_size: 1024, max_concurrent_scans: 1, enable_analytics: false, debug_mode: false,
+      created_at: '2026-01-01T00:00:00', updated_at: '2026-01-01T00:00:00',
+    })),
+  http.get('*/api/library/scan/status', () => HttpResponse.json({ is_scanning: false })),
+  http.get('*/api/library/fingerprints/status', () =>
+    HttpResponse.json({
+      total_tracks: 0,
+      fingerprinted_tracks: 0,
+      pending_tracks: 0,
+      progress_percent: 100,
+      status: 'complete',
+      estimated_remaining_seconds: 0,
+    })),
+  http.get('*/api/cache/stats', () => {
+    const tier = { chunks: 0, size_mb: 0, hits: 0, misses: 0, hit_rate: 0 };
+    return HttpResponse.json({
+      tier1: { ...tier, tier_name: 'tier1' },
+      tier2: { ...tier, tier_name: 'tier2' },
+      overall: { total_chunks: 0, total_size_mb: 0, total_hits: 0, total_misses: 0, overall_hit_rate: 0, tracks_cached: 0 },
+      tracks: {},
     });
   }),
 ];

@@ -4,6 +4,7 @@
  * Configures global test environment, matchers, and polyfills
  */
 
+import { unhandledApiRequests } from './unhandledRequests'
 import '@testing-library/jest-dom' // @ts-ignore: type definitions not available
 import { cleanup, act } from '@testing-library/react'
 import { afterEach, beforeAll, afterAll, vi } from 'vitest'
@@ -263,14 +264,24 @@ beforeAll(() => {
       if (url.protocol === 'ws:' || url.protocol === 'wss:') {
         return;
       }
+      // A REST call with no handler used to become a network failure that most hooks swallow, so
+      // the spec passed against a backend that never answered (#5681). Record it; afterEach fails.
+      if (url.pathname.startsWith('/api/')) {
+        unhandledApiRequests.push(`${request.method} ${url.pathname}`);
+        return;
+      }
       console.warn(`[MSW] Warning: unhandled ${request.method} ${request.url}`);
     }
   })
 })
 
-// Reset handlers after each test
+// Reset handlers after each test, failing it if it made a REST call nothing answered (#5681)
 afterEach(() => {
   server.resetHandlers()
+  if (unhandledApiRequests.length > 0) {
+    const calls = [...new Set(unhandledApiRequests.splice(0))].join(', ')
+    throw new Error(`Unhandled REST request(s): ${calls}. Add a handler in src/test/mocks/handlers.ts or server.use() one in the spec.`)
+  }
 })
 
 // Clean up after all tests

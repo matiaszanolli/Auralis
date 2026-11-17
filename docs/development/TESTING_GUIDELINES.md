@@ -1359,7 +1359,7 @@ def test_chunks_concatenate_without_gaps():
 - pytest-cov (coverage reporting)
 - hypothesis (property-based testing)
 - vitest (TypeScript/JavaScript testing)
-- MSW (API mocking for integration tests)
+- MSW (API mocking for integration tests). A frontend spec that makes a REST call with no MSW handler fails in `afterEach` (`src/test/setup.ts`): add a handler in `src/test/mocks/handlers.ts` or `server.use()` one in the spec. A spec that stubs `global.fetch` itself and asserts on the calls clears `unhandledApiRequests` from `@/test/unhandledRequests` in its own `afterEach` (#5681).
 
 **Further Reading:**
 - [Property-Based Testing](https://hypothesis.works/)
