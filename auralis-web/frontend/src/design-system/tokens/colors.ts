@@ -235,6 +235,8 @@ export const colors = {
         disabled: '#9CA3B8',
         accent: '#5B4FD6',     // accent as text: 5.65:1 on #F8F9FD (the brand #7366F0 is 4.08:1) (#5675)
       },
+      // Unfilled rails, switch tracks and scrollbar thumbs: >= 3:1 against both the canvas and white (WCAG 1.4.11, #6021).
+      controlTrack: '#8A90A6',
       // Darker than semantic.* on purpose: these colour TEXT on the near-white canvas, where the dark-mode
       // hexes were 2.0-3.6:1. Each is >= 4.5:1 on #F8F9FD and on #FFFFFF (#5675).
       accent: {

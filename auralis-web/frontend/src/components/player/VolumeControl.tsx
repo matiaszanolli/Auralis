@@ -214,7 +214,7 @@ const VolumeControlComponent = ({
             border: 'none',
             outline: isSliderFocused && !disabled ? `3px solid ${themeVars.accent}` : 'none',
             outlineOffset: isSliderFocused && !disabled ? '2px' : '0',
-            background: `linear-gradient(to right, ${themeVars.accent} 0%, ${themeVars.accent} ${clampedVolume * 100}%, ${themeVars.surfaceRaised} ${clampedVolume * 100}%, ${themeVars.surfaceRaised} 100%)`,
+            background: `linear-gradient(to right, ${themeVars.accent} 0%, ${themeVars.accent} ${clampedVolume * 100}%, ${themeVars.controlTrack} ${clampedVolume * 100}%, ${themeVars.controlTrack} 100%)`,
             opacity: disabled ? 0.5 : 1,
             transition: `height ${tokens.transitions.hover_out}, outline ${tokens.transitions.hover_out}`,
           } as CSSProperties}

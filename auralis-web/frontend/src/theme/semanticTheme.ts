@@ -15,6 +15,8 @@ export interface SemanticTheme {
   surfacePrimary: string;
   surfaceSecondary: string;
   surfaceRaised: string;
+  /** Unfilled slider rail / switch track / scrollbar thumb; >= 3:1 on the page in both themes (#6021). */
+  controlTrack: string;
   surfaceOverlay: string;
   surfaceTranslucent: string;
   /** Popover/menu surface — theme-aware so menu text keeps its contrast (#5641). */
@@ -78,6 +80,7 @@ const darkSemanticTheme: SemanticTheme = {
   surfacePrimary: tokens.colors.bg.level1,
   surfaceSecondary: tokens.colors.bg.level2,
   surfaceRaised: tokens.colors.bg.level3,
+  controlTrack: tokens.colors.bg.level3,
   surfaceOverlay: tokens.colors.bg.level4,
   surfaceTranslucent: tokens.glass.starfield.strong,
   // #5641: these are the values the five glass/gradient surfaces already used
@@ -125,6 +128,7 @@ const lightSemanticTheme: SemanticTheme = {
   surfacePrimary: tokens.colors.lightMode.background.secondary,
   surfaceSecondary: tokens.colors.lightMode.background.surface,
   surfaceRaised: tokens.colors.lightMode.background.secondary,
+  controlTrack: tokens.colors.lightMode.controlTrack,
   surfaceOverlay: tokens.colors.lightMode.background.hover,
   surfaceTranslucent: tokens.colors.lightMode.background.glass,
   // #5641: light-mode fills for the roles the glass/gradient surfaces used to
@@ -183,6 +187,7 @@ export const themeVars = {
   surfacePrimary: 'var(--app-surface-primary)',
   surfaceSecondary: 'var(--app-surface-secondary)',
   surfaceRaised: 'var(--app-surface-raised)',
+  controlTrack: 'var(--app-control-track)',
   surfaceOverlay: 'var(--app-surface-overlay)',
   surfaceTranslucent: 'var(--app-surface-translucent)',
   menuSurface: 'var(--app-menu-surface)',
@@ -230,6 +235,7 @@ export const getSemanticCssVariables = (mode: ThemeMode): Record<string, string>
     '--app-surface-primary': theme.surfacePrimary,
     '--app-surface-secondary': theme.surfaceSecondary,
     '--app-surface-raised': theme.surfaceRaised,
+    '--app-control-track': theme.controlTrack,
     '--app-surface-overlay': theme.surfaceOverlay,
     '--app-surface-translucent': theme.surfaceTranslucent,
     '--app-menu-surface': theme.menuSurface,

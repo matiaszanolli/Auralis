@@ -264,4 +264,14 @@ describe('light-mode text and aurora fills meet WCAG AA (#5675)', () => {
     expect(dark.success).toBe(tokens.colors.semantic.success);
     expect(dark.error).toBe(tokens.colors.semantic.error);
   });
+  it('controlTrack (rails, switch tracks, scrollbar thumbs) is >= 3:1 on the canvas and on white in light mode (#6021)', () => {
+    expect(contrast(light.controlTrack, canvas)).toBeGreaterThanOrEqual(3);
+    expect(contrast(light.controlTrack, white)).toBeGreaterThanOrEqual(3);
+    // The old rail colour was white: invisible on a white card.
+    expect(contrast(light.surfaceRaised, white)).toBeLessThan(1.1);
+  });
+
+  it('dark mode keeps the old rail colour', () => {
+    expect(getSemanticTheme('dark').controlTrack).toBe(tokens.colors.bg.level3);
+  });
 });

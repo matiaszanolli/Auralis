@@ -55,7 +55,7 @@ export const globalStyles = css`
      scrollbar-color is non-auto, so a webkit block here would be dead (#6058). */
   * {
     scrollbar-width: thin;
-    scrollbar-color: ${themeVars.surfaceRaised} ${themeVars.surfacePrimary};
+    scrollbar-color: ${themeVars.controlTrack} ${themeVars.surfacePrimary};
   }
 
   ${keyframeStyles}

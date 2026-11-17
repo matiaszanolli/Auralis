@@ -217,7 +217,7 @@ export const createComponents = (
           rail: {
             height: 6,
             borderRadius: 3,
-            backgroundColor: semantic.surfaceRaised,
+            backgroundColor: semantic.controlTrack,
             opacity: 1,
           },
         },
@@ -249,7 +249,7 @@ export const createComponents = (
           },
           track: {
             borderRadius: 16,
-            backgroundColor: semantic.surfaceRaised,
+            backgroundColor: semantic.controlTrack,
             opacity: 1,
           },
         },

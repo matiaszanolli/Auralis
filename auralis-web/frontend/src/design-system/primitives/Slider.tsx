@@ -87,7 +87,7 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
       },
 
       '& .MuiSlider-rail': {
-        background: themeVars.surfaceRaised,
+        background: themeVars.controlTrack,
         opacity: 1,
       },
     },
@@ -108,7 +108,7 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
       },
 
       '& .MuiSlider-rail': {
-        background: themeVars.surfaceRaised,
+        background: themeVars.controlTrack,
         opacity: 1,
       },
     },
@@ -131,7 +131,7 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
       },
 
       '& .MuiSlider-rail': {
-        background: themeVars.surfaceRaised,
+        background: themeVars.controlTrack,
         opacity: 1,
       },
     },
