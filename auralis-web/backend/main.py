@@ -31,7 +31,7 @@ from config.app import create_app
 from config.bootstrap import install_log_sanitizer
 from config.fallback_routes import mount_frontend, register_fallback_routes
 from config.globals import ConnectionManager, set_component_registry
-from config.limits import WS_MAX_MESSAGE_SIZE
+from config.limits import SHUTDOWN_STEP_TIMEOUT_S, WS_MAX_MESSAGE_SIZE
 from config.middleware import setup_middleware
 from config.origins import BACKEND_PORT
 from config.routes import setup_routers
@@ -94,10 +94,8 @@ deps = {
     'create_track_info_fn': create_track_info,
 }
 
-# Create lifespan context manager for startup/shutdown (populates globals_dict)
+# Lifespan (startup/shutdown; populates globals_dict) and the FastAPI application
 lifespan = create_lifespan(deps)
-
-# Create FastAPI application with lifespan
 app = create_app(lifespan=lifespan)
 
 # Setup middleware
@@ -126,5 +124,6 @@ if __name__ == "__main__":
         ws_max_size=WS_MAX_MESSAGE_SIZE,  # bound frames at the transport, before buffering: #5915
         log_level=_log_level,  # the level the root logger was configured with at import: #5065
         log_config=None,  # uvicorn's stock handlers bypass the sanitizing root handler: #6184
+        timeout_graceful_shutdown=int(SHUTDOWN_STEP_TIMEOUT_S),  # a client that never closes cannot hold the lifespan shutdown: #5992
         proxy_headers=False,  # no reverse proxy: X-Forwarded-For must not rewrite the client IP: #6168
     )

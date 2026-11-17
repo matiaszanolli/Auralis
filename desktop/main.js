@@ -6,6 +6,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { isSafeExternalUrl, isAllowedAppNavigation, isTrustedIpcSender, escapeControlChars, DEV_ORIGIN_FLAG, APP_PORT, APP_ORIGIN } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
+const { terminateBackend } = require('./backend-shutdown');
 const { findListeners, stopProcess } = require('./port-cleanup');
 
 // Grace period between SIGTERM and SIGKILL for the Python backend. The
@@ -429,42 +430,28 @@ class AuralisApp {
       dialog.showErrorBox('Startup Error',
         `Failed to start Auralis:\n\n${error.message}\n\nPlease check that Python is installed and try again.`);
 
-      this.cleanup();
-      app.quit();
+      this.cleanup().then(() => app.quit());
     }
   }
 
+  /**
+   * Stop the backend; resolves once it has exited or been SIGKILLed after BACKEND_KILL_GRACE_MS.
+   * Callers that are about to quit must wait for it: the escalation timer dies with the app (#5992).
+   */
   cleanup() {
     console.log('Cleaning up...');
     this.isQuitting = true;
 
-    if (this.pythonProcess && !this.pythonProcess.killed) {
-      console.log('Terminating Python backend...');
-
-      // Try graceful shutdown first
-      this.pythonProcess.kill('SIGTERM');
-
-      // Force kill after the grace period (reduced from 5 s once backend
-      // teardown was bounded — see BACKEND_KILL_GRACE_MS above).
-      setTimeout(() => {
-        if (this.pythonProcess && !this.pythonProcess.killed) {
-          console.log('Backend still running, sending SIGKILL...');
-          this.pythonProcess.kill('SIGKILL');
-
-          // Also try to kill the process tree
-          if (this.pythonProcess.pid) {
-            try {
-              process.kill(-this.pythonProcess.pid, 'SIGKILL');
-              console.log('Killed process tree');
-            } catch (e) {
-              // Ignore errors (process may already be dead)
-            }
-          }
-        }
-      }, BACKEND_KILL_GRACE_MS);
-    }
-
+    // Local reference: this.pythonProcess is cleared right away, so a timer reading the field
+    // saw null and the SIGKILL never ran.
+    const backend = this.pythonProcess;
     this.pythonProcess = null;
+    if (backend) console.log('Terminating Python backend...');
+    return terminateBackend(backend, {
+      graceMs: BACKEND_KILL_GRACE_MS,
+      killGroup: (pid) => process.kill(-pid, 'SIGKILL'),
+      log: (message) => console.log(message),
+    });
   }
 }
 
@@ -650,9 +637,10 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   console.log('All windows closed');
-  auralisApp.cleanup();
   if (process.platform !== 'darwin') {
-    app.quit();
+    app.quit(); // before-quit stops the backend and waits for it
+  } else {
+    auralisApp.cleanup();
   }
 });
 
@@ -667,10 +655,7 @@ app.on('before-quit', (event) => {
   console.log('App before quit');
   if (!auralisApp.isQuitting) {
     event.preventDefault();
-    auralisApp.cleanup();
-    setTimeout(() => {
-      app.quit();
-    }, 1000);
+    auralisApp.cleanup().then(() => app.quit());
   }
 });
 

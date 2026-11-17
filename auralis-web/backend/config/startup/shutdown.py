@@ -15,7 +15,7 @@ import logging
 from typing import Any
 
 from config.background_workers import stop_background_workers
-from config.limits import SHUTDOWN_STEP_TIMEOUT_S
+from config.limits import SHUTDOWN_STEP_TIMEOUT_S, SHUTDOWN_TOTAL_TIMEOUT_S
 
 from .rollback import (
     _clear_module_level_fingerprint_queue,
@@ -27,8 +27,10 @@ from .rollback import (
 logger = logging.getLogger(__name__)
 
 
-async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
-    """Tear down every long-lived component, best-effort.
+async def _stop_components(globals_dict: dict[str, Any]) -> None:
+    """Stop every worker, engine and cache: all of shutdown except the database and thread pools.
+
+    Bounded as a whole by :func:`_shutdown_components` (#5992). Best-effort.
 
     Extracted from the lifespan body (#4569) for the same reason
     :py:func:`_rollback_partial_startup` was (#3812): it is otherwise only
@@ -156,7 +158,35 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
             await asyncio.to_thread(converted_wavs.shutdown)
         except Exception as temp_err:
             logger.warning(f"⚠️  Seekable temp WAV cleanup error: {temp_err}")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
+
+async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
+    """Tear down every long-lived component within one overall deadline (#5992).
+
+    Each step has its own timeout, but nothing bounded their sum: a stuck worker
+    left the backend holding the port until the next launch SIGKILLed it, usually
+    before the WAL checkpoint. The stop steps now share SHUTDOWN_TOTAL_TIMEOUT_S;
+    when it runs out the rest are abandoned with a log line, and the library
+    database (WAL checkpoint + engine dispose) and thread pools are still torn
+    down afterwards, because a hung step must not be what skips them.
+    """
+    try:
+        await asyncio.wait_for(_stop_components(globals_dict), timeout=SHUTDOWN_TOTAL_TIMEOUT_S)
+    except TimeoutError:
+        logger.error(
+            f"Shutdown stop steps exceeded {SHUTDOWN_TOTAL_TIMEOUT_S:.0f}s; abandoning them "
+            f"and going straight to the database checkpoint"
+        )
+    finally:
+        # Also reached when the lifespan task itself is cancelled mid-stop (#4801).
+        _teardown_database_and_pools(globals_dict)
+
+
+def _teardown_database_and_pools(globals_dict: dict[str, Any]) -> None:
+    """The last two shutdown steps, synchronous so a timeout or cancellation cannot skip them."""
+    try:
         # Shut down the library database last — WAL checkpoint + engine dispose (#3210)
         _teardown_library_database(globals_dict)
 
@@ -171,7 +201,6 @@ async def _shutdown_components(globals_dict: dict[str, Any]) -> None:
             logger.info("✅ Thread pools shut down")
         except Exception as pool_err:
             logger.warning(f"⚠️  Thread pool shutdown error: {pool_err}")
-
         logger.info("✅ Application shutdown complete")
     except Exception as e:
         logger.error(f"Error during shutdown: {e}")

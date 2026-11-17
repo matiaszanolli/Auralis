@@ -27,7 +27,7 @@
     "auralis-web/backend/core/stream_notifications.py": 86,
     "auralis-web/backend/core/stream_seek.py": 292,
     "auralis-web/backend/core/streamlined_worker.py": 248,
-    "auralis-web/backend/main.py": 130,
+    "auralis-web/backend/main.py": 129,
     "auralis-web/backend/routers/albums.py": 218,
     "auralis-web/backend/routers/artists.py": 231,
     "auralis-web/backend/routers/artwork.py": 241,

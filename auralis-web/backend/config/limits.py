@@ -278,3 +278,9 @@ SHUTDOWN_STEP_TIMEOUT_S: float = float(
 OBSERVER_JOIN_TIMEOUT_S: float = float(
     get_int_env("AURALIS_OBSERVER_JOIN_TIMEOUT_SECONDS", 5)
 )
+# One deadline over all of the stop steps together (#5992): the per-step timeouts above can sum to
+# 35 s, and nothing bounded a step that has none. When it passes, the library database checkpoint
+# and thread-pool shutdown still run.
+SHUTDOWN_TOTAL_TIMEOUT_S: float = float(
+    get_int_env("AURALIS_SHUTDOWN_TOTAL_TIMEOUT_SECONDS", 30)
+)

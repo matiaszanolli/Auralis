@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from config.background_workers import BACKGROUND_WORKER_KEYS, WORKER_STOP_KWARGS
 from config.startup import _shutdown_components
+from config.startup.shutdown import _stop_components
 from config.startup.rollback import _ROLLBACK_SERVICES_TO_STOP
 
 pytestmark = pytest.mark.asyncio
@@ -222,7 +223,7 @@ class TestSingleSourceOfTruth:
         )
 
     def test_shutdown_uses_the_shared_helper_not_an_inline_loop(self):
-        src = inspect.getsource(_shutdown_components)
+        src = inspect.getsource(_stop_components)
         assert "stop_background_workers(" in src, (
             "shutdown must delegate to the guarded helper (#4569)"
         )
@@ -242,7 +243,7 @@ class TestSingleSourceOfTruth:
         import textwrap
 
         TEARDOWN = {"stop", "stop_worker", "shutdown", "cleanup"}
-        fn = ast.parse(textwrap.dedent(inspect.getsource(_shutdown_components))).body[0]
+        fn = ast.parse(textwrap.dedent(inspect.getsource(_stop_components))).body[0]
         body = [n for n in fn.body if not isinstance(n, ast.Expr)]
         assert len(body) == 1 and isinstance(body[0], ast.Try), (
             "expected a single outer try as the last-resort net"
@@ -269,3 +270,48 @@ class TestSingleSourceOfTruth:
             f"unguarded teardown call(s) at relative line(s) {sorted(all_calls - guarded)} "
             "— a failure there skips every later step, including the WAL checkpoint (#4569)"
         )
+
+
+# --- overall deadline (#5992) ------------------------------------------------
+
+async def test_a_hung_stop_step_cannot_skip_the_database_checkpoint(monkeypatch):
+    """Per-step timeouts did not bound a step that has none: one hung worker held shutdown
+    open until the next launch SIGKILLed the backend, before the WAL checkpoint."""
+    import asyncio
+
+    from config.startup import shutdown
+
+    monkeypatch.setattr(shutdown, "SHUTDOWN_TOTAL_TIMEOUT_S", 0.2)
+
+    async def hang():
+        await asyncio.sleep(3600)
+
+    globals_dict = _globals(streamlined_worker=Mock(stop=hang))
+
+    started = asyncio.get_running_loop().time()
+    await _run(globals_dict)
+    assert asyncio.get_running_loop().time() - started < 2.0
+
+    globals_dict["library_database"].shutdown.assert_called_once()
+
+
+async def test_cancelling_shutdown_still_checkpoints_the_database(monkeypatch):
+    import asyncio
+
+    from config.startup import shutdown
+
+    monkeypatch.setattr(shutdown, "SHUTDOWN_TOTAL_TIMEOUT_S", 60)
+
+    async def hang():
+        await asyncio.sleep(3600)
+
+    globals_dict = _globals(streamlined_worker=Mock(stop=hang))
+    factory, artwork, fingerprint = _quiet_externals()
+    with factory, artwork, fingerprint:
+        task = asyncio.create_task(shutdown._shutdown_components(globals_dict))
+        await asyncio.sleep(0.05)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    globals_dict["library_database"].shutdown.assert_called_once()
