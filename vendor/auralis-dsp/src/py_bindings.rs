@@ -2,14 +2,13 @@
 ///
 /// Exposes Rust DSP functions to Python
 ///
-/// Only `compute_fingerprint` has a production caller. `process_chunks` is
-/// dead and tracked in #5738. Do not add bindings without a production
-/// Python caller.
+/// Only `compute_fingerprint` has a production caller. Do not add bindings
+/// without a production Python caller (the unused `process_chunks` went in #5738).
 
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyDict};
-use numpy::{PyReadonlyArray1, PyReadonlyArray2, IntoPyArray};
-use crate::{fingerprint_compute, chunk_processor};
+use numpy::PyReadonlyArray1;
+use crate::fingerprint_compute;
 
 /// Extract a human-readable message from a Rust panic payload (issue #2225).
 fn format_panic(e: Box<dyn std::any::Any + Send>) -> String {
@@ -33,9 +32,6 @@ fn auralis_dsp(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Also add under clean name
     let wrapper_fn = m.getattr("compute_fingerprint_wrapper")?;
     m.add("compute_fingerprint", wrapper_fn)?;
-
-    m.add_function(wrap_pyfunction!(process_chunks_wrapper, m)?)?;
-    m.add("process_chunks", m.getattr("process_chunks_wrapper")?)?;
 
     Ok(())
 }
@@ -150,80 +146,6 @@ fn compute_fingerprint_wrapper(
     // Stereo (2D)
     dict.set_item("stereo_width", fingerprint.stereo_width)?;
     dict.set_item("phase_correlation", fingerprint.phase_correlation)?;
-
-    Ok(dict.into())
-}
-
-/// Python wrapper for chunk processing
-///
-/// Process audio in optimized chunks for streaming
-///
-/// Arguments:
-///     audio: numpy array of shape (2, n_samples) for stereo
-///     chunk_size: Size of each chunk (default: 131072)
-///     overlap: Overlap between chunks (default: 2205)
-///
-/// Returns:
-///     Dictionary with 'output' (the processed samples, shape (channels, n)),
-///     'chunk_size', and 'overlap'. (The docstring used to promise a 'peaks'
-///     key that does not exist — fixed in #5537.)
-///
-/// UNREACHABLE from production: the engine's chunked mastering loop is the
-/// same-named Python function in auralis/core/mastering_chunk_loop.py, and
-/// the only Python caller of this binding is a PyO3 boundary smoke test
-/// (tests/test_pyo3_channel_axis_guards_4502.py) — noted earlier in #4989.
-/// TODO(#5738): either wire this into the engine (it takes f64 while the
-/// engine's chunk loop works in f32, so a caller needs an explicit cast) or
-/// remove the binding, chunk_processor.rs, and the smoke-test cases together.
-///
-/// Note: This is a simplified wrapper. For custom processing, use the Rust API directly.
-#[pyfunction]
-#[pyo3(signature = (audio, chunk_size = 131072, overlap = 2205))]
-fn process_chunks_wrapper(
-    py: Python<'_>,
-    audio: PyReadonlyArray2<'_, f64>,
-    chunk_size: usize,
-    overlap: usize,
-) -> PyResult<Py<PyDict>> {
-    // Convert to ndarray
-    let audio_array = audio.as_array().to_owned();
-
-    // Same channel-axis guard as compute_fingerprint_wrapper above (#4502):
-    // num_channels sizes per-channel state in ChunkProcessor.
-    let num_channels = audio_array.shape()[0];
-    if num_channels == 0 || num_channels > 2 {
-        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-            format!(
-                "Channels must be 1 (mono) or 2 (stereo), got {};                  audio must be shaped (channels, samples), not (samples, channels)",
-                num_channels
-            ),
-        ));
-    }
-
-    let config = chunk_processor::ChunkConfig {
-        chunk_size,
-        overlap,
-        num_channels,
-        crossfade_samples: 2205,
-    };
-
-    let mut processor = chunk_processor::ChunkProcessor::new(config);
-
-    // Release GIL during CPU-bound computation (#2447).
-    let output = py.detach(|| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        processor.process_chunks(&audio_array.view(), |chunk| chunk.to_owned())
-    })))
-    .map_err(|e| {
-        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-            format!("Rust DSP panic in process_chunks: {}", format_panic(e)),
-        )
-    })?;
-
-    // Collect stats
-    let dict = PyDict::new(py);
-    dict.set_item("output", output.into_pyarray(py))?;
-    dict.set_item("chunk_size", chunk_size)?;
-    dict.set_item("overlap", overlap)?;
 
     Ok(dict.into())
 }

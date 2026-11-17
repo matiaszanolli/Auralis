@@ -1,15 +1,10 @@
-"""PyO3 wrappers validate the channel axis before sizing allocations (#4502).
+"""The PyO3 fingerprint wrapper validates the channel axis before sizing allocations (#4502).
 
-`process_chunks_wrapper` (and the since-removed `apply_multiband_eq_wrapper`,
-#5764) read `audio_array.shape()[0]` as the channel count. A `(samples, channels)`
-array — the orientation soundfile and most of the Python pipeline use —
-therefore made `num_channels` the *sample* count, allocating one set of per-channel chunk state
-per sample. `compute_fingerprint_wrapper` already rejected that shape; this
-one did not.
-
-The failure was previously contained only by `py.allow_threads(catch_unwind(...))`
-turning the eventual panic into a `RuntimeError`, after the pathological
-allocation had already been attempted.
+A `(samples, channels)` array - the orientation soundfile and most of the Python pipeline use -
+made a wrapper that reads `audio_array.shape()[0]` as the channel count treat the *sample* count as
+the number of channels and allocate per-channel state for each one. `compute_fingerprint_wrapper`
+rejects that shape (and a zero or >2 channel count) up front. The second wrapper this file used to
+guard, `process_chunks`, was dead code and went in #5738.
 """
 
 import numpy as np
@@ -28,39 +23,15 @@ def _stereo(samples: int = 1024) -> np.ndarray:
     return np.ascontiguousarray(np.vstack([tone, tone * 0.5]))
 
 
-class TestProcessChunksChannelGuard:
-    def test_rejects_transposed_samples_by_channels_input(self):
-        transposed = np.ascontiguousarray(_stereo(8192).T)
-
-        with pytest.raises(ValueError) as exc:
-            auralis_dsp.process_chunks(transposed, 4096, 256)
-
-        assert "(channels, samples)" in str(exc.value)
-
-    def test_rejects_an_empty_leading_axis(self):
-        with pytest.raises(ValueError):
-            auralis_dsp.process_chunks(np.zeros((0, 8192)), 4096, 256)
-
-    @pytest.mark.parametrize("channels", [1, 2])
-    def test_accepts_valid_channel_counts(self, channels):
-        audio = _stereo(8192)[:channels]
-
-        result = auralis_dsp.process_chunks(audio, 4096, 256)
-
-        assert result["chunk_size"] == 4096
-        assert result["overlap"] == 256
-        assert result["output"].shape[0] == channels
-
-
-class TestGuardMatchesFingerprintWrapper:
-    """The guard exists because compute_fingerprint_wrapper already had one —
-    the two should agree on what an invalid channel count is."""
-
-    def test_fingerprint_wrapper_rejects_the_same_channel_counts(self):
-        mono = _stereo()[0]
+class TestFingerprintWrapperChannelGuard:
+    def test_rejects_a_channel_count_that_is_not_mono_or_stereo(self):
+        mono = _stereo()[0].astype(np.float32)
 
         with pytest.raises(ValueError):
-            auralis_dsp.compute_fingerprint(mono.astype(np.float32), 44100, 3)
+            auralis_dsp.compute_fingerprint(mono, 44100, 3)
 
         with pytest.raises(ValueError):
-            auralis_dsp.compute_fingerprint(mono.astype(np.float32), 44100, 0)
+            auralis_dsp.compute_fingerprint(mono, 44100, 0)
+
+    def test_the_removed_chunk_binding_is_gone(self):
+        assert not hasattr(auralis_dsp, "process_chunks")

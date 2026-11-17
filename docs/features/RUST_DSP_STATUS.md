@@ -12,7 +12,7 @@ tempo, envelope follower, compressor, limiter, multiband EQ and onset detection 
 bindings. None had a production caller (the Python implementations are what run), so #5764
 deleted the nine bindings and the modules only they used.
 
-## Module inventory (10 modules, 3,486 lines)
+## Module inventory (9 modules, 3,568 lines)
 
 | Module | Lines | Unit tests | Purpose |
 |---|---|---|---|
@@ -24,12 +24,11 @@ deleted the nine bindings and the modules only they used.
 | `chroma.rs` | 502 | 15 | Constant-Q chromagram (harmonic dimensions of the fingerprint) |
 | `rhythm.rs` | 700 | 6 | Beat tracking + silence ratio; feeds `rhythm_stability` / `silence_ratio` (ported from the deleted `fingerprint-server` crate, #4533) |
 | `dsp_math.rs` | 44 | 0 | Shared RMS / LUFS-proxy primitives |
-| `chunk_processor.rs` | 250 | 3 | Streaming chunk processing; **dead**, behind `process_chunks`, decision tracked in #5738 |
-| `py_bindings.rs` | 228 | 0 | `#[pymodule]` registering `compute_fingerprint` and `process_chunks` |
+| `py_bindings.rs` | 151 | 0 | `#[pymodule]` registering `compute_fingerprint` (the dead `process_chunks` binding and its chunk-processor module were deleted, #5738) |
 
 ## Test status (`cargo test --lib`, verified 2026-10-27)
 
-**64 / 64 unit tests passing.** The five failures listed here until #5859 were
+**73 / 73 unit tests passing** (re-run 2026-11-17 after #5738). The five failures listed here until #5859 were
 stale tests, not fingerprint bugs: `test_compute_energy` expected
 sqrt(sum)/N instead of RMS; the phase-correlation "opposite" and stereo
 fingerprint tests fed constant (zero-variance) channels, whose correlation is

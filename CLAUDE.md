@@ -238,10 +238,10 @@ Cached chunk files are 16-bit PCM WAV, not float32.
    Prose deferrals are invisible to any marker sweep, so `/audit-tech-debt` has
    to fall back to a high-recall prose grep that cannot distinguish a deferral
    from an ordinary sentence (#4564). Genuine marker debt in shipped code —
-   `auralis/`, `auralis-web/`, `vendor/` — is **3** (2026-11-17: #5858, #5484,
-   #5738), each citing an OPEN issue; `tests/` holds **0** (#5851 closed). A
+   `auralis/`, `auralis-web/`, `vendor/` — is **2** (2026-11-17: #5858, #5484),
+   each citing an OPEN issue; `tests/` holds **0** (#5851 closed). A
    marker citing a closed issue is itself a finding (the `TODO(#5537)` in
-   `py_bindings.rs` was re-pointed at the open #5738). #5152 turned the prose
+   `py_bindings.rs` was re-pointed at #5738, which then deleted the code). #5152 turned the prose
    "Retiring it is tracked separately" into a `TODO(#5295)` that `134c74ae`
    later retired with the dead dynamics path — the rule working end to end.
    Keep both figures honest by linking the issue instead of leaving a bare

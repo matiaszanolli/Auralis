@@ -8,14 +8,12 @@
 /// - Fingerprint: assembles the 25 dimensions
 ///
 /// Do not add modules without a production Python caller: HPSS, YIN, tempo,
-/// envelope follower, compressor, limiter, multiband EQ and onset detection
-/// all lacked one and went (#5764). `chunk_processor` stays until #5738
-/// decides it.
+/// envelope follower, compressor, limiter, multiband EQ, onset detection and the
+/// chunk processor all lacked one and went (#5764, #5738).
 
 // Core DSP modules
 pub mod chroma;
 pub mod rhythm;
-pub mod chunk_processor;
 
 // Shared DSP math primitives (compute_rms, estimate_lufs) — #4022
 pub(crate) mod dsp_math;
