@@ -12,35 +12,32 @@ split from path_security.py (#6271).
 import functools
 import logging
 from collections.abc import Callable
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class PathValidationError(Exception):
     """Raised when path validation fails."""
-    pass
+
+    def log_text(self) -> str:
+        """The message to persist at WARNING; containment/traversal messages are already path-free."""
+        return str(self)
 
 
 class PathMissingError(PathValidationError):
-    """Raised when a path is well-formed and contained, but absent on disk.
+    """A path that is well-formed and contained but absent on disk (#5080).
 
-    #5080: ``validate_file_path()`` used to report "this path escapes the
-    allowed directories" and "this file no longer exists" with the same
-    exception type, so every caller that mapped ``PathValidationError`` to
-    HTTP 400 answered 400 for a track whose file had been deleted, moved or
-    lives on an unplugged drive — the most common desktop failure mode for a
-    file-backed library, and the one case a client genuinely needs to tell
-    apart (offer relocate/remove vs. report a malformed request).
-
-    Subclassing ``PathValidationError`` keeps every existing
-    ``except PathValidationError`` handler working unchanged; a caller that
-    wants the distinction catches this first. Raised ONLY by the
-    existence/is-a-file checks — a containment, traversal, empty-path or
-    unreadable-path rejection stays a plain ``PathValidationError``.
+    Kept apart from "escapes the allowed directories" so a caller can tell a deleted, moved or unplugged-drive
+    track (offer relocate/remove) from a malformed request. Subclassing ``PathValidationError`` keeps every
+    existing ``except PathValidationError`` handler working; a caller that wants the distinction catches this first.
     """
-    pass
+
+    def log_text(self) -> str:
+        """The absolute path is the commonest thing users paste into public issues: log the file name (#6189)."""
+        reason, _, path = str(self).rpartition(": ")
+        return f"{reason}: {Path(path).name}" if reason else Path(path).name
 
 
 def _logs_rejections(fn: Callable[..., Path]) -> Callable[..., Path]:
@@ -74,7 +71,8 @@ def _logs_rejections(fn: Callable[..., Path]) -> Callable[..., Path]:
             logger.warning(
                 "Path validation rejected%s: %s",
                 f" ({context})" if context else "",
-                e,
+                e.log_text(),
             )
+            logger.debug("Path validation rejection (full): %s", e)
             raise
     return wrapper
