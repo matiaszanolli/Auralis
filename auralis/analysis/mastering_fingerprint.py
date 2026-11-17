@@ -28,7 +28,7 @@ import numpy as np
 
 from ..utils.logging import warning
 from .fingerprint.body_window import body_window_offset_s
-from .fingerprint.windows import FINGERPRINT_BODY_WINDOW_S
+from .fingerprint.windows import FINGERPRINT_BODY_WINDOW_S, stereo_window
 
 from .fingerprint.metrics import AudioMetrics
 from ..io.formats import FFMPEG_FORMATS
@@ -139,7 +139,8 @@ class MasteringFingerprint:
                 )
                 sr_loaded = int(_loaded_sr)
 
-            # Convert to mono if stereo
+            # Fold >2 channels the way the 25D windows do (BS.775 for 5.1/7.1, #6323), then to mono.
+            y = stereo_window(y)
             if len(y.shape) == 1:
                 mono = y
             else:
