@@ -252,8 +252,14 @@ async def send_pcm_chunk(
                 else:
                     pcm_bytes = frame_samples.astype('<f4').tobytes()
                 await queue.put((metadata, pcm_bytes))
+        except asyncio.CancelledError:
+            abort_event.set()  # nothing will drain the queue any more
+            raise
         finally:
-            await queue.put(None)  # sentinel
+            # The sentinel is for a live consumer. After a cancel or a failed send there is none, and a put
+            # on the still-full queue would park this task forever (#6006).
+            if not abort_event.is_set():
+                await queue.put(None)
 
     async def _consumer() -> None:
         while True:
