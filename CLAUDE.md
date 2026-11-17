@@ -42,9 +42,10 @@ cd vendor/auralis-dsp && maturin develop
 
 ## CI gates and the failure baselines
 
-Neither test suite is green, so both CI gates are **ratchets**: a run is judged
+The backend suite is not green, so both CI gates are **ratchets**: a run is judged
 against a checked-in list of known failures and fails only on failures *not* in
-that list. The list may shrink, never grow.
+that list. The list may shrink, never grow. The frontend list is empty since #6076
+(`52929bb09`), so any frontend failure is new; the backend list still has entries.
 
 | Workflow | Runs | Baseline | Gate script |
 |---|---|---|---|
@@ -161,7 +162,7 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (25D fingerprint only, #5764)
 desktop/                          Electron wrapper
-tests/                            ~8,000 test functions (933 files) across 16 subdirs (auralis, backend,
+tests/                            ~8,400 test functions (996 files) across 16 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)
 docs/                             18 topic dirs (development, features, frontend...)
 ```

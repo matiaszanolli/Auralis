@@ -29,7 +29,7 @@ Determine scope from arguments:
 | Player RT Processing | `auralis/player/realtime/` (incl. `peak_ceiling.py`, `StreamingPeakCeiling`, #5721) |
 | Chunked Mastering (offline CLI) | `auralis/core/mastering_chunk_loop.py`, `mastering_chunk_assembly.py`, `mastering_process_chunk.py`, `mastering_config.py` |
 | Backend Chunking | `auralis-web/backend/core/chunked_processor.py` |
-| Rust DSP Bindings | `vendor/auralis-dsp/src/*.rs` — since #5764 the only live binding is `compute_fingerprint` (reads audio, emits none; adapter `auralis/analysis/fingerprint/rust_fingerprint.py`). `process_chunks` has no Python caller (#5738, open) |
+| Rust DSP Bindings | `vendor/auralis-dsp/src/*.rs` — since #5764 the only live binding is `compute_fingerprint` (reads audio, emits none; adapter `auralis/analysis/fingerprint/rust_fingerprint.py`). the dead Rust `process_chunks` binding and *chunk_processor.rs* were deleted in #5738 (`58e9cc87d`), so a Rust chunk path reappearing is new surface to verify |
 
 ## The 6 Invariants
 
@@ -43,7 +43,7 @@ Determine scope from arguments:
 - Watch for: `np.pad()`, `np.trim_zeros()`, `signal.resample()`, array slicing that changes length, `np.concatenate()` with extra samples
 - Chunked processing: verify `sum(chunk_lengths) == total_length` after reassembly. On the backend path `total_length` is what the decoder actually yields, not the probed container duration: a lossy file's probe counts encoder priming (2112 samples for iTunes AAC, about a frame for MP3) the decoder strips, so the LAST chunk emits what the source holds and is neither padded with silence up to the probe (`chunk_segment_extraction.py`) nor tail-cut into real audio (`ChunkBoundaryManager.trim_context` keeps the core measured from its start) (#6345, `53701f202`, `tests/backend/test_chunk_short_source_6345.py`)
 - Offline chunk planning folds a final remainder under `max(MIN_FINAL_CHUNK_SAMPLES, crossfade)` into the previous chunk (`next_core_samples` / `count_chunks`, #5736, #6139): the samples are still rendered, so counting chunks as `ceil(total / chunk)` is the stale form
-- `HybridProcessor.process()` input: channels-first, non-floating or >2-D arrays raise `ValueError` rather than returning a silent unprocessed copy (#6118, `tests/auralis/core/test_hybrid_input_contract_6118.py`); a genuinely too-short clip still comes back as an untouched copy
+- `HybridProcessor.process()` input: channels-first, non-floating or >2-D arrays raise `ValueError`, and a multichannel channels-first array is refused by name, rather than returning a silent unprocessed copy (#6118, #6298, `tests/auralis/core/test_hybrid_input_contract_6118.py`); a genuinely too-short clip still comes back as an untouched copy
 
 **Pass criteria**: Every audio processing function preserves sample count, or explicitly documents why it doesn't (e.g., resampling).
 
@@ -101,7 +101,7 @@ Determine scope from arguments:
 - Watch for: gain application without subsequent limiting, additive mixing without normalization
 - Ceilings are sample-local: `ContinuousMode`'s final ceiling is a look-ahead `BrickWallLimiter` that ramps in over the look-ahead (#5701, #5699), and the real-time chain's ceilings share one `StreamingPeakCeiling` envelope carried across chunks (#5721). A per-buffer `ceiling / max(abs(buf))` multiply is a regression (the gain steps at the chunk edges)
 
-- Offline CLI: `process_chunks` measures the real post-guard, post-crossfade peaks in a first render pass and applies one uniform `two_pass_correction_gain` (≤ 1, targets 0.99 sample peak and -0.5 dBTP) in the second (#5694), so the final write clamp is a backstop, not the only guard
+- Offline CLI: `process_chunks` measures the real post-guard, post-crossfade peaks in a first render pass and applies one uniform `two_pass_correction_gain` (≤ 1, targets 0.99 sample peak and -0.5 dBTP) in the second (#5694), so the final write clamp is a backstop, not the only guard. It is the only ceiling: the input-peak-keyed `apply_true_peak_guard` was deleted because it attenuated hot masters by up to 0.76 dB for nothing (#6320, `364525e69`), so a pre-render gain keyed to the INPUT peak is a regression
 
 **Pass criteria**: Final output is always clamped. Intermediate stages that can exceed [-1.0, 1.0] have downstream clamping.
 

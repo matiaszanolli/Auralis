@@ -259,7 +259,7 @@ Every agent prompt MUST include:
 - Tests that print rather than assert (`print(...)` / `console.log(...)` with no follow-up assertion).
 - Over-mocking: `vi.*` / `unittest.mock` mocks so broad the test no longer exercises real behavior (cross-reference the global auto-mocks in `auralis-web/frontend/src/test/`).
 - Cross-reference "must not regress" baselines named in other `audit-*.md` skills — confirm each named regression test still exists and is not skipped.
-- Note the known frontend vitest baseline (pre-existing failures) — do NOT report individual pre-existing failures as debt; report only skip/xfail rot and assertion-quality issues.
+- Note the frontend vitest baseline (empty since #6076, so any failing spec is new, not pre-existing) — a failure is a regression, not debt; report only skip/xfail rot and assertion-quality issues.
 **Output**: `/tmp/audit/auralis/tech-debt/dim_6.md`
 
 ### Dimension 7: Stale Documentation & Comments

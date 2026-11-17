@@ -6,7 +6,8 @@
 # Path prefixes feed prep.sh's per-group weight (changed files under them) — they are routing hints for
 # the agent's delta read, not an ownership map; a file may count toward several groups.
 # Rebalance by the weights prep.sh prints: split a group whose changed-file count dwarfs the rest.
-engine: audit-engine verify-dsp | auralis/core auralis/dsp auralis/analysis auralis/io auralis/player auralis/library auralis/optimization auralis/services auralis/learning vendor/auralis-dsp
+engine: audit-engine | auralis/core auralis/dsp auralis/analysis auralis/io auralis/player auralis/library auralis/optimization auralis/services auralis/learning vendor/auralis-dsp
+dsp: verify-dsp | auralis/core auralis/dsp vendor/auralis-dsp
 backend: audit-backend | auralis-web/backend
 frontend: audit-frontend | auralis-web/frontend
 integration: audit-integration sync-contracts trace-flow | auralis-web/backend/routers auralis-web/backend/schemas auralis-web/backend/websocket auralis-web/backend/ws_handlers auralis-web/frontend/src/hooks auralis-web/frontend/src/services auralis-web/frontend/src/types

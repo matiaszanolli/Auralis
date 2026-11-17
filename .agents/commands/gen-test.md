@@ -84,6 +84,8 @@ assert np.all(output >= -1.0) and np.all(output <= 1.0), "Output exceeds [-1.0, 
 - Use `userEvent` for user interactions, not `fireEvent`
 - Test component behavior, not implementation details
 - Include loading, error, and empty states
+- Assert a specific value, not presence (`toBeDefined` / `toBeTruthy` / `not.toBeNull`) and never leave an `it` with no assertion: `pnpm run test:weak` (`scripts/check-weak-tests.mjs`, a `frontend-test.yml` step, empty baseline) fails on new offenders (#5682)
+- A REST call the spec makes needs an MSW handler (`src/test/mocks/handlers.ts` carries defaults for the common endpoints); `setup.ts` fails the test in `afterEach` on an `/api` request nothing answers (#5681)
 
 ```typescript
 import { render, screen } from '@/test/test-utils';

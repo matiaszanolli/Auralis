@@ -96,6 +96,7 @@ htmlcov/
 htmlcov_*/
 /tmp/
 test-results/
+*.25d
 
 # Mutation testing artifacts
 .mutmut-cache/

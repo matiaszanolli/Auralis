@@ -74,9 +74,10 @@ This is the one place the whole backend suite runs: it takes tens of minutes, an
 cd auralis-web/frontend
 pnpm run test:ci || export VITEST_EXIT_CODE=$?   # CI does the same: the gate is told vitest's exit code (#5679)
 pnpm run test:baseline -- --strict-stale
+pnpm run test:weak:selftest && pnpm run test:weak   # weak-spec ratchet, a step in frontend-test.yml (#5682)
 ```
 
-**Verdict**: FAIL on any failure not listed in `auralis-web/frontend/test-baseline.json`, on a stale baseline entry, on a missing report, on a run that collected under 90 % of the tests the baseline was generated from, or when vitest exited non-zero with no failing test in the report (a crashed worker, not a baselined failure). WARN if no tests found.
+**Verdict**: FAIL on any failure not listed in `auralis-web/frontend/test-baseline.json` (empty since #6076, so any failure counts), on a spec added to the weak-spec baseline (`auralis-web/frontend/weak-tests-baseline.json`), on a stale baseline entry, on a missing report, on a run that collected under 90 % of the tests the baseline was generated from, or when vitest exited non-zero with no failing test in the report (a crashed worker, not a baselined failure). WARN if no tests found.
 
 ### Gate 6: DSP Invariants
 
@@ -133,7 +134,7 @@ cargo audit --file vendor/auralis-dsp/Cargo.lock
 cd auralis-web/frontend && pnpm outdated 2>&1 | head -20
 ```
 
-**Verdict**: FAIL on any advisory against `requirements-lock.txt` or `Cargo.lock`, a high/critical advisory in a production npm tree, or a failing lock/pin script. WARN on a dev/build-tree advisory (non-blocking in CI and tracked in the open #6181) or when `pip-audit` / `cargo audit` is not installed. INFO on outdated.
+**Verdict**: FAIL on any advisory against `requirements-lock.txt` or `Cargo.lock`, a high/critical advisory in a production npm tree, or a failing lock/pin script. WARN on a dev/build-tree advisory (`pnpm audit --audit-level high` without `--prod` is a non-blocking CI step; #6181 refreshed those locks, closed, `13c30e237`, leaving only a LOW esbuild advisory that needs a vite major) or when `pip-audit` / `cargo audit` is not installed. INFO on outdated.
 
 ### Gate 11: Rust DSP Build
 

@@ -108,7 +108,7 @@ python -m pytest -q -m "not slow" tests/<subdir-a> tests/<subdir-b> \
 ```
 
 A failure is only yours if it is not listed in `pytest-baseline.json` (backend) or
-`auralis-web/frontend/test-baseline.json` (frontend). The inverse also bites:
+`auralis-web/frontend/test-baseline.json` (frontend; empty since #6076, so any frontend failure is yours). The inverse also bites:
 `--strict-stale` is on in both CI gates (`check_pytest_baseline.py`, #5091; the
 frontend `pnpm run test:baseline -- --strict-stale`, #5344), and fails on a baseline
 entry whose test now passes, so a fix that turns a listed test green must drop its
@@ -152,7 +152,7 @@ Before committing, verify each keyed check. Reference these tags in the commit i
 - [ ] **GIL**: Rust PyO3 long compute releases the GIL?
 - [ ] **SCHEMA**: If a Pydantic model changed, frontend types match?
 - [ ] **TOKEN**: If frontend code touched, no raw hex colors (use `tokens`)?
-- [ ] **TEST**: Regression test added when applicable, with a real assertion? (`scripts/check_weak_assertions.py` rejects new `is not None`-only and zero-assertion tests.)
+- [ ] **TEST**: Regression test added when applicable, with a real assertion? (`scripts/check_weak_assertions.py` rejects new `is not None`-only and zero-assertion tests; the frontend twin is `pnpm run test:weak`, #5682.)
 - [ ] **NEST**: No function nested deeper than four control-flow levels? (`tests/regression/test_control_flow_nesting_5839.py` fails on one; flatten with guard clauses or a helper.)
 - [ ] **DELETION**: If the fix deletes or renames a file or symbol — grep its name across `.claude/`, `docs/architecture`, `docs/subsystems` and `CLAUDE.md`, and run `.claude/commands/_audit-validate.sh` (strict scope must exit 0). Since `2030b97d` (#5818) the `path-references` pre-commit hook (`scripts/pre_commit_path_references.sh`) runs the same gate automatically on any commit that deletes or renames files, but it never fires for a deleted symbol and checks only backticked paths — the grep is still yours. Leave no "was removed in #NNNN" comment behind: `scripts/check_breadcrumbs.py` (a `backend-tests.yml` step) fails on it, and the git log carries that history (#6257). Deletion refactors that skipped this turned the path gate red on master twice (#5526 in `7088915d`, #5642 in `05cbb1c1`).
 - [ ] **LOC**: If this issue is a god-file/oversized-module split, re-run `wc -l` on the target file before closing (#4673) — close only when it's under the project's 300-LOC rule, otherwise re-scope the issue (update its body with the current LOC and what remains) and leave it open rather than closing on partial progress. Four issues (#4245, #4249, #4250, #4254) were closed in 2026-07 while their targets stayed 2.3-2.7x over the limit, understating the real backlog until re-audited. Since #5830 the closed split targets are held by `loc-ceilings.json`: run `python scripts/check_loc_ratchet.py` for any fix that adds lines to a listed file (a `backend-tests.yml` step; ceilings only go down, so put new code in a sibling module), and enrol each new split target at its measured size with `--update` in the same commit (#6268).
