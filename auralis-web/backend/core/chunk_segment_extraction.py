@@ -12,22 +12,17 @@ segment — the tiling half of the #4642 no-crossfade contract.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-
-
 import logging
 
 import numpy as np
 
-from core.chunk_boundary_manager import ChunkBoundaryManager
 from core.chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
-    CONTEXT_DURATION,
     OVERLAP_DURATION,
 )
 
 logger = logging.getLogger(__name__)
-
 
 
 def extract_chunk_segment(
@@ -143,8 +138,13 @@ def extract_chunk_segment(
     else:
         expected_for_validation = int(round(chunk_interval * sample_rate))
 
-    if current_samples < expected_for_validation:
-        # Pad with silence if too short. extracted is guaranteed 2-D here.
+    if current_samples < expected_for_validation and is_last:
+        # Source ended before its probed duration: the container counts encoder priming
+        # the decoder strips (2112 samples for AAC, ~a frame for MP3). Padding up to the
+        # probe put that silence at the end of every such track, breaking gapless (#6345).
+        logger.debug(f"Chunk {chunk_index} (last): source ended "
+                     f"{expected_for_validation - current_samples} samples before its probed duration")
+    elif current_samples < expected_for_validation:
         padding_needed = expected_for_validation - current_samples
         num_channels = extracted.shape[1]
         # Match the buffer's dtype instead of hardcoding float32 (#4134,

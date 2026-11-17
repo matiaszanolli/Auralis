@@ -21,7 +21,6 @@ from .chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
     CONTEXT_DURATION,
-    OVERLAP_DURATION,
     content_chunk_count,
 )
 
@@ -217,21 +216,20 @@ class ChunkBoundaryManager:
                 f"from start"
             )
 
-        # Trim end context if not last chunk
+        # Trim end context if not last chunk: keep the core measured from its
+        # START (#6345). Cutting trim_end off the tail assumed the buffer reached
+        # load_end, but a decoder can stop short of the probed duration (AAC
+        # priming, MP3 decoder delay). When load_end is capped at that duration
+        # (a short last chunk follows), the tail cut then removed real audio
+        # and extract_chunk_segment padded the hole with silence mid-track.
         if trim_end_samples > 0:
-            chunk_length = len(audio_chunk)  # Update after potential start trim
-            actual_trim_end = min(trim_end_samples, max(0, chunk_length - 1))
-            if actual_trim_end < trim_end_samples:
+            _, _, core_start, core_end = self.get_chunk_boundaries_samples(chunk_index)
+            if len(audio_chunk) < core_end - core_start:
                 logger.warning(
-                    f"Chunk {chunk_index}: end trim clamped to avoid emptying the buffer "
-                    f"(requested {trim_end_samples} samples, buffer only had {chunk_length}; "
-                    f"clamped to {actual_trim_end}) — DSP may have shrunk the chunk unexpectedly"
+                    f"Chunk {chunk_index}: {core_end - core_start - len(audio_chunk)} "
+                    f"samples short of its core — source ended early or DSP shrank it"
                 )
-            if actual_trim_end > 0:
-                audio_chunk = audio_chunk[:-actual_trim_end]
-            logger.debug(
-                f"Chunk {chunk_index}: trimmed {actual_trim_end/self.sample_rate:.2f}s "
-                f"from end"
-            )
+            audio_chunk = audio_chunk[:core_end - core_start]
+            logger.debug(f"Chunk {chunk_index}: trimmed to core ({core_end - core_start} samples)")
 
         return audio_chunk
