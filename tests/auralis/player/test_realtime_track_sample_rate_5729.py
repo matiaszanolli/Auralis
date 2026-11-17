@@ -97,7 +97,7 @@ def test_get_audio_chunk_passes_file_rate_to_processor(monkeypatch) -> None:
     h._advance_thread = None
     h.playback = MagicMock()
     h.playback.is_playing.return_value = True
-    h.playback.read_and_advance_position.return_value = 0
+    h.playback.read_and_advance_if_playing.return_value = 0
 
     fm = MagicMock()
     fm._audio_lock = threading.RLock()

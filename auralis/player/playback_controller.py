@@ -233,6 +233,18 @@ class PlaybackController:
             self.position = min(pos + advance_by, max_samples)
             return pos
 
+    def read_and_advance_if_playing(self, advance_by: int, max_samples: int) -> int | None:
+        """``read_and_advance_position()`` only while PLAYING, else None.
+
+        The state test and the advance share one ``_lock`` hold (RLock), so a
+        stop() between them can no longer have its position reset overwritten
+        by a stale advance and one extra chunk emitted after it (#6308).
+        """
+        with self._lock:
+            if self.state != PlaybackState.PLAYING:
+                return None
+            return self.read_and_advance_position(advance_by, max_samples)
+
     def get_position_snapshot(self) -> int:
         """Return current position sample atomically (thread-safe)."""
         with self._lock:

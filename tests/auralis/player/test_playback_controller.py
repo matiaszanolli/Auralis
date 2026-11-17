@@ -567,3 +567,43 @@ class TestStateMachineBypass:
                     assert prop.fset is None, \
                         "AudioPlayer.state setter should be removed"
                 break
+
+
+class TestAdvanceOnlyWhilePlaying:
+    """#6308: get_audio_chunk() checked is_playing() and then advanced in two
+    separate _lock acquisitions, so a stop() landing between them had its
+    position reset overwritten (STOPPED at one chunk in) and one extra chunk
+    was emitted. The check and the advance now share one lock hold."""
+
+    @pytest.mark.parametrize("state", [PlaybackState.STOPPED, PlaybackState.PAUSED])
+    def test_does_not_advance_unless_playing(self, state):
+        controller = PlaybackController()
+        controller.state = state
+        controller.position = 500
+
+        assert controller.read_and_advance_if_playing(1024, 441000) is None
+        assert controller.position == 500
+
+    def test_advances_like_read_and_advance_position_while_playing(self):
+        controller = PlaybackController()
+        controller.play()
+        controller.position = 500
+
+        assert controller.read_and_advance_if_playing(1024, 441000) == 500
+        assert controller.position == 1524
+
+    def test_stop_racing_an_advance_always_ends_stopped_at_zero(self):
+        controller = PlaybackController()
+        controller.play()
+        stopper = threading.Thread(target=controller.stop)
+
+        with controller._lock:  # an advance is in progress on this thread
+            stopper.start()
+            time.sleep(0.05)  # stop() is now blocked on the lock
+            assert controller.read_and_advance_if_playing(1024, 441000) == 0
+        stopper.join(2.0)
+
+        assert controller.state == PlaybackState.STOPPED
+        assert controller.position == 0
+        # ...and the next chunk request after the stop emits nothing.
+        assert controller.read_and_advance_if_playing(1024, 441000) is None

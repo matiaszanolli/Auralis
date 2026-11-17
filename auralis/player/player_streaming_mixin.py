@@ -84,15 +84,18 @@ class PlayerStreamingMixin:
         # thread acquires the lock independently when it runs.
         reached_end_without_advance = False
         with self.file_manager._audio_lock:
-            # Return silence if not playing
-            if not self.file_manager.is_loaded() or not self.playback.is_playing():
+            if not self.file_manager.is_loaded():
                 return np.zeros((chunk_size, 2), dtype=np.float32)
 
             # Atomically read position and advance to prevent seek race (#2153).
             # Clamped to total_samples (#5114) so the stored position never
-            # transiently exceeds track length on the final chunk.
+            # transiently exceeds track length on the final chunk. The PLAYING
+            # test is part of the same atomic step: checked separately, a stop()
+            # landing in between had its position reset overwritten (#6308).
             total_samples = self.file_manager.get_total_samples()
-            pos = self.playback.read_and_advance_position(chunk_size, total_samples)
+            pos = self.playback.read_and_advance_if_playing(chunk_size, total_samples)
+            if pos is None:  # not playing: silence
+                return np.zeros((chunk_size, 2), dtype=np.float32)
 
             # Get raw audio chunk using the captured position
             chunk = self.file_manager.get_audio_chunk(pos, chunk_size)
