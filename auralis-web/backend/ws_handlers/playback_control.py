@@ -20,6 +20,7 @@ from services.playback_event_sequencer import playback_event_sequencer
 from core.task_cancellation import await_cancelled_task
 
 from .context import StreamState
+from .stream_cancel import detach_stream, signal_cancel
 
 logger = logging.getLogger(__name__)
 
@@ -74,42 +75,13 @@ async def handle_buffer_ready(websocket: WebSocket, state: StreamState) -> None:
 async def handle_stop(websocket: WebSocket, state: StreamState) -> None:
     logger.info("Received stop command via WebSocket")
     ws_id = _ws_id(websocket)
-    # #4704 SIBLING, deliberately NOT routed through
-    # playback_commands._cancel_prior_task, unlike handle_seek:
-    #   * this also clears `active_stream_settings`, which the helper must not
-    #     touch — seek and play re-use that snapshot for the successor stream
-    #     (#4742), whereas a stop ends the stream outright;
-    #   * the helper additionally sweeps completed tasks for OTHER ws ids,
-    #     which stop has no reason to do;
-    #   * `playback_control` does not import from `playback_commands`, and
-    #     reaching for a sibling module's private helper to save six lines
-    #     would couple the two for less than it costs.
-    # TODO(#6292): consolidate the three teardown sites (this handler,
-    #   playback_commands._cancel_prior_task, connection.teardown_connection)
-    #   behind one shared cancel_stream() helper with the deliberate
-    #   differences above as parameters. Until then this stays a hand-synced
-    #   copy: any new per-ws registry or cancel-token step must be applied at
-    #   all three sites (#4364/#4742/#4815 each were).
+    # Not routed through playback_commands._cancel_prior_task: a stop also clears the settings
+    # snapshot and awaits outside the process-wide transition lock (#4704, #5319). The pop and the
+    # cancel-token step are the shared stream_cancel helpers (#6292).
     async with playback_event_sequencer.transition_lock:
         async with state.active_tasks_lock:
-            task = state.active_tasks.pop(ws_id, None)
-            # Also clear the per-ws event/track registries so a stop with no
-            # subsequent play/seek doesn't leave stale entries dangling until
-            # disconnect — matching _cancel_prior_task / teardown_connection (#4364).
-            state.active_track_ids.pop(ws_id, None)
-            state.pause_events.pop(ws_id, None)
-            state.flow_events.pop(ws_id, None)
-            state.active_stream_settings.pop(ws_id, None)  # #4742
-            # #4815: same sibling treatment as _cancel_prior_task — pop while
-            # holding the lock, then set() outside it (below), so an in-flight
-            # chunk DSP call aborts instead of running to completion unreferenced.
-            cancel_event = state.chunk_cancel_events.pop(ws_id, None)
-        if cancel_event is not None:
-            cancel_event.set()
-        if task is not None and not task.done():
-            task.cancel()
-        else:
-            task = None
+            task, cancel_event = detach_stream(state, ws_id, clear_settings=True, pop_cancel_event=True)
+        task = signal_cancel(task, cancel_event)
         event_seq = playback_event_sequencer.next_transport_seq()
     # #5319: await the cancelled task's teardown OUTSIDE transition_lock. That
     # lock is process-wide — every WS connection's pause/resume/stop and the

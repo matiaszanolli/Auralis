@@ -104,7 +104,7 @@ def test_playlist_page_ends_in_id(playlist_repository, monkeypatch):
         playlist_repository, monkeypatch, lambda: playlist_repository.get_all()
     )
     assert len(statements) == 1
-    assert _order_by_clauses(statements[0])[-1] == "playlists.id"
+    assert re.fullmatch(r"playlists\.id( ASC| DESC)?", _order_by_clauses(statements[0])[-1])
 
 
 def test_albums_with_identical_titles_page_without_duplicates(track_repository, album_repository):

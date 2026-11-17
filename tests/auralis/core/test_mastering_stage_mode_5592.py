@@ -27,7 +27,7 @@ def _load_stage_module():
     fake_peak.compute_peak_db = lambda audio: 0.0
     fake_assembly = types.ModuleType("auralis.core.mastering_chunk_assembly")
     for name in (
-        "apply_true_peak_guard", "assemble_write_region", "count_chunks", "merge_stage_info",
+        "assemble_write_region", "count_chunks", "merge_stage_info",
         "next_core_samples", "read_chunk",
     ):
         setattr(fake_assembly, name, lambda *args, **kwargs: None)

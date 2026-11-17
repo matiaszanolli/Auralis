@@ -28,6 +28,7 @@ from websocket.websocket_security import WebSocketRateLimiter
 from . import messages as msg_handlers
 from . import playback_commands, playback_control, seek_command
 from .context import StreamState, WSDeps
+from .stream_cancel import detach_stream, signal_cancel
 
 logger = logging.getLogger(__name__)
 
@@ -238,46 +239,22 @@ async def teardown_connection(
         logger.warning("Heartbeat cleanup failed", exc_info=True)
     ws_id = _ws_id(websocket)
 
-    # Cancel any active streaming task — idempotent pop under lock (fixes #2425).
-    # Also await the cancellation so the streaming task fully releases its
-    # semaphore + chunk cache before we proceed.
-    #
-    # #4704: this is deliberately a lock-split variant of the teardown that
-    # playback_commands._cancel_prior_task expresses in one block. It runs at
-    # DISCONNECT, not mid-stream, so the registries it clears below can be
-    # cleared outside `active_tasks_lock` — no successor stream is about to
-    # register into them, which is the race the mid-stream helper guards
-    # against. Each half is independently try/except'd so one failing cleanup
-    # cannot skip the rest of a disconnect.
+    # Cancel any active streaming task — idempotent pop under lock (#2425) — and await it so the stream
+    # releases its semaphore and chunk cache first. At disconnect no successor registers into the
+    # registries, so the shared helper clears them all at once (#4704, #6292); each half stays
+    # independently guarded so one failing cleanup cannot skip the rest.
     try:
         async with state.active_tasks_lock:
-            task = state.active_tasks.pop(ws_id, None)
-            state.active_track_ids.pop(ws_id, None)
-        if task and not task.done():
+            task, cancel_event = detach_stream(state, ws_id, clear_settings=True, pop_cancel_event=True)
+        live = signal_cancel(task, cancel_event)
+        if live is not None:
             logger.info(f"Cancelling streaming task on disconnect for ws {ws_id}")
-            # #4815: same signal as _cancel_prior_task/handle_stop — set()
-            # the in-flight-DSP cancel token BEFORE cancelling the coroutine,
-            # so an executor thread already running a chunk can abort
-            # instead of running to completion unreferenced past disconnect.
-            cancel_event = state.chunk_cancel_events.get(ws_id)
-            if cancel_event is not None:
-                cancel_event.set()
-            task.cancel()
             try:
-                await task
+                await live
             except (asyncio.CancelledError, Exception):
                 pass
     except Exception:
         logger.warning("Streaming-task cleanup failed", exc_info=True)
-
-    # Clean up pause event (#2106) and flow control event
-    try:
-        state.pause_events.pop(ws_id, None)
-        state.flow_events.pop(ws_id, None)
-        state.active_stream_settings.pop(ws_id, None)  # #4742
-        state.chunk_cancel_events.pop(ws_id, None)  # #4815
-    except Exception:
-        logger.warning("Stream-event cleanup failed", exc_info=True)
 
     # Clean up rate limiter (fixes #2156)
     try:

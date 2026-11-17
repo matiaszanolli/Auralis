@@ -26,7 +26,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from ws_handlers import playback_commands, seek_command  # noqa: E402
+from ws_handlers import playback_commands, seek_command, stream_cancel  # noqa: E402
 
 _HANDLERS = Path(__file__).parent.parent.parent / "auralis-web" / "backend" / "ws_handlers"
 
@@ -61,10 +61,12 @@ class TestSeekDelegatesToTheHelper:
 
 class TestHelperClearsEveryRegistry:
     def test_cancel_prior_task_pops_all_four(self):
-        src = inspect.getsource(playback_commands._cancel_prior_task)
+        # The pops live in the one shared helper (#6292); _cancel_prior_task must go through it.
+        assert "detach_stream(" in inspect.getsource(playback_commands._cancel_prior_task)
+        src = inspect.getsource(stream_cancel.detach_stream)
         for registry in _REGISTRIES:
             assert f"{registry}.pop(" in src, (
-                f"_cancel_prior_task no longer clears {registry} — seek and "
+                f"detach_stream no longer clears {registry} — seek and "
                 f"play now inherit the superseded stream's objects"
             )
 
@@ -76,6 +78,7 @@ class TestHelperClearsEveryRegistry:
         """
         src = inspect.getsource(playback_commands._cancel_prior_task)
         assert "active_stream_settings" not in src
+        assert "clear_settings=False" in src
 
 
 class TestLockOrderingPreserved:
@@ -112,7 +115,7 @@ class TestLockOrderingPreserved:
             i for i, l in enumerate(src.splitlines()) if "active_tasks_lock" in l
         )
         cancel_line = next(
-            i for i, l in enumerate(src.splitlines()) if ".cancel()" in l
+            i for i, l in enumerate(src.splitlines()) if "signal_cancel(" in l
         )
         assert cancel_line > lock_line
 
@@ -130,9 +133,9 @@ class TestTeardownIsNoLongerDuplicatedMidStream:
             seg = ast.get_source_segment(source, node) or ""
             if any(f"{r}.pop(" in seg for r in _REGISTRIES[1:]):
                 popping_funcs.add(node.name)
-        assert popping_funcs == {"_cancel_prior_task"}, (
+        assert popping_funcs == set(), (
             f"the mid-stream teardown is expressed in {sorted(popping_funcs)}; "
-            "it should live only in _cancel_prior_task"
+            "it should live only in stream_cancel.detach_stream (#6292)"
         )
 
     @pytest.mark.parametrize(

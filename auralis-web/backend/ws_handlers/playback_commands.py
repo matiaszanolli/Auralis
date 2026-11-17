@@ -26,6 +26,7 @@ from schemas import (  # single source of truth (#4424, #4600)
 from websocket.websocket_security import send_error_response
 
 from .context import StreamState, WSDeps
+from .stream_cancel import detach_stream, signal_cancel
 from .enhancement_params import (
     DEFAULT_INTENSITY,
     parse_play_request,
@@ -44,25 +45,14 @@ async def _cancel_prior_task(ws_id: str, state: StreamState) -> None:
     async with state.active_tasks_lock:
         for k in [k for k, v in state.active_tasks.items() if v.done()]:
             state.active_tasks.pop(k, None)
-        old_task = state.active_tasks.pop(ws_id, None)
-        state.active_track_ids.pop(ws_id, None)
-        state.pause_events.pop(ws_id, None)
-        state.flow_events.pop(ws_id, None)
+        old_task, cancel_event = detach_stream(state, ws_id, clear_settings=False, pop_cancel_event=False)
 
-    if old_task and not old_task.done():
+    if old_task is not None and not old_task.done():
         logger.info(f"Cancelling existing streaming task for ws {ws_id}")
-        # #4815: signal the in-flight chunk DSP to abort BEFORE cancelling
-        # the coroutine — task.cancel() only interrupts the coroutine at its
-        # next await; the concurrent.futures.Future already running inside
-        # STREAM_EXECUTOR does not stop and keeps running unreferenced
-        # unless it checks this event itself (chunk_streaming.process_chunk).
-        cancel_event = state.chunk_cancel_events.get(ws_id)
-        if cancel_event is not None:
-            cancel_event.set()
-        old_task.cancel()
+    live = signal_cancel(old_task, cancel_event)
+    if live is not None:
         # Await cancellation so the old task releases pause/flow events (#3219)
-        await await_cancelled_task(old_task, logger)
-
+        await await_cancelled_task(live, logger)
 
 
 async def handle_play_enhanced(
