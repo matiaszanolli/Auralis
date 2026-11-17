@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from ...dsp.utils.filters import normalized_corner
 from ..dsp import HarmonicExciter
 from . import no_op
 
@@ -64,9 +65,8 @@ def apply(
     # HarmonicExciter.BYPASS_WET_DB here.
     if HarmonicExciter.will_bypass(wet_db):
         return no_op(audio)
-    nyquist = sample_rate / 2.0
-    low_norm = min(0.99, max(0.01, config.EXCITER_DONOR_LOW_HZ / nyquist))
-    high_norm = min(0.99, max(0.01, config.EXCITER_DONOR_HIGH_HZ / nyquist))
+    low_norm = normalized_corner(config.EXCITER_DONOR_LOW_HZ, sample_rate)
+    high_norm = normalized_corner(config.EXCITER_DONOR_HIGH_HZ, sample_rate)
     if low_norm >= high_norm:
         # Degenerate donor band (e.g. very low sample rate) — no exciter possible.
         return no_op(audio)

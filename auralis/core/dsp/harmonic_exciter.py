@@ -37,7 +37,7 @@ mixes both, biased toward even, so it lifts air without sounding fizzy.
 import numpy as np
 from scipy.signal import butter
 
-from ...dsp.utils.filters import sosfiltfilt_safe
+from ...dsp.utils.filters import normalized_corner, sosfiltfilt_safe
 
 
 class HarmonicExciter:
@@ -111,11 +111,9 @@ class HarmonicExciter:
         if HarmonicExciter.will_bypass(wet_db):
             return audio.copy()
 
-        nyquist = sample_rate / 2.0
-
         # --- 1. Extract donor band (midrange that has actual energy) ---
-        low_norm = min(0.99, max(0.01, donor_low_hz / nyquist))
-        high_norm = min(0.99, max(0.01, donor_high_hz / nyquist))
+        low_norm = normalized_corner(donor_low_hz, sample_rate)
+        high_norm = normalized_corner(donor_high_hz, sample_rate)
         if low_norm >= high_norm:
             # Degenerate band (e.g. very low sample rate) — no exciter possible.
             return audio.copy()
@@ -127,7 +125,7 @@ class HarmonicExciter:
         drive_linear = 10.0 ** (drive_db / 20.0)
 
         # --- 3. High-pass to keep only the *new* harmonics ---
-        hp_norm = min(0.99, max(0.01, hp_cutoff_hz / nyquist))
+        hp_norm = normalized_corner(hp_cutoff_hz, sample_rate)
         hp_sos = butter(order, hp_norm, btype='high', output='sos')
 
         # --- 4. Wet gain (so the parallel mix lands at wet_db below dry) ---
