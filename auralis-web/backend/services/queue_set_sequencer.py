@@ -20,6 +20,7 @@ class QueueSetSequencer:
     def __init__(self) -> None:
         self._state_lock = LoopBoundLock()
         self._engine_lock = LoopBoundLock()
+        self._broadcast_lock = LoopBoundLock()
         self.next_generation = 0
         self.generation = 0
 
@@ -32,6 +33,11 @@ class QueueSetSequencer:
     def engine_lock(self) -> asyncio.Lock:
         """Orders engine calls; never covers a WS broadcast (#4825)."""
         return self._engine_lock.get()
+
+    @property
+    def broadcast_lock(self) -> asyncio.Lock:
+        """Serialises each queue_changed read-hydrate-send, so frames leave in edit order (#5935)."""
+        return self._broadcast_lock.get()
 
 
 queue_set_sequencer = QueueSetSequencer()

@@ -169,7 +169,20 @@ class QueueServiceBase:
         blanked the Redux queue. Unresolvable entries are now dropped and
         `current_index` is re-based past them; if hydration fails outright the
         payload omits `tracks`, so clients keep their last good queue.
+
+        The read, hydration and send run under one process-wide lock (#5935):
+        each frame then describes the engine queue as of its own read, and a
+        later edit's frame cannot be overtaken by an earlier edit's slower
+        hydration. The edit itself stays outside the lock (#4825).
         """
+        async with queue_set_sequencer.broadcast_lock:
+            await self._broadcast_queue_changed_locked(action, **extras)
+
+    async def _broadcast_queue_changed_locked(
+        self,
+        action: QueueChangeAction,
+        **extras: Unpack[QueueChangedExtras],
+    ) -> None:
         try:
             if hasattr(self.audio_player, 'queue'):
                 queue_obj = self.audio_player.queue
