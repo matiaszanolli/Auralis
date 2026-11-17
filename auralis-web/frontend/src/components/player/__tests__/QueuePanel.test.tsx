@@ -39,6 +39,12 @@ vi.mock('@/hooks/player/usePlaybackQueue', () => ({
   })),
 }));
 
+// QueuePanel hands a removed playing row to the playback session (#6016).
+const mockFollowRemovedTrack = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/contexts/PlaybackSessionContext', () => ({
+  usePlaybackControls: () => ({ followRemovedTrack: mockFollowRemovedTrack }),
+}));
+
 // Import the mocked module for manipulation
 import * as usePlaybackQueueModule from '@/hooks/player/usePlaybackQueue';
 
@@ -315,6 +321,28 @@ describe('QueuePanel', () => {
         expect(mockRemoveTrack).toHaveBeenCalledWith(1);
       }
     }
+  });
+
+  it('moves playback on when the playing row is removed (#6016)', async () => {
+    renderWithWrapper(<QueuePanel />);
+
+    const rows = screen.getAllByRole('listitem');
+    fireEvent.mouseEnter(rows[0]);
+    await userEvent.click(within(rows[0]).getByText('✕'));
+
+    expect(mockRemoveTrack).toHaveBeenCalledWith(0);
+    expect(mockFollowRemovedTrack).toHaveBeenCalledWith(0, 1);
+  });
+
+  it('leaves playback alone when a row other than the playing one is removed', async () => {
+    renderWithWrapper(<QueuePanel />);
+
+    const rows = screen.getAllByRole('listitem');
+    fireEvent.mouseEnter(rows[1]);
+    await userEvent.click(within(rows[1]).getByText('✕'));
+
+    expect(mockRemoveTrack).toHaveBeenCalledWith(1);
+    expect(mockFollowRemovedTrack).not.toHaveBeenCalled();
   });
 
   // =========================================================================
