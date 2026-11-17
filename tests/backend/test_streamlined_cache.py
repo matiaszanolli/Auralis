@@ -635,7 +635,7 @@ class TestStreamlinedCacheManager:
 
         removed = await cache_manager.clear_track(1)  # must not raise
 
-        assert removed == 1
+        assert removed == 0  # no file existed to delete
 
 
 class TestCacheMemoryManagement:

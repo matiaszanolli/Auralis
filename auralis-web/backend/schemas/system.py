@@ -93,9 +93,17 @@ class CacheHealthResponse(BaseModel):
     overall_hit_rate: float = Field(description="Overall hit rate across all tiers (0–1)")
 
 
+class ChunkDirectoryStats(BaseModel):
+    """The on-disk chunk cache that actually serves playback (#6002)."""
+    files: int = Field(description="Cached chunk files on disk")
+    size_mb: float = Field(description="Their total size in MB")
+    max_mb: float = Field(description="Size cap the pruner enforces, in MB")
+
+
 class CacheStatsResponse(BaseModel):
     """Full cache statistics response."""
     tier1: CacheTierStats = Field(description="Tier 1 (memory) statistics")
     tier2: CacheTierStats = Field(description="Tier 2 (disk) statistics")
     overall: OverallCacheStats = Field(description="Aggregate statistics")
     tracks: dict[int, Any] = Field(default_factory=dict, description="Per-track cache status")
+    chunk_directory: ChunkDirectoryStats | None = Field(default=None, description="On-disk chunk cache usage")

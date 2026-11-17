@@ -4,13 +4,6 @@ Mastering Target Service
 
 Centralized fingerprint loading and mastering target generation.
 
-Consolidates duplicate logic from:
-- chunked_processor._load_fingerprint_from_database()
-- chunked_processor._generate_targets_from_fingerprint()
-- chunked_processor fingerprint extraction in process_chunk()
-
-This service eliminates ~200 lines of duplicate fingerprint/target management.
-
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
@@ -58,10 +51,7 @@ class MasteringTargetService:
             get_fingerprints_repository: Callable that returns fingerprints repository
                                         (for database lookups via repository pattern)
         """
-        # Bound the cache with simple FIFO eviction to prevent unbounded
-        # growth when the service is held as a singleton (#3532 / BE-NEW-74).
-        # 256 entries × ~3 KB each ≈ 1 MB ceiling — plenty for a typical
-        # listening session, won't bloat long-running backend processes.
+        # FIFO-bounded: 256 entries x ~3 KB so the singleton cannot grow without limit (#3532).
         from collections import OrderedDict
         self.cache: OrderedDict[str, Any] = OrderedDict(cache) if cache is not None else OrderedDict()
         self._max_cache_entries = 256
@@ -194,6 +184,12 @@ class MasteringTargetService:
         """
         return generate_targets_from_fingerprint(fingerprint)
 
+    def clear_track(self, track_id: int) -> None:
+        """Drop one track's cached fingerprint/targets (every file signature)."""
+        with self._lock:
+            for key in [k for k in self.cache if k.startswith(f"fingerprint_{track_id}_")]:
+                del self.cache[key]
+
     def clear_cache(self) -> None:
         """Clear all cached fingerprints."""
         with self._lock:
@@ -210,9 +206,6 @@ _service_lock = threading.Lock()
 def get_mastering_target_service() -> MasteringTargetService:
     """
     Get global mastering target service instance (singleton).
-
-    Returns:
-        Global MasteringTargetService instance
     """
     global _global_mastering_target_service
 
@@ -235,9 +228,8 @@ def get_mastering_target_service() -> MasteringTargetService:
 def clear_global_mastering_target_cache() -> bool:
     """Clear the singleton's per-track fingerprint/target cache, if it exists.
 
-    This is the backend's track-analysis cache tier: ``clear_all_caches()``
-    calls it so a cache clear or library reset cannot leave stale fingerprints
-    and targets behind (#5085). It does not create the singleton.
+    ``clear_all_caches()`` calls it so a clear or library reset leaves no stale
+    fingerprints or targets behind (#5085). It does not create the singleton.
 
     Returns:
         True if a live service was cleared, False if none had been created.
@@ -247,3 +239,10 @@ def clear_global_mastering_target_cache() -> bool:
         return False
     service.clear_cache()
     return True
+
+
+def clear_global_mastering_target_entry(track_id: int) -> None:
+    """Drop one track from the singleton's cache (never creates it)."""
+    service = _global_mastering_target_service
+    if service is not None:
+        service.clear_track(track_id)

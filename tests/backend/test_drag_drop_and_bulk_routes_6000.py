@@ -151,11 +151,11 @@ class TestQueueAddTracks:
 
 class TestClearTrackCache:
     def test_clears_the_one_track_and_reports_what_was_removed(self, client):
-        from routers.cache_streamlined import _get_cache_manager
+        from routers.cache_streamlined import _get_optional_cache_manager
 
         cache = Mock()
         cache.clear_track = AsyncMock(return_value=3)
-        client.app.dependency_overrides[_get_cache_manager] = lambda: cache
+        client.app.dependency_overrides[_get_optional_cache_manager] = lambda: cache
         try:
             response = client.delete("/api/cache/track/7")
         finally:

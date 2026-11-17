@@ -94,9 +94,10 @@ class TestCacheNotInitialised:
         response = client_no_cache.get("/api/cache/health")
         assert response.status_code == 503
 
-    def test_clear_returns_503(self, client_no_cache):
+    def test_clear_still_runs_without_the_manager(self, client_no_cache):
+        # The chunk directory is swept either way, so the lever survives the worker dying (#6002).
         response = client_no_cache.post("/api/cache/clear")
-        assert response.status_code == 503
+        assert response.status_code == 200
 
     def test_track_status_returns_503(self, client_no_cache):
         response = client_no_cache.get("/api/cache/track/1/status")

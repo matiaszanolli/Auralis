@@ -52,6 +52,7 @@ from .request_bounds import (
 from .system import (
     CacheHealthResponse,
     CacheStatsResponse,
+    ChunkDirectoryStats,
     CacheTierStats,
     HealthResponse,
     OverallCacheStats,
@@ -75,6 +76,7 @@ __all__ = [
     "AlbumResponse",
     "CacheHealthResponse",
     "CacheStatsResponse",
+    "ChunkDirectoryStats",
     "CacheTierStats",
     "EnhancementIntensity",
     "EnhancementPresetLiteral",

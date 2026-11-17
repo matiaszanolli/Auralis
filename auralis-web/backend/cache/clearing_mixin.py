@@ -46,7 +46,8 @@ class CacheClearingMixin:
         bytes on the very next request, making the user's "clear and retry"
         troubleshooting lever a no-op for anything already on disk.
 
-        Returns the number of cache entries removed.
+        Also drops the track's mastering recommendations (#6002). Returns the number of
+        on-disk chunk files removed.
         """
         async with self._lock:
             # Remove Tier 1 entries for this track
@@ -68,13 +69,16 @@ class CacheClearingMixin:
             # Remove track status
             self.track_status.pop(track_id, None)
 
+            for rec_key in [k for k in self.mastering_recommendations if k[0] == track_id]:
+                del self.mastering_recommendations[rec_key]
+
             removed = len(t1_removed) + len(t2_removed)
             chunk_paths = [chunk.chunk_path for _, chunk in (*t1_removed, *t2_removed)]
 
         # Disk I/O outside the lock — a slow or failing deletion must not
         # hold up other cache operations, and the in-memory bookkeeping
         # above is already committed regardless of the disk outcome.
-        await asyncio.to_thread(self._unlink_chunk_files, chunk_paths)
+        unlinked = await asyncio.to_thread(self._unlink_chunk_files, chunk_paths)
         # #5340: the tiers only record what the streamlined worker cached.
         # Live playback and pre-warm write the same directory directly and
         # ChunkPathCache finds their files by name, so sweep every file for
@@ -83,9 +87,9 @@ class CacheClearingMixin:
 
         logger.info(
             f"Cleared cache for track {track_id} "
-            f"({removed} entries, {swept} on-disk chunk file(s) swept)"
+            f"({removed} entries, {unlinked + swept} on-disk chunk file(s) removed)"
         )
-        return removed
+        return unlinked + swept
 
     async def clear_all(self) -> None:
         """Clear all caches, including the underlying on-disk WAV chunk
@@ -102,17 +106,20 @@ class CacheClearingMixin:
         logger.info(f"All caches cleared ({len(chunk_paths)} on-disk chunk file(s) removed)")
 
     @staticmethod
-    def _unlink_chunk_files(chunk_paths: list[Path]) -> None:
+    def _unlink_chunk_files(chunk_paths: list[Path]) -> int:
         """Best-effort delete of the on-disk WAV files backing cache entries
         that were just dropped from the in-memory dicts. A file that's
         already gone (race with another cleanup pass, or was never
         actually written) is not an error — matches this cache's
         established graceful-degradation style (see
-        CachedChunk.__post_init__)."""
+        CachedChunk.__post_init__). Returns how many files this deleted."""
+        deleted = 0
         for path in chunk_paths:
             try:
                 path.unlink()
+                deleted += 1
             except FileNotFoundError:
                 pass
             except OSError as e:
                 logger.warning(f"Could not delete cached chunk file {path.name}: {e}")
+        return deleted

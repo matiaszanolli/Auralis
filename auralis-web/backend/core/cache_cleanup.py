@@ -10,7 +10,10 @@ from config.limits import chunk_cache_dir
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
 
 from core.encoding.wav_encoder import delete_chunk_files
-from core.mastering_target_service import clear_global_mastering_target_cache
+from core.mastering_target_service import (
+    clear_global_mastering_target_cache,
+    clear_global_mastering_target_entry,
+)
 from core.thumbnail_cache import clear_artwork_cache
 
 
@@ -18,6 +21,8 @@ class ClearableChunkCache(Protocol):
     """Minimum chunk-cache contract needed by the global cleanup boundary."""
 
     async def clear_all(self) -> None: ...
+
+    async def clear_track(self, track_id: int) -> int: ...
 
 
 @dataclass(frozen=True)
@@ -29,6 +34,27 @@ class CacheClearResult:
     analysis_cache_cleared: bool
     chunk_files_removed: int = 0
     fingerprint_files_removed: int = 0
+
+
+async def clear_track_caches(
+    cache_manager: ClearableChunkCache | None,
+    track_id: int,
+    *,
+    chunk_dir: Path | None = None,
+) -> int:
+    """Clear one track's chunk files and analysis entry; returns the chunk files deleted.
+
+    Like clear_all_caches, the on-disk sweep runs whether or not the streamlined manager
+    exists, so the "clear and retry" lever survives the worker dying (#6002).
+    """
+    if cache_manager is not None:
+        removed = await cache_manager.clear_track(track_id)
+    else:
+        removed = await asyncio.to_thread(
+            delete_chunk_files, chunk_dir if chunk_dir is not None else chunk_cache_dir(), track_id
+        )
+    clear_global_mastering_target_entry(track_id)
+    return removed
 
 
 async def clear_all_caches(

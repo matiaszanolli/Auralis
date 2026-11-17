@@ -14,6 +14,8 @@ import logging
 import threading
 from pathlib import Path
 
+from schemas import ChunkDirectoryStats
+
 logger = logging.getLogger(__name__)
 
 # On-disk chunk cache (/tmp/auralis_chunks) bound (#3834). Mirrors the 512 MB
@@ -21,6 +23,24 @@ logger = logging.getLogger(__name__)
 # the same directory, so the reaper is global and runs on a throttle.
 MAX_CHUNK_DISK_BYTES = 512 * 1024 * 1024  # 512 MB
 PRUNE_EVERY_N_WRITES = 32  # amortise the directory scan across writes
+
+
+def chunk_directory_stats(chunk_dir: Path) -> ChunkDirectoryStats:
+    """File count and size of the published chunk files in *chunk_dir* (#6002)."""
+    files = size = 0
+    try:
+        for entry in chunk_dir.iterdir():
+            try:
+                if entry.is_file():
+                    files += 1
+                    size += entry.stat().st_size
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return ChunkDirectoryStats(
+        files=files, size_mb=size / (1024 * 1024), max_mb=MAX_CHUNK_DISK_BYTES / (1024 * 1024)
+    )
 
 
 class ChunkDiskPruneMixin:

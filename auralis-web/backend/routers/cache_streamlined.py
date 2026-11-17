@@ -8,6 +8,7 @@ API endpoints for streamlined two-tier cache management and statistics.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import asyncio
 import logging
 from collections.abc import Callable
 from pathlib import Path as FilePath
@@ -15,19 +16,14 @@ from typing import Annotated, Any
 
 from cache import StreamlinedCacheManager
 from cache.models import CHUNK_SIZE_MB, TIER1_MAX_SIZE_MB, TIER2_MAX_SIZE_MB
-from core.cache_cleanup import clear_all_caches
+from config.limits import chunk_cache_dir
+from core.chunk_disk_prune import chunk_directory_stats
+from core.cache_cleanup import clear_all_caches, clear_track_caches
 from core.thumbnail_cache import artwork_cache_root
 from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field
 
-# The canonical, fully-typed contracts (#3548 / BE-NEW-90, #4755): this router
-# used to declare its own same-named CacheStatsResponse/TrackCacheStatus with
-# dict[str, Any] fields, absorbing StreamlinedCacheManager.get_stats()'s shape
-# verbatim without ever validating it against the typed schema — two classes
-# with the same name existed in the process, and the typed one was never what
-# actually went on the wire. get_stats()'s shape has been verified
-# field-for-field against these models: the one gap (CacheTierStats.tier_name,
-# which get_stats() doesn't produce) is filled in below before validation.
+# The typed contracts (#3548, #4755); get_stats()'s shape matches them except tier_name, filled in below.
 from schemas import CacheHealthResponse, CacheStatsResponse, TrackCacheStatusResponse
 from websocket.outbound_messages import broadcast_typed
 
@@ -38,9 +34,9 @@ logger = logging.getLogger(__name__)
 
 
 class ClearTrackCacheResponse(BaseModel):
-    """Result of clearing one track's cached chunks."""
+    """Result of clearing one track."""
     message: str = Field(description="Human-readable confirmation")
-    removed: int = Field(description="Number of cached chunks removed")
+    removed: int = Field(description="Number of on-disk chunk files removed")
 
 
 class ClearCacheResponse(BaseModel):
@@ -82,6 +78,11 @@ def _get_cache_manager(deps: _CacheDeps = Depends(_get_deps)) -> StreamlinedCach
     return _require_cache(deps.get_cache_manager)
 
 
+def _get_optional_cache_manager(deps: _CacheDeps = Depends(_get_deps)) -> StreamlinedCacheManager | None:
+    """The manager if up; clearing sweeps the chunk directory without it."""
+    return deps.get_cache_manager()
+
+
 @with_error_handling("get cache stats")
 async def get_cache_stats(cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager)) -> CacheStatsResponse:
     """
@@ -95,12 +96,11 @@ async def get_cache_stats(cache_manager: StreamlinedCacheManager = Depends(_get_
     """
     # On the loop, not a thread: no I/O, and it iterates dicts the loop mutates (#6003).
     stats = cache_manager.get_stats()
-    # get_stats()'s tier1/tier2 dicts don't carry a tier_name field
-    # (there's nothing to derive it from once the two dicts are
-    # separate) — CacheTierStats requires it, so fill it in here at
-    # the one place that knows which dict is which.
+    # CacheTierStats requires tier_name, which get_stats() cannot derive; fill it in here.
     stats["tier1"]["tier_name"] = "tier1"
     stats["tier2"]["tier_name"] = "tier2"
+    # The tiers only record the worker's chunks; this directory is what serves (#6002).
+    stats["chunk_directory"] = await asyncio.to_thread(chunk_directory_stats, chunk_cache_dir())
     return CacheStatsResponse(**stats)
 
 
@@ -139,16 +139,16 @@ async def get_track_cache_status(
 @with_error_handling("clear track cache")
 async def clear_track_cache(
     track_id: Annotated[int, Path(ge=1)],
-    cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager),
+    cache_manager: StreamlinedCacheManager | None = Depends(_get_optional_cache_manager),
 ) -> dict[str, Any]:
-    """Clear cached data for a single track."""
-    removed = await cache_manager.clear_track(track_id)
+    """Clear cached data for a single track; reports the on-disk chunk files deleted."""
+    removed = await clear_track_caches(cache_manager, track_id)
     return {"message": f"Cleared cache for track {track_id}", "removed": removed}
 
 
 @with_error_handling("clear cache")
 async def clear_cache(
-    cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager),
+    cache_manager: StreamlinedCacheManager | None = Depends(_get_optional_cache_manager),
     deps: _CacheDeps = Depends(_get_deps),
 ) -> dict[str, str]:
     """
