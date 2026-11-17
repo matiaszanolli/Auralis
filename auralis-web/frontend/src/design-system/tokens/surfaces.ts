@@ -10,7 +10,7 @@
    */
 export const gradients = {
     // Brand gradients (solid)
-    aurora: 'linear-gradient(135deg, #7366F0 0%, #5A5CC4 100%)',              // Aurora (Soft Violet → darker)
+    aurora: 'linear-gradient(135deg, #6F62EC 0%, #5A5CC4 100%)',              // Aurora (Soft Violet → darker); light stop 4.53:1 with white label (#5675)
     auroraSoft: 'linear-gradient(135deg, rgba(115, 102, 240, 0.80) 0%, rgba(90, 92, 196, 0.80) 100%)', // Aurora soft (overlays)
     auroraVertical: 'linear-gradient(180deg, #7366F0 0%, #5A5CC4 100%)',      // Aurora vertical (headers)
     aqua: 'linear-gradient(135deg, #47D6FF 0%, #00BCC4 100%)',                // Aqua (audio-reactive)

@@ -83,7 +83,7 @@ const TrackTableRowItemImpl = ({
           sx={{
             fontSize: tokens.typography.fontSize.md,
             fontWeight: isCurrentTrack ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.normal,
-            color: isCurrentTrack ? themeVars.accent : themeVars.textPrimary,
+            color: isCurrentTrack ? themeVars.accentText : themeVars.textPrimary,
           }}
         >
           {track.title}

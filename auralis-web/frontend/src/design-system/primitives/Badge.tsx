@@ -50,7 +50,7 @@ const StyledBadge = styled(MuiBadge as React.ComponentType<Omit<MuiBadgeProps, '
     primary: {
       '& .MuiBadge-badge': {
         background: tokens.gradients.aurora,
-        color: themeVars.textPrimary,
+        color: themeVars.onAccent,
       },
     },
     success: {

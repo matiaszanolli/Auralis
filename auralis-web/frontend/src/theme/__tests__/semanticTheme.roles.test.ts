@@ -230,3 +230,38 @@ describe('red fills that carry text meet 4.5:1 in both modes (#6073)', () => {
     expect(contrast(theme.onError, theme.errorFillHover)).toBeGreaterThan(contrast(theme.onError, theme.errorFill));
   });
 });
+
+describe('light-mode text and aurora fills meet WCAG AA (#5675)', () => {
+  const light = getSemanticTheme('light');
+  const canvas = tokens.colors.lightMode.background.primary;
+  const white = tokens.colors.lightMode.background.secondary;
+  const auroraStops = tokens.gradients.aurora.match(/#[0-9A-Fa-f]{6}/g) as string[];
+
+  it('success/warning/error status text is >= 4.5:1 on the canvas and on white', () => {
+    for (const role of [light.success, light.warning, light.error]) {
+      expect(contrast(role, canvas)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(role, white)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('accent text is >= 4.5:1 on the canvas and on white, where the brand fill colour is not', () => {
+    expect(contrast(light.accentText, canvas)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(light.accentText, white)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(light.accent, canvas)).toBeLessThan(4.5); // why a separate role exists
+  });
+
+  it('every stop of the aurora gradient carries a white label at >= 4.5:1', () => {
+    expect(auroraStops).toHaveLength(2);
+    for (const stop of auroraStops) {
+      expect(contrast(light.onAccent, stop)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('dark mode keeps its own colours: accentText stays the brand accent and status text is unchanged', () => {
+    const dark = getSemanticTheme('dark');
+
+    expect(dark.accentText).toBe(dark.accent);
+    expect(dark.success).toBe(tokens.colors.semantic.success);
+    expect(dark.error).toBe(tokens.colors.semantic.error);
+  });
+});

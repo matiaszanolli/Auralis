@@ -233,12 +233,14 @@ export const colors = {
         primary: '#1A1F3A',
         secondary: '#5A6280',
         disabled: '#9CA3B8',
+        accent: '#5B4FD6',     // accent as text: 5.65:1 on #F8F9FD (the brand #7366F0 is 4.08:1) (#5675)
       },
-      // Semantic colors aligned with dark mode (semantic.*)
+      // Darker than semantic.* on purpose: these colour TEXT on the near-white canvas, where the dark-mode
+      // hexes were 2.0-3.6:1. Each is >= 4.5:1 on #F8F9FD and on #FFFFFF (#5675).
       accent: {
-        success: '#10B981',     // matches semantic.success
-        error: '#EF4444',       // matches semantic.error
-        warning: '#F59E0B',     // matches semantic.warning
+        success: '#047857',     // semantic.success, darkened: 5.2:1
+        error: '#DC2626',       // semantic.error, darkened: 4.6:1
+        warning: '#B45309',     // semantic.warning, darkened: 4.8:1
         info: '#3B82F6',        // matches semantic.info
       },
       neon: {

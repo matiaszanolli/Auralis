@@ -46,7 +46,7 @@ export const AlbumActionButtons = ({
         disabled={savingFavorite}
         sx={{
           background: tokens.gradients.aurora,
-          color: themeVars.textPrimary,
+          color: themeVars.onAccent,
           fontWeight: tokens.typography.fontWeight.semibold,
           padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
           borderRadius: tokens.borderRadius.md,

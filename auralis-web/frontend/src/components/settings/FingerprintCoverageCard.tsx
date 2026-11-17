@@ -65,7 +65,7 @@ export const FingerprintCoverageCard = ({ enabled = true }: FingerprintCoverageC
     >
       <Box sx={{ p: tokens.spacing.md }}>
         {error ? (
-          <Typography variant="body2" sx={{ color: tokens.colors.semantic.error }}>
+          <Typography variant="body2" sx={{ color: themeVars.error }}>
             {error}
           </Typography>
         ) : coverage ? (

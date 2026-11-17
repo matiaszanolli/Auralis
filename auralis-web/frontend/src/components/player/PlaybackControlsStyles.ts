@@ -40,7 +40,7 @@ const styles = {
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.xl,             // 24px for visual impact
     fontWeight: tokens.typography.fontWeight.bold,
-    color: themeVars.textPrimary,
+    color: themeVars.onAccent,
     transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
 
     // Enhanced shadow for depth + inner glow

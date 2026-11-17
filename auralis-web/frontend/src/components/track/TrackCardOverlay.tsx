@@ -63,7 +63,7 @@ export const TrackCardOverlay = ({
             width: 56,
             height: 56,
             background: tokens.gradients.aurora,
-            color: themeVars.textPrimary,
+            color: themeVars.onAccent,
             transform: isHovered ? 'scale(1)' : 'scale(0.8)',
             transition: tokens.transitions.state_inOut,
             '&:hover': {

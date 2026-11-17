@@ -100,7 +100,7 @@ export const PlaylistDetailView = ({
               startIcon={<ArrowBack />}
               sx={{
                 background: tokens.gradients.aurora,
-                color: themeVars.textPrimary,
+                color: themeVars.onAccent,
                 fontWeight: tokens.typography.fontWeight.semibold,
                 padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
                 borderRadius: tokens.borderRadius.md,
@@ -165,7 +165,7 @@ export const PlaylistDetailView = ({
           size="small"
           sx={{
             background: tokens.gradients.aurora,
-            color: themeVars.textPrimary,
+            color: themeVars.onAccent,
             fontWeight: tokens.typography.fontWeight.semibold,
             borderRadius: tokens.borderRadius.md,
             textTransform: 'none',

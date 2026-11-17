@@ -52,6 +52,8 @@ export interface SemanticTheme {
   borderDefault: string;
   borderStrong: string;
   accent: string;
+  /** Accent as TEXT on the surface (current-track title/number): `accent` is a fill colour and fails 4.5:1 on light (#5675). */
+  accentText: string;
   accentHover: string;
   accentSoft: string;
   onAccent: string;
@@ -99,6 +101,7 @@ const darkSemanticTheme: SemanticTheme = {
   borderDefault: tokens.colors.opacityScale.white.light,
   borderStrong: tokens.colors.border.medium,
   accent: tokens.colors.accent.primary,
+  accentText: tokens.colors.accent.primary,
   accentHover: tokens.colors.accent.primaryLight,
   accentSoft: tokens.colors.opacityScale.accent.light,
   onAccent: tokens.colors.text.primaryFull,
@@ -150,6 +153,7 @@ const lightSemanticTheme: SemanticTheme = {
   borderDefault: tokens.colors.opacityScale.dark.light,
   borderStrong: tokens.colors.opacityScale.accent.standard,
   accent: tokens.colors.accent.primary,
+  accentText: tokens.colors.lightMode.text.accent,
   accentHover: tokens.colors.accent.primaryDark,
   accentSoft: tokens.colors.opacityScale.accent.veryLight,
   onAccent: tokens.colors.text.primaryFull,
@@ -200,6 +204,7 @@ export const themeVars = {
   borderDefault: 'var(--app-border-default)',
   borderStrong: 'var(--app-border-strong)',
   accent: 'var(--app-accent)',
+  accentText: 'var(--app-accent-text)',
   accentHover: 'var(--app-accent-hover)',
   accentSoft: 'var(--app-accent-soft)',
   onAccent: 'var(--app-on-accent)',
@@ -246,6 +251,7 @@ export const getSemanticCssVariables = (mode: ThemeMode): Record<string, string>
     '--app-border-default': theme.borderDefault,
     '--app-border-strong': theme.borderStrong,
     '--app-accent': theme.accent,
+    '--app-accent-text': theme.accentText,
     '--app-accent-hover': theme.accentHover,
     '--app-accent-soft': theme.accentSoft,
     '--app-on-accent': theme.onAccent,

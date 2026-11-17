@@ -8,7 +8,7 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BuildIcon from '@mui/icons-material/Build';
 import ScanDotIcon from '@mui/icons-material/FiberManualRecord';
 import { DialogTabs } from '@/components/library/Styles/Dialog.styles';
-import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
 /** Ids shared by the tabs and the one visible panel (#6074). */
 export const settingsTabId = (index: number): string => `settings-tab-${index}`;
@@ -47,7 +47,7 @@ export const SettingsTabNav = ({
         <ScanDotIcon
           sx={{
             fontSize: 8,
-            color: tokens.colors.semantic.success,
+            color: themeVars.success,
             '@keyframes scanDotPulse': {
               '0%, 100%': { opacity: 1 },
               '50%': { opacity: 0.3 },

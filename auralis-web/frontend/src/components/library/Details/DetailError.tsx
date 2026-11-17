@@ -34,7 +34,7 @@ export const DetailError = ({ title, description, onBack, backLabel, alert }: De
           startIcon={<ArrowBack />}
           sx={{
             background: tokens.gradients.aurora,
-            color: themeVars.textPrimary,
+            color: themeVars.onAccent,
             fontWeight: tokens.typography.fontWeight.semibold,
             padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
             borderRadius: tokens.borderRadius.md,

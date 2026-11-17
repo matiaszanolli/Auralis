@@ -119,7 +119,7 @@ export const TrackNumberBox = styled(Box)({
 export const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) => ({
   fontSize: tokens.typography.fontSize.base,
   fontWeight: tokens.typography.fontWeight.medium,
-  color: iscurrent === 'true' ? themeVars.accent : themeVars.textSecondary,
+  color: iscurrent === 'true' ? themeVars.accentText : themeVars.textSecondary,
   transition: tokens.transitions.hover_out,
 }));
 

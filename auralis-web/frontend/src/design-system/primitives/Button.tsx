@@ -115,7 +115,7 @@ const StyledButton = styled(MuiButton as ComponentType<Omit<MuiButtonProps, 'var
   const variantStyles = {
     primary: {
       background: tokens.gradients.aurora,
-      color: themeVars.textPrimary,
+      color: themeVars.onAccent,
       boxShadow: tokens.shadows.md,
 
       '&:hover': {

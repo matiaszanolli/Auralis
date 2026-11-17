@@ -131,7 +131,7 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
         <Box sx={{ p: tokens.spacing.md }}>
           {/* #5877: a failed scan used to look like an ordinary idle state. */}
           {lastError && (
-            <Typography role="alert" variant="body2" sx={{ color: tokens.colors.semantic.error, mb: 1 }}>
+            <Typography role="alert" variant="body2" sx={{ color: themeVars.error, mb: 1 }}>
               Last scan failed: {lastError}
             </Typography>
           )}
@@ -145,11 +145,11 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
                 mb: 0,
               }}
             >
-              <Typography variant="body2" sx={{ color: tokens.colors.semantic.success }}>
+              <Typography variant="body2" sx={{ color: themeVars.success }}>
                 +{lastResult.filesAdded} added
               </Typography>
               {lastResult.filesRemoved > 0 && (
-                <Typography variant="body2" sx={{ color: tokens.colors.semantic.error }}>
+                <Typography variant="body2" sx={{ color: themeVars.error }}>
                   −{lastResult.filesRemoved} removed
                 </Typography>
               )}
@@ -161,7 +161,7 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
                   title={describeFailures(lastResult.failures, lastResult.filesFailed) || undefined}
                   placement="bottom-start"
                 >
-                  <Typography variant="body2" sx={{ color: tokens.colors.semantic.error }}>
+                  <Typography variant="body2" sx={{ color: themeVars.error }}>
                     {lastResult.filesFailed} failed
                   </Typography>
                 </Tooltip>
@@ -172,7 +172,7 @@ export const ScanStatusCard = ({ disabled = false, onScanNow }: ScanStatusCardPr
                   title={describeFailures(lastResult.unreadableFolders, lastResult.unreadableFolders.length) || undefined}
                   placement="bottom-start"
                 >
-                  <Typography variant="body2" sx={{ color: tokens.colors.semantic.error }}>
+                  <Typography variant="body2" sx={{ color: themeVars.error }}>
                     {lastResult.unreadableFolders.length} folder
                     {lastResult.unreadableFolders.length === 1 ? '' : 's'} unreadable
                   </Typography>
