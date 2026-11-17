@@ -53,12 +53,25 @@ class PlaybackController(PlaybackNotifierMixin):
         self.state = PlaybackState.STOPPED
         self.position = 0  # Position in samples
         self.callbacks: list[Callable[[dict[str, Any] | None], None]] = []
+        # Stamped onto every state event under `_lock`, in transition order (#6129).
+        self._event_seq = 0
         # #3781: thread-local deferral state for defer_notifications(). Must be
         # thread-local (not an instance flag) — two threads can each be inside
         # their own defer_notifications() scope concurrently, and an instance
         # flag would let one thread's scope flush (or suppress) the other's
         # queued notifications.
         self._defer_state = threading.local()
+
+    def _event(self, action: str, **extra: Any) -> dict[str, Any]:
+        """The state-change payload for the transition just made. Call with ``_lock`` held.
+
+        Dispatch happens after the lock is released (#2291), so two threads' events can reach a
+        listener in either order; ``seq`` is assigned under the lock, in transition order, so a
+        listener that mirrors state keeps the highest ``seq`` it has seen and drops older ones
+        instead of ending on a stale ``play`` while the state is paused (#6129).
+        """
+        self._event_seq += 1
+        return {"state": self.state.value, "action": action, "seq": self._event_seq, **extra}
 
     def play(self) -> bool:
         """
@@ -80,7 +93,7 @@ class PlaybackController(PlaybackNotifierMixin):
             else:
                 return False
             # Snapshot inside lock, notify outside (issue #2291)
-            state_info = {"state": self.state.value, "action": "play"}
+            state_info = self._event("play")
 
         self._notify_callbacks(state_info)
         return True
@@ -97,7 +110,7 @@ class PlaybackController(PlaybackNotifierMixin):
                 self.state = PlaybackState.PAUSED
                 info("Playback paused")
                 # Snapshot inside lock, notify outside (issue #2291)
-                state_info = {"state": self.state.value, "action": "pause"}
+                state_info = self._event("pause")
             else:
                 return False
 
@@ -117,7 +130,7 @@ class PlaybackController(PlaybackNotifierMixin):
                 self.position = 0
                 info("Playback stopped")
                 # Snapshot inside lock, notify outside (issue #2291)
-                state_info = {"state": self.state.value, "action": "stop"}
+                state_info = self._event("stop")
             else:
                 return False
 
@@ -188,11 +201,7 @@ class PlaybackController(PlaybackNotifierMixin):
             self.position = position_samples
             debug(f"Seeked to sample {position_samples}")
             # Snapshot inside lock, notify outside (issue #2291)
-            state_info = {
-                "state": self.state.value,
-                "action": "seek",
-                "position_samples": position_samples,
-            }
+            state_info = self._event("seek", position_samples=position_samples)
 
         self._notify_callbacks(state_info)
         return True
@@ -214,7 +223,7 @@ class PlaybackController(PlaybackNotifierMixin):
                 return False
             self.state = PlaybackState.STOPPED
             info("Playback stopped (atomic load)")
-            state_info = {"state": self.state.value, "action": "stop"}
+            state_info = self._event("stop")
 
         self._notify_callbacks(state_info)
         return True
@@ -226,7 +235,7 @@ class PlaybackController(PlaybackNotifierMixin):
                 return  # Already in error — no-op
             self.state = PlaybackState.ERROR
             # Snapshot inside lock, notify outside (issue #2291)
-            state_info = {"state": self.state.value, "action": "error"}
+            state_info = self._event("error")
         self._notify_callbacks(state_info)
 
     def is_playing(self) -> bool:
