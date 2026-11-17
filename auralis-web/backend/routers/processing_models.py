@@ -148,7 +148,6 @@ class ProcessingParametersResponse(BaseModel):
     is_default: bool = Field(description="True when these are placeholders, not measurements")
     spectral_balance: float = Field(description="Spectral-balance coordinate (0–1)")
     dynamic_range: float = Field(description="Dynamic-range coordinate (0–1)")
-    energy_level: float = Field(description="Energy-level coordinate (0–1)")
     target_lufs: float = Field(description="Target integrated loudness (LUFS)")
     peak_target_db: float = Field(description="Target true peak (dBFS)")
     bass_boost: float = Field(description="Low-shelf gain (dB)")

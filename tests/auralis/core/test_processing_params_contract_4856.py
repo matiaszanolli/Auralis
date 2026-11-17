@@ -139,7 +139,7 @@ class TestGeneratorPathSchema:
 
         gen = ContinuousParameterGenerator()
         coords = ProcessingCoordinates(
-            spectral_balance=0.5, dynamic_range=0.5, energy_level=0.5, fingerprint=FINGERPRINT_25D
+            spectral_balance=0.5, dynamic_range=0.5, fingerprint=FINGERPRINT_25D
         )
         return gen.generate_parameters(coords)
 
@@ -175,7 +175,7 @@ class TestBothProducersAgree:
             gen.generate_parameters(
                 ProcessingCoordinates(
                     spectral_balance=0.2, dynamic_range=0.8,
-                    energy_level=0.3, fingerprint=FINGERPRINT_25D,
+                    fingerprint=FINGERPRINT_25D,
                 )
             ),
         ]

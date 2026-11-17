@@ -42,7 +42,7 @@ class TestProcessingParametersEndpoint:
         # Check all required fields present
         assert "spectral_balance" in data
         assert "dynamic_range" in data
-        assert "energy_level" in data
+        assert "energy_level" not in data  # the axis was removed: nothing read it (#6123)
         assert "target_lufs" in data
         assert "peak_target_db" in data
         assert "bass_boost" in data
@@ -59,7 +59,6 @@ class TestProcessingParametersEndpoint:
         # Coordinates should be floats 0-1
         assert isinstance(data["spectral_balance"], (int, float))
         assert isinstance(data["dynamic_range"], (int, float))
-        assert isinstance(data["energy_level"], (int, float))
         
         # Processing parameters
         assert isinstance(data["target_lufs"], (int, float))
@@ -78,7 +77,6 @@ class TestProcessingParametersEndpoint:
         # Coordinates should be 0-1
         assert 0.0 <= data["spectral_balance"] <= 1.0
         assert 0.0 <= data["dynamic_range"] <= 1.0
-        assert 0.0 <= data["energy_level"] <= 1.0
         
         # Compression/expansion/stereo should be 0-1
         assert 0.0 <= data["compression_amount"] <= 1.0

@@ -20,7 +20,7 @@ SOURCES = np.arange(-60.0, 0.01, 0.5)
 
 def _target(source_lufs: float, dynamics: float = 0.2) -> float:
     coords = ProcessingCoordinates(
-        spectral_balance=0.5, dynamic_range=dynamics, energy_level=0.5,
+        spectral_balance=0.5, dynamic_range=dynamics,
         fingerprint={'lufs': source_lufs},
     )
     return calculate_target_lufs(coords)

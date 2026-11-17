@@ -448,7 +448,6 @@ export const handlers = [
     return HttpResponse.json({
       spectral_balance: 0.6,
       dynamic_range: 0.7,
-      energy_level: 0.5,
       target_lufs: -14.0,
       peak_target_db: -1.0,
       bass_boost: 2.5,
@@ -1163,8 +1162,7 @@ export const handlers = [
     await delay(100);
     return HttpResponse.json({
       spectral_balance: 0.5,
-      dynamic_range: 0.7,
-      energy_level: 0.8
+      dynamic_range: 0.7
     });
   }),
 

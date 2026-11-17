@@ -51,7 +51,7 @@ def test_mapper_coordinates_stay_finite(real_fingerprint, dim, bad):
     fp = dict(real_fingerprint)
     fp[dim] = bad
     coords = ProcessingSpaceMapper().map_fingerprint_to_space(fp)
-    for value in (coords.spectral_balance, coords.dynamic_range, coords.energy_level):
+    for value in (coords.spectral_balance, coords.dynamic_range):
         assert math.isfinite(value) and 0.0 <= value <= 1.0, (dim, bad, coords)
 
 

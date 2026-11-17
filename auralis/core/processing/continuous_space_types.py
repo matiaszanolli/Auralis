@@ -17,21 +17,19 @@ class ProcessingCoordinates:
     """
     Position in 3D processing space.
 
-    The processing space has three primary axes derived from the 25D fingerprint:
+    The processing space has two axes derived from the 25D fingerprint (a third, energy level, was
+    removed in #6123: no parameter read it):
     - Spectral Balance: relative high-band to low-band energy
     - Dynamic Range: short-term peak/RMS and loudness variation
-    - Energy Level: measured integrated loudness
     """
     spectral_balance: float  # Increasing high-band energy relative to low-band energy
     dynamic_range: float     # Increasing crest and within-track loudness variation
-    energy_level: float      # Increasing integrated loudness
     fingerprint: dict[str, float]  # Full 25D fingerprint for secondary parameters
 
     def __str__(self) -> str:
         return (f"ProcessingCoordinates("
                 f"spectral={self.spectral_balance:.2f}, "
-                f"dynamic={self.dynamic_range:.2f}, "
-                f"energy={self.energy_level:.2f})")
+                f"dynamic={self.dynamic_range:.2f})")
 
 
 @dataclass

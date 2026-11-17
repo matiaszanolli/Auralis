@@ -59,8 +59,6 @@ class ProcessingSpaceMapper:
     _CREST_SCALE_DB = 1.7884
     _LOUDNESS_VARIATION_LOG_CENTER = 0.9680
     _LOUDNESS_VARIATION_LOG_SCALE = 0.3855
-    _LUFS_CENTER = -14.3887
-    _LUFS_SCALE = 2.7732
     _ENERGY_EPSILON = 1e-8
 
     def map_fingerprint_to_space(self, fingerprint: dict[str, float]) -> ProcessingCoordinates:
@@ -71,16 +69,14 @@ class ProcessingSpaceMapper:
             fingerprint: 25D audio fingerprint dictionary
 
         Returns:
-            ProcessingCoordinates with position in 3D space
+            ProcessingCoordinates with position in the 2D space
         """
         spectral_balance = self._calculate_spectral_balance(fingerprint)
         dynamic_range = self._calculate_dynamic_range(fingerprint)
-        energy_level = self._calculate_energy_level(fingerprint)
 
         return ProcessingCoordinates(
             spectral_balance=spectral_balance,
             dynamic_range=dynamic_range,
-            energy_level=energy_level,
             fingerprint=fingerprint
         )
 
@@ -167,14 +163,3 @@ class ProcessingSpaceMapper:
         # every one of 508 successful tracks, so it carries no mastering signal.
         return float(0.75 * crest_coordinate + 0.25 * variation_coordinate)
 
-    def _calculate_energy_level(self, fp: dict[str, float]) -> float:
-        """
-        Calculate a continuous energy coordinate from integrated loudness.
-
-        Args:
-            fp: Fingerprint dictionary
-
-        Returns:
-            Energy level score (0.0 to 1.0)
-        """
-        return _smooth_unit(fp['lufs'], self._LUFS_CENTER, self._LUFS_SCALE)

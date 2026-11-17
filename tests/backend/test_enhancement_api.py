@@ -495,7 +495,7 @@ class TestGetProcessingParameters:
         # Check all required fields present
         assert "spectral_balance" in data
         assert "dynamic_range" in data
-        assert "energy_level" in data
+        assert "energy_level" not in data  # the axis was removed: nothing read it (#6123)
         assert "target_lufs" in data
         assert "peak_target_db" in data
         assert "bass_boost" in data
@@ -521,7 +521,6 @@ class TestGetProcessingParameters:
         # Coordinates should be 0-1
         assert 0.0 <= data["spectral_balance"] <= 1.0
         assert 0.0 <= data["dynamic_range"] <= 1.0
-        assert 0.0 <= data["energy_level"] <= 1.0
 
     def test_processing_parameters_accepts_get_only(self, client):
         """Test that endpoint only accepts GET requests"""

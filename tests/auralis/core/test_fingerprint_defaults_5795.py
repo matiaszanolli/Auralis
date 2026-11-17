@@ -36,7 +36,7 @@ def test_stereo_width_fallback_follows_the_unpacker():
     def width(fingerprint):
         return calculate_stereo_width(
             ProcessingCoordinates(
-                spectral_balance=0.5, dynamic_range=0.5, energy_level=0.5,
+                spectral_balance=0.5, dynamic_range=0.5,
                 fingerprint=fingerprint,
             ),
         )

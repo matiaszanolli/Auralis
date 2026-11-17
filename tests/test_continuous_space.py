@@ -87,17 +87,6 @@ class TestProcessingSpaceMapper:
         assert all(0.0 < value < 1.0 for value in values)
         assert all(left < right for left, right in zip(values, values[1:]))
 
-    def test_energy_coordinate_is_monotonic_without_clipped_ranges(self):
-        mapper = ProcessingSpaceMapper()
-        values = [
-            mapper.map_fingerprint_to_space(
-                self._fingerprint(lufs=lufs)
-            ).energy_level
-            for lufs in (-60.0, -40.0, -30.0, -20.0, -14.0, -10.0, -5.0, 0.0)
-        ]
-
-        assert all(0.0 < value < 1.0 for value in values)
-        assert all(left < right for left, right in zip(values, values[1:]))
 
 
 class TestContinuousParameterGenerator:
@@ -108,7 +97,6 @@ class TestContinuousParameterGenerator:
         coords = ProcessingCoordinates(
             spectral_balance=0.5,   # Balanced
             dynamic_range=0.8,      # Very dynamic
-            energy_level=0.2,       # Very quiet
             fingerprint={
                 'bass_pct': 0.28, 'mid_pct': 0.35, 'air_pct': 0.12,
                 'presence_pct': 0.15, 'crest_db': 16.0, 'lufs': -25.0,
@@ -136,7 +124,6 @@ class TestContinuousParameterGenerator:
         coords = ProcessingCoordinates(
             spectral_balance=0.5,   # Balanced
             dynamic_range=0.2,      # Very compressed
-            energy_level=0.9,       # Very loud
             fingerprint={
                 'bass_pct': 0.28, 'mid_pct': 0.35, 'air_pct': 0.12,
                 'presence_pct': 0.15, 'crest_db': 9.0, 'lufs': -10.0,
@@ -165,7 +152,6 @@ class TestContinuousParameterGenerator:
         coords = ProcessingCoordinates(
             spectral_balance=0.7,   # Bright (lacking bass)
             dynamic_range=0.5,
-            energy_level=0.6,
             fingerprint={
                 'bass_pct': 0.15,
                 'mid_pct': 0.35,
