@@ -48,7 +48,7 @@ from auralis.library.models import Album, Artist, Playlist, Track  # noqa: E402
 # Keyed by "<path-relative-to-backend>:<route path>". Each entry needs a reason;
 # "we didn't get to it" is not one — that is what this test exists to catch.
 EXEMPT: dict[str, str] = {
-    "main.py:/": "returns HTMLResponse (dev banner / frontend-missing page), not JSON",
+    "config/fallback_routes.py:/": "returns HTMLResponse (dev banner / frontend-missing page), not JSON",
     "routers/artwork.py:/api/albums/{album_id}/artwork": "returns raw image bytes",
     "routers/processing_api.py:/job/{job_id}/download": "returns FileResponse (audio file)",
     # Not endpoints at all — `@router.get(...)` inside docstring examples. Left

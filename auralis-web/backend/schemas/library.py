@@ -175,16 +175,22 @@ class AlbumListResponse(PaginatedResponse):
 
 
 class PlaylistResponse(BaseModel):
-    """A serialized playlist (`serializers.serialize_playlist`)."""
-    id: int | None = Field(default=None, description="Playlist database ID")
-    name: str | None = Field(default=None, description="Playlist name")
+    """A serialized playlist (`serializers.serialize_playlist`).
+
+    Unlike TrackResponse/AlbumResponse (Optional-everywhere because Track.to_dict() can omit keys
+    on a detached instance), Playlist.to_dict() always emits these: the columns are non-nullable
+    and the toggles are normalised to their defaults, so only description, smart_criteria and the
+    timestamps can be null (#5497).
+    """
+    id: int = Field(description="Playlist database ID")
+    name: str = Field(description="Playlist name")
     description: str | None = Field(default=None, description="Playlist description")
     is_smart: bool = Field(default=False, description="True for rule-driven smart playlists")
     smart_criteria: str | None = Field(default=None, description="Smart-playlist rules (JSON string)")
-    auto_master_enabled: bool | None = Field(default=None, description="Auto-mastering enabled")
-    normalize_levels: bool | None = Field(default=None, description="Level normalization enabled")
-    track_count: int | None = Field(default=None, description="Number of tracks held")
-    total_duration: float | None = Field(default=None, description="Summed track duration in seconds")
+    auto_master_enabled: bool = Field(default=True, description="Auto-mastering enabled")
+    normalize_levels: bool = Field(default=True, description="Level normalization enabled")
+    track_count: int = Field(default=0, description="Number of tracks held")
+    total_duration: float = Field(default=0.0, description="Summed track duration in seconds")
     created_at: str | None = Field(default=None, description="Creation timestamp (ISO 8601)")
     updated_at: str | None = Field(default=None, description="Update timestamp (ISO 8601)")
 

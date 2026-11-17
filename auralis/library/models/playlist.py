@@ -72,8 +72,9 @@ class Playlist(Base, TimestampMixin):
             'description': self.description,
             'is_smart': self.is_smart,
             'smart_criteria': self.smart_criteria,
-            'auto_master_enabled': self.auto_master_enabled,
-            'normalize_levels': self.normalize_levels,
+            # The columns are DEFAULT 1 but nullable in SQL: a NULL row reads as the default (#5497).
+            'auto_master_enabled': True if self.auto_master_enabled is None else self.auto_master_enabled,
+            'normalize_levels': True if self.normalize_levels is None else self.normalize_levels,
             'track_count': track_count,
             'total_duration': total_duration,
             'created_at': self.created_at.isoformat() if self.created_at else None,
