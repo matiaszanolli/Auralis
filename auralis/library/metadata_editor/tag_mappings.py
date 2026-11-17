@@ -117,7 +117,10 @@ EXTENSION_FORMAT_MAP: dict[str, str] = {
     'mp4': 'm4a',
     'ogg': 'ogg',
     'oga': 'ogg',
-    'wma': 'wma'
+    'wma': 'wma',
+    'wav': 'mp3',   # WAV and AIFF carry ID3 frames, so they share the ID3 mapping (#5980)
+    'aif': 'mp3',
+    'aiff': 'mp3',
 }
 
 

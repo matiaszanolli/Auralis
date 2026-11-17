@@ -13,6 +13,7 @@ from typing import Any
 
 try:
     from mutagen import File as MutagenFile
+    from mutagen.aiff import AIFF
     from mutagen.asf import ASF
     from mutagen.flac import FLAC
     from mutagen.mp4 import MP4
@@ -42,7 +43,7 @@ class MetadataEditor(BatchUpdateMixin):
     - FLAC (Vorbis comments)
     - M4A/AAC (iTunes tags)
     - OGG (Vorbis comments)
-    - WAV (ID3v2 or RIFF INFO)
+    - WAV and AIFF (ID3v2 or RIFF INFO)
 
     Features:
     - Individual track editing
@@ -116,8 +117,7 @@ class MetadataEditor(BatchUpdateMixin):
                 metadata = self.readers.read_ogg_metadata(audio_file)
             elif isinstance(audio_file, OggVorbis) or ext in ('ogg', 'oga'):
                 metadata = self.readers.read_ogg_metadata(audio_file)
-            elif isinstance(audio_file, WAVE) or ext == 'wav':
-                # WAV stores tags as embedded ID3 frames (#4130).
+            elif isinstance(audio_file, (WAVE, AIFF)) or ext in ('wav', 'aif', 'aiff'):  # ID3 frames (#4130, #5980)
                 metadata = self.readers.read_mp3_metadata(audio_file)
             elif isinstance(audio_file, ASF) or ext == 'wma':
                 # Real ASF attribute names (#5536); the generic fallthrough
@@ -182,8 +182,8 @@ class MetadataEditor(BatchUpdateMixin):
                     self.writers.write_ogg_metadata(audio_file, metadata)
                 elif isinstance(audio_file, OggVorbis) or ext in ('ogg', 'oga'):
                     self.writers.write_ogg_metadata(audio_file, metadata)
-                elif isinstance(audio_file, WAVE) or ext == 'wav':
-                    # WAV stores tags as embedded ID3 frames (#4130).
+                elif isinstance(audio_file, (WAVE, AIFF)) or ext in ('wav', 'aif', 'aiff'):
+                    # WAV and AIFF store tags as embedded ID3 frames (#4130, #5980).
                     self.writers.write_mp3_metadata(audio_file, metadata)
                 elif isinstance(audio_file, ASF) or ext == 'wma':
                     # Real ASF attribute names (#5536); the generic fallthrough
