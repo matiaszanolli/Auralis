@@ -115,7 +115,9 @@ class TrackRepositoryMutationMixin(BaseRepository):
         session.flush()
         prune_orphans(session)
 
-    def update_by_filepath(self, filepath: str, track_info: dict[str, Any]) -> Track | None:
+    def update_by_filepath(
+        self, filepath: str, track_info: dict[str, Any], *, replace_tags: bool = False
+    ) -> Track | None:
         """
         Update track by filepath
 
@@ -128,6 +130,9 @@ class TrackRepositoryMutationMixin(BaseRepository):
         Args:
             filepath: Path to track file
             track_info: Dictionary with updated track information
+            replace_tags: ``track_info`` is a whole-file read (the scanner), so a tag-derived key that is
+                absent means the tag was removed from the file and is cleared (#6333). Off, absent keys
+                are left untouched (a partial update).
 
         Returns:
             Updated Track object if successful, None if failed
@@ -155,6 +160,13 @@ class TrackRepositoryMutationMixin(BaseRepository):
                 if key in track_info:
                     setattr(track, key, track_info[key])
 
+            if replace_tags:
+                for key in ('track_number', 'disc_number', 'year'):
+                    setattr(track, key, track_info.get(key))
+                track_info = {'artists': [], 'genres': [], **track_info}  # an absent tag clears its relation
+                if not track_info.get('album'):
+                    track.album = None
+
             # Update artists
             if 'artists' in track_info:
                 self._update_artists(session, track, track_info['artists'])
@@ -167,7 +179,7 @@ class TrackRepositoryMutationMixin(BaseRepository):
             if track_info.get('album'):
                 self._assign_album(session, track, track_info)
 
-            if 'artists' in track_info or 'genres' in track_info or track_info.get('album'):
+            if replace_tags or 'artists' in track_info or 'genres' in track_info or track_info.get('album'):
                 self._prune_after_relation_change(session)
 
             session.commit()

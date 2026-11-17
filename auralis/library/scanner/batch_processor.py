@@ -192,7 +192,7 @@ class BatchProcessor:
             # Add or update track in library
             if existing_track:
                 # Update existing track (reuses query from above)
-                track = tracks_repo.update_by_filepath(file_path, track_info)
+                track = tracks_repo.update_by_filepath(file_path, track_info, replace_tags=True)
                 if track:
                     return 'updated', track, None
                 return 'failed', None, 'Database update failed'
@@ -204,7 +204,7 @@ class BatchProcessor:
                     file_path, track_info.get('filesize'), track_info.get('duration')
                 )
                 if moved:
-                    return 'updated', tracks_repo.update_by_filepath(file_path, track_info) or moved, None
+                    return 'updated', tracks_repo.update_by_filepath(file_path, track_info, replace_tags=True) or moved, None
             # Add new track
             track = tracks_repo.add(track_info)
             if track:
