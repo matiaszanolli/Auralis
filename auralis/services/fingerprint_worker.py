@@ -27,6 +27,7 @@ from typing import Any
 from collections.abc import Callable
 
 from auralis.services.fingerprint_extractor import FingerprintExtractor
+from auralis.services.fingerprint_track_runner import run_bounded
 from auralis.services.resizable_semaphore import ResizableSemaphore
 
 from ..utils.logging import debug, error, info, warning
@@ -140,64 +141,11 @@ class FingerprintWorkerExecution:
                 error(f"on_drained callback raised: {cb_exc}")
 
     def _extract_bounded(self, track_id: int, filepath: str, worker_id: int) -> bool:
-        """Run `extract_and_store` under a wall-clock bound (#4837).
-
-        `extract_and_store` is a synchronous call into DSP analysis (and, below
-        that, native/Rust code). An unbounded loop or a native call that never
-        returns used to wedge the calling worker thread — and the semaphore slot
-        it holds — for the lifetime of the process, so a handful of pathological
-        files could starve fingerprinting permanently. The streaming path bounds
-        its per-chunk DSP for exactly this reason (#3852).
-
-        The work runs on a **daemon** thread that this method joins with a
-        timeout. A hung call cannot be killed in-process, so on timeout the
-        thread is abandoned rather than terminated — but the worker returns, the
-        semaphore is released by `_process_track`'s `finally`, and the track is
-        recorded as a failure. Daemon (rather than a `ThreadPoolExecutor`)
-        because the stdlib's executor joins its threads at interpreter exit
-        regardless of `cancel_futures`, so an abandoned task there would block
-        process shutdown — the same hazard documented in
-        `auralis-web/backend/analysis/fingerprint_generator.py`.
-
-        Raises:
-            TimeoutError: if the call exceeds `self.track_timeout`.
-            Exception: whatever `extract_and_store` raised, re-raised unchanged
-                so the caller's existing error handling is unaffected.
-        """
-        outcome: dict[str, Any] = {}
-
-        def _run() -> None:
-            try:
-                # A worker queued on the analysis gate must still honour stop() (#6338).
-                outcome['result'] = self.extractor.extract_and_store(
-                    track_id, filepath, should_stop=lambda: self.should_stop
-                )
-            except BaseException as exc:  # noqa: BLE001 - re-raised on the calling thread
-                outcome['error'] = exc
-
-        thread = threading.Thread(
-            target=_run,
-            name=f"fingerprint-extract-{track_id}",
-            daemon=True,
+        """Run `extract_and_store` under a wall-clock bound (#4837); see run_bounded."""
+        return run_bounded(
+            self.extractor, track_id, filepath, worker_id,
+            timeout=self.track_timeout, should_stop=lambda: self.should_stop,
         )
-        thread.start()
-        thread.join(self.track_timeout)
-
-        if thread.is_alive():
-            warning(
-                f"Worker {worker_id}: fingerprint extraction for track {track_id} "
-                f"exceeded {self.track_timeout}s and was abandoned (thread left "
-                f"running); releasing the worker slot: {filepath}"
-            )
-            raise TimeoutError(
-                f"Fingerprint extraction for track {track_id} timed out after "
-                f"{self.track_timeout}s"
-            )
-
-        if 'error' in outcome:
-            raise outcome['error']
-
-        return bool(outcome.get('result', False))
 
     def _process_track(self, track: Any, worker_id: int) -> None:
         """
