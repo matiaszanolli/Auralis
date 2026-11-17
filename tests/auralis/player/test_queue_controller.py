@@ -501,6 +501,27 @@ class TestQueueInfo:
         ctrl.current_index = 0
         assert ctrl.get_queue_info()['has_previous'] is False
 
+    def test_get_queue_info_has_next_at_last_with_repeat(self):
+        """#6311: repeat wraps, so the snapshot must agree with has_next_track()."""
+        ctrl = _loaded_controller(3)
+        ctrl.set_repeat(True)
+        ctrl.current_index = 2
+        assert ctrl.get_queue_info()['has_next'] is True
+        assert ctrl.has_next_track() is True
+
+    def test_get_queue_info_has_previous_at_start_with_repeat(self):
+        ctrl = _loaded_controller(3)
+        ctrl.set_repeat(True)
+        ctrl.current_index = 0
+        assert ctrl.get_queue_info()['has_previous'] is True
+
+    def test_get_queue_info_empty_queue_with_repeat_has_neither(self):
+        ctrl, _ = _make_controller()
+        ctrl.set_repeat(True)
+        info = ctrl.get_queue_info()
+        assert info['has_next'] is False
+        assert info['has_previous'] is False
+
     def test_get_queue_returns_copy(self):
         ctrl = _loaded_controller(2)
         q1 = ctrl.get_queue()

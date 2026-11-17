@@ -215,9 +215,9 @@ class QueueManager(QueueNavigationMixin, QueueSelectionMixin, ShuffleMixin):
     def get_queue_info(self) -> dict[str, Any]:
         """
         Return a fully atomic composite snapshot of queue state (fixes #2470).
-        Holds _lock for the entire read so that concurrent remove_track() /
-        next_track() calls cannot produce an inconsistent dict where
-        current_track is absent from tracks or current_index is stale.
+        Holds _lock for the entire read so concurrent remove_track() / next_track()
+        cannot leave current_track absent or current_index stale. has_next /
+        has_previous honour repeat, which wraps both ways (#6311).
         """
         with self._lock:
             tracks_copy = self.tracks.copy()
@@ -228,8 +228,8 @@ class QueueManager(QueueNavigationMixin, QueueSelectionMixin, ShuffleMixin):
                 'current_index': idx,
                 'current_track': current,
                 'track_count': len(tracks_copy),
-                'has_next': idx < len(tracks_copy) - 1,
-                'has_previous': idx > 0,
+                'has_next': idx < len(tracks_copy) - 1 or (self.repeat_enabled and bool(tracks_copy)),
+                'has_previous': idx > 0 or (self.repeat_enabled and bool(tracks_copy)),
                 'shuffle_enabled': self.shuffle_enabled,
                 'repeat_enabled': self.repeat_enabled,
             }
