@@ -12,6 +12,7 @@
 
 import { useCallback, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
+import { useLatestRequestGuard } from '@/hooks/shared/useLatestRequestGuard';
 import type { ApiError } from '@/types/api';
 import { markLocalEnhancementCommand } from './enhancementBroadcastReissue';
 import { ApiErrorHandler } from '@/types/api';
@@ -68,8 +69,8 @@ export function useEnhancementCommands({
     pendingCommandsRef.current = Math.max(0, pendingCommandsRef.current - 1);
     if (pendingCommandsRef.current === 0) setIsLoading(false);
   }, [setIsLoading]);
-  const presetRequestIdRef = useRef(0);
-  const intensityRequestIdRef = useRef(0);
+  const beginPresetRequest = useLatestRequestGuard();
+  const beginIntensityRequest = useLatestRequestGuard();
 
   const toggleEnabled = useCallback(async (): Promise<void> => {
     if (isTogglingRef.current) return;
@@ -156,7 +157,7 @@ export function useEnhancementCommands({
 
     // #4339: capture this call's id before awaiting so a later, overlapping
     // setPreset call can supersede it.
-    const requestId = ++presetRequestIdRef.current;
+    const isStale = beginPresetRequest();
 
     try {
       await post('/api/player/enhancement/preset', { preset });
@@ -165,7 +166,7 @@ export function useEnhancementCommands({
       // flight — its own resolution is authoritative, not this stale one.
       // Prevents out-of-order resolution from clobbering the UI with an
       // older preset (#4339).
-      if (requestId !== presetRequestIdRef.current) return;
+      if (isStale()) return;
 
       // Optimistic update - server will broadcast confirmation via WebSocket
       setState((prevState) => ({
@@ -187,7 +188,7 @@ export function useEnhancementCommands({
         });
       }
     } catch (err) {
-      if (requestId !== presetRequestIdRef.current) return;
+      if (isStale()) return;
 
       const apiError = ApiErrorHandler.parseWithCode(err, 'PRESET_ERROR');
 
@@ -196,7 +197,7 @@ export function useEnhancementCommands({
     } finally {
       endLoading();
     }
-  }, [post, beginLoading, endLoading]);
+  }, [post, beginLoading, endLoading, beginPresetRequest]);
 
   /**
    * Adjust enhancement intensity
@@ -229,14 +230,14 @@ export function useEnhancementCommands({
     // setIntensity call (e.g. the next tick of a slider drag) can supersede
     // it — collapses a rapid-drag burst to a single applied value/reissue
     // instead of one per intermediate value.
-    const requestId = ++intensityRequestIdRef.current;
+    const isStale = beginIntensityRequest();
 
     try {
       await post('/api/player/enhancement/intensity', { intensity: validIntensity });
 
       // A newer setIntensity call was dispatched while this POST was in
       // flight — its own resolution is authoritative, not this stale one.
-      if (requestId !== intensityRequestIdRef.current) return;
+      if (isStale()) return;
 
       // Optimistic update - server will broadcast confirmation via WebSocket
       setState((prevState) => ({
@@ -254,7 +255,7 @@ export function useEnhancementCommands({
         });
       }
     } catch (err) {
-      if (requestId !== intensityRequestIdRef.current) return;
+      if (isStale()) return;
 
       const apiError = ApiErrorHandler.parseWithCode(err, 'INTENSITY_ERROR');
 

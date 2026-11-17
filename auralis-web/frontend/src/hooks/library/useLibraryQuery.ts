@@ -20,6 +20,7 @@
 import { LIBRARY_PAGE_LIMIT } from '@/config/api';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
+import { useLatestRequestGuard } from '@/hooks/shared/useLatestRequestGuard';
 import { useSupersedingAbort } from './useSupersedingAbort';
 import type { ApiError } from '@/types/api';
 import {
@@ -88,7 +89,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
   // URL-keyed dedup never fires across searches, so request A ("be") resolving
   // after B ("bea") overwrote B's results. A ref, not an effect-scoped flag
   // (#3925), because fetchMore/refetch/refresh drive requests directly.
-  const requestIdRef = useRef<number>(0);
+  const beginRequest = useLatestRequestGuard();
   const dataLengthRef = useRef(0); // sizes refresh() without a `data` dependency
   dataLengthRef.current = data.length;
   const claimRequest = useSupersedingAbort(); // aborts the superseded HTTP request (#5650)
@@ -128,8 +129,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
 
       // Claim this request. Any later call supersedes it, and every state
       // setter below is gated on still being the newest (#4609).
-      const myRequestId = ++requestIdRef.current;
-      const isStale = () => requestIdRef.current !== myRequestId;
+      const isStale = beginRequest();
       const signal = claimRequest();
 
       setIsLoading(true);
@@ -191,8 +191,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
     // Share executeQuery's request id (#4885): the guards above only cover
     // this call's start, not a newer query (a search change) replacing `data`
     // while this page is in flight.
-    const myRequestId = ++requestIdRef.current;
-    const isStale = () => requestIdRef.current !== myRequestId;
+    const isStale = beginRequest();
     const signal = claimRequest();
 
     const nextOffset = offset + limit;
@@ -241,10 +240,9 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
    */
   const refresh = useCallback(async (): Promise<void> => {
     if (dataLengthRef.current === 0) return executeQuery(0, false);
-    const myRequestId = ++requestIdRef.current;
     const result = await fetchLoadedPages({
       get, queryType, endpointOptions, loaded: dataLengthRef.current,
-      isStale: () => requestIdRef.current !== myRequestId, signal: claimRequest(),
+      isStale: beginRequest(), signal: claimRequest(),
     });
     if (result.kind !== 'refreshed') return;
     setData(result.items);
@@ -273,7 +271,7 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
     executeQuery(0, false);
 
     // No cleanup needed: useRestAPI aborts on UNMOUNT, and executeQuery aborts
-    // the superseded request while mounted (claimRequest, #5650; requestIdRef
+    // the superseded request while mounted (claimRequest, #5650; beginRequest
     // discards its response, #4609).
   }, [queryType, skip, options.search, options.orderBy, options.limit, options.endpoint, executeQuery]);
 

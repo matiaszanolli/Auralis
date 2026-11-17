@@ -2,6 +2,7 @@ const DEBUG = import.meta.env.DEV;
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
+import { useLatestRequestGuard } from '@/hooks/shared/useLatestRequestGuard';
 import type { LibraryTrack } from '@/types/domain';
 import { PAGE_LIMIT, fetchTracksPage, friendlyFetchError } from './libraryPageFetch';
 
@@ -41,7 +42,7 @@ export const useLibraryPagination = ({ view, search = '' }: UseLibraryPagination
   // A refresh supersedes every older request. This prevents a stale page from
   // appending after the user switches views, even if a fetch mock or transport
   // ignores AbortController cancellation (#4891).
-  const requestIdRef = useRef(0);
+  const beginRequest = useLatestRequestGuard();
 
   // Mirror `offset` into a ref so fetchTracks(false) can read the live value
   // without `offset` in useCallback deps — avoids recreating fetchTracks on
@@ -67,8 +68,7 @@ export const useLibraryPagination = ({ view, search = '' }: UseLibraryPagination
 
   const fetchTracks = useCallback(
     async (resetPagination = true) => {
-      const requestId = ++requestIdRef.current;
-      const isStale = () => requestIdRef.current !== requestId;
+      const isStale = beginRequest();
       fetchInProgressRef.current = true;
       setLoading(true);
       setError(null);
@@ -154,8 +154,7 @@ export const useLibraryPagination = ({ view, search = '' }: UseLibraryPagination
       return fetchTracks(true);
     }
 
-    const requestId = ++requestIdRef.current;
-    const isStale = () => requestIdRef.current !== requestId;
+    const isStale = beginRequest();
     fetchInProgressRef.current = true;
     setError(null);
 
@@ -209,8 +208,7 @@ export const useLibraryPagination = ({ view, search = '' }: UseLibraryPagination
     }
 
     loadMoreInProgressRef.current = true;
-    const requestId = ++requestIdRef.current;
-    const isStale = () => requestIdRef.current !== requestId;
+    const isStale = beginRequest();
     setIsLoadingMore(true);
 
     // See fetchTracks' matching hoist for why: get() does not preserve the
