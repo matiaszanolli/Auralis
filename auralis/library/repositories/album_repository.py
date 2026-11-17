@@ -18,7 +18,8 @@ from ..artwork import create_artwork_extractor
 from ..data_dir import artwork_dir
 from ..models import Album, Artist, Track
 from .album_artwork import AlbumArtworkMixin
-from .base import correlated_count, correlated_sum, escape_like, sort_terms
+from .base import correlated_count, correlated_sum, sort_terms
+from .text_search import contains_text
 
 
 def _total_duration_subquery() -> Any:
@@ -150,13 +151,10 @@ class AlbumRepository(AlbumArtworkMixin):
             pagination (fixes #2482: estimated total was always wrong).
         """
         with self._session_scope() as session:
-            # Escape LIKE metacharacters so a query containing '%' or '_' does
-            # not accidentally match all rows (fixes #2405).
-            escaped = escape_like(query)
-            search_term = f"%{escaped}%"
+            # Case-insensitive in any script, metacharacters literal (#6115, #2405).
             search_filter = or_(
-                Album.title.ilike(search_term, escape='\\'),
-                Artist.name.ilike(search_term, escape='\\')
+                contains_text(Album.title, query),
+                contains_text(Artist.name, query),
             )
 
             total = session.execute(

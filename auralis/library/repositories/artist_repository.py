@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session, selectinload, with_expression
 
 from ..models import Album, Artist, Genre, Track, track_artist, track_genre
 from .artist_page import ArtistPageMixin
-from .base import correlated_count, escape_like, sort_terms
+from .base import correlated_count, sort_terms
+from .text_search import contains_text
 
 
 def _artist_order_by(order_by: str, order: str | None = None) -> tuple[ColumnElement[Any], ...]:
@@ -194,15 +195,13 @@ class ArtistRepository(ArtistPageMixin):
             Tuple of (artists list, total count of matching artists)
         """
         with self._session_scope() as session:
-            # Escape LIKE metacharacters so a query containing '%' or '_' does
-            # not accidentally match all rows (fixes #2405).
-            escaped = escape_like(query)
-            search_term = f"%{escaped}%"
+            # Case-insensitive in any script, metacharacters literal (#6115, #2405).
+            search_filter = contains_text(Artist.name, query)
 
             # Get total count of matching artists
             total = session.execute(
                 select(func.count()).select_from(Artist)
-                .where(Artist.name.ilike(search_term, escape='\\'))
+                .where(search_filter)
             ).scalar_one()
 
             # Get paginated results. Same eager-load set as get_all() — see
@@ -211,7 +210,7 @@ class ArtistRepository(ArtistPageMixin):
                 session.execute(
                     select(Artist)
                     .options(*_ARTIST_LIST_OPTIONS)
-                    .where(Artist.name.ilike(search_term, escape='\\'))
+                    .where(search_filter)
                     .order_by(*_artist_order_by(order_by, order))
                     .limit(limit)
                     .offset(offset)

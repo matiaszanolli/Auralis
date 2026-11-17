@@ -15,7 +15,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload, with_expression
 
 from ..models import Genre, track_genre
-from .base import BaseRepository, correlated_count, escape_like
+from .base import BaseRepository, correlated_count, sort_terms
+from .text_search import contains_text
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ class GenreRepository(BaseRepository):
             genres = session.execute(
                 select(Genre)
                 .options(*_GENRE_LIST_OPTIONS)
-                .order_by(order_column.asc())
+                .order_by(*sort_terms(order_column, Genre.id))
                 .limit(limit)
                 .offset(offset)
             ).scalars().all()
@@ -222,10 +223,8 @@ class GenreRepository(BaseRepository):
             Tuple of (genres list, total count)
         """
         with self._session_scope() as session:
-            # Search for genres matching the query.
-            # Escape LIKE metacharacters to prevent full-table scans on '%'/'_' (fixes #2405).
-            escaped = escape_like(query)
-            search_filter = Genre.name.ilike(f"%{escaped}%", escape='\\')
+            # Case-insensitive in any script, metacharacters literal (#6115, #2405).
+            search_filter = contains_text(Genre.name, query)
             total = session.execute(
                 select(func.count()).select_from(Genre).where(search_filter)
             ).scalar_one()
@@ -234,7 +233,7 @@ class GenreRepository(BaseRepository):
                 select(Genre)
                 .where(search_filter)
                 .options(*_GENRE_LIST_OPTIONS)
-                .order_by(Genre.name)
+                .order_by(*sort_terms(Genre.name, Genre.id))
                 .limit(limit)
                 .offset(offset)
             ).scalars().all()

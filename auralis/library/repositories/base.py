@@ -31,14 +31,10 @@ def escape_like(query: str) -> str:
     wildcard and matches far more rows than the user asked for — ``%`` alone
     matches everything (#2405).
 
-    Pair with ``escape='\\'`` on the ``ilike()`` call::
+    Pair with ``escape='\\'`` on the ``like()`` call.
 
-        term = f"%{escape_like(query)}%"
-        Model.name.ilike(term, escape='\\')
-
-    ``TrackRepository``, ``AlbumRepository``, ``ArtistRepository`` and
-    ``GenreRepository`` all call this helper directly (#5406) rather than
-    carrying their own inline copy of the expression.
+    The repository searches reach it through ``text_search.contains_text()``,
+    which also folds case in every script (#5406, #6115).
     """
     return query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 

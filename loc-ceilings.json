@@ -131,7 +131,7 @@
     "auralis/library/migration_manager.py": 241,
     "auralis/library/migration_versions.py": 77,
     "auralis/library/repositories/album_artwork.py": 158,
-    "auralis/library/repositories/album_repository.py": 189,
+    "auralis/library/repositories/album_repository.py": 187,
     "auralis/library/scan_coordinator.py": 143,
     "auralis/library/scanner/scan_stages.py": 291,
     "auralis/library/scanner/scanner.py": 293,

@@ -20,7 +20,8 @@ from sqlalchemy.sql.selectable import ScalarSelect
 
 from ..models import Playlist, Track
 from ..models.base import track_playlist
-from .base import correlated_sum, BaseRepository, correlated_count, escape_like
+from .base import BaseRepository, correlated_count, correlated_sum, sort_terms
+from .text_search import contains_text
 
 def _playlist_list_aggregates(repo: "PlaylistQueryMixin") -> tuple[Any, ...]:  # noqa: F821 - Any imported below
     """The per-row aggregates every playlist list read attaches (#6212,
@@ -75,7 +76,7 @@ class PlaylistQueryMixin(BaseRepository):
             playlists = session.execute(
                 select(Playlist)
                 .options(*_playlist_list_aggregates(self))
-                .order_by(Playlist.name, Playlist.id)
+                .order_by(*sort_terms(Playlist.name, Playlist.id))
                 .limit(limit)
                 .offset(offset)
             ).scalars().all()
@@ -120,10 +121,10 @@ class PlaylistQueryMixin(BaseRepository):
             Tuple of (matching playlists, total match count).
         """
         with self._session_scope() as session:
-            search_term = f"%{escape_like(query)}%"
+            # Case-insensitive in any script, metacharacters literal (#6115, #2405).
             search_filter = or_(
-                Playlist.name.ilike(search_term, escape='\\'),
-                Playlist.description.ilike(search_term, escape='\\'),
+                contains_text(Playlist.name, query),
+                contains_text(Playlist.description, query),
             )
 
             total = session.execute(
@@ -139,7 +140,7 @@ class PlaylistQueryMixin(BaseRepository):
                 .where(search_filter)
                 # Playlist.name is not unique, so id is the stable tiebreaker
                 # that keeps LIMIT/OFFSET pages from overlapping (cf. #4796).
-                .order_by(Playlist.name, Playlist.id)
+                .order_by(*sort_terms(Playlist.name, Playlist.id))
                 .limit(limit)
                 .offset(offset)
             ).scalars().all()

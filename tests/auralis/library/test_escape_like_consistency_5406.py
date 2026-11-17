@@ -47,13 +47,15 @@ def test_no_inline_escape_chain_outside_base():
         )
 
 
-def test_all_four_repositories_import_escape_like():
-    """WIRING: each of the 4 named sites actually imports the helper."""
+def test_all_four_repositories_use_the_shared_search_helper():
+    """WIRING: each of the 4 named sites builds its filter through
+    text_search.contains_text(), which escapes via escape_like() (#6115)."""
     for name in _SEARCH_FILES:
         source = (_REPO_DIR / name).read_text()
-        assert "escape_like" in source, (
-            f"{name} does not reference escape_like() at all"
+        assert "contains_text(" in source, (
+            f"{name} does not build its search filter with contains_text()"
         )
+        assert ".ilike(" not in source, f"{name} still has an ASCII-only ilike() filter"
 
 
 def test_escape_like_still_neutralises_metacharacters():

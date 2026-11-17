@@ -15,7 +15,8 @@ from typing import Any
 from sqlalchemy import func, or_, select
 
 from ..models import Album, Artist, Genre, Track
-from .base import BaseRepository, escape_like, sort_terms
+from .base import BaseRepository, sort_terms
+from .text_search import contains_text
 from .track_repository import _VALID_TRACK_ORDER_COLUMNS, _track_eager_options
 
 
@@ -48,16 +49,12 @@ class TrackRepositorySearchMixin(BaseRepository):
             Tuple of (matching tracks, total count)
         """
         with self._session_scope() as session:
-            # Escape LIKE metacharacters so a query containing '%' or '_' does
-            # not accidentally match all rows (fixes #2405).
-            escaped = escape_like(query)
-            search_term = f"%{escaped}%"
-
-            # Build shared filter for count and results statements
+            # Shared filter for count and results statements; case-insensitive
+            # in any script, metacharacters literal (#6115, #2405).
             search_filter = or_(
-                Track.title.ilike(search_term, escape='\\'),
-                Artist.name.ilike(search_term, escape='\\'),
-                Album.title.ilike(search_term, escape='\\')
+                contains_text(Track.title, query),
+                contains_text(Artist.name, query),
+                contains_text(Album.title, query),
             )
 
             # Get total count
