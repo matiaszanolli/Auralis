@@ -1,5 +1,5 @@
 """
-Regression: FFmpeg pre-transcode goes through saver.save() (#5532)
+Regression: the FFmpeg pre-transcode repairs non-finite / out-of-range samples (#5532, #5739)
 
 ``SimpleMasteringPipeline._master_file_impl`` decoded FFmpeg-only formats
 (mp3/m4a/aac/…) and re-encoded to a temp WAV with a bare ``sf.write`` —
@@ -9,10 +9,12 @@ non-finite samples that PCM_24 quantization turned into finite garbage —
 which the downstream fail-fast finite check (mastering_process_chunk) can
 never catch, because the value is no longer NaN.
 
-The fix routes the temp-WAV write through ``saver.save()``: non-finite
-samples become silence before they reach the file. These tests use the real
-pipeline with a mocked ``_process`` (identity) and a patched
-``load_with_ffmpeg``, mirroring ``test_master_file_mono_input.py``.
+The fix routed the temp-WAV write through ``saver.save()``: non-finite
+samples became silence before they reached the file. Since #5739 the decode is
+streamed to a float32 WAV that is never held in RAM, so the same guarantee comes
+from ``auralis.io.wav_sanitize`` run over that file. These tests use the real
+pipeline with a mocked ``_process`` (identity) and a patched ``decode_to_wav``
+that leaves a corrupt float WAV, mirroring ``test_master_file_mono_input.py``.
 """
 
 import tempfile
@@ -70,8 +72,13 @@ def _master_ffmpeg_input(raw_buffer: np.ndarray) -> np.ndarray:
         input_path = fin.name
         output_path = fout.name
     try:
+        def fake_decode(path, temp_folder, cancel_event=None):
+            wav = Path(temp_folder) / 'decoded.wav'
+            sf.write(str(wav), np.column_stack([raw_buffer, raw_buffer]), SR, subtype='FLOAT')
+            return wav
+
         with (
-            patch('auralis.io.loaders.load_with_ffmpeg', return_value=(raw_buffer, SR)),
+            patch('auralis.io.loaders.decode_to_wav', side_effect=fake_decode),
             patch.object(pipeline, '_process', side_effect=_identity_process),
         ):
             pipeline.master_file(input_path, output_path, verbose=False)
@@ -113,3 +120,31 @@ def test_out_of_range_decode_is_clipped():
     output = _master_ffmpeg_input(raw)
 
     assert np.all(np.abs(output) <= 1.0)
+
+
+def test_a_real_mp3_is_mastered_from_the_streamed_decode(tmp_path):
+    """End to end with a real FFmpeg decode (#5739): same length out as in, nothing left in /tmp."""
+    import shutil
+    import subprocess
+
+    import pytest
+
+    if shutil.which('ffmpeg') is None or shutil.which('ffprobe') is None:
+        pytest.skip('ffmpeg not installed')
+
+    tone = (0.3 * np.sin(2 * np.pi * 330 * np.arange(3 * SR) / SR)).astype(np.float32)
+    src_wav = tmp_path / 'src.wav'
+    sf.write(str(src_wav), np.column_stack([tone, tone]), SR)
+    src = tmp_path / 'song.mp3'
+    subprocess.run(['ffmpeg', '-nostdin', '-loglevel', 'error', '-y', '-i', str(src_wav), str(src)], check=True)
+    expected_frames = sf.info(str(src_wav)).frames
+    out = tmp_path / 'out.wav'
+
+    pipeline = _make_pipeline()
+    with patch.object(pipeline, '_process', side_effect=_identity_process):
+        pipeline.master_file(str(src), str(out), verbose=False)
+
+    info = sf.info(str(out))
+    assert info.samplerate == SR
+    assert abs(info.frames - expected_frames) < 0.1 * SR  # mp3 pads/trims a few ms
+    assert not [p for p in tmp_path.iterdir() if p.name.endswith('.repaired')]

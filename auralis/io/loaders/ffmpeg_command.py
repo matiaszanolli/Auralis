@@ -8,8 +8,6 @@ FFmpeg conversion argv and decode validation (split from ffmpeg_loader.py,
 
 from pathlib import Path
 
-import numpy as np
-
 from ...utils.logging import Code, ModuleError, debug, warning
 from ..processing import decoded_channel_count
 from .ffmpeg_probe import _PROTOCOL_WHITELIST_ARGS
@@ -74,8 +72,8 @@ def build_ffmpeg_cmd(
     return ffmpeg_cmd
 
 
-def check_truncation(
-    audio_data: np.ndarray,
+def check_truncation_frames(
+    frames: int,
     sample_rate: int,
     expected_duration: float | None,
     offset: float | None,
@@ -95,7 +93,7 @@ def check_truncation(
         effective_expected = min(duration, remaining) if duration else remaining
 
     if effective_expected is not None and effective_expected > 0:
-        actual_duration = len(audio_data) / sample_rate
+        actual_duration = frames / sample_rate
         expected_duration = effective_expected
         duration_percentage = (actual_duration / expected_duration) * 100
 

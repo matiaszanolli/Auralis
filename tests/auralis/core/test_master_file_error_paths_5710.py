@@ -60,7 +60,7 @@ def test_a_failed_ffmpeg_conversion_removes_its_temp_dir(tmp_path):
 
     with (
         patch("tempfile.TemporaryDirectory", tracking_temp_dir),
-        patch("auralis.io.loaders.load_with_ffmpeg", side_effect=RuntimeError("decode failed")),
+        patch("auralis.io.loaders.decode_to_wav", side_effect=RuntimeError("decode failed")),
         warnings.catch_warnings(record=True) as seen,
     ):
         warnings.simplefilter("always")

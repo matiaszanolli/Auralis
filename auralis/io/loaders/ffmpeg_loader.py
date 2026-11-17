@@ -22,7 +22,7 @@ import numpy as np
 
 from ...utils.logging import Code, ModuleError, debug, warning
 from .decode_temp import DECODE_TEMP_PREFIX
-from .ffmpeg_command import build_ffmpeg_cmd, check_truncation
+from .ffmpeg_command import build_ffmpeg_cmd, check_truncation_frames
 from .ffmpeg_path_guard import ffmpeg_input_path
 from .ffmpeg_probe import (
     _probe_audio,
@@ -77,9 +77,7 @@ def _probe_or_fail(file_path: Path) -> tuple[float | None, int, int]:
     # Probe source format: duration, sample rate, and channel count
     probe = _probe_audio(file_path)
     expected_duration = probe['duration']
-    # Fail fast when FFprobe cannot determine sample rate or channel count.
-    # Silently assuming 44100 Hz / 2 ch caused 48 kHz and other files to be
-    # permanently resampled to the wrong rate (fixes #2495).
+    # No silent 44100 Hz / 2 ch fallback: it resampled 48 kHz files to the wrong rate (#2495).
     if probe['sample_rate'] is None or probe['channels'] is None:
         debug(f"Could not probe sample rate / channel count for: {file_path}")
         raise ModuleError(
@@ -90,11 +88,8 @@ def _probe_or_fail(file_path: Path) -> tuple[float | None, int, int]:
     source_sample_rate = probe['sample_rate']
     source_channels = probe['channels']
 
-    # #3671: bail early if the source duration exceeds MAX_DURATION_SECONDS.
-    # Without this an N-hour podcast / DJ mix wrote an N×900 MB temp WAV to
-    # /tmp (RAM-backed on Linux) before any check ran, peaking RSS at ~2.7 GB
-    # for a 90-minute MP3. Importing here avoids a circular import with
-    # auralis.io.loader.
+    # #3671: reject over-long sources before decoding (a 90-minute MP3 peaked at ~2.7 GB RSS).
+    # Imported here to avoid a cycle with auralis.io.loader.
     from auralis.io.loader import MAX_DURATION_SECONDS, oversize_decode_detail
     if expected_duration is not None:
         if expected_duration > MAX_DURATION_SECONDS:
@@ -142,6 +137,55 @@ def _temp_wav_path(temp_folder: str | None) -> Path:
     return Path(temp_wav_str)
 
 
+def _decode_wav(
+    file_path: Path,
+    temp_folder: str | None,
+    cancel_event: "threading.Event | None",
+    offset: float | None,
+    duration: float | None,
+) -> tuple[Path, float | None]:
+    """Validate, probe and run FFmpeg into a fresh temp WAV; returns ``(wav, expected_duration)``.
+
+    The caller owns the file. On any failure it is removed before the error leaves.
+    """
+    file_path, file_path_str = _validate_input(file_path)
+    expected_duration, source_sample_rate, source_channels = _probe_or_fail(file_path)
+    temp_wav = _temp_wav_path(temp_folder)
+    try:
+        debug(f"Converting {file_path} to WAV using FFmpeg")
+        ffmpeg_cmd = build_ffmpeg_cmd(
+            file_path_str, temp_wav, source_sample_rate, source_channels, offset, duration
+        )
+        result = _run_ffmpeg_cancellable(
+            ffmpeg_cmd, timeout=FFMPEG_DECODE_TIMEOUT_S, cancel_event=cancel_event
+        )
+        if result.returncode != 0:
+            # Raw stderr echoes the input path: DEBUG only; the exception carries the last line (#4806).
+            debug(f"FFmpeg conversion failed for {file_path}: {result.stderr}")
+            raise ModuleError(
+                f"{Code.ERROR_FFMPEG_CONVERSION}: "
+                f"{redact_subprocess_output(result.stderr, known_path=str(file_path))}",
+                path=str(file_path),
+            )
+        return temp_wav, expected_duration
+    except BaseException as e:
+        _remove_temp_wav(temp_wav)
+        if isinstance(e, subprocess.TimeoutExpired):
+            raise ModuleError(f"{Code.ERROR_FFMPEG_TIMEOUT}: Conversion timed out")
+        if isinstance(e, Exception) and not isinstance(e, ModuleError):
+            raise ModuleError(f"{Code.ERROR_FFMPEG_CONVERSION}: {str(e)}")
+        raise  # ModuleError keeps its specific code (#3695); cancellation propagates
+
+
+def _remove_temp_wav(temp_wav: Path) -> None:
+    if temp_wav.exists():
+        try:
+            temp_wav.unlink()
+            debug(f"Cleaned up temporary file: {temp_wav}")
+        except Exception:
+            warning(f"Failed to clean up temporary file: {temp_wav}")
+
+
 def load_with_ffmpeg(
     file_path: Path,
     temp_folder: str | None = None,
@@ -158,61 +202,17 @@ def load_with_ffmpeg(
 
     ``offset``/``duration`` (seconds) bound the decode to a window, mapping to
     ffmpeg's ``-ss``/``-t`` (#5110). Both default to ``None``, which decodes the
-    whole file exactly as before — every existing call site is unaffected.
-
-    ``-ss`` is placed *before* ``-i`` for input seeking, which skips to the
-    window rather than decoding and discarding everything ahead of it. That is
-    the whole point: fingerprint windowing needs ~150 s out of a file that may
-    be hours long, and decoding all of it was up to ~50x the necessary CPU with
-    a peak footprint in the GB range.
+    whole file. ``-ss`` precedes ``-i`` (input seeking), so fingerprint windowing
+    needs ~150 s out of a file that may be hours long without decoding the rest.
     """
-    file_path, file_path_str = _validate_input(file_path)
-    expected_duration, source_sample_rate, source_channels = _probe_or_fail(file_path)
-    temp_wav = _temp_wav_path(temp_folder)
-
+    temp_wav, expected_duration = _decode_wav(file_path, temp_folder, cancel_event, offset, duration)
     try:
-        # Convert to WAV using FFmpeg
-        debug(f"Converting {file_path} to WAV using FFmpeg")
-        ffmpeg_cmd = build_ffmpeg_cmd(
-            file_path_str, temp_wav, source_sample_rate, source_channels, offset, duration
-        )
-        result = _run_ffmpeg_cancellable(
-            ffmpeg_cmd,
-            timeout=FFMPEG_DECODE_TIMEOUT_S,
-            cancel_event=cancel_event,
-        )
-
-        if result.returncode != 0:
-            # Full raw stderr (build-config banner + the input path it always
-            # echoes) at DEBUG only; the exception's string form carries just
-            # the last line, which is reliably the actual failure reason (#4806).
-            debug(f"FFmpeg conversion failed for {file_path}: {result.stderr}")
-            raise ModuleError(
-                f"{Code.ERROR_FFMPEG_CONVERSION}: "
-                f"{redact_subprocess_output(result.stderr, known_path=str(file_path))}",
-                path=str(file_path),
-            )
-
-        # Load the converted WAV file
         audio_data, sample_rate = load_with_soundfile(temp_wav)
-        check_truncation(audio_data, sample_rate, expected_duration, offset, duration)
+        check_truncation_frames(len(audio_data), sample_rate, expected_duration, offset, duration)
         return audio_data, sample_rate
-
-    except subprocess.TimeoutExpired:
-        raise ModuleError(f"{Code.ERROR_FFMPEG_TIMEOUT}: Conversion timed out")
     except ModuleError:
-        # #3695: don't re-wrap already-specific ModuleError raises (e.g.
-        # ERROR_TRUNCATED_FILE from soundfile_loader). Matches the pattern
-        # in soundfile_loader.py:80-82. Without this, every internal
-        # diagnostic code is overwritten by ERROR_FFMPEG_CONVERSION.
-        raise
+        raise  # keep the specific code, e.g. ERROR_TRUNCATED_FILE (#3695)
     except Exception as e:
         raise ModuleError(f"{Code.ERROR_FFMPEG_CONVERSION}: {str(e)}")
     finally:
-        # Clean up temporary file
-        if temp_wav.exists():
-            try:
-                temp_wav.unlink()
-                debug(f"Cleaned up temporary file: {temp_wav}")
-            except Exception:
-                warning(f"Failed to clean up temporary file: {temp_wav}")
+        _remove_temp_wav(temp_wav)
