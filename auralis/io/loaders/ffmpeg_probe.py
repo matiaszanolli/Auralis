@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any
 
 from ...utils.logging import warning
@@ -82,8 +83,32 @@ def _parse_ffmpeg_version(version_output: str) -> tuple[int, ...] | None:
     except ValueError:
         return None
 
-@functools.lru_cache(maxsize=1)
-def check_ffmpeg() -> bool:
+def _cache_definitive(probe: Callable[[], bool | None]) -> Callable[[], bool]:
+    """Memoize a probe, but only a DEFINITIVE answer (#6318).
+
+    ``probe`` returns True (present), False (absent) or None (it could not tell: a timeout on a
+    cold first spawn, a non-zero exit, an OSError). None is reported as False for this call and
+    NOT cached, so one slow spawn does not disable every FFmpeg format until restart.
+    ``cache_clear()`` forces a re-probe, as ``lru_cache`` offered.
+    """
+    answer: list[bool] = []
+
+    @functools.wraps(probe)
+    def wrapper() -> bool:
+        if answer:
+            return answer[0]
+        result = probe()
+        if result is None:
+            return False
+        answer.append(result)
+        return result
+
+    wrapper.cache_clear = answer.clear  # type: ignore[attr-defined]
+    return wrapper
+
+
+@_cache_definitive
+def check_ffmpeg() -> bool | None:
     """Check if FFmpeg is available, warning if its version is below the floor.
 
     Memoized for the process lifetime (#4117): FFmpeg availability does not
@@ -105,7 +130,7 @@ def check_ffmpeg() -> bool:
             **SUBPROCESS_TEXT_KWARGS,
         )
         if result.returncode != 0:
-            return False
+            return None
 
         version = _parse_ffmpeg_version(result.stdout)
         if version is None:
@@ -118,12 +143,14 @@ def check_ffmpeg() -> bool:
                 "older builds carry known demuxer/decoder CVEs; consider upgrading."
             )
         return True
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except FileNotFoundError:
         return False
+    except (subprocess.TimeoutExpired, OSError):
+        return None
 
 
-@functools.lru_cache(maxsize=1)
-def check_ffprobe() -> bool:
+@_cache_definitive
+def check_ffprobe() -> bool | None:
     """Check if the ffprobe binary is available.
 
     ffprobe is a separate binary from ffmpeg (#4119): an environment may have
@@ -136,9 +163,11 @@ def check_ffprobe() -> bool:
             capture_output=True,
             timeout=FFMPEG_VERSION_CHECK_TIMEOUT_S,
         )
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return True if result.returncode == 0 else None
+    except FileNotFoundError:
         return False
+    except (subprocess.TimeoutExpired, OSError):
+        return None
 
 
 def _probe_audio(file_path: Path) -> dict[str, Any]:
