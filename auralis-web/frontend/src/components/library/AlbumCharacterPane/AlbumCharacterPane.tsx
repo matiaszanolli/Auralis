@@ -72,9 +72,7 @@ export const AlbumCharacterPane = ({
   // Enhancement state from unified hook (eliminates prop drilling, fixes #2765)
   const { enabled: isEnhancementEnabled, setEnabled } = useEnhancementControl();
 
-  // The session's own derivation, not Redux player.isPlaying, which only backend events write (#6015)
-  const { isPlaybackActive, isPaused } = usePlaybackControls();
-  const isPlayingRaw = isPlaybackActive && !isPaused;
+  const { isPlaybackActive, isPaused } = usePlaybackControls(); // not Redux isPlaying: backend-written only (#6015)
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
 
   // Fetch playing track's fingerprint when available
@@ -112,7 +110,7 @@ export const AlbumCharacterPane = ({
     : albumLoading;
 
   // Apply silence decay - motion fades gracefully over 2.5s when playback stops
-  const { isAnimating, intensity, isPlaying } = usePlaybackWithDecay(isPlayingRaw);
+  const { isAnimating, intensity, isPlaying } = usePlaybackWithDecay(isPlaybackActive && !isPaused);
 
   // Glow lingers longer - use sqrt for slower fade on container glow.
   // Round to 2dp so the ~60Hz decay produces ≤100 distinct values instead of a
