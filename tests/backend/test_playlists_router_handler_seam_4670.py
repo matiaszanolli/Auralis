@@ -49,6 +49,8 @@ async def test_create_playlist_broadcasts_through_an_injected_manager():
     playlist = MagicMock()
     playlist.id = 3
     playlist.name = "Road trip"
+    # serialize_object() requires to_dict() to return a dict (#5803).
+    playlist.to_dict.return_value = {"id": 3, "name": "Road trip"}
     stub_repos = MagicMock()
     stub_repos.playlists.create.return_value = playlist
     stub_manager = MagicMock()
