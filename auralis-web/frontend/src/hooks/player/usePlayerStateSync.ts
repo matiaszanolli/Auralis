@@ -34,10 +34,18 @@ import { useEffect, useRef } from 'react';
 import { useDispatch, useStore } from 'react-redux';
 import type { AppDispatch, RootState } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import {
+  useMessageSubscriptions,
+  type MessageHandlers,
+  type SubscribeFn,
+} from '@/hooks/websocket/useWebSocketMessages';
 import { setCurrentTrack, setIsPlaying, setCurrentTime, setVolume } from '@/store/slices/playerSlice';
 import { setCurrentIndex } from '@/store/slices/queueSlice';
 import type { RawPlayerStateData } from '@/types/websocket';
 import { applyPlayerStateSnapshot } from './playerStateSnapshot';
+
+/** Stands in for an absent context's `subscribe`: nothing to subscribe to, nothing to undo. */
+const noopSubscribe = (() => () => undefined) as unknown as SubscribeFn;
 
 /**
  * Hook to sync WebSocket player_state messages to Redux (player + queue)
@@ -87,13 +95,19 @@ export function usePlayerStateSync() {
   // same process keeps its counters, so it needs no reset.
   const serverInstanceIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!subscribe) {
-      console.warn('[usePlayerStateSync] WebSocket context not available');
-      return;
-    }
+  // The handlers are rebuilt each render and read through useMessageSubscriptions' ref, so the eight
+  // subscriptions are made once; everything they touch (dispatch, store, the watermark refs) is
+  // stable (#6041).
+  const shouldApplyTransportEvent = (message: { data?: { seq?: number } }): boolean => {
+    const data = message.data;
+    if (typeof data?.seq !== 'number') return true;
+    if (data.seq < lastSeenTransportEventSeqRef.current) return false;
+    lastSeenTransportEventSeqRef.current = data.seq;
+    return true;
+  };
 
-    const unsubscribe = subscribe('player_state', (message) => {
+  const handlers: MessageHandlers = {
+    player_state: (message) => {
       try {
         const state: Partial<RawPlayerStateData> | undefined = message.data;
         if (!state || typeof state !== 'object') return;
@@ -122,13 +136,13 @@ export function usePlayerStateSync() {
       } catch (err) {
         console.error('[usePlayerStateSync] Error processing player_state:', err);
       }
-    });
+    },
 
     // Lightweight 1Hz position tick (fixes #3937 / RS-5). The backend emits a
     // `position_changed` message every second during playback instead of
     // re-broadcasting the full player_state; without this subscriber
     // redux.player.currentTime was frozen between state-change events.
-    const unsubscribePosition = subscribe('position_changed', (message) => {
+    position_changed: (message) => {
       const data = message.data;
       if (!data || typeof data.position !== 'number' || !Number.isFinite(data.position)) {
         return;
@@ -154,39 +168,31 @@ export function usePlayerStateSync() {
       }
 
       dispatch(setCurrentTime(data.position));
-    });
+    },
 
     // Discrete player events (#4144). The periodic player_state snapshot is the
     // authoritative reconciler, but these give immediate, low-latency updates so
     // pause/stop/skip/volume reflect in Redux without waiting up to ~1s for the
     // next snapshot. Previously the command hooks claimed these messages
     // "update the Redux player slice" but no subscriber existed.
-    const shouldApplyTransportEvent = (message: { data?: { seq?: number } }): boolean => {
-      const data = message.data;
-      if (typeof data?.seq !== 'number') return true;
-      if (data.seq < lastSeenTransportEventSeqRef.current) return false;
-      lastSeenTransportEventSeqRef.current = data.seq;
-      return true;
-    };
-
-    const unsubscribeStarted = subscribe('playback_started', (message) => {
+    playback_started: (message) => {
       if (!shouldApplyTransportEvent(message)) return;
       dispatch(setIsPlaying(true));
-    });
-    const unsubscribeResumed = subscribe('playback_resumed', (message) => {
+    },
+    playback_resumed: (message) => {
       if (!shouldApplyTransportEvent(message)) return;
       dispatch(setIsPlaying(true));
-    });
-    const unsubscribePaused = subscribe('playback_paused', (message) => {
+    },
+    playback_paused: (message) => {
       if (!shouldApplyTransportEvent(message)) return;
       dispatch(setIsPlaying(false));
-    });
-    const unsubscribeStopped = subscribe('playback_stopped', (message) => {
+    },
+    playback_stopped: (message) => {
       if (!shouldApplyTransportEvent(message)) return;
       dispatch(setIsPlaying(false));
-    });
+    },
 
-    const unsubscribeVolume = subscribe('volume_changed', (message) => {
+    volume_changed: (message) => {
       // 0-100 integer scale — matches playerSlice.setVolume and the scale the
       // player_state snapshot uses.
       const data = message.data;
@@ -197,12 +203,12 @@ export function usePlayerStateSync() {
         }
         dispatch(setVolume(data.volume));
       }
-    });
+    },
 
     // track_changed carries the new queue position (#4144). next/previous
     // all include track_index now; resolve the track from the already-synced
     // queue rather than replicating backend shuffle/repeat ordering client-side.
-    const unsubscribeTrackChanged = subscribe('track_changed', (message) => {
+    track_changed: (message) => {
       const data = message.data;
       if (!data || typeof data.track_index !== 'number' || !Number.isInteger(data.track_index)) {
         // No index in payload — let the next player_state snapshot reconcile.
@@ -232,19 +238,14 @@ export function usePlayerStateSync() {
         dispatch(setCurrentIndex(index));
         dispatch(setCurrentTrack(tracks[index]));
       }
-    });
+    },
+  };
 
-    return () => {
-      unsubscribe?.();
-      unsubscribePosition?.();
-      unsubscribeStarted?.();
-      unsubscribeResumed?.();
-      unsubscribePaused?.();
-      unsubscribeStopped?.();
-      unsubscribeVolume?.();
-      unsubscribeTrackChanged?.();
-    };
-  }, [subscribe, dispatch, store]);
+  useEffect(() => {
+    if (!subscribe) console.warn('[usePlayerStateSync] WebSocket context not available');
+  }, [subscribe]);
+
+  useMessageSubscriptions(subscribe ?? noopSubscribe, handlers);
 }
 
 export default usePlayerStateSync;
