@@ -19,7 +19,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core import chunk_streaming  # noqa: E402
+from core import chunk_render_miss, chunk_streaming  # noqa: E402
 from core.chunk_cache_manager import ChunkCacheManager  # noqa: E402
 from core.chunk_path_cache import ChunkPathCache  # noqa: E402
 
@@ -94,6 +94,6 @@ def test_process_chunk_re_renders_when_the_cached_file_vanishes(tmp_path):
     processor._lookup_cached_chunk.return_value = tmp_path / "gone.wav"
     reached_render = RuntimeError("reached the render path")
 
-    with patch.object(chunk_streaming, "_raise_if_cancelled", side_effect=reached_render):
+    with patch.object(chunk_render_miss, "_raise_if_cancelled", side_effect=reached_render):
         with pytest.raises(RuntimeError, match="reached the render path"):
             chunk_streaming.process_chunk(processor, 0, locked=False)

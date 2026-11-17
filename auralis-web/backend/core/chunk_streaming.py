@@ -20,7 +20,6 @@ the shared rationale on why sibling-method calls go through
 """
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -28,6 +27,8 @@ import numpy as np
 from core.chunk_content_profile import store_content_profile
 from core.encoding import WAVEncoderError, read_chunk_wav
 
+from .chunk_render_miss import render_chunk
+from .chunk_single_flight import chunk_flights
 from .chunk_stream_state import (
     ChunkCancelledError,
     _invalidate_after_post_dsp_failure,
@@ -38,6 +39,31 @@ if TYPE_CHECKING:
     from core.chunked_processor import ChunkedAudioProcessor
 
 logger = logging.getLogger("core.chunked_processor")
+
+
+def _serve_cached(
+    processor: "ChunkedAudioProcessor", chunk_index: int
+) -> tuple[str, np.ndarray] | None:
+    """The chunk from the in-memory tier, then the on-disk WAV (#4792), or None on a miss.
+
+    The cache holds the raw emitted segment, same shape as a fresh render (native
+    channels, always 2-D; not load_audio's whole-file downmix contract, #5947).
+    Smoothing it is this stream's step, exactly as for a miss: smooth_transition
+    compares it to the chunk this processor served before it, in stream order (#5948).
+    """
+    cached_path = processor._lookup_cached_chunk(chunk_index)
+    if cached_path is None:
+        return None
+    assert processor.total_chunks is not None
+    logger.info(f"Serving cached chunk {chunk_index}/{processor.total_chunks}")
+    try:
+        audio = read_chunk_wav(cached_path)
+    except (OSError, RuntimeError) as exc:  # RuntimeError: libsndfile
+        # The file went away (or was cut) between lookup and read, e.g. to the
+        # disk reaper: fall through to a re-render (#5967).
+        logger.warning(f"Cached chunk {chunk_index} unreadable ({exc}); re-rendering")
+        return None
+    return (str(cached_path), processor._smooth_level_transition(audio, chunk_index))
 
 
 def process_chunk(
@@ -70,92 +96,25 @@ def process_chunk(
     # never bypass the authoritative processor bound (#4733).
     processor._validate_chunk_index(chunk_index)
 
-    # Check cache first — in-memory, then on-disk WAV (#4792: this used to
-    # check only the in-memory dict, so a fresh in-memory cache (every new
-    # stream) always re-ran the full DSP pipeline even when a byte-identical
-    # WAV from a previous stream of this track/preset/intensity was already
-    # on disk).
-    cached_path = processor._lookup_cached_chunk(chunk_index)
+    cached = _serve_cached(processor, chunk_index)
+    if cached is not None:
+        return cached
 
-    if cached_path is not None:
-        assert processor.total_chunks is not None
-        logger.info(f"Serving cached chunk {chunk_index}/{processor.total_chunks}")
-        # The cache holds the raw emitted segment, same shape as the miss path
-        # (native channels, always 2-D; not load_audio's whole-file downmix
-        # contract, #5947). Smoothing it is this stream's step, exactly as for
-        # a miss: smooth_transition then compares it to the chunk this
-        # processor served before it, in stream order (#5948).
-        try:
-            audio = read_chunk_wav(cached_path)
-        except (OSError, RuntimeError) as exc:  # RuntimeError: libsndfile
-            # The file went away (or was cut) between lookup and read, e.g. to
-            # the disk reaper: fall through to a re-render (#5967).
-            logger.warning(f"Cached chunk {chunk_index} unreadable ({exc}); re-rendering")
-        else:
-            return (str(cached_path), processor._smooth_level_transition(audio, chunk_index))
-
-    # #4815: bail out before the expensive DSP call if the owning stream was
-    # already cancelled (seek/track-change/disconnect) — cheap to check, and
-    # avoids running 200ms-2s of DSP work (and holding the shared
-    # HybridProcessor's _process_lock, blocking any NEW stream reusing the
-    # same pooled processor) for a chunk nothing will ever consume.
-    _raise_if_cancelled(processor, chunk_index)
-
-    logger.info(f"Processing chunk {chunk_index}/{processor.total_chunks} (preset: {processor.preset})")
-
-    # Skip synchronous fingerprint extraction during chunk processing.
-    # Loading the full audio file to compute a fingerprint blocks the first
-    # chunk for 5-30s (depending on file size/format), causing the frontend
-    # to time out and re-send play requests.  The background fingerprint
-    # queue handles extraction asynchronously; subsequent plays will use
-    # the cached result.  HybridProcessor analyzes per-chunk as fallback.
-    if processor.fingerprint is None and chunk_index == 0:
-        logger.info(f"ℹ️  No cached fingerprint for track {processor.track_id} — using per-chunk adaptive processing")
-
-    processor._dsp_state_advanced = False
+    # One render per cache key across every processor (#5258): a follower waits for
+    # the leader, then serves the WAV it wrote; if the leader was cancelled or failed
+    # there is no file, and the follower claims the key itself.
+    while True:
+        flight = chunk_flights.claim(processor._path_cache.cache_key(chunk_index))
+        if flight.leader:
+            break
+        flight.wait_for_leader(lambda: _raise_if_cancelled(processor, chunk_index))
+        cached = _serve_cached(processor, chunk_index)
+        if cached is not None:
+            return cached
     try:
-        # Process chunk using shared core logic
-        # Already the emitted, non-overlapping segment: the core extracts it
-        # before smoothing so the gain ramp is audible (#5051).
-        extracted_chunk = processor._process_chunk_core(chunk_index)
-        assert processor.sample_rate is not None
-
-        # #5328: a seek can land while this DSP is in flight - look-ahead
-        # renders are mid-DSP for most of the pump loop - and the check above
-        # has long passed. Never persist a render its stream abandoned.
-        _raise_if_cancelled(processor, chunk_index)
-
-        # Saved for durability/caching; the array avoids an immediate readback.
-        # #4666: targets_hash completes the on-disk identity — the write must
-        # land at exactly the path ChunkPathCache.lookup_cached() will check.
-        chunk_path = processor._wav_encoder.encode_and_save_from_path(
-            audio=extracted_chunk,
-            sample_rate=processor.sample_rate,
-            track_id=processor.track_id,
-            file_signature=processor.file_signature,
-            preset=processor.preset,
-            intensity=processor.intensity,
-            chunk_index=chunk_index,
-            subtype='PCM_16',
-            targets_hash=processor.targets_hash,
-        )
-        processor._path_cache.store(chunk_index, chunk_path)
-    except ChunkCancelledError:
-        # Not a failed retry (#5274): nothing re-requests this chunk from the
-        # cancelled stream, and the seek that cancelled it already breaks
-        # processor continuity, exactly as when the look-ahead finished first.
-        processor._dsp_state_advanced = False
-        raise
-    except Exception:
-        _invalidate_after_post_dsp_failure(processor, chunk_index)
-        raise
-    processor._dsp_state_advanced = False
-
-    logger.info(f"Chunk {chunk_index} processed and saved to {Path(chunk_path).name}")
-    # The durable file holds the raw segment, so it is the same whichever chunk
-    # this processor rendered before it. What this stream hears is that segment
-    # smoothed against the chunk it just heard (#5948) - a separate array.
-    return (str(chunk_path), processor._smooth_level_transition(extracted_chunk, chunk_index))
+        return render_chunk(processor, chunk_index)
+    finally:
+        chunk_flights.release(flight)
 
 
 async def process_chunk_safe(
