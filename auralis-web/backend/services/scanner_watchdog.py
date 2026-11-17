@@ -13,6 +13,8 @@ from collections.abc import Callable, Coroutine
 
 from config.limits import OBSERVER_JOIN_TIMEOUT_S
 
+from .scanner_event_filter import is_relevant_event
+
 logger = logging.getLogger(__name__)
 
 # Optional watchdog for real-time filesystem events
@@ -41,23 +43,21 @@ class _DebounceHandler(FileSystemEventHandler):  # type: ignore[misc]
         self._pending: asyncio.TimerHandle | None = None
 
     def on_created(self, event: Any) -> None:
-        self._schedule()
+        self._schedule_if_relevant(event)
 
     def on_deleted(self, event: Any) -> None:
-        self._schedule()
+        self._schedule_if_relevant(event)
 
     def on_moved(self, event: Any) -> None:
-        self._schedule()
+        self._schedule_if_relevant(event)
+
+    def _schedule_if_relevant(self, event: Any) -> None:
+        if is_relevant_event(event):  # audio, cover art or a directory; not .part/swap/app temp (#6164)
+            self._schedule()
 
     def _schedule(self) -> None:
-        # Runs on the watchdog thread, not the event loop's — call_later
-        # (and cancelling a TimerHandle it produced) is not thread-safe from
-        # here (#2863), so the actual cancel-and-reschedule is deferred to
-        # _schedule_on_loop() via call_soon_threadsafe. #4748: this used to
-        # also call self._pending.cancel() directly, right above the comment
-        # explaining why that's unsafe from this thread — redundant besides,
-        # since _schedule_on_loop() below re-cancels correctly on the loop
-        # thread before rescheduling.
+        # Runs on the watchdog thread: call_later and TimerHandle.cancel are not thread-safe from
+        # here (#2863), so the cancel-and-reschedule is deferred to the loop thread (#4748).
         self._loop.call_soon_threadsafe(self._schedule_on_loop)
 
     def _schedule_on_loop(self) -> None:
