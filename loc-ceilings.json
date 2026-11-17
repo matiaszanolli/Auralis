@@ -66,7 +66,7 @@
     "auralis-web/frontend/src/components/library/Items/tracks/TrackRow.styles.ts": 280,
     "auralis-web/frontend/src/components/player/QueuePanel/QueuePanelExpanded.tsx": 282,
     "auralis-web/frontend/src/components/player/QueuePanel/styles.ts": 293,
-    "auralis-web/frontend/src/contexts/PlaybackSessionContext.tsx": 291,
+    "auralis-web/frontend/src/contexts/PlaybackSessionContext.tsx": 201,
     "auralis-web/frontend/src/contexts/WebSocketContext.tsx": 295,
     "auralis-web/frontend/src/hooks/enhancement/useAudioStreamingCore.ts": 314,
     "auralis-web/frontend/src/hooks/enhancement/useEnhancedStreamStart.ts": 286,

@@ -20,14 +20,11 @@
  * @module contexts/PlaybackSessionContext
  */
 
-import { useCallback, useMemo, useRef, type ReactNode } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import type { AppDispatch } from '@/store';
+import { useCallback, useMemo, type ReactNode } from 'react';
+import { useSelector } from 'react-redux';
 import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 import { selectQueueTracks, selectCurrentIndex, selectRepeatMode } from '@/store/slices/queueSlice';
-import { setVolume as setVolumeAction } from '@/store/slices/playerSlice';
-import { setCurrentTrackAndSyncQueue } from '@/store/slices/playerQueueSync';
 import { playerSelectors } from '@/store/selectors';
 import {
   PlaybackControlsContext,
@@ -37,12 +34,12 @@ import {
 } from './playbackSessionContexts';
 import { useAutoAdvance, useStartTrackRetry, useTransportCommand } from './usePlaybackSessionHooks';
 import { useFollowRemovedTrack } from './useFollowRemovedTrack';
+import { usePlaybackNavigation } from './usePlaybackNavigation';
+import { usePlaybackVolume } from './usePlaybackVolume';
 
 const DEBUG = import.meta.env.DEV;
 
 export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
-  const dispatch = useDispatch<AppDispatch>();
-
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
   const playerVolume = useSelector(playerSelectors.selectVolume);
   const playerIsMuted = useSelector(playerSelectors.selectIsMuted);
@@ -50,8 +47,6 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   const currentQueueIndex = useSelector(selectCurrentIndex);
   const repeatMode = useSelector(selectRepeatMode);
 
-  // Store pre-mute volume so unmute restores the user's prior level.
-  const preMuteVolumeRef = useRef<number>(0.5);
   const gate = useTransportCommand();
   const { runTransportCommand, isCommandPending } = gate;
 
@@ -113,75 +108,9 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     seekTo(position);
   }, [isStreaming, currentTrack?.id, seekTo]);
 
-  // The three transport handlers await-and-discard runTransportCommand's
-  // started boolean (#5613): coalescing is their desired behaviour, so a
-  // drop needs no reaction — they only keep the Promise<void> contract.
-  // advanceNext reports whether the command actually started (false = the gate
-  // was busy and dropped it). handleNext discards that; auto-advance needs it to
-  // release its once-per-completion latch on a drop (#6045).
-  const advanceNext = useCallback(() => {
-    return runTransportCommand(async () => {
-    try {
-      let nextIndex = currentQueueIndex + 1;
-      if (nextIndex >= queueTracks.length) {
-        // Manual navigation follows the displayed order, so wrapping behaves
-        // identically under shuffle — the queue slice already holds the
-        // shuffled sequence. repeat 'one' is a track-END mode, not a
-        // navigation mode: Next still advances off the last track (#5605).
-        if (repeatMode !== 'all' || queueTracks.length === 0) {
-          DEBUG && console.log('[PlaybackSession] Already at last track in queue');
-          return;
-        }
-        nextIndex = 0;
-      }
-
-      const nextTrackData = queueTracks[nextIndex];
-      if (!nextTrackData) return;
-
-      // Stop current playback, then sync queue index + player.currentTrack
-      // atomically (#3587 — the previous nextTrack() + setCurrentTrack()
-      // pair could observe an intermediate state between dispatches).
-      stopPlayback();
-      dispatch(setCurrentTrackAndSyncQueue(nextTrackData, nextIndex));
-
-      await startTrackForSettings(nextTrackData.id);
-    } catch (err) {
-      console.error('[PlaybackSession] Next command error:', err);
-    }
-    });
-  }, [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
-
-  const handleNext = useCallback(async () => {
-    await advanceNext();
-  }, [advanceNext]);
-
-  const handlePrevious = useCallback(async () => {
-    await runTransportCommand(async () => {
-    try {
-      let prevIndex = currentQueueIndex - 1;
-      if (prevIndex < 0) {
-        // Wrap to the last track under repeat 'all' (#5605); otherwise clamp.
-        if (repeatMode !== 'all' || queueTracks.length === 0) {
-          DEBUG && console.log('[PlaybackSession] Already at first track in queue');
-          return;
-        }
-        prevIndex = queueTracks.length - 1;
-      }
-
-      const prevTrackData = queueTracks[prevIndex];
-      if (!prevTrackData) return;
-
-      // Stop current playback, then sync queue index + player.currentTrack
-      // atomically (#3587).
-      stopPlayback();
-      dispatch(setCurrentTrackAndSyncQueue(prevTrackData, prevIndex));
-
-      await startTrackForSettings(prevTrackData.id);
-    } catch (err) {
-      console.error('[PlaybackSession] Previous command error:', err);
-    }
-    });
-  }, [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]);
+  const { advanceNext, handleNext, handlePrevious } = usePlaybackNavigation({
+    queueTracks, currentQueueIndex, repeatMode, runTransportCommand, stopPlayback, startTrackForSettings,
+  });
 
   const handlePlayPause = useCallback(async () => {
     await runTransportCommand(async () => {
@@ -211,28 +140,9 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     runTransportCommand, startTrackForSettings,
   ]);
 
-  const handleVolumeChange = useCallback(async (vol: number) => {
-    try {
-      // Volume is 0-1 range in WebSocket/AudioEngine, 0-100 in Redux/Backend.
-      setStreamingVolume(vol);
-      dispatch(setVolumeAction(Math.round(vol * 100)));
-    } catch (err) {
-      console.error('[PlaybackSession] Volume command error:', err);
-    }
-  }, [setStreamingVolume, dispatch]);
-
-  const handleMuteToggle = useCallback(async (): Promise<boolean> => {
-    const volume = playerVolume ?? 50;
-    const isMuted = volume === 0 || playerIsMuted === true;
-
-    if (isMuted) {
-      await handleVolumeChange(preMuteVolumeRef.current);
-      return false;
-    }
-    preMuteVolumeRef.current = volume / 100;
-    await handleVolumeChange(0);
-    return true;
-  }, [playerVolume, playerIsMuted, handleVolumeChange]);
+  const { handleVolumeChange, handleMuteToggle } = usePlaybackVolume({
+    playerVolume, playerIsMuted, setStreamingVolume,
+  });
 
   useAutoAdvance({
     streamingState,
