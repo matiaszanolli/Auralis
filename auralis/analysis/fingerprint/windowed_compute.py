@@ -93,8 +93,8 @@ def _apply_probe_correction(
         if len(measured) >= 2:
             fingerprint['lufs'] = float(np.median([lufs for lufs, _ in measured]))
             fingerprint['crest_db'] = float(np.median([crest for _, crest in measured]))
-    except Exception:
-        pass
+    except Exception as exc:  # best-effort, but never silent (#6326)
+        logger.warning(f"Probe LUFS/crest correction skipped: {exc}")
 
 
 def compute_windowed_fingerprint(

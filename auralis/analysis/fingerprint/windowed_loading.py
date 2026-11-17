@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .probe_decode import decode_probes
 from .windows import (
     FINGERPRINT_BODY_POSITION,
     FINGERPRINT_BODY_WINDOW_S,
@@ -116,10 +117,9 @@ def load_ffmpeg_windows(audio_path: Path) -> WindowSet:
             body_offset = window_offset_s(FINGERPRINT_BODY_POSITION, total_s, body_s)
             audio = _decode_window(audio_path, tmp, body_offset, body_s)
             # Lightweight LUFS/crest probes at 25 % and 75 %
-            probes = [
-                _decode_window(audio_path, tmp, window_offset_s(frac, total_s, probe_s), probe_s)
-                for frac in FINGERPRINT_PROBE_POSITIONS
-            ]
+            probes = decode_probes(
+                lambda off: _decode_window(audio_path, tmp, off, probe_s), audio_path, total_s, probe_s
+            )
 
     # Rounding safety at the target rate (works for 1-D and 2-D).
     audio = audio[..., :int(FINGERPRINT_SAMPLE_RATE * body_s)]
@@ -152,16 +152,12 @@ def load_librosa_windows(audio_path: Path) -> WindowSet:
     # mono=True mean would include the LFE, #5711); the caller folds to mono.
     probes: list[np.ndarray] = []
     if total_s is not None:
-        for frac in FINGERPRINT_PROBE_POSITIONS:
-            poff = window_offset_s(frac, total_s, probe_s)
-            try:
-                pa, _ = librosa.load(
-                    str(audio_path), sr=FINGERPRINT_SAMPLE_RATE, mono=False,
-                    offset=poff, duration=probe_s,
-                )
-                probes.append(stereo_window(pa))
-            except Exception:
-                pass
+        probes = decode_probes(
+            lambda off: stereo_window(librosa.load(
+                str(audio_path), sr=FINGERPRINT_SAMPLE_RATE, mono=False, offset=off, duration=probe_s,
+            )[0]),
+            audio_path, total_s, probe_s,
+        )
     return audio, int(loaded_sr), probes
 
 
