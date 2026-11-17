@@ -13,6 +13,7 @@ import threading
 import time
 from typing import Any
 
+from .ffmpeg_orphan_guard import die_with_parent
 logger = logging.getLogger(__name__)
 
 # Every ffmpeg/ffprobe capture decodes with these. Bare ``text=True`` is strict
@@ -56,9 +57,8 @@ def redact_subprocess_output(
 def _terminate_process(proc: "subprocess.Popen[str]") -> None:
     """Terminate an FFmpeg child promptly: SIGTERM, escalate to SIGKILL.
 
-    Best-effort signalling: errors are swallowed. The one case where "the child is
-    going away regardless" is false - it survives SIGKILL for another grace period
-    - is logged, so an unreaped ffmpeg is visible (#5115).
+    Best-effort: errors are swallowed, except a child that survives SIGKILL for another
+    grace period, which is logged so an unreaped ffmpeg is visible (#5115).
     """
     try:
         proc.terminate()
@@ -90,17 +90,17 @@ def _run_ffmpeg_cancellable(
     """
     if cancel_event is None:
         return subprocess.run(
-            cmd, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL, **SUBPROCESS_TEXT_KWARGS
+            die_with_parent(cmd), capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL,
+            **SUBPROCESS_TEXT_KWARGS,
         )
 
     if cancel_event.is_set():
         raise asyncio.CancelledError()
 
-    # FFmpeg writes the decoded WAV to a file (not stdout), so stdout stays
-    # empty and stderr carries only modest progress text — the pipe buffers
-    # never fill, so repeated poll-timeout communicate() calls cannot deadlock.
+    # FFmpeg writes the WAV to a file, so stdout stays empty and stderr is short: the pipes never
+    # fill, and repeated poll-timeout communicate() calls cannot deadlock.
     proc = subprocess.Popen(
-        cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        die_with_parent(cmd), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         **SUBPROCESS_TEXT_KWARGS,
     )
     start = time.monotonic()
