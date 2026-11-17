@@ -156,11 +156,7 @@ describe('Component Integration Tests', () => {
     //      test never dispatched to;
     //   2. ConnectionStatusIndicator renders its status as an `aria-label` on a
     //      dot button, never as visible text, so assert on the accessible name.
-    // components/shared/PlayerControls was removed (#4541) — it was a dead,
-    // unmounted component that mixed the legacy usePlaybackControl +
-    // useReduxState control planes, reproducing the exact playback-session
-    // desync bug #4541 fixed. This test now covers ConnectionStatusIndicator
-    // alone.
+    // This test covers ConnectionStatusIndicator alone.
     it('should render with shared Redux store', () => {
       store.dispatch(connectionActions.setWSConnected(true));
       store.dispatch(connectionActions.setAPIConnected(true));

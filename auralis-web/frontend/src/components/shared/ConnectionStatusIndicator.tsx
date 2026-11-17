@@ -18,7 +18,7 @@
 import { useState } from 'react';
 import { tokens } from '@/design-system';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
-import { useConnectionState } from '@/hooks/shared/useReduxState';
+import { useConnectionState } from '@/hooks/shared/useConnectionRedux';
 import { useAPIHealthPoll } from '@/hooks/shared/useAPIHealthPoll';
 import { useAutoHide } from '@/hooks/shared/useAutoHide';
 import { ConnectionDetailsPanel } from './ConnectionDetailsPanel';

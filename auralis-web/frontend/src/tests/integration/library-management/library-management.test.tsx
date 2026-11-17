@@ -20,7 +20,7 @@
  * - CozyLibraryView main orchestrator
  * - useLibraryData hook integration
  * - useTrackSelection hook integration
- * - Playback control integration (context-menu & queue actions via useReduxState/PlaybackSessionContext)
+ * - Playback control integration (context-menu & queue actions via PlaybackSessionContext)
  * - MSW API mocking for library endpoints
  */
 
