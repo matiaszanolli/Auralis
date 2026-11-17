@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { useMessageSubscriptions } from '@/hooks/websocket/useWebSocketMessages';
 import type { PlaylistUpdatedMessage } from '@/types/websocket';
 
 interface UsePlaylistWebSocketProps {
@@ -25,7 +26,7 @@ interface UsePlaylistWebSocketProps {
  * PlaylistDeletedMessage interfaces so backend payload-shape changes surface
  * as TS errors instead of silent runtime failures.
  *
- * Automatically cleans up subscriptions on unmount.
+ * Subscriptions are owned by useMessageSubscriptions and cleaned up on unmount.
  */
 export const usePlaylistWebSocket = ({
   onPlaylistCreated,
@@ -43,17 +44,16 @@ export const usePlaylistWebSocket = ({
     wasConnectedRef.current = isConnected;
   }, [isConnected, onPlaylistsRefresh]);
 
-  useEffect(() => {
-    console.log('📝 PlaylistList: Setting up WebSocket subscriptions');
-
-    const unsubscribeCreated = subscribe('playlist_created', () => {
+  // The shared helper keeps one subscription per type for the component's lifetime and reads the
+  // latest handlers through a ref, so a caller passing inline closures no longer resubscribes every
+  // render (#6041).
+  useMessageSubscriptions(subscribe, {
+    playlist_created: () => {
       onPlaylistCreated();
-    });
-
-    const unsubscribeUpdated = subscribe('playlist_updated', (message) => {
+    },
+    playlist_updated: (message) => {
       try {
-        const msg = message;
-        const { playlist_id, action } = msg.data;
+        const { playlist_id, action } = message.data;
         if (action === 'renamed') {
           onPlaylistUpdated(playlist_id, { action });
         } else if (
@@ -67,22 +67,13 @@ export const usePlaylistWebSocket = ({
       } catch (err) {
         console.error('Error handling playlist_updated:', err);
       }
-    });
-
-    const unsubscribeDeleted = subscribe('playlist_deleted', (message) => {
+    },
+    playlist_deleted: (message) => {
       try {
-        const msg = message;
-        onPlaylistDeleted(msg.data.playlist_id);
+        onPlaylistDeleted(message.data.playlist_id);
       } catch (err) {
         console.error('Error handling playlist_deleted:', err);
       }
-    });
-
-    return () => {
-      console.log('📝 PlaylistList: Cleaning up WebSocket subscriptions');
-      unsubscribeCreated();
-      unsubscribeUpdated();
-      unsubscribeDeleted();
-    };
-  }, [subscribe, onPlaylistCreated, onPlaylistUpdated, onPlaylistDeleted, onPlaylistsRefresh]);
+    },
+  });
 };
