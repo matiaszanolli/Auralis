@@ -16,12 +16,12 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(
     position: 'relative',
     marginBottom: tokens.spacing.xs,                     // Phase 2: Tighter spacing (was sm)
 
-    // Playback Dominance (Phase 1): Dim non-playing rows when any track is
-    // playing. Read from the list container's data attribute (#5660) instead
-    // of a per-row prop — a per-row prop re-rendered every row on each
-    // play/pause toggle, the one transition this list sees most often.
+    // Playback Dominance (Phase 1): dim non-playing rows' artwork while any track is playing.
+    // Read from the list container's data attribute (#5660), not a per-row prop (a prop
+    // re-rendered every row on each play/pause). Only the artwork dims: element opacity on the
+    // row also faded its text to 2.5-3.9:1, below WCAG AA (#6031).
     '[data-any-playing="true"] &': {
-      opacity: iscurrent === 'false' ? 0.6 : 1,
+      '& .track-row-art': { opacity: iscurrent === 'false' ? 0.6 : 1 },
     },
 
     // Current track: Enhanced presence with glow and gradient (Phase 1)
@@ -56,7 +56,6 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(
       boxShadow: iscurrent === 'true'
         ? `0 6px 20px ${tokens.colors.opacityScale.accent.standard}, 0 0 0 1px ${tokens.colors.opacityScale.accent.veryLight}`
         : `0 2px 8px ${tokens.colors.opacityScale.dark.lighter}`,
-      opacity: 1, // Full opacity on hover even when dimmed
 
       '& .track-number': {
         opacity: 0,
@@ -76,6 +75,10 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(
         color: themeVars.accent,
       },
 
+      '& .track-row-art': {
+        opacity: 1,
+      },
+
       '& .album-art': {
         transform: 'scale(1.05)',
         boxShadow: `0 4px 12px ${tokens.colors.opacityScale.accent.strong}`,
@@ -90,9 +93,8 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(
     '&:focus-visible': {
       outline: `2px solid ${themeVars.accent}`,
       outlineOffset: '2px',
-      opacity: 1, // keyboard focus restores full opacity like hover does (#6031)
     },
-    '&:focus-within': {
+    '&:focus-within .track-row-art': {  // keyboard focus undims like hover (#6031)
       opacity: 1,
     },
   })
@@ -204,7 +206,6 @@ export const TrackArtist = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   fontWeight: tokens.typography.fontWeight.normal,
   color: themeVars.textSecondary,
-  opacity: 0.7,                                      // Phase 2: Muted metadata (second-level hierarchy)
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -216,7 +217,6 @@ export const TrackAlbum = styled(Typography)(
     fontSize: tokens.typography.fontSize.sm,
     fontWeight: tokens.typography.fontWeight.normal,
     color: themeVars.textSecondary,
-    opacity: 0.7,                                    // Phase 2: Muted metadata (second-level hierarchy)
     minWidth: '200px',
     maxWidth: '300px',
     overflow: 'hidden',

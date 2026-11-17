@@ -24,7 +24,7 @@ const TrackRowAlbumArtComponent = ({
   onImageError,
 }: TrackRowAlbumArtProps) => {
   return (
-    <AlbumArtThumbnail>
+    <AlbumArtThumbnail className="track-row-art">
       {shouldShowImage && albumArt ? (
         <img src={albumArt} alt={album || title} onError={onImageError} loading="lazy" />
       ) : (

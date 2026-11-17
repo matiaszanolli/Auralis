@@ -274,4 +274,13 @@ describe('light-mode text and aurora fills meet WCAG AA (#5675)', () => {
   it('dark mode keeps the old rail colour', () => {
     expect(getSemanticTheme('dark').controlTrack).toBe(tokens.colors.bg.level3);
   });
+  it('secondary and muted row text meet 4.5:1 on the list surface at full opacity, in both themes (#6031)', () => {
+    // Rows are no longer dimmed with element opacity, so the tokens' own contrast is what ships.
+    const darkTheme = getSemanticTheme('dark');
+    const darkPaper = compositeOver('rgba(255, 255, 255, 0.05)', toChannels(darkTheme.canvas));
+    for (const role of ['textSecondary', 'textMuted'] as const) {
+      expect(contrast(darkTheme[role], '#000000', darkPaper)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(light[role], light.surfacePrimary)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
 });
