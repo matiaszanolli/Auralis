@@ -13,6 +13,7 @@ from collections.abc import Callable
 
 from config.globals import WebSocketOriginRejected
 from config.limits import WS_MAX_MESSAGES_PER_SECOND, WS_MAX_PINGS_PER_SECOND
+from config.log_throttle import warn_throttled
 from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_gates import stream_chunk_cancel_events, stream_flow_events, stream_pause_events
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
@@ -37,7 +38,7 @@ from .system_streams import (  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
-# Global rate limiter for all WebSocket connections (fixes #2156)
+# Global WebSocket rate limiter (#2156)
 _rate_limiter = WebSocketRateLimiter(max_messages_per_second=WS_MAX_MESSAGES_PER_SECOND)
 
 # Protocol-critical control frames, exempt from rate limiting. A rate-limited pong never reaches
@@ -50,9 +51,7 @@ _RATE_LIMIT_EXEMPT_TYPES = frozenset({"pong", "heartbeat", "buffer_full", "buffe
 _ping_limiter = WebSocketRateLimiter(max_messages_per_second=WS_MAX_PINGS_PER_SECOND)
 
 
-# ============================================================================
-# WebSocket endpoint
-# ============================================================================
+# ---- WebSocket endpoint ----
 
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -133,7 +132,7 @@ async def websocket_endpoint(
             if message.get("type") not in _RATE_LIMIT_EXEMPT_TYPES and message.get("type") != "ping":
                 allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
                 if not allowed:
-                    logger.warning(f"Rate limit exceeded for WebSocket {_ws_id(websocket)}: {error_msg}")
+                    warn_throttled(logger, "ws.rate_limited", f"Rate limit exceeded for WebSocket {_ws_id(websocket)}: {error_msg}")
                     # check_rate_limit types its reason as `str | None`; it
                     # is always set when allowed is False, but fall back so
                     # the client still gets a message either way.

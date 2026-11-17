@@ -59,10 +59,10 @@ async def test_cross_origin_get_flood_does_not_exhaust_the_post_budget():
     transport = ASGITransport(app=app)
 
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        # Flood the GET route well past the shared rule's 2/60s budget — its
-        # own bucket saturates, which is expected (the rule still applies
+        # Flood the GET route well past its own 30/60s budget (#5911) — its own
+        # bucket saturates, which is expected (the rule still applies
         # per-method), but this must not touch the POST route's bucket.
-        get_responses = [await client.get("/api/library/scan/status") for _ in range(10)]
+        get_responses = [await client.get("/api/library/scan/status") for _ in range(40)]
         # The POST route's own budget must still be fully available.
         post_responses = [await client.post("/api/library/scan") for _ in range(2)]
 

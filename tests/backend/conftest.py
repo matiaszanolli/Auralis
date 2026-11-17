@@ -15,6 +15,16 @@ sys.path.insert(0, str(backend_path))
 
 
 @pytest.fixture(autouse=True)
+def _reset_rejection_log_throttle():
+    """The throttle is process-wide (#6188); a test asserting a rejection log must not be
+    silenced by an earlier test that already logged the same reason inside the window."""
+    from config import log_throttle
+
+    log_throttle._state.clear()
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _bypass_streaming_path_validation(monkeypatch):
     """Stand in for validate_file_path()'s allowed-directory/is_file/readable
     checks in streaming tests, while still honoring Path.exists() (#4345).

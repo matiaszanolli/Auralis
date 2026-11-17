@@ -93,6 +93,7 @@ class TestRateLimitMiddlewareSourcesFromLimitsModule:
         assert middleware.RateLimitMiddleware._RATE_LIMITS == {
             "/api/files/upload": (5, 60),
             "/api/processing": (10, 60),
+            "/api/library/reset": (1, 60),
             "/api/library/scan": (2, 60),
             "/api/library/scan/status": (30, 60),
             "/api/similarity": (20, 60),

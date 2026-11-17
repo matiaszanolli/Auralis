@@ -171,8 +171,13 @@ class AuralisApp {
     });
 
     return new Promise((resolve, reject) => {
+      // Only the startup-timeout log reads this, so it stops at readiness and keeps the
+      // tail of what came before: it used to hold every backend line for the app's life (#6188).
       let startupOutput = '';
       let resolved = false;
+      const rememberStartupOutput = (output) => {
+        if (!resolved) startupOutput = (startupOutput + output).slice(-65536);
+      };
 
       const markReady = (source) => {
         if (!resolved) {
@@ -194,7 +199,7 @@ class AuralisApp {
       // Watch stdout for readiness
       this.pythonProcess.stdout.on('data', (data) => {
         const output = data.toString();
-        startupOutput += output;
+        rememberStartupOutput(output);
         // #4920: route through electron-log (not console.log) so backend
         // output — including security-relevant lines like rejected
         // path-traversal attempts and WS origin rejections — lands in the
@@ -209,7 +214,7 @@ class AuralisApp {
       // Watch stderr too — uvicorn logs go to stderr via Python logging
       this.pythonProcess.stderr.on('data', (data) => {
         const output = data.toString();
-        startupOutput += output;
+        rememberStartupOutput(output);
         log.error('[Backend Error]', output.trim());
         checkReadiness(output, 'stderr');
 

@@ -45,7 +45,7 @@
     "auralis-web/backend/routers/settings.py": 283,
     "auralis-web/backend/routers/similarity.py": 109,
     "auralis-web/backend/routers/similarity_graph.py": 161,
-    "auralis-web/backend/routers/system.py": 223,
+    "auralis-web/backend/routers/system.py": 222,
     "auralis-web/backend/routers/tracks.py": 190,
     "auralis-web/backend/security/path_allowlist.py": 115,
     "auralis-web/backend/security/path_errors.py": 78,

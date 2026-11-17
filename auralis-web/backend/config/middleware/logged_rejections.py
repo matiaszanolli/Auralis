@@ -16,6 +16,8 @@ from starlette.datastructures import Headers
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
 
+from ..log_throttle import warn_throttled
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +32,7 @@ class LoggingTrustedHostMiddleware(TrustedHostMiddleware):
                 for pattern in self.allowed_hosts
             )
             if not allowed:
-                logger.warning("Untrusted Host header refused: %r", host)
+                warn_throttled(logger, "untrusted_host", f"Untrusted Host header refused: {host!r}")
         await super().__call__(scope, receive, send)
 
 
@@ -40,8 +42,9 @@ class LoggingCORSMiddleware(CORSMiddleware):
     def preflight_response(self, request_headers: Headers) -> Response:
         response = super().preflight_response(request_headers)
         if response.status_code == 400:
-            logger.warning(
-                "CORS preflight refused for origin %r: %s",
-                request_headers.get("origin"), bytes(response.body).decode(),
+            warn_throttled(
+                logger, "cors_preflight_refused",
+                f"CORS preflight refused for origin {request_headers.get('origin')!r}: "
+                f"{bytes(response.body).decode()}",
             )
         return response

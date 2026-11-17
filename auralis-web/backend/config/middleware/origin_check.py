@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from ..log_throttle import warn_throttled
 from .error_response import _middleware_error_response
 from .hosts import cors_allowed_origins
 
@@ -99,7 +100,10 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                 and request.url.path.startswith("/api")
                 and self._foreign_fetch_untrusted(request)
             ):
-                logger.warning(f"Rejected cross-site {request.method} {request.url.path}")
+                warn_throttled(
+                    logger, "origin_check.cross_site_get",
+                    f"Rejected cross-site {request.method} {request.url.path}",
+                )
                 return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
             if request.method in self._STATE_CHANGING_METHODS and request.url.path.startswith("/api"):
                 from ..globals import LOOPBACK_HOSTS
@@ -109,8 +113,9 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                     # Non-empty Origin: must be in the same allowlist CORS uses
                     # (cached once at construction — see class docstring, #5067).
                     if origin not in self._cached_origins:
-                        logger.warning(
-                            f"Rejected {request.method} {request.url.path}: untrusted origin {origin!r}"
+                        warn_throttled(
+                            logger, "origin_check.untrusted_origin",
+                            f"Rejected {request.method} {request.url.path}: untrusted origin {origin!r}",
                         )
                         return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
                 else:
@@ -118,9 +123,10 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                     # processes on non-loopback interfaces can't bypass the check.
                     client_host = (request.client.host if request.client else "").lower()
                     if client_host not in LOOPBACK_HOSTS:
-                        logger.warning(
+                        warn_throttled(
+                            logger, "origin_check.non_loopback_no_origin",
                             f"Rejected {request.method} {request.url.path}: "
-                            f"empty Origin from non-loopback host {client_host!r}"
+                            f"empty Origin from non-loopback host {client_host!r}",
                         )
                         return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
         except Exception as exc:

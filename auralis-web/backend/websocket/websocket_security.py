@@ -20,6 +20,7 @@ from typing import Any
 from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from config.limits import WS_MAX_MESSAGE_SIZE, WS_MAX_MESSAGES_PER_SECOND, WS_MESSAGE_WINDOW_SECONDS
+from config.log_throttle import warn_throttled
 from core.audio_stream_controller import ws_id as _stable_ws_id
 from schemas import WebSocketErrorResponse, WebSocketMessageBase
 
@@ -243,13 +244,13 @@ async def validate_and_parse_message(
     message_size = len(data.encode('utf-8'))
     if message_size > max_size:
         error_msg = f"Message size {message_size} bytes exceeds maximum {max_size} bytes"
-        logger.warning(f"Rejected oversized WebSocket message: {error_msg}")
+        warn_throttled(logger, "ws.oversized", f"Rejected oversized WebSocket message: {error_msg}")
         await _reject(websocket, "message_too_large", error_msg, may_reply)
         return None, error_msg
 
     if _json_nesting_exceeds(data, MAX_JSON_DEPTH):
         error_msg = f"JSON nesting exceeds maximum depth {MAX_JSON_DEPTH}"
-        logger.warning("Rejected deeply nested WebSocket message")
+        warn_throttled(logger, "ws.nested", "Rejected deeply nested WebSocket message")
         await _reject(websocket, "message_too_complex", error_msg, may_reply)
         return None, error_msg
 
@@ -258,7 +259,7 @@ async def validate_and_parse_message(
         message = json.loads(data)
     except (json.JSONDecodeError, RecursionError) as e:
         error_msg = f"Invalid JSON: {e}"
-        logger.warning(f"Failed to parse WebSocket message: {error_msg}")
+        warn_throttled(logger, "ws.invalid_json", f"Failed to parse WebSocket message: {error_msg}")
         await _reject(websocket, "invalid_json", "Message must be valid JSON", may_reply)
         return None, error_msg
 
@@ -268,7 +269,7 @@ async def validate_and_parse_message(
         return validated.model_dump(), None
     except ValidationError as e:
         error_msg = f"Schema validation failed: {e}"
-        logger.warning(f"WebSocket message validation failed: {error_msg}")
+        warn_throttled(logger, "ws.invalid_schema", f"WebSocket message validation failed: {error_msg}")
         await _reject(
             websocket, "validation_error", "Invalid message format or unknown message type", may_reply
         )

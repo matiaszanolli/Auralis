@@ -35,9 +35,10 @@ class TestBitDepthIsDefinedOnce:
 
 class TestSystemSchemas:
     def test_health_status_is_only_healthy(self):
-        assert HealthResponse(status="healthy", auralis_available=True).status == "healthy"
+        up = {"auralis_available": True, "fingerprint_engine_available": True}
+        assert HealthResponse(status="healthy", **up).status == "healthy"
         with pytest.raises(ValidationError):
-            HealthResponse(status="degraded", auralis_available=True)
+            HealthResponse(status="degraded", **up)
 
     @pytest.mark.parametrize("tier", ["tier1", "tier2"])
     def test_tier_name_accepts_the_two_tiers(self, tier):
