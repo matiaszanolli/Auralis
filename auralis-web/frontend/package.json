@@ -47,6 +47,9 @@
     "test:memory:failsafe": "node scripts/memory-test-failsafe.js",
     "test:memory:failsafe:category": "node scripts/memory-test-failsafe.js --category",
     "test:memory:failsafe:custom": "node scripts/memory-test-failsafe.js --max-heap",
+    "test:weak": "node scripts/check-weak-tests.mjs",
+    "test:weak:update": "node scripts/check-weak-tests.mjs --update",
+    "test:weak:selftest": "node --test scripts/check-weak-tests.test.mjs",
     "type-check": "tsc --noEmit",
     "type-check:prod": "tsc --noEmit -p tsconfig.build.json"
   },

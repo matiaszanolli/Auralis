@@ -290,7 +290,7 @@ describe('TrackDisplay', () => {
     it('exposes the live region while buffering', () => {
       render(<TrackDisplay title="Song" isLoading />);
 
-      expect(screen.getByTestId('track-display').querySelector('[aria-live="polite"]')).not.toBeNull();
+      expect(screen.getByTestId('track-display').querySelector('[aria-live="polite"]')).toBeInstanceOf(HTMLElement);
     });
   });
 

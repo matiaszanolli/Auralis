@@ -306,11 +306,9 @@ describe('usePlayEnhanced – subscription lifecycle', () => {
   it('subscribes to all 5 WebSocket message types on mount', () => {
     renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
 
-    expect(handlers['audio_stream_start']).toBeDefined();
-    expect(handlers['audio_chunk']).toBeDefined();
-    expect(handlers['audio_stream_end']).toBeDefined();
-    expect(handlers['audio_stream_error']).toBeDefined();
-    expect(handlers['fingerprint_progress']).toBeDefined();
+    expect(Object.keys(handlers)).toEqual(
+      expect.arrayContaining(['audio_chunk', 'audio_stream_end', 'audio_stream_error', 'audio_stream_start', 'fingerprint_progress'])
+    );
   });
 
   it('calls all 5 unsubscribers on unmount', () => {

@@ -136,11 +136,11 @@ describe('dark-only token leak (#4877)', () => {
   it('every DARK_BY_DESIGN exemption still has a hit (the list only shrinks)', () => {
     for (const exempt of DARK_BY_DESIGN) {
       const entry = Object.entries(sources).find(([path]) => basename(path) === exempt);
-      expect(entry, `${exempt} no longer exists - drop it from DARK_BY_DESIGN`).toBeDefined();
+      expect(entry?.[1], `${exempt} no longer exists - drop it from DARK_BY_DESIGN`).toBeTypeOf('string');
       expect(
-        stripComments(entry![1]).match(WHITE_ALPHA_FILL),
+        stripComments(entry![1]),
         `${exempt} no longer uses a white-alpha / glass.subtle fill - drop it from DARK_BY_DESIGN`
-      ).not.toBeNull();
+      ).toMatch(WHITE_ALPHA_FILL);
     }
   });
 

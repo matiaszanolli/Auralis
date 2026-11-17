@@ -618,8 +618,9 @@ describe('useRestAPI Hook', () => {
       // Unmount before request completes
       unmount();
 
-      // Verify AbortController signal was used
-      expect(capturedSignal).toBeDefined();
+      // The signal fetch received was aborted by the unmount
+      expect(capturedSignal).toBeInstanceOf(AbortSignal);
+      expect(capturedSignal?.aborted).toBe(true);
     });
 
     it('should clean up timeout on successful request', async () => {
@@ -949,15 +950,13 @@ describe('useRestAPI Hook', () => {
 
       const { result } = renderHook(() => useRestAPI());
 
+      let thrown: unknown;
       await act(async () => {
-        try {
-          await result.current.get('/api/test');
-        } catch (err) {
-          expect(err).toBeDefined();
-        }
+        thrown = await result.current.get('/api/test').catch((err: unknown) => err);
       });
 
-      expect(result.current.error).not.toBeNull();
+      expect(thrown).toMatchObject({ status: 500 });
+      expect(result.current.error).toMatchObject({ status: 500 });
     });
 
     it('should handle very long query parameter values', async () => {

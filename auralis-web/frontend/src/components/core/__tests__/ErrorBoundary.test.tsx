@@ -143,7 +143,7 @@ describe('ComfortableApp Player wrapping (#3115 static check)', () => {
     // The Player must be wrapped in an ErrorBoundary with a fallback,
     // not bare like `<Box><Player /></Box>`.
     const playerBlock = src.match(/<ErrorBoundary[\s\S]*?<Player\s*\/>[\s\S]*?<\/ErrorBoundary>/);
-    expect(playerBlock).not.toBeNull();
+    expect(playerBlock?.[0]).toContain('fallback');
   });
 });
 

@@ -34,9 +34,9 @@ describe('useTrackRowHandlers', () => {
         })
       );
 
-      expect(result.current.handlePlayClick).toBeDefined();
-      expect(result.current.handleRowClick).toBeDefined();
-      expect(result.current.handleRowDoubleClick).toBeDefined();
+      expect(result.current.handlePlayClick).toBeTypeOf('function');
+      expect(result.current.handleRowClick).toBeTypeOf('function');
+      expect(result.current.handleRowDoubleClick).toBeTypeOf('function');
     });
   });
 

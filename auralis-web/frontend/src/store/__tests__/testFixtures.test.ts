@@ -108,11 +108,9 @@ describe('Redux Test Fixtures', () => {
     it('should create empty test store', () => {
       const store = createTestStore();
 
-      expect(store).toBeDefined();
-      expect(store.getState()).toBeDefined();
       const state = store.getState();
-      expect(state.player).toBeDefined();
-      expect(state.queue).toBeDefined();
+      expect(Object.keys(state)).toEqual(expect.arrayContaining(['player', 'queue']));
+      expect(state.queue.tracks).toEqual([]);
     });
 
     it('should create store with initial state', () => {
@@ -165,7 +163,7 @@ describe('Redux Test Fixtures', () => {
     });
 
     it('should have error state fixture', () => {
-      expect(errorState.connection.lastError).toBeTruthy();
+      expect(errorState.connection.lastError).toBe('Connection lost');
     });
 
     it('should have offline state fixture', () => {
@@ -317,7 +315,7 @@ describe('Redux Test Fixtures', () => {
       const after = store.getState();
 
       const diff = getStateDiff(before, after);
-      expect(diff.queue).toBeDefined();
+      expect(Object.keys(diff)).toEqual(['queue']);
     });
 
     it('should enable testing workflows', () => {

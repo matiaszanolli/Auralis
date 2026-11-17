@@ -152,9 +152,10 @@ describe('AlbumArt', () => {
       act(() => {
         render(<AlbumArt albumId={1} />);
       });
-      const img = screen.queryByRole('img');
-      if (img instanceof HTMLImageElement) {
-        expect(img.alt).toBeTruthy();
+      // Lazy loading may defer the <img>; whichever image is in the DOM carries the label.
+      const images = Array.from(document.querySelectorAll('img'));
+      for (const img of images) {
+        expect(img.alt).toBe('Album 1 artwork');
       }
     });
 

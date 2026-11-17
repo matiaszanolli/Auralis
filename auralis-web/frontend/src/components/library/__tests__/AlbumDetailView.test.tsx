@@ -559,9 +559,8 @@ describe('AlbumDetailView', () => {
       // MUI Skeleton components render with class MuiSkeleton-root;
       // the loading container also has role="status"
       expect(
-        document.querySelector('.MuiSkeleton-root') !== null ||
-        document.querySelector('[role="status"]') !== null
-      ).toBeTruthy();
+        document.querySelectorAll('.MuiSkeleton-root, [role="status"]').length
+      ).toBeGreaterThan(0);
     });
 
     it('should hide loading state when data loaded', async () => {

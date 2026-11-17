@@ -51,10 +51,10 @@ describe('useBatchOperations', () => {
         })
       );
 
-      expect(result.current.handleBulkAddToQueue).toBeDefined();
-      expect(result.current.handleBulkAddToPlaylist).toBeDefined();
-      expect(result.current.handleBulkRemove).toBeDefined();
-      expect(result.current.handleBulkToggleFavorite).toBeDefined();
+      expect(result.current.handleBulkAddToQueue).toBeTypeOf('function');
+      expect(result.current.handleBulkAddToPlaylist).toBeTypeOf('function');
+      expect(result.current.handleBulkRemove).toBeTypeOf('function');
+      expect(result.current.handleBulkToggleFavorite).toBeTypeOf('function');
     });
   });
 

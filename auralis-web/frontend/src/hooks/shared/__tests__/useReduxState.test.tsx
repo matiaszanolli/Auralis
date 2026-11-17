@@ -234,10 +234,7 @@ describe('Redux State Hooks', () => {
     it('should return all state slices', () => {
       const { result } = renderHook(() => useAppState(), { wrapper });
 
-      expect(result.current.player).toBeDefined();
-      expect(result.current.queue).toBeDefined();
-      expect(result.current.cache).toBeDefined();
-      expect(result.current.connection).toBeDefined();
+      expect(Object.keys(result.current).sort()).toEqual(['cache', 'connection', 'player', 'queue']);
     });
 
     it('should reflect changes across slices', () => {

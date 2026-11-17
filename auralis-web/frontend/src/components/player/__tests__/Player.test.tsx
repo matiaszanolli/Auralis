@@ -274,7 +274,7 @@ describe('Player', () => {
     const queueButton =
       screen.queryByRole('button', { name: /queue/i }) ||
       screen.queryByTestId?.('queue-toggle');
-    expect(queueButton).toBeTruthy();
+    expect(queueButton).toBeInstanceOf(HTMLElement);
   });
 
   it('does not advertise a keyboard shortcut the app does not have (#5632)', () => {

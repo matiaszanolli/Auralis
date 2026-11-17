@@ -280,8 +280,8 @@ describe('Logger Middleware', () => {
 
     store.dispatch({ type: 'TEST_ACTION' });
 
-    // Should have fewer log calls without duration
-    // (This is approximate, exact count depends on other logs)
+    const logged = consoleLogSpy.mock.calls.map((call: unknown[]) => String(call[0]));
+    expect(logged.some((line: string) => line.includes('Duration'))).toBe(false);
   });
 
   // ============================================================================

@@ -7,16 +7,17 @@ describe('useAppLayout', () => {
       const { result } = renderHook(() => useAppLayout());
       // Note: In test environment, breakpoints may not work as expected
       // This test validates the hook initializes correctly
-      expect(result.current).toBeDefined();
-      expect(result.current.isMobile).toBeDefined();
-      expect(result.current.isTablet).toBeDefined();
+      expect(result.current.isMobile).toBeTypeOf('boolean');
+      expect(result.current.isTablet).toBeTypeOf('boolean');
+      // every mobile viewport is also a tablet one (down('md') is inside down('lg'))
+      expect(!result.current.isMobile || result.current.isTablet).toBe(true);
     });
 
     it('returns initial state', () => {
       const { result } = renderHook(() => useAppLayout());
-      expect(result.current.sidebarCollapsed).toBeDefined();
-      expect(result.current.mobileDrawerOpen).toBeDefined();
-      expect(result.current.presetPaneCollapsed).toBeDefined();
+      expect(result.current.sidebarCollapsed).toBe(false);
+      expect(result.current.mobileDrawerOpen).toBe(false);
+      expect(result.current.presetPaneCollapsed).toBe(false);
     });
   });
 

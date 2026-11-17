@@ -132,7 +132,7 @@ describe('TTL bounds how long a pre-rebuild entry is served', () => {
     writeSimilarityCache(key, track(100));
 
     vi.advanceTimersByTime(CACHE_TTL_MS - 1);
-    expect(readSimilarityCache(key)).not.toBeNull();
+    expect(readSimilarityCache(key)).toEqual(track(100));
   });
 
   it('drops an entry past the window', () => {

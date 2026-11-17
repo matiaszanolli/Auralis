@@ -72,6 +72,12 @@ jobs:
       - name: Compare against known-failure baseline
         run: pnpm run test:baseline -- --strict-stale
 
+      # Ratchet on specs that assert nothing, or only that a value exists (#5682):
+      # the frontend twin of scripts/check_weak_assertions.py. It reads the source,
+      # not the vitest report, so it runs whatever the suite did.
+      - name: Check for weak specs
+        run: pnpm run test:weak:selftest && pnpm run test:weak
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

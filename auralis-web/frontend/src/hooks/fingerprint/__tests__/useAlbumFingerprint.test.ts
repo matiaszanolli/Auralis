@@ -225,7 +225,7 @@ describe('useAlbumFingerprint error propagation (#5122)', () => {
     });
 
     // Pre-fix: isError stayed false forever and the fingerprint resolved to null.
-    await waitFor(() => expect(result.current.error).toBeTruthy());
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
     expect((result.current.error as Error).message).toBe('fingerprint store unavailable');
   });
 
@@ -236,7 +236,7 @@ describe('useAlbumFingerprint error propagation (#5122)', () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(result.current.error).toBeTruthy());
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
   });
 
   it('still resolves a 404 to null with no error', async () => {

@@ -222,9 +222,10 @@ describe('ArtistDetailView', () => {
       const user = userEvent.setup();
       mockUseArtistDetailsData.mockReturnValue({ artist: mockArtist, loading: false, error: null });
       render(<ArtistDetailView artistId={1} />);
-      // Play All / Shuffle should not throw
+      // Neither action may throw without onBack/onAlbumClick, and each still plays a track.
       await user.click(screen.getByTestId('play-all-btn'));
       await user.click(screen.getByTestId('shuffle-btn'));
+      expect(mockPlayTrack).toHaveBeenCalledTimes(2);
     });
   });
 });

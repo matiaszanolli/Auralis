@@ -64,7 +64,7 @@ describe('FloatingParticles', () => {
     const { container } = render(
       <FloatingParticles isAnimating={true} intensity={0.8} count={5} />
     );
-    expect(container.firstChild).not.toBeNull();
+    expect(container.firstChild).toBeInstanceOf(HTMLElement);
     // 5 particle children inside the container Box
     expect(container.firstChild!.childNodes.length).toBe(5);
   });
@@ -80,7 +80,7 @@ describe('FloatingParticles', () => {
     const { container } = render(
       <FloatingParticles isAnimating={false} intensity={0.5} />
     );
-    expect(container.firstChild).not.toBeNull();
+    expect(container.firstChild).toBeInstanceOf(HTMLElement);
   });
 });
 
@@ -98,12 +98,12 @@ describe('GlowingArc', () => {
     const { container: c0 } = render(
       <GlowingArc isAnimating={false} intensity={0} energyLevel={0} />
     );
-    expect(c0.firstChild).not.toBeNull();
+    expect(c0.firstChild).toBeInstanceOf(HTMLElement);
 
     const { container: c1 } = render(
       <GlowingArc isAnimating={true} intensity={1} energyLevel={1} />
     );
-    expect(c1.firstChild).not.toBeNull();
+    expect(c1.firstChild).toBeInstanceOf(HTMLElement);
   });
 });
 
@@ -190,7 +190,7 @@ describe('WaveformVisualization', () => {
         intensity={1}
       />
     );
-    expect(container.firstChild).not.toBeNull();
+    expect(container.firstChild).toBeInstanceOf(HTMLElement);
   });
 });
 

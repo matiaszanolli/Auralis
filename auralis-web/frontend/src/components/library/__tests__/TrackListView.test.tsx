@@ -134,7 +134,7 @@ describe('TrackListView', () => {
         const result = render(<TrackListView {...defaultProps} />);
         container = result.container;
       });
-      expect(container.querySelector('[data-testid*="list"]')).toBeDefined();
+      expect(container.querySelector('[data-testid*="list"]')).toBeInstanceOf(HTMLElement);
     });
   });
 
