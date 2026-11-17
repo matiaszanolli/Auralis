@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isSafeExternalUrl } = require('./url-safety');
+const { isSafeExternalUrl, escapeControlChars } = require('./url-safety');
 
 test('allows https URLs', () => {
   assert.equal(isSafeExternalUrl('https://example.com'), true);
@@ -106,4 +106,18 @@ test('rejects unparseable input', () => {
   assert.equal(isAllowedAppNavigation('not a url'), false);
   assert.equal(isAllowedAppNavigation(''), false);
   assert.equal(isAllowedAppNavigation(undefined), false);
+});
+
+test('escapeControlChars neutralises CR/LF, ESC and NUL so a URL cannot forge log lines (#6187)', () => {
+  const hostile = 'https://x.test/\r\n[INFO] forged\u001b[31m\u0000';
+
+  const escaped = escapeControlChars(hostile);
+
+  assert.equal(/[\u0000-\u001f\u007f]/.test(escaped), false);
+  assert.match(escaped, /\\x0d\\x0a\[INFO\] forged\\x1b\[31m\\x00/);
+});
+
+test('escapeControlChars leaves ordinary text and non-strings alone', () => {
+  assert.equal(escapeControlChars('https://example.com/a?b=c'), 'https://example.com/a?b=c');
+  assert.equal(escapeControlChars(undefined), 'undefined');
 });

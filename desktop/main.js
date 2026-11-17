@@ -4,7 +4,7 @@ const log = require('electron-log/main');
 const { spawn, exec } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
-const { isSafeExternalUrl, isAllowedAppNavigation, DEV_ORIGIN_FLAG } = require('./url-safety');
+const { isSafeExternalUrl, isAllowedAppNavigation, escapeControlChars, DEV_ORIGIN_FLAG } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
 const { findListeners, stopProcess } = require('./port-cleanup');
 
@@ -45,7 +45,7 @@ autoUpdater.logger = log;
  */
 function openExternalSafely(url) {
   if (!isSafeExternalUrl(url)) {
-    console.warn(`Blocked shell.openExternal for disallowed URL: ${url}`);
+    log.warn(`Blocked shell.openExternal for disallowed URL: ${escapeControlChars(url)}`);
     return;
   }
   shell.openExternal(url);
@@ -76,7 +76,7 @@ class AuralisApp {
 
     const { backend, foreign } = await findListeners(options);
     if (foreign.length > 0) {
-      console.warn(`⚠️ Port ${this.backendPort} is held by a non-Auralis process (${foreign.join(', ')}); not touching it`);
+      log.warn(`⚠️ Port ${this.backendPort} is held by a non-Auralis process (${escapeControlChars(foreign.join(', '))}); not touching it`);
     }
     if (backend.length === 0) {
       console.log(`✓ No stale Auralis backend on port ${this.backendPort}`);
@@ -129,7 +129,7 @@ class AuralisApp {
           ? `Auralis backend not found.\n\nPlease reinstall Auralis.\n\nAlternatively, install Python 3.13+:\nhttps://python.org`
           : `Backend not found. Tried:\n  Binary: ${backendExe}\n  Script: ${pythonScript}`;
 
-        console.error(errorMessage);
+        log.error(escapeControlChars(errorMessage));
 
         if (isWindows) {
           // Show user-friendly dialog for Windows
@@ -230,14 +230,14 @@ class AuralisApp {
       });
 
       this.pythonProcess.on('error', (error) => {
-        console.error('Failed to start backend process:', error);
+        log.error('Failed to start backend process:', error);
         reject(error);
       });
 
       // Timeout after 30 seconds
       setTimeout(() => {
         if (!this.backendReady) {
-          console.error('Backend startup timeout. Output so far:', startupOutput);
+          log.error('Backend startup timeout. Output so far:', escapeControlChars(startupOutput));
           reject(new Error('Backend startup timeout'));
         }
       }, 30000);
@@ -270,13 +270,13 @@ class AuralisApp {
         });
 
         req.on('error', (error) => {
-          console.warn('Health check request failed:', error.message);
+          log.warn('Health check request failed:', escapeControlChars(error.message));
           // Don't fail completely, just warn
           resolve();
         });
 
         req.on('timeout', () => {
-          console.warn('Health check timed out');
+          log.warn('Health check timed out');
           req.destroy();
           resolve();
         });
@@ -286,7 +286,7 @@ class AuralisApp {
 
       console.log('✓ Backend health check passed');
     } catch (error) {
-      console.warn('Backend health check warning:', error.message);
+      log.warn('Backend health check warning:', escapeControlChars(error.message));
       // Continue anyway - the backend might be ready but not responding to HTTP yet
     }
   }
@@ -365,7 +365,7 @@ class AuralisApp {
       }
 
     } catch (error) {
-      console.error('Failed to load URL:', error);
+      log.error('Failed to load URL:', error);
 
       // Try alternative URL if development failed
       if (this.isDevelopment) {
@@ -419,7 +419,7 @@ class AuralisApp {
       console.log('✅ Auralis is ready!');
 
     } catch (error) {
-      console.error('❌ Failed to initialize app:', error);
+      log.error('❌ Failed to initialize app:', error);
 
       dialog.showErrorBox('Startup Error',
         `Failed to start Auralis:\n\n${error.message}\n\nPlease check that Python is installed and try again.`);
@@ -677,7 +677,7 @@ app.on('web-contents-created', (_event, contents) => {
       return;
     }
     event.preventDefault();
-    console.warn(`Blocked in-window navigation to non-app origin: ${url}`);
+    log.warn(`Blocked in-window navigation to non-app origin: ${escapeControlChars(url)}`);
     // Treat it the way a clicked external link is treated — the user's
     // browser, not this window, subject to the same scheme allowlist.
     openExternalSafely(url);

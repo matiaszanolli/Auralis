@@ -77,7 +77,16 @@ function isAllowedAppNavigation(url, { isDevelopment = false } = {}) {
   return isDevelopment && parsed.origin === DEV_ORIGIN;
 }
 
+/**
+ * A value that is safe to interpolate into a log line: control characters (CR/LF, ESC, NUL, ...) are
+ * escaped so a renderer- or backend-controlled URL or output cannot forge extra log entries (#6187).
+ */
+function escapeControlChars(value) {
+  return String(value).replace(/[\u0000-\u001f\u007f]/g, (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
+}
+
 module.exports = {
+  escapeControlChars,
   isSafeExternalUrl,
   ALLOWED_EXTERNAL_SCHEMES,
   isAllowedAppNavigation,
