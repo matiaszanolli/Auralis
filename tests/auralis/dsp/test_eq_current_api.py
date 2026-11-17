@@ -165,44 +165,17 @@ class TestEQCurrentAPI:
 
         self.tearDown()
 
-    def test_spectrum_analysis(self):
-        """Test analyze_spectrum method"""
-        self.setUp()
-
-        eq = PsychoacousticEQ(self.settings)
-
-        # Analyze spectrum
-        analysis = eq.analyze_spectrum(self.test_chunk)
-
-        # Verify analysis structure
-        assert isinstance(analysis, dict)
-        assert 'band_energies' in analysis
-        assert 'spectrum' in analysis
-
-        # Verify data shapes
-        num_bands = len(eq.critical_bands)
-        assert len(analysis['band_energies']) == num_bands
-        assert len(analysis['spectrum']) > 0
-
-        # Verify values are finite
-        assert np.all(np.isfinite(analysis['band_energies']))
-
-        self.tearDown()
-
     def test_calculate_adaptive_gains(self):
         """Test calculate_adaptive_gains method"""
         self.setUp()
 
         eq = PsychoacousticEQ(self.settings)
 
-        # Analyze spectrum first
-        analysis = eq.analyze_spectrum(self.test_chunk)
-
         # Create target curve (flat response)
         target_curve = np.zeros(len(eq.critical_bands))
 
         # Calculate adaptive gains
-        gains = eq.calculate_adaptive_gains(analysis, target_curve)
+        gains = eq.calculate_adaptive_gains(target_curve)
 
         assert len(gains) == len(eq.critical_bands)
         assert np.all(np.isfinite(gains))
@@ -217,7 +190,6 @@ class TestEQCurrentAPI:
         self.setUp()
 
         eq = PsychoacousticEQ(self.settings)
-        analysis = eq.analyze_spectrum(self.test_chunk)
         target_curve = np.zeros(len(eq.critical_bands))
 
         # Calculate gains with content profile
@@ -227,11 +199,7 @@ class TestEQCurrentAPI:
             'spectral_balance': 'bright'
         }
 
-        gains = eq.calculate_adaptive_gains(
-            analysis,
-            target_curve,
-            content_profile
-        )
+        gains = eq.calculate_adaptive_gains(target_curve, content_profile)
 
         assert len(gains) == len(eq.critical_bands)
         assert np.all(np.isfinite(gains))

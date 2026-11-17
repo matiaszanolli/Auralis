@@ -13,7 +13,6 @@ from typing import Any, cast
 
 import threading
 import numpy as np
-from scipy.signal.windows import hann
 
 from ...dsp.constants import DEFAULT_FFT_SIZE
 from ...utils.logging import debug
@@ -89,18 +88,6 @@ class PsychoacousticEQ(SpectrumGainsMixin):
         # reconstruction with a full-Hann synthesis window (#4217); there is
         # no configurable overlap here (the old self.hop_size was never read).
 
-        # #4101: Hann window for the *analysis* FFT only (apply_eq_gains stays
-        # un-windowed, #3663). Suppresses the rectangular window's -13 dB first
-        # sidelobe, which leaks bass energy into adjacent critical bands and
-        # biases the band energies. Cached because analyze_spectrum runs on
-        # the realtime path. `_analysis_window_gain` is the coherent gain
-        # (mean of the window, ~0.5 for Hann); dividing the windowed frame by it
-        # keeps the absolute magnitude scale equal to the un-windowed path, so
-        # adaptive gains — and the output LUFS/crest the fingerprint model
-        # consumes — are not shifted (no #3428/#2518 regression).
-        self._analysis_window = hann(self.fft_size)
-        self._analysis_window_gain = float(self._analysis_window.mean())
-
         # Initialize critical bands (26 bands based on Bark scale)
         self.critical_bands = create_critical_bands()
 
@@ -161,13 +148,7 @@ class PsychoacousticEQ(SpectrumGainsMixin):
         Returns:
             Processed audio chunk
         """
-        # Analyze spectrum
-        spectrum_analysis = self.analyze_spectrum(audio_chunk)
-
-        # Calculate adaptive gains
-        gains = self.calculate_adaptive_gains(
-            spectrum_analysis, target_curve, content_profile
-        )
+        gains = self.calculate_adaptive_gains(target_curve, content_profile)
 
         # Apply EQ
         processed_chunk = self.apply_eq(audio_chunk, gains)

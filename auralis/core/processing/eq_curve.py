@@ -16,7 +16,6 @@ import numpy as np
 
 from scipy.signal.windows import hann
 
-from ...utils.logging import debug
 
 def process_with_psychoacoustic_eq(eq, audio: np.ndarray, eq_curve: dict[str, float],
                                    content_profile: dict[str, Any] | None = None) -> np.ndarray:
@@ -45,13 +44,8 @@ def process_with_psychoacoustic_eq(eq, audio: np.ndarray, eq_curve: dict[str, fl
     # sqrt-Hann×sqrt-Hann scheme — but only sqrt-Hann *synthesis-only* gave
     # the ~6 dB ripple that #3294 saw, not full Hann (verified COLA ≈ 1).
     #
-    # Pre-windowing the chunk before process_realtime_chunk double-windowed
-    # the analysis FFT (sqrt-Hann here × Hann inside analyze_spectrum =
-    # hann^1.5), biasing masking band energies toward frame center (#4217).
-    # analyze_spectrum applies its own Hann + coherent-gain compensation
-    # (#4101) and apply_eq processes the un-windowed frame it receives, so
-    # the chunk is now passed through un-windowed and only the OLA output
-    # carries the synthesis window.
+    # apply_eq processes the un-windowed frame it receives (#4217), so the chunk is passed through
+    # un-windowed and only the OLA output carries the synthesis window.
     #
     # The output buffer is extended by chunk_size so that the terminal
     # chunk's full synthesis window fits without truncation.  The final
@@ -86,9 +80,7 @@ def process_with_psychoacoustic_eq(eq, audio: np.ndarray, eq_curve: dict[str, fl
             padded_chunk[:len(chunk)] = chunk
             chunk = padded_chunk
 
-        # No analysis pre-window: analyze_spectrum windows its own analysis
-        # FFT and apply_eq processes the un-windowed frame (#4217).
-        # Process chunk with psychoacoustic EQ
+        # Process chunk with psychoacoustic EQ (un-windowed frame, #4217)
         processed_chunk = eq.psychoacoustic_eq.process_realtime_chunk(
             chunk, target_curve, content_profile
         )

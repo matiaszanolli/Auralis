@@ -1,7 +1,6 @@
 """
-Spectrum analysis and adaptive gain calculation for PsychoacousticEQ (split
-from psychoacoustic_eq.py, #5838): FFT magnitude and band energies, target
-gains, and the smoothing that carries gains across chunks.
+Adaptive gain calculation for PsychoacousticEQ (split from psychoacoustic_eq.py, #5838): target
+gains and the smoothing that carries gains across chunks.
 """
 
 import threading
@@ -10,8 +9,6 @@ from typing import Any
 import numpy as np
 
 from ..utils.adaptive import smooth_parameter_transition
-from ..utils.conversion import amplitude_to_db_array
-from ..utils.audio_info import to_mono
 from .curves import apply_content_adaptation
 
 
@@ -24,79 +21,17 @@ class SpectrumGainsMixin:
     critical_bands: Any
     freq_to_band_map: Any
     current_gains: np.ndarray
-    _analysis_window: np.ndarray
-    _analysis_window_gain: float
     _state_lock: "threading.Lock"
 
-    def analyze_spectrum(self, audio_chunk: np.ndarray) -> dict[str, np.ndarray]:
-        """
-        Analyze audio spectrum for adaptive EQ
-
-        Args:
-            audio_chunk: Audio data for analysis
-
-        Returns:
-            Dictionary with spectrum analysis results containing:
-                - magnitude_db: Magnitude spectrum in dB
-                - band_energies: Energy per critical band
-                - spectrum: Complex spectrum
-        """
-        audio_mono = to_mono(audio_chunk)
-
-        # Ensure we have enough samples
-        if len(audio_mono) < self.fft_size:
-            # Pad with zeros — dtype-preserving to avoid float64 promotion.
-            padded = np.zeros(self.fft_size, dtype=audio_mono.dtype)
-            padded[:len(audio_mono)] = audio_mono
-            audio_mono = padded
-
-        # #4101: window the ANALYSIS FFT (only) with a Hann window plus
-        # coherent-gain compensation. #3663 dropped the window so the analysis
-        # spectrum matched the un-windowed apply_eq_gains frame, but with a
-        # rectangular window the -13 dB first sidelobe leaks bass energy into
-        # adjacent critical bands and biases the band energies. The window
-        # suppresses that leakage. Dividing by the coherent gain (mean of the
-        # window) keeps the absolute magnitude scale equal to the un-windowed
-        # path, so band *ratios* are corrected WITHOUT re-introducing the global +6.02 dB magnitude offset that #3428
-        # reverted (which skewed adaptive gains and fingerprint LUFS/crest).
-        # apply_eq_gains stays un-windowed (filters.py) — it must match the
-        # signal frame it processes.
-        from scipy.fft import fft
-        frame = audio_mono[:self.fft_size]
-        window = self._analysis_window.astype(frame.dtype, copy=False)
-        windowed = (frame * window) / self._analysis_window_gain
-        spectrum = fft(windowed)
-        magnitude = np.abs(spectrum[:self.fft_size // 2 + 1])
-
-        magnitude_db = amplitude_to_db_array(magnitude)
-
-        # Calculate energy in each critical band
-        band_energies = self._calculate_band_energies(magnitude_db)
-
-        return {
-            'magnitude_db': magnitude_db,
-            'band_energies': band_energies,
-            'spectrum': spectrum
-        }
-
-    def _calculate_band_energies(self, magnitude_db: np.ndarray) -> np.ndarray:
-        """Calculate energy in each critical band"""
-        band_energies = np.zeros(len(self.critical_bands))
-        for i, band in enumerate(self.critical_bands):
-            band_mask = self.freq_to_band_map == i
-            if np.any(band_mask):
-                band_energies[i] = np.mean(magnitude_db[band_mask])
-        return band_energies
-
     def calculate_adaptive_gains(self,
-                                spectrum_analysis: dict[str, Any],
                                 target_curve: np.ndarray,
                                 content_profile: dict[str, Any] | None = None) -> np.ndarray:
         """
-        Calculate adaptive EQ gains based on spectrum analysis
+        Calculate the EQ gains for a target curve: the curve times each band's perceptual weight,
+        optionally adapted to the content profile, then smoothed across chunks. The frame's own
+        spectrum plays no part (#5703), so none is analysed (#6306).
 
         Args:
-            spectrum_analysis: Results from analyze_spectrum
             target_curve: Target frequency response curve
             content_profile: Optional content analysis for adaptation
 

@@ -54,10 +54,12 @@ def test_target_gains_are_the_weighted_curve_whatever_the_frame():
 @pytest.mark.parametrize("frame", [_noise, _harmonics], ids=["noise", "harmonic-series"])
 def test_adaptive_gain_is_identical_for_noisy_and_tonal_frames(frame):
     curve = _target_curve(_eq())
-    reference = _eq().calculate_adaptive_gains(_eq().analyze_spectrum(_noise()), curve)
+    reference = _eq().calculate_adaptive_gains(curve)
 
     eq = _eq()
-    gains = eq.calculate_adaptive_gains(eq.analyze_spectrum(frame()), curve)
+    # The frame no longer reaches the gain calculation at all (#6306); processing it must not change them.
+    eq.process_realtime_chunk(frame(), curve)
+    gains = eq.current_gains.copy()
 
     np.testing.assert_allclose(gains, reference)
 
@@ -72,16 +74,10 @@ def test_alternating_tonal_and_noisy_frames_give_a_steady_gain():
     previous = np.abs(target)  # distance of current_gains (0) from target
     for n in range(40):
         frame = _noise(n) if n % 2 == 0 else _harmonics(n)
-        gains = eq.calculate_adaptive_gains(eq.analyze_spectrum(frame), curve)
+        eq.process_realtime_chunk(frame, curve)
+        gains = eq.current_gains.copy()
         distance = np.abs(target - gains)
         assert np.all(distance <= previous + 1e-9), f"frame {n} moved away from target"
         previous = distance
 
     np.testing.assert_allclose(gains, target, atol=0.05 * np.abs(target).max())
-
-
-def test_analysis_no_longer_reports_masking_thresholds():
-    result = _eq().analyze_spectrum(_harmonics())
-
-    assert "masking_thresholds" not in result
-    assert set(result) == {"magnitude_db", "band_energies", "spectrum"}
