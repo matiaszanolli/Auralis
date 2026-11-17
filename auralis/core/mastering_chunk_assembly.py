@@ -1,7 +1,8 @@
 """
 Per-chunk helpers for the mastering chunk loop (split from
-mastering_chunk_loop.py, #5839): reading an overlapped chunk, the True Peak
-guard, and the crossfaded assembly of the region to write. Pure functions of
+mastering_chunk_loop.py, #5839): reading an overlapped chunk, the crossfaded
+assembly of the region to write, and the true-peak measurement behind the
+two-pass correction. Pure functions of
 their arguments; the loop owns all state.
 
 :copyright: (C) 2024 Auralis Team
@@ -18,9 +19,10 @@ from ..utils.logging import warning
 if TYPE_CHECKING:
     from .simple_mastering import SimpleMasteringPipeline
 
-# Measured 4x-oversample reconstruction overshoot the TP guard absorbs
-# (#4970). The June 2026 study measured outputs averaging +0.77 dBTP when
-# unguarded; ~0.27 dB of headroom above the -0.5 dBFS ceiling covers it.
+# Measured 4x-oversample reconstruction overshoot over the sample peak (#4970;
+# the June 2026 study). true_peak_4x falls back to sample peak times this when
+# the resampler fails, a slight over-estimate that only makes the two-pass
+# correction safer.
 _TRUE_PEAK_OVERSHOOT_RATIO = db_to_amplitude(0.27)
 
 
@@ -100,45 +102,6 @@ def read_chunk(
     # failed for square arrays like (2, 2) — 2-sample stereo — because 2 > 2 is
     # False (issue #2292).
     return np.asarray(chunk.T)
-
-
-def apply_true_peak_guard(pipeline: 'SimpleMasteringPipeline', processed_chunk: np.ndarray) -> np.ndarray:
-    """Cap True Peak at -0.5 dBFS.
-
-    Empirically validated (June 2026 study): 74 % of outputs exceeded 0 dBFS
-    True Peak (avg +0.77 dBFS) because the harmonic exciter generates
-    near-Nyquist content that causes intersample reconstruction peaks even when
-    sample peaks are held at 0.97. 4× oversampled peak measurement + gain
-    reduction caps True Peak at -0.5 dBFS.
-
-    #4970: the gain is derived from the whole-song peak (_song_peak_db,
-    measured by prepare_file's pre-scan) rather than the per-chunk 4x peak — a
-    per-chunk ratio varied between adjacent chunks and produced soft level
-    steps at boundaries. Because the song peak can exceed any single chunk's
-    peak, the fixed -0.5 dBFS overshoot term is applied on top:
-    gain = song_ceiling / (song_peak * 4x overshoot ratio), constant across
-    all chunks.
-    """
-    _tp_ceiling = db_to_amplitude(-0.5)  # −0.5 dBFS = 0.9441
-    _tp_overshoot = _TRUE_PEAK_OVERSHOOT_RATIO
-    if pipeline._song_peak_db is not None:
-        _song_peak_linear = db_to_amplitude(pipeline._song_peak_db)
-        _tp_gain = _tp_ceiling / (_song_peak_linear * _tp_overshoot)
-        if _tp_gain < 1.0:
-            processed_chunk = processed_chunk * _tp_gain
-    else:
-        # No pre-scan (direct _process() test path): keep the per-chunk
-        # measurement so the ceiling still holds, and surface any failure
-        # instead of swallowing it (#4970).
-        try:
-            from scipy.signal import resample_poly as _rsp
-            _chunk_4x = _rsp(processed_chunk, 4, 1, axis=1)
-            _tp = float(np.max(np.abs(_chunk_4x)))
-            if _tp > _tp_ceiling:
-                processed_chunk = processed_chunk * (_tp_ceiling / _tp)
-        except Exception as e:
-            warning(f"True-peak guard failed; ceiling not enforced: {e}")
-    return processed_chunk
 
 
 def true_peak_4x(write_region: np.ndarray) -> float:

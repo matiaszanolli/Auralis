@@ -282,8 +282,8 @@ class MasteringPresetDefaults:
 
     LOUDNESS_LIMITER_CEILING_DB: float = -1.0
     """Brick-wall limiter ceiling. The downstream final normalize lifts the peak
-    back toward the output target, and the per-chunk True-Peak guard in
-    master_file caps inter-sample peaks at -0.5 dBFS."""
+    back toward the output target, and master_file's two-pass correction caps
+    the written signal at -0.5 dBTP (#5694)."""
 
     LOUDNESS_LIMITER_RELEASE_MS: float = 60.0
     """Limiter release. Long enough to avoid pumping on sustained low end,

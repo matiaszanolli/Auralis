@@ -4,8 +4,8 @@ Mastering Chunked Processing Loop
 
 Reads a file in overlapping chunks, runs each through
 SimpleMasteringPipeline._process, assembles the output with an equal-gain
-(raised-cosine) crossfade at chunk boundaries, applies a True Peak guard, and
-streams the result to the output WAV.
+(raised-cosine) crossfade at chunk boundaries, applies the two-pass peak
+correction, and streams the result to the output WAV.
 
 Extracted from simple_mastering.py's _master_file_impl "Step 3" (#4072).
 
@@ -22,7 +22,6 @@ import soundfile as sf
 
 from ..utils.atomic_write import publish_atomically
 from .mastering_chunk_assembly import (
-    apply_true_peak_guard,
     assemble_write_region,
     count_chunks,
     merge_stage_info,
@@ -140,8 +139,8 @@ def _render_to_sink(
     post-assembly, PRE-clip signal) are accumulated and returned alongside
     the info, so process_chunks can derive one uniform correction gain.
 
-    ``correction_gain`` (#5694) is a constant multiplier applied after the
-    True Peak guard; constant so macro-dynamics (#5559) are untouched, and
+    ``correction_gain`` (#5694) is a constant multiplier applied to every
+    processed chunk; constant so macro-dynamics (#5559) are untouched, and
     linear so it commutes with the crossfade assembly.
     """
     info: dict[str, Any] | None = None
@@ -188,10 +187,10 @@ def _render_to_sink(
                 processed_chunk, chunk_info = pipeline._process(
                     chunk, fingerprint, peak_db, intensity, sr, verbose=False
                 )
-                processed_chunk = apply_true_peak_guard(pipeline, processed_chunk)
-
                 # #5694: the uniform two-pass correction (1.0 in the
-                # measurement pass itself).
+                # measurement pass itself). It is the only ceiling: the input-
+                # peak-keyed true-peak guard that preceded it cost hot masters
+                # up to 0.8 dB for nothing once this measured the output (#6320).
                 if correction_gain != 1.0:
                     processed_chunk = processed_chunk * correction_gain
 
