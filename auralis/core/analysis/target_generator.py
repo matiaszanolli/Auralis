@@ -12,7 +12,6 @@ from typing import Any
 
 from ...utils.logging import debug
 from ..config import GenreProfile, UnifiedConfig
-from ..utils.fingerprint_unpacker import FingerprintUnpacker
 
 
 from .target_fingerprint_adjustments import apply_fingerprint_enhancements

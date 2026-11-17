@@ -9,15 +9,12 @@ their arguments; the loop owns all state.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
 from ..dsp.utils.conversion import db_to_amplitude
 from ..utils.logging import warning
-
-if TYPE_CHECKING:
-    from .simple_mastering import SimpleMasteringPipeline
 
 # Measured 4x-oversample reconstruction overshoot over the sample peak (#4970;
 # the June 2026 study). true_peak_4x falls back to sample peak times this when
