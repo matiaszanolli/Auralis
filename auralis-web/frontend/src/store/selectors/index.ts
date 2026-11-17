@@ -11,6 +11,3 @@
 
 export * from './player';
 export * from './queue';
-export * from './cache';
-export * from './connection';
-export * from './combined';

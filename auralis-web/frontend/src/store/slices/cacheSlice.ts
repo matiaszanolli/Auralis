@@ -112,15 +112,7 @@ export const {
   resetCache,
 } = cacheSlice.actions;
 
-// Selectors
-export const selectCacheStats = (state: { cache: CacheState }) => state.cache.stats;
-export const selectCacheHealth = (state: { cache: CacheState }) => state.cache.health;
-// No isLoading/error selectors or state here (#5354): nothing dispatches
-// actions that would change them.
-
-// Standing note (#4395, #5212): these slices grow selectors ahead of any UI
-// that needs them — two batches had no useSelector anywhere, only same-named
-// assertions in this slice's own test. Every projected field is one property
-// off `selectCacheStats`, which a component can read directly.
+// No selectors live here (#5129): none had a consumer, only same-named assertions in this
+// slice's own test. A component reads a field straight off `state.cache`.
 
 export default cacheSlice.reducer;

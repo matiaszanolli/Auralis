@@ -1,7 +1,7 @@
 /**
  * connectionSlice reducer unit tests (#2815)
  *
- * Covers all action creators, state transitions, and derived selectors.
+ * Covers all action creators and state transitions.
  */
 
 import reducer, {
@@ -14,11 +14,6 @@ import reducer, {
   setError,
   clearError,
   resetConnection,
-  selectWSConnected,
-  selectAPIConnected,
-  selectLatency,
-  selectReconnectAttempts,
-  selectConnectionHealth,
 } from '../connectionSlice';
 import type { ConnectionState } from '../connectionSlice';
 import { DEFAULT_MAX_RECONNECT_ATTEMPTS } from '@/config/timing';
@@ -144,44 +139,5 @@ describe('connectionSlice', () => {
     state = reducer(state, resetConnection());
     expect(state.wsConnected).toBe(false);
     expect(state.latency).toBe(0);
-  });
-
-  // ─── Selectors ────────────────────────────────────────────────
-
-  it('basic selectors return correct values', () => {
-    const state: ConnectionState = {
-      ...initialState,
-      wsConnected: true,
-      apiConnected: true,
-      latency: 50,
-      reconnectAttempts: 2,
-    };
-    const root = { connection: state };
-
-    expect(selectWSConnected(root)).toBe(true);
-    expect(selectAPIConnected(root)).toBe(true);
-    expect(selectLatency(root)).toBe(50);
-    expect(selectReconnectAttempts(root)).toBe(2);
-  });
-
-  // ─── Connection health ────────────────────────────────────────
-
-  it('selectConnectionHealth returns disconnected when not connected', () => {
-    expect(selectConnectionHealth({ connection: initialState })).toBe('disconnected');
-  });
-
-  it('selectConnectionHealth returns good for low latency', () => {
-    const state: ConnectionState = { ...initialState, wsConnected: true, apiConnected: true, latency: 50 };
-    expect(selectConnectionHealth({ connection: state })).toBe('good');
-  });
-
-  it('selectConnectionHealth returns moderate for medium latency', () => {
-    const state: ConnectionState = { ...initialState, wsConnected: true, apiConnected: true, latency: 300 };
-    expect(selectConnectionHealth({ connection: state })).toBe('moderate');
-  });
-
-  it('selectConnectionHealth returns slow for high latency', () => {
-    const state: ConnectionState = { ...initialState, wsConnected: true, apiConnected: true, latency: 600 };
-    expect(selectConnectionHealth({ connection: state })).toBe('slow');
   });
 });

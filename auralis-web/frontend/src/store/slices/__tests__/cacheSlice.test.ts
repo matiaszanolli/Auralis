@@ -9,8 +9,6 @@ import reducer, {
   setCacheHealth,
   clearCacheLocal,
   resetCache,
-  selectCacheStats,
-  selectCacheHealth,
 } from '../cacheSlice';
 import type { CacheState } from '../cacheSlice';
 import type { CacheStats, CacheHealth } from '@/services/api/cacheShapeGuards';
@@ -110,19 +108,4 @@ describe('cacheSlice', () => {
     expect(state.stats).toBeNull();
     expect(state.health).toBeNull();
   });
-
-  // ─── Selectors ────────────────────────────────────────────────
-
-  it('basic selectors return correct values', () => {
-    const state: CacheState = {
-      stats: mockStats,
-      health: mockHealth,
-      lastUpdated: 1000,
-    };
-    const root = { cache: state };
-
-    expect(selectCacheStats(root)).toEqual(mockStats);
-    expect(selectCacheHealth(root)).toEqual(mockHealth);
-  });
-
 });

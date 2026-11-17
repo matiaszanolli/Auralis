@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatDuration, formatHoursMinutes, formatHumanDuration } from '@/utils/timeFormat';
 import { selectFormattedRemainingTime } from '@/store/selectors';
-import { playerSelectors, selectFormattedTime } from '@/store/selectors';
 import type { RootState } from '@/store/index';
 
 describe('formatHoursMinutes (#5787)', () => {
@@ -44,12 +43,10 @@ describe('formatHumanDuration (#5787)', () => {
 describe('selectors share the timeFormat helpers (#5787)', () => {
   const state = (over: Record<string, unknown>) => over as unknown as RootState;
 
-  it('selectFormattedTime used to print "NaN:NaN" for NaN; it now matches formatDuration', () => {
-    const s = state({ player: { currentTime: NaN, duration: 225 } });
-    const out = selectFormattedTime(s);
-    expect(out.current).toBe(formatDuration(NaN));
-    expect(out.current).not.toContain('NaN');
-    expect(out.total).toBe('3:45');
+  it('formatDuration never prints NaN for a NaN or negative time', () => {
+    expect(formatDuration(NaN)).not.toContain('NaN');
+    expect(formatDuration(-3)).not.toContain('NaN');
+    expect(formatDuration(225)).toBe('3:45');
   });
 
   it('selectFormattedRemainingTime floors fractional seconds', () => {
@@ -57,9 +54,5 @@ describe('selectors share the timeFormat helpers (#5787)', () => {
     const out = selectFormattedRemainingTime(s);
     expect(out.total).toBe(200.5);
     expect(out.formatted).toBe('3m 20s');
-  });
-
-  it('keeps player selectors exported', () => {
-    expect(typeof playerSelectors.selectCurrentTime).toBe('function');
   });
 });

@@ -209,39 +209,6 @@ export const {
   resetConnection,
 } = connectionSlice.actions;
 
-// Selectors
-export const selectWSConnected = (state: { connection: ConnectionState }) =>
-  state.connection.wsConnected;
-export const selectAPIConnected = (state: { connection: ConnectionState }) =>
-  state.connection.apiConnected;
-export const selectLatency = (state: { connection: ConnectionState }) =>
-  state.connection.latency;
-export const selectReconnectAttempts = (state: { connection: ConnectionState }) =>
-  state.connection.reconnectAttempts;
-
-// Only selectors with consumers live here (#4395/#5212 sweeps removed
-// test-only ones). selectConnectionHealth below is equally unconsumed but
-// belongs to #5129 and is deliberately left in place.
-
-/**
- * Select connection health status
- */
-export const selectConnectionHealth = (state: { connection: ConnectionState }) => {
-  const { wsConnected, apiConnected, latency } = state.connection;
-
-  if (!wsConnected || !apiConnected) {
-    return 'disconnected';
-  }
-
-  if (latency > 500) {
-    return 'slow';
-  }
-
-  if (latency > 200) {
-    return 'moderate';
-  }
-
-  return 'good';
-};
+// No selectors live here: nothing reads this slice in production (#5615); hooks read it by property.
 
 export default connectionSlice.reducer;

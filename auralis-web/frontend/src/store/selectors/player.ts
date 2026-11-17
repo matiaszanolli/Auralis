@@ -8,76 +8,18 @@
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
-import { createSelector } from '@reduxjs/toolkit';
 import type { RootState } from '@/store/index';
-import { formatDuration } from '@/utils/timeFormat';
+import { selectCurrentTrack, selectIsMuted, selectIsPlaying, selectVolume } from '@/store/slices/playerSlice';
 
 /**
  * Basic selectors (non-memoized, for simple properties)
  */
 export const playerSelectors = {
-  selectIsPlaying: (state: RootState) => state.player.isPlaying,
-  selectCurrentTrack: (state: RootState) => state.player.currentTrack,
-  selectCurrentTime: (state: RootState) => state.player.currentTime,
-  selectDuration: (state: RootState) => state.player.duration,
-  selectVolume: (state: RootState) => state.player.volume,
-  selectIsMuted: (state: RootState) => state.player.isMuted,
-  selectPreset: (state: RootState) => state.player.preset,
-  /** Full streaming sub-state ({normal, enhanced}) */
-  selectStreaming: (state: RootState) => state.player.streaming,
+  // The slice owns the field selectors; this object only groups the ones with a consumer (#6040).
+  selectIsPlaying,
+  selectCurrentTrack,
+  selectVolume,
+  selectIsMuted,
   /** Streaming state for the enhanced stream (idle | buffering | streaming | error | complete) */
   selectEnhancedStreamingState: (state: RootState) => state.player.streaming.enhanced.state,
 };
-
-export const selectPlaybackProgress = createSelector(
-  [(state: RootState) => state.player.currentTime, (state: RootState) => state.player.duration],
-  (currentTime, duration): number => (duration > 0 ? currentTime / duration : 0)
-);
-
-/**
- * @internal Recomputes every second because `currentTime` is an input. No
- * component subscribes to it today — do NOT call it directly from a component
- * (that would re-render at 1 Hz). Prefer formatting time at the leaf that needs
- * it. Kept only as part of the `optimizedSelectors` barrel (#4206).
- */
-export const selectFormattedTime = createSelector(
-  [(state: RootState) => state.player.currentTime, (state: RootState) => state.player.duration],
-  (currentTime, duration) => ({
-    current: formatDuration(currentTime),
-    total: formatDuration(duration),
-  })
-);
-
-/**
- * Complete playback state.
- *
- * @internal Recomputes every second because `currentTime` is an input (it
- * feeds `progress` and the formatted `currentTime`). No component subscribes to
- * it directly — it backs `selectAppSnapshot` and the `optimizedSelectors`
- * barrel. Do NOT subscribe a component to it directly or it will re-render at
- * 1 Hz; read the discrete fields you need from `playerSelectors` instead (#4206).
- */
-export const selectPlaybackState = createSelector(
-  [
-    (state: RootState) => state.player.isPlaying,
-    (state: RootState) => state.player.currentTrack,
-    (state: RootState) => state.player.currentTime,
-    (state: RootState) => state.player.duration,
-    (state: RootState) => state.player.volume,
-    (state: RootState) => state.player.isMuted,
-    (state: RootState) => state.player.preset,
-    (state: RootState) => state.connection.wsConnected,
-    (state: RootState) => state.connection.apiConnected,
-  ],
-  (isPlaying, currentTrack, currentTime, duration, volume, isMuted, preset, wsConnected, apiConnected) => ({
-    track: currentTrack,
-    isPlaying,
-    progress: duration > 0 ? currentTime / duration : 0,
-    currentTime: formatDuration(currentTime),
-    duration: formatDuration(duration),
-    volume,
-    isMuted,
-    preset,
-    canPlay: wsConnected && apiConnected && currentTrack !== null,
-  })
-);

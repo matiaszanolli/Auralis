@@ -2,39 +2,21 @@
  * Redux Selector Tests
  * ~~~~~~~~~~~~~~~~~~~~~
  *
- * Verifies memoization correctness for all consolidated selectors:
- * - Same reference returned on repeated calls with unchanged state
- * - New reference returned when relevant state changes
- * - Derived values are correct
- * - All selector imports come from a single file (store/selectors/index.ts)
- *
- * Issue #2222: consolidated from store/selectors/advanced.ts into index.ts
+ * Verifies memoization correctness for the selectors that have a production consumer: the same
+ * reference on repeated calls with unchanged state, a new one when relevant state changes, and
+ * correct derived values. The cache/connection selectors, the combined snapshot objects and the
+ * 1 Hz playback selectors had no consumer and were deleted with their tests (#5129, #6040).
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  setCurrentTime,
-  setDuration,
-  setIsPlaying,
-} from '@/store/slices/playerSlice';
+import { setIsPlaying } from '@/store/slices/playerSlice';
 import { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
-import { setWSConnected, setAPIConnected } from '@/store/slices/connectionSlice';
 import {
-  // Simple selectors
   playerSelectors,
-  queueSelectors,
-  // Memoized derived selectors
-  selectPlaybackProgress,
-  selectFormattedTime,
   selectCurrentQueueTrack,
   selectRemainingTime,
   selectTotalQueueTime,
-  selectQueueStats,
-  selectConnectionStatus,
-  selectPlaybackState,
-  selectQueueState,
-  selectAppSnapshot,
-  optimizedSelectors,
+  selectFormattedRemainingTime,
 } from '../index';
 import type { RootState } from '@/store/index';
 import { createTestStore } from '@/test/test-utils';
@@ -51,24 +33,6 @@ const mockTrack = (id: number, duration = 180) => ({
   artist: 'Artist',
   album: 'Album',
   duration,
-});
-
-// ============================================================================
-// Single import-source contract
-// ============================================================================
-
-describe('Single import source', () => {
-  it('exports all selectors from store/selectors/index.ts (no advanced.ts)', () => {
-    // All critical exports exist on the consolidated module
-    expect(typeof selectPlaybackProgress).toBe('function');
-    expect(typeof selectFormattedTime).toBe('function');
-    expect(typeof selectCurrentQueueTrack).toBe('function');
-    expect(typeof selectRemainingTime).toBe('function');
-    expect(typeof selectConnectionStatus).toBe('function');
-    expect(typeof selectPlaybackState).toBe('function');
-    expect(typeof selectQueueState).toBe('function');
-    expect(typeof optimizedSelectors).toBe('object');
-  });
 });
 
 // ============================================================================
@@ -100,22 +64,6 @@ describe('playerSelectors (simple)', () => {
   });
 });
 
-describe('queueSelectors (simple)', () => {
-  let store: TestStore;
-
-  beforeEach(() => {
-    store = createTestStore();
-  });
-
-  it('selectQueueTracks returns empty array by default', () => {
-    expect(queueSelectors.selectQueueTracks(store.getState() as RootState)).toEqual([]);
-  });
-
-  it('selectCurrentIndex returns 0 by default', () => {
-    expect(queueSelectors.selectCurrentIndex(store.getState() as RootState)).toBe(0);
-  });
-});
-
 // ============================================================================
 // Memoization: same reference on unchanged state
 // ============================================================================
@@ -125,25 +73,7 @@ describe('Memoization – same reference on unchanged state', () => {
 
   beforeEach(() => {
     store = createTestStore();
-    store.dispatch(setDuration(300));
-    store.dispatch(setCurrentTime(60));
     store.dispatch(setQueue([mockTrack(1), mockTrack(2), mockTrack(3)]));
-  });
-
-  it('selectPlaybackProgress returns same reference across 10 calls', () => {
-    const state = store.getState();
-    const first = selectPlaybackProgress(state as RootState);
-    for (let i = 0; i < 9; i++) {
-      expect(selectPlaybackProgress(state as RootState)).toBe(first);
-    }
-  });
-
-  it('selectFormattedTime returns same reference across 10 calls', () => {
-    const state = store.getState();
-    const first = selectFormattedTime(state as RootState);
-    for (let i = 0; i < 9; i++) {
-      expect(selectFormattedTime(state as RootState)).toBe(first);
-    }
   });
 
   it('selectCurrentQueueTrack returns same reference across 10 calls', () => {
@@ -162,45 +92,6 @@ describe('Memoization – same reference on unchanged state', () => {
     }
   });
 
-  it('selectQueueStats returns same reference across 10 calls', () => {
-    const state = store.getState();
-    const first = selectQueueStats(state as RootState);
-    for (let i = 0; i < 9; i++) {
-      expect(selectQueueStats(state as RootState)).toBe(first);
-    }
-  });
-
-  it('selectConnectionStatus returns same reference across 10 calls', () => {
-    const state = store.getState();
-    const first = selectConnectionStatus(state as RootState);
-    for (let i = 0; i < 9; i++) {
-      expect(selectConnectionStatus(state as RootState)).toBe(first);
-    }
-  });
-
-  it('selectPlaybackState returns same reference across 10 calls', () => {
-    const state = store.getState();
-    const first = selectPlaybackState(state as RootState);
-    for (let i = 0; i < 9; i++) {
-      expect(selectPlaybackState(state as RootState)).toBe(first);
-    }
-  });
-
-  it('selectQueueState returns same reference across 10 calls', () => {
-    const state = store.getState();
-    const first = selectQueueState(state as RootState);
-    for (let i = 0; i < 9; i++) {
-      expect(selectQueueState(state as RootState)).toBe(first);
-    }
-  });
-
-  it('selectAppSnapshot returns same reference across 10 calls', () => {
-    const state = store.getState();
-    const first = selectAppSnapshot(state as RootState);
-    for (let i = 0; i < 9; i++) {
-      expect(selectAppSnapshot(state as RootState)).toBe(first);
-    }
-  });
 });
 
 // ============================================================================
@@ -212,25 +103,7 @@ describe('Memoization – new reference when state changes', () => {
 
   beforeEach(() => {
     store = createTestStore();
-    store.dispatch(setDuration(300));
-    store.dispatch(setCurrentTime(60));
     store.dispatch(setQueue([mockTrack(1), mockTrack(2)]));
-  });
-
-  it('selectPlaybackProgress: new value when currentTime changes', () => {
-    const before = selectPlaybackProgress(store.getState() as RootState);
-    store.dispatch(setCurrentTime(120));
-    const after = selectPlaybackProgress(store.getState() as RootState);
-    expect(after).not.toBe(before);
-    expect(after).toBeCloseTo(0.4);
-  });
-
-  it('selectFormattedTime: new object when duration changes', () => {
-    const before = selectFormattedTime(store.getState() as RootState);
-    store.dispatch(setDuration(600));
-    const after = selectFormattedTime(store.getState() as RootState);
-    expect(after).not.toBe(before);
-    expect(after.total).toBe('10:00');
   });
 
   it('selectCurrentQueueTrack: new object when currentIndex changes', () => {
@@ -241,71 +114,11 @@ describe('Memoization – new reference when state changes', () => {
     expect(after?.id).toBe(2);
   });
 
-  it('selectQueueStats: new object when queue changes', () => {
-    const before = selectQueueStats(store.getState() as RootState);
-    store.dispatch(setQueue([mockTrack(1), mockTrack(2), mockTrack(3)]));
-    const after = selectQueueStats(store.getState() as RootState);
-    expect(after).not.toBe(before);
-    expect(after.length).toBe(3);
-  });
-
-  it('selectConnectionStatus: new object when wsConnected changes', () => {
-    const before = selectConnectionStatus(store.getState() as RootState);
-    store.dispatch(setWSConnected(true));
-    const after = selectConnectionStatus(store.getState() as RootState);
-    expect(after).not.toBe(before);
-  });
 });
 
 // ============================================================================
 // Derived value correctness
 // ============================================================================
-
-describe('selectPlaybackProgress – correctness', () => {
-  let store: TestStore;
-
-  beforeEach(() => {
-    store = createTestStore();
-  });
-
-  it('returns 0 when duration is 0 (avoids division by zero)', () => {
-    expect(selectPlaybackProgress(store.getState() as RootState)).toBe(0);
-  });
-
-  it('returns correct fractional progress', () => {
-    store.dispatch(setDuration(200));
-    store.dispatch(setCurrentTime(50));
-    expect(selectPlaybackProgress(store.getState() as RootState)).toBeCloseTo(0.25);
-  });
-
-  it('returns 1 at full duration', () => {
-    store.dispatch(setDuration(100));
-    store.dispatch(setCurrentTime(100));
-    expect(selectPlaybackProgress(store.getState() as RootState)).toBeCloseTo(1);
-  });
-});
-
-describe('selectFormattedTime – correctness', () => {
-  let store: TestStore;
-
-  beforeEach(() => {
-    store = createTestStore();
-  });
-
-  it('formats minutes:seconds correctly', () => {
-    store.dispatch(setDuration(185)); // 3:05
-    store.dispatch(setCurrentTime(65));  // 1:05
-    const { current, total } = selectFormattedTime(store.getState() as RootState);
-    expect(current).toBe('1:05');
-    expect(total).toBe('3:05');
-  });
-
-  it('formats hours:mm:ss when duration exceeds 1 hour', () => {
-    store.dispatch(setDuration(3661)); // 1:01:01
-    const { total } = selectFormattedTime(store.getState() as RootState);
-    expect(total).toBe('1:01:01');
-  });
-});
 
 describe('selectCurrentQueueTrack – correctness', () => {
   let store: TestStore;
@@ -362,70 +175,29 @@ describe('selectTotalQueueTime – correctness', () => {
   });
 });
 
-describe('selectConnectionStatus – correctness', () => {
+
+describe('selectFormattedRemainingTime', () => {
   let store: TestStore;
 
   beforeEach(() => {
     store = createTestStore();
+    store.dispatch(setQueue([mockTrack(1, 60), mockTrack(2, 90), mockTrack(3, 125)]));
+    store.dispatch(setCurrentIndex(0));
   });
 
-  it('health is "disconnected" when neither WS nor API connected', () => {
-    const status = selectConnectionStatus(store.getState() as RootState);
-    expect(status.health).toBe('disconnected');
-    expect(status.connected).toBe(false);
+  it('formats what follows the current track and returns the same reference while state is unchanged', () => {
+    const state = store.getState() as RootState;
+    const first = selectFormattedRemainingTime(state);
+
+    expect(first).toEqual({ total: 215, formatted: '3m 35s' });
+    expect(selectFormattedRemainingTime(state)).toBe(first);
   });
 
-  it('health is "degraded" when only WS connected', () => {
-    store.dispatch(setWSConnected(true));
-    expect(selectConnectionStatus(store.getState() as RootState).health).toBe('degraded');
-  });
+  it('recomputes when the current index moves', () => {
+    const before = selectFormattedRemainingTime(store.getState() as RootState);
+    store.dispatch(setCurrentIndex(1));
 
-  it('health is "healthy" when both connected', () => {
-    store.dispatch(setWSConnected(true));
-    store.dispatch(setAPIConnected(true));
-    expect(selectConnectionStatus(store.getState() as RootState).health).toBe('healthy');
-    expect(selectConnectionStatus(store.getState() as RootState).connected).toBe(true);
-  });
-});
-
-// ============================================================================
-// optimizedSelectors aggregate
-// ============================================================================
-
-describe('optimizedSelectors aggregate', () => {
-  let store: TestStore;
-
-  beforeEach(() => {
-    store = createTestStore();
-    store.dispatch(setDuration(300));
-    store.dispatch(setCurrentTime(60));
-  });
-
-  it('player.selectPlaybackProgress computes correctly', () => {
-    expect(optimizedSelectors.player.selectPlaybackProgress(store.getState() as RootState))
-      .toBeCloseTo(0.2);
-  });
-
-  it('cache.selectCacheMetrics returns zero stats when cache empty', () => {
-    const metrics = optimizedSelectors.cache.selectCacheMetrics(store.getState() as RootState);
-    expect(metrics.hitRate).toBe(0);
-    expect(metrics.totalChunks).toBe(0);
-  });
-
-  it('appSnapshot exposes its real fields on a fresh store (#4485, #5354)', () => {
-    // The previous name promised an `isReady` field that selectAppSnapshot has
-    // never had, and the body only asserted `typeof snap === 'object'`.
-    // #5354 dropped the isLoading/hasErrors aggregation when the never-
-    // dispatched player/queue/cache loading/error state was deleted.
-    const snap = optimizedSelectors.appSnapshot(store.getState() as RootState);
-
-    expect(Object.keys(snap).sort()).toEqual(
-      ['cache', 'connection', 'playback', 'queue']
-    );
-    expect(snap).not.toHaveProperty('isReady');
-    expect(snap).not.toHaveProperty('isLoading');
-    expect(snap).not.toHaveProperty('hasErrors');
-    // It is the same memoized selector exported from combined.ts, not a copy.
-    expect(optimizedSelectors.appSnapshot).toBe(selectAppSnapshot);
+    expect(selectFormattedRemainingTime(store.getState() as RootState)).toEqual({ total: 125, formatted: '2m 5s' });
+    expect(selectFormattedRemainingTime(store.getState() as RootState)).not.toBe(before);
   });
 });

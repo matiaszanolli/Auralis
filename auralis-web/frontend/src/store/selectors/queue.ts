@@ -12,11 +12,6 @@ import { createSelector } from '@reduxjs/toolkit';
 import type { RootState } from '@/store/index';
 import { formatHumanDuration } from '@/utils/timeFormat';
 
-export const queueSelectors = {
-  selectQueueTracks: (state: RootState) => state.queue.tracks,
-  selectCurrentIndex: (state: RootState) => state.queue.currentIndex,
-};
-
 export const selectCurrentQueueTrack = createSelector(
   [(state: RootState) => state.queue.tracks, (state: RootState) => state.queue.currentIndex],
   (tracks, currentIndex) => tracks[currentIndex] || null
@@ -39,46 +34,4 @@ export const selectFormattedRemainingTime = createSelector(
     total: remaining,
     formatted: formatHumanDuration(remaining),
   })
-);
-
-export const selectQueueStats = createSelector(
-  [(state: RootState) => state.queue.tracks, (state: RootState) => state.queue.currentIndex],
-  (tracks, currentIndex) => {
-    const totalTime = tracks.reduce((sum, track) => sum + track.duration, 0);
-    return {
-      length: tracks.length,
-      totalTime,
-      averageTrackLength: tracks.length > 0 ? totalTime / tracks.length : 0,
-      currentPosition: currentIndex,
-    };
-  }
-);
-
-/**
- * Complete queue state
- */
-// #3620: compose existing memoized sub-selectors (selectRemainingTime,
-// selectTotalQueueTime) instead of recomputing O(n) reductions inline.
-// Same logic, but each cost is paid once globally and cached separately.
-export const selectQueueState = createSelector(
-  [
-    (state: RootState) => state.queue.tracks,
-    (state: RootState) => state.queue.currentIndex,
-    selectRemainingTime,
-    selectTotalQueueTime,
-  ],
-  (tracks, currentIndex, remainingTime, totalTime) => {
-    const currentTrack = tracks[currentIndex] || null;
-    return {
-      tracks,
-      currentIndex,
-      currentTrack,
-      length: tracks.length,
-      hasNext: currentIndex < tracks.length - 1,
-      hasPrevious: currentIndex > 0,
-      remainingTime,
-      totalTime,
-      isEmpty: tracks.length === 0,
-    };
-  }
 );

@@ -246,11 +246,8 @@ export const {
 // Selectors
 export const selectIsPlaying = (state: { player: PlayerState }) => state.player.isPlaying;
 export const selectCurrentTrack = (state: { player: PlayerState }) => state.player.currentTrack;
-export const selectCurrentTime = (state: { player: PlayerState }) => state.player.currentTime;
-export const selectDuration = (state: { player: PlayerState }) => state.player.duration;
 export const selectVolume = (state: { player: PlayerState }) => state.player.volume;
 export const selectIsMuted = (state: { player: PlayerState }) => state.player.isMuted;
-export const selectPreset = (state: { player: PlayerState }) => state.player.preset;
 
 // No isLoading/error selectors or state here (#5354): nothing dispatches
 // actions that would change them.
