@@ -18,8 +18,15 @@ from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from ...utils.logging import debug
 
 
+# (low, high) band-share fractions; only a track in a tail is corrected (#5858). The
+# old percent thresholds put every track in the low branches, and read as fractions
+# they would put 91 % of tracks in "bass-heavy". These are the 10th/90th percentiles
+# of v16 fingerprints over 80 random stereo FLAC tracks of a varied library.
+BAND_SHARE_TAILS = {"bass": (0.28, 0.58), "mid": (0.10, 0.35), "presence+air": (0.01, 0.07)}
+
+
 def apply_fingerprint_enhancements(
-    generator, targets: dict[str, Any],
+    generator: Any, targets: dict[str, Any],
                                    fingerprint: dict[str, float]) -> dict[str, Any]:
     """
     Apply intelligent enhancements based on 25D audio fingerprint.
@@ -38,33 +45,25 @@ def apply_fingerprint_enhancements(
 
     enhanced = targets.copy()
 
-    # 1. FREQUENCY-AWARE EQ ADJUSTMENTS (7D frequency distribution)
-    # Use actual frequency distribution instead of guessing from spectral centroid
-    # TODO(#5858): these are fractions in the 25D fingerprint but are compared
-    # to percent thresholds below, so every real track takes the "light" branch.
-    # The percent-scale defaults are kept as-is until that is decided.
-    bass_pct = fingerprint.get("bass_pct", 15.0)
-    mid_pct = fingerprint.get("mid_pct", 30.0)
-    presence_pct = fingerprint.get("presence_pct", 10.0)
-    air_pct = fingerprint.get("air_pct", 5.0)
+    # 1. FREQUENCY-AWARE EQ ADJUSTMENTS: a missing share skips its rule (no default).
+    bass = fingerprint.get("bass_pct")
+    mid = fingerprint.get("mid_pct")
+    presence, air = fingerprint.get("presence_pct"), fingerprint.get("air_pct")
+    high = None if presence is None or air is None else presence + air
 
-    # Bass adjustment: compensate for deficiency/excess
-    if bass_pct < 10.0:  # Bass-light
+    if bass is not None and bass < BAND_SHARE_TAILS["bass"][0]:  # Bass-light
         enhanced["bass_boost_db"] = targets.get("bass_boost_db", 0.0) + 1.5
-    elif bass_pct > 25.0:  # Bass-heavy
+    elif bass is not None and bass > BAND_SHARE_TAILS["bass"][1]:  # Bass-heavy
         enhanced["bass_boost_db"] = targets.get("bass_boost_db", 0.0) - 1.0
 
-    # Mid-range adjustment
-    if mid_pct < 20.0:  # Mid-scooped
+    if mid is not None and mid < BAND_SHARE_TAILS["mid"][0]:  # Mid-scooped
         enhanced["midrange_clarity_db"] = targets.get("midrange_clarity_db", 0.0) + 1.2
-    elif mid_pct > 40.0:  # Mid-heavy
+    elif mid is not None and mid > BAND_SHARE_TAILS["mid"][1]:  # Mid-heavy
         enhanced["midrange_clarity_db"] = targets.get("midrange_clarity_db", 0.0) - 0.8
 
-    # Presence/Air adjustment
-    high_freq_total = presence_pct + air_pct
-    if high_freq_total < 10.0:  # Dark mix
+    if high is not None and high < BAND_SHARE_TAILS["presence+air"][0]:  # Dark mix
         enhanced["treble_enhancement_db"] = targets.get("treble_enhancement_db", 0.0) + 1.8
-    elif high_freq_total > 25.0:  # Bright mix
+    elif high is not None and high > BAND_SHARE_TAILS["presence+air"][1]:  # Bright mix
         enhanced["treble_enhancement_db"] = targets.get("treble_enhancement_db", 0.0) - 1.2
 
     # 2. DYNAMICS-AWARE COMPRESSION (3D dynamics characteristics)
