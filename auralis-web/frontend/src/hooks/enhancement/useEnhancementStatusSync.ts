@@ -8,6 +8,7 @@
  * @module hooks/enhancement/useEnhancementStatusSync
  */
 
+import { retryTransient } from '@/utils/retryTransient';
 import { isAbortError } from '@/utils/errorGuards';
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
@@ -103,7 +104,9 @@ export function useEnhancementStatusSync(
         // A consumer that is still mounted asks again with its own getter (#5655).
         let response;
         try {
-          response = await _fetchEnhancementStatusOnce(getRef.current);
+          response = await retryTransient(() => _fetchEnhancementStatusOnce(getRef.current), {
+            isCancelled: () => cancelled,
+          });
         } catch (err) {
           if (cancelled || !isAbortError(err)) throw err;
           response = await _fetchEnhancementStatusOnce(getRef.current);

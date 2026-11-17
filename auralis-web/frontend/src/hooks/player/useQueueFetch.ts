@@ -22,6 +22,7 @@ import {
 } from '@/store/slices/queueSlice';
 import type { AppDispatch } from '@/store';
 import { mapTrackInfoToTrack } from './trackInfoMapper';
+import { retryTransient } from '@/utils/retryTransient';
 import type { QueueResponse } from '@/services/queueService';
 
 /**
@@ -45,9 +46,10 @@ export function useQueueFetch(): void {
         // read directly — this used to be `get<Record<string, unknown>>` with
         // a per-field `as` before every read, which is how the phantom
         // is_shuffled/isShuffled keys survived for months (#4787/#5637).
-        const response = await get<QueueResponse>('/api/player/queue', {
-          validate: isQueueResponseShape,
-        });
+        const response = await retryTransient(
+          () => get<QueueResponse>('/api/player/queue', { validate: isQueueResponseShape }),
+          { isCancelled: () => !isActive },
+        );
 
         if (response && isActive) {
           // Backend sends snake_case (#5009: mapped via the same helper
