@@ -87,18 +87,23 @@ def process_chunks(
     # the actual final signal, and derive ONE uniform correction from it.
     # Constant, so #5559's macro-dynamics invariant (a quiet movement is not
     # raised to the loudest section's level) is untouched.
-    _, _, measured_sample_peak, measured_true_peak = _render_to_sink(
-        pipeline, input_path, None, sr, total_frames, fingerprint,
-        intensity, config, verbose, crossfade_samples, chunk_size,
-        out_channels,
-    )
-    correction_gain = two_pass_correction_gain(
-        measured_sample_peak, measured_true_peak, verbose
-    )
-
     # Render into a staging file, published onto output_path only once complete
-    # (#5109).
+    # (#5109). The measurement pass runs INSIDE the staged render, after the staging directory (so the parent
+    # exists and is writable) and the output container (extension vs PCM_24) have been checked by opening and
+    # closing the sink once: an unusable destination used to be reported only after the whole measurement render
+    # had been paid for (#6321).
     def render_to(tmp_path: Path) -> tuple[dict[str, Any], int]:
+        sf.SoundFile(
+            str(tmp_path), mode='w', samplerate=sr, channels=out_channels, subtype='PCM_24'
+        ).close()
+        _, _, measured_sample_peak, measured_true_peak = _render_to_sink(
+            pipeline, input_path, None, sr, total_frames, fingerprint,
+            intensity, config, verbose, crossfade_samples, chunk_size,
+            out_channels,
+        )
+        correction_gain = two_pass_correction_gain(
+            measured_sample_peak, measured_true_peak, verbose
+        )
         info, chunks_processed, _, _ = _render_to_sink(
             pipeline, input_path, tmp_path, sr, total_frames, fingerprint,
             intensity, config, verbose, crossfade_samples, chunk_size,
