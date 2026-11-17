@@ -84,19 +84,25 @@ class TrackTestCase:
     max_presence_loss_db: float = 4.0  # Presence band (2-6kHz) - critical for clarity
 
 
-# Define test cases based on tracks we've tested
+# Define test cases based on tracks we've tested.
+# Fingerprint ranges re-measured 2026-11-16 against whole-track analysis
+# (algorithm v13+). Whole-track LUFS counts quiet intros and fades the old 90 s
+# body-window median skipped, so it reads lower: three LUFS floors moved down
+# 1 dB (measured -13.2 / -18.1 / -12.2). The Porcupine Tree bass range predated
+# the whole-input band shares (v14/v15) and contradicted its own "extreme bass"
+# label; it now brackets the measured 59 %.
 TEST_CASES = [
     TrackTestCase(
         name="Iron Maiden - Holy Smoke (moderate bass, loud)",
         path="/mnt/Musica/Musica/Iron Maiden/1990 - No Prayer For The Dying [FLAC 24-bit 44kHz]/02. Holy Smoke.flac",
         bass_pct_range=(0.30, 0.45),
-        lufs_range=(-13.0, -10.0),
+        lufs_range=(-14.0, -10.0),
         crest_db_range=(9.0, 13.0),
     ),
     TrackTestCase(
         name="Porcupine Tree - Phase I (extreme bass, quiet)",
         path="/mnt/Musica/Musica/Porcupine Tree/Voyage 34_ The Complete Trip [2000]/01. Phase I.flac",
-        bass_pct_range=(0.05, 0.15),
+        bass_pct_range=(0.50, 0.70),
         lufs_range=(-20.0, -17.0),
         crest_db_range=(15.0, 20.0),
     ),
@@ -111,7 +117,7 @@ TEST_CASES = [
         name="Blind Guardian - Somewhere Far Beyond (moderate bass, dynamic)",
         path="/mnt/Musica/Musica/Blind Guardian/1992 - Somewhere Far Beyond/10 Somewhere Far Beyond.flac",
         bass_pct_range=(0.35, 0.55),
-        lufs_range=(-18.0, -14.0),
+        lufs_range=(-19.0, -14.0),
         crest_db_range=(13.0, 18.0),
     ),
     # Stereo expansion test cases
@@ -128,7 +134,7 @@ TEST_CASES = [
         name="Stratovarius - Eagleheart (narrow stereo, compressed loud, heavy bass)",
         path="/mnt/Musica/Musica/Stratovarius/Stratovarius - 2003 - Elements Pt. 1 (Limited - Remastered)/01 Eagleheart.flac",
         bass_pct_range=(0.40, 0.55),
-        lufs_range=(-12.0, -9.0),
+        lufs_range=(-13.0, -9.0),
         crest_db_range=(10.0, 13.0),
         stereo_width_range=(0.20, 0.35),
         expects_stereo_expansion=True,
