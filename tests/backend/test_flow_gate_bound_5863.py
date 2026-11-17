@@ -38,7 +38,10 @@ async def test_set_flow_event_returns_immediately(monkeypatch):
     monkeypatch.setitem(stream_gates.stream_flow_events, key, evt)
 
     ws = _websocket_with_key(key)
+    started = asyncio.get_running_loop().time()
     await asyncio.wait_for(stream_gates.wait_for_stream_gates(ws), timeout=0.5)
+    # A set gate must pass straight through, not wait out the (0.05 s here) bound.
+    assert asyncio.get_running_loop().time() - started < 0.04
 
 
 @pytest.mark.asyncio

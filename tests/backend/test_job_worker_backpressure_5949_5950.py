@@ -114,7 +114,9 @@ class TestQueueBackpressure5949:
         harness.gate.set()
         await asyncio.sleep(0.2)
 
-        await harness.submit(100)  # must not raise
+        accepted = await harness.submit(100)  # must not raise
+
+        assert accepted.job_id in harness.engine.jobs
 
 
 @pytest.mark.regression

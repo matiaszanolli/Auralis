@@ -115,6 +115,8 @@ async def test_helper_swallows_the_workers_own_teardown_exception():
 
     await await_cancelled_task(task)  # must not raise
 
+    assert task.done() and isinstance(task.exception(), RuntimeError)  # the worker's own failure was consumed, not re-raised
+
 
 @pytest.mark.asyncio
 async def test_caller_is_being_cancelled_is_false_in_a_plain_callback():

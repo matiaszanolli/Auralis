@@ -197,8 +197,14 @@ class TestAnalysisBudget:
 
         budget = AnalysisBudget(capacity_minutes=10.0)
 
+        ran = []
         with budget.reserve(500.0):  # far over capacity: must not deadlock
-            pass
+            ran.append(True)
+
+        assert ran == [True]
+        with budget.reserve(500.0):  # and it released: the next oversized job is admitted too
+            ran.append(True)
+        assert ran == [True, True]
 
     def test_a_second_job_waits_for_room_then_runs(self):
         import threading

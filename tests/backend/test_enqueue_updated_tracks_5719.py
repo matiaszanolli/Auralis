@@ -62,4 +62,4 @@ async def test_nothing_to_enqueue_leaves_the_queue_untouched():
 async def test_a_missing_queue_is_not_an_error():
     result = SimpleNamespace(added_tracks=_tracks(4), updated_tracks=_tracks(5))
 
-    await _enqueue(result, None)
+    assert await _enqueue(result, None) == []  # nothing to enqueue onto, and nothing raised

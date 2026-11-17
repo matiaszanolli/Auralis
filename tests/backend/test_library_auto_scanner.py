@@ -310,7 +310,10 @@ class TestRunCyclePolling:
 
         scanner._do_scan = _scan_then_reload  # type: ignore[method-assign]
 
+        started = time.monotonic()
         await asyncio.wait_for(scanner._run_cycle(), timeout=1.0)
+
+        assert time.monotonic() - started < 0.9, "the sleep waited out its 3600 s interval"
 
     @pytest.mark.asyncio
     async def test_trigger_during_settings_read_survives_into_the_sleep(self):
@@ -324,7 +327,10 @@ class TestRunCyclePolling:
 
         settings_repo.get_settings = MagicMock(side_effect=_read_then_trigger)
 
+        started = time.monotonic()
         await asyncio.wait_for(scanner._run_cycle(), timeout=1.0)
+
+        assert time.monotonic() - started < 0.9, "the sleep waited out its 3600 s interval"
 
     @pytest.mark.asyncio
     async def test_trigger_consumed_before_the_cycle_does_not_skip_the_sleep(self):
