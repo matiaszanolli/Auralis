@@ -440,6 +440,15 @@ describe('generateErrorId (#4623)', () => {
     expect(generateErrorId()).toMatch(/^err_\d+_[a-z0-9]{9}$/);
   });
 
+  it('pads a short base-36 random to 9 characters (a low-entropy Math.random)', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5); // (0.5).toString(36) === '0.i'
+    try {
+      expect(generateErrorId().split('_')[2]).toBe('i00000000');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('keeps the random suffix at exactly 9 characters', () => {
     for (let i = 0; i < 200; i++) {
       const suffix = generateErrorId().split('_')[2];
@@ -451,7 +460,7 @@ describe('generateErrorId (#4623)', () => {
     // Math.random().toString(36) is "0.xxxxxxxx…"; starting at 2 drops "0."
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
     try {
-      const expected = (0.5).toString(36).slice(2, 11);
+      const expected = (0.5).toString(36).slice(2, 11).padEnd(9, '0');
       expect(generateErrorId().split('_')[2]).toBe(expected);
       expect(generateErrorId()).not.toContain('.');
     } finally {

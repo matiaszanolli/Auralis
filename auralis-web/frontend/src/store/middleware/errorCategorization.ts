@@ -115,7 +115,10 @@ export function generateErrorId(): string {
   // #4623: slice(2, 11), not substr(2, 9) — substr is ES Annex B legacy and
   // takes (start, length) where slice takes (start, end), so the end index is
   // 2 + 9. The 9-character suffix is load-bearing for ID shape.
-  return `err_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  // padEnd: a random with few significant bits (0.5 -> "0.i") has a shorter base-36 string, which made the
+  // suffix occasionally under 9 characters and the id-shape test flaky.
+  const suffix = Math.random().toString(36).slice(2, 11).padEnd(9, '0');
+  return `err_${Date.now()}_${suffix}`;
 }
 
 /**
