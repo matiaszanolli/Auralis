@@ -25,8 +25,9 @@ to convert zero times.
 
 import sys
 import wave
+from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -40,6 +41,28 @@ from core.seekable_source import (  # noqa: E402
     convert_to_temp_wav,
     converted_wavs,
 )
+
+
+@contextmanager
+def _decoding(**mock_kwargs):
+    """Fake the full-file decode on both conversion routes.
+
+    FFmpeg formats stream to a WAV through decode_to_wav (#6166); anything else goes through
+    load_audio. Both route to one mock, so its call count is the number of decodes.
+    """
+    import soundfile as sf
+
+    load = MagicMock(**mock_kwargs)
+
+    def fake_decode_to_wav(path, temp_folder, cancel_event=None):
+        audio, sample_rate = load(str(path))
+        out = Path(temp_folder) / "decoded.wav"
+        sf.write(str(out), audio, sample_rate, subtype="FLOAT")
+        return out
+
+    with patch("auralis.io.unified_loader.load_audio", load), \
+         patch("auralis.io.loaders.decode_to_wav", side_effect=fake_decode_to_wav):
+        yield load
 
 
 @pytest.fixture(autouse=True)
@@ -116,7 +139,7 @@ class TestConversionHappensAtMostOnce:
             calls["n"] += 1
             return fake_audio, 44100
 
-        with patch("auralis.io.unified_loader.load_audio", side_effect=fake_load_audio):
+        with _decoding(side_effect=fake_load_audio):
             source = SeekableSource(unopenable_file)
             # Stand-in for ~60 chunk reads of a 10-minute track.
             paths = {source.resolve() for _ in range(60)}
@@ -129,7 +152,7 @@ class TestConversionHappensAtMostOnce:
     def test_converted_path_is_actually_seekable(self, unopenable_file):
         fake_audio = (np.random.default_rng(0).standard_normal((4410, 2)) * 0.1).astype(np.float32)
 
-        with patch("auralis.io.unified_loader.load_audio", return_value=(fake_audio, 44100)):
+        with _decoding(return_value=(fake_audio, 44100)):
             source = SeekableSource(unopenable_file)
             resolved = source.resolve()
             try:
@@ -145,7 +168,7 @@ class TestTempDirLifecycle:
     def test_close_removes_the_temp_dir(self, unopenable_file):
         fake_audio = np.zeros((4410, 2), dtype=np.float32)
 
-        with patch("auralis.io.unified_loader.load_audio", return_value=(fake_audio, 44100)):
+        with _decoding(return_value=(fake_audio, 44100)):
             source = SeekableSource(unopenable_file, ConvertedWavRegistry(max_idle=0))
             resolved = Path(source.resolve())
 
@@ -157,7 +180,7 @@ class TestTempDirLifecycle:
     def test_context_manager_closes(self, unopenable_file):
         fake_audio = np.zeros((4410, 2), dtype=np.float32)
 
-        with patch("auralis.io.unified_loader.load_audio", return_value=(fake_audio, 44100)):
+        with _decoding(return_value=(fake_audio, 44100)):
             with SeekableSource(unopenable_file, ConvertedWavRegistry(max_idle=0)) as source:
                 resolved = Path(source.resolve())
                 assert resolved.exists()
@@ -169,7 +192,7 @@ class TestTempDirLifecycle:
 
         before = set(Path(tempfile.gettempdir()).glob("auralis_seekable_*"))
 
-        with patch("auralis.io.unified_loader.load_audio", side_effect=RuntimeError("ffmpeg died")):
+        with _decoding(side_effect=RuntimeError("ffmpeg died")):
             source = SeekableSource(unopenable_file)
             with pytest.raises(RuntimeError):
                 source.resolve()
@@ -180,7 +203,7 @@ class TestTempDirLifecycle:
     def test_convert_to_temp_wav_returns_dir_and_file(self, unopenable_file):
         fake_audio = np.zeros((4410, 2), dtype=np.float32)
 
-        with patch("auralis.io.unified_loader.load_audio", return_value=(fake_audio, 44100)):
+        with _decoding(return_value=(fake_audio, 44100)):
             temp_dir, wav_path = convert_to_temp_wav(unopenable_file)
 
         try:
@@ -221,7 +244,7 @@ class TestProcessorIntegration:
 
         meta = {"sample_rate": 44100, "channels": 2, "duration_seconds": 40.0}
 
-        with patch("auralis.io.unified_loader.load_audio", side_effect=counting_load_audio), \
+        with _decoding(side_effect=counting_load_audio), \
              patch("core.chunk_metadata.get_audio_info", return_value=meta):
             processor = ChunkedAudioProcessor(
                 track_id=1, filepath=unopenable_file,
