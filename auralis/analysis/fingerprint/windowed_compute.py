@@ -31,7 +31,7 @@ import numpy as np
 
 from ...dsp.utils.audio_info import to_mono
 from .analysis_budget import AnalysisCancelled, analysis_budget
-from .audio_fingerprint_analyzer import sanitize_non_finite
+from .audio_fingerprint_analyzer import require_finite
 from .track_audio import analysis_span_s, load_track_audio
 
 logger = logging.getLogger(__name__)
@@ -61,10 +61,10 @@ def _numpy_to_python(obj: Any) -> Any:
 
 
 def _rms_lufs_crest(a: np.ndarray) -> tuple[float, float] | None:
-    """Return (lufs_approx, crest_db) from a mono/stereo array, or None if silent."""
+    """Return (lufs_approx, crest_db) from a mono/stereo array, or None if silent or non-finite."""
     mono = to_mono(a, 'channels_samples')  # librosa layout: (channels, samples)
     rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
-    if rms < 1e-9:
+    if not np.isfinite(rms) or rms < 1e-9:  # NaN < 1e-9 is False: a glitch sample was a NaN median (#6144)
         return None
     peak = float(np.max(np.abs(mono)))
     lufs = 20.0 * np.log10(rms) - 0.691   # K-weighted proxy
@@ -122,9 +122,8 @@ def compute_windowed_fingerprint(
 
         _apply_probe_correction(fingerprint, audio, probe_audios)
 
-        # #3767: `analyze()` returns {} on any exception, which callers already
-        # skip, but a partial result (e.g. 12 of 25 dimensions) is truthy and
-        # would be cached as valid; discard it so it is retried instead.
+        # #3767: a partial result (e.g. 12 of 25 dimensions) is truthy and would
+        # be cached as valid; discard it so it is retried instead.
         if fingerprint and len(fingerprint) < 25:
             logger.warning(
                 f"Incomplete fingerprint for {audio_path.name}: "
@@ -132,12 +131,10 @@ def compute_windowed_fingerprint(
             )
             return None
 
-        # #5103: last guard before the value leaves this function. Every
-        # persistence path -- the DB row via _prepare_for_storage/upsert, the
-        # .25d sidecar, and mastering-target selection -- converges here, and
-        # none of them re-check finiteness downstream.
+        # #5103: last guard before the value leaves (the DB row, the .25d sidecar and
+        # mastering targets converge here); a non-finite one raises, caught below (#6144).
         if fingerprint:
-            sanitize_non_finite(fingerprint, audio_path.name)
+            require_finite(fingerprint, audio_path.name)
 
         # Convert numpy types to JSON-safe Python types
         fingerprint_clean: dict[str, Any] = _numpy_to_python(fingerprint)

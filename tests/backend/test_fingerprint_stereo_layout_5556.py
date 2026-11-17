@@ -12,8 +12,6 @@ import numpy as np
 import pytest
 
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
-from auralis.analysis.fingerprint.rust_fingerprint import compute_fingerprint_schema
 
 _BACKEND = str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend")
 if _BACKEND not in sys.path:
@@ -43,12 +41,13 @@ def test_backend_producers_route_through_the_windowed_pipeline() -> None:
         assert 'compute_windowed_fingerprint' in src, module.__name__
 
 
-def test_generator_producer_sanitizes_a_nan_rust_result(
+def test_generator_producer_rejects_a_nan_rust_result(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The issue's probe: a NaN dimension from the Rust engine must come out
-    sanitized through the generator's executor task (#5531). The analyzer
-    binds the glue at import time, so patch that module's reference."""
+    """The issue's probe: a NaN dimension from the Rust engine must never leave
+    the generator's executor task (#5531). It used to be replaced with 0.0 (a
+    plausible but wrong LUFS); it is a failed extraction now (#6144). The
+    analyzer binds the glue at import time, so patch that module's reference."""
     import soundfile as sf
 
     import analysis.fingerprint_generator as fg
@@ -66,11 +65,7 @@ def test_generator_producer_sanitizes_a_nan_rust_result(
 
     monkeypatch.setattr(afa, 'compute_fingerprint_schema', _nan_schema)
 
-    out = fg._compute_windowed_fingerprint_in_thread(str(wav))
-    assert out is not None
-    for key, value in out.items():
-        if isinstance(value, (int, float)):
-            assert value == value and abs(value) != float('inf'), key  # finite
+    assert fg._compute_windowed_fingerprint_in_thread(str(wav)) is None
 
 
 def test_no_fortran_order_flatten_left_in_backend_producers() -> None:

@@ -6,8 +6,9 @@ The #5103 guard ran only inside ``compute_windowed_fingerprint()``. Live
 mastering calls ``AudioFingerprintAnalyzer.analyze()`` directly, so a NaN
 dimension from the Rust engine became a NaN coordinate (``tanh(nan)`` is
 ``nan``), NaN parameters, an all-NaN buffer — and the final normalization's
-repair step zeroed the whole track. The guard now lives in ``analyze()`` and
-``_smooth_unit`` maps non-finite input to the neutral midpoint.
+repair step zeroed the whole track. ``_smooth_unit`` maps non-finite input to
+the neutral midpoint, and ``analyze()`` rejects a non-finite result (#6144), so
+the master fails visibly instead of coming out silent or wrong.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -54,20 +55,22 @@ def test_mapper_coordinates_stay_finite(real_fingerprint, dim, bad):
         assert math.isfinite(value) and 0.0 <= value <= 1.0, (dim, bad, coords)
 
 
-def test_analyze_sanitizes_engine_output(monkeypatch, real_fingerprint):
+def test_analyze_rejects_non_finite_engine_output(monkeypatch, real_fingerprint):
+    """#6144: replacing a NaN dimension with 0.0 stored a plausible but wrong
+    fingerprint (LUFS 0.0); a non-finite result is a failed extraction now."""
     poisoned = dict(real_fingerprint)
     poisoned["crest_db"] = float("nan")
     poisoned["lufs"] = float("inf")
     monkeypatch.setattr(afa, "compute_fingerprint_schema", lambda *a: dict(poisoned))
 
-    fp = AudioFingerprintAnalyzer().analyze(_noise(), 44100)
-
-    assert fp["crest_db"] == 0.0 and fp["lufs"] == 0.0
-    assert all(math.isfinite(v) for v in fp.values())
+    with pytest.raises(afa.FingerprintUnavailable, match="crest_db"):
+        AudioFingerprintAnalyzer().analyze(_noise(), 44100)
 
 
-def test_poisoned_fingerprint_does_not_silence_the_master(monkeypatch, real_fingerprint):
-    """WIRING: the live HybridProcessor → ContinuousMode path gets the guard."""
+def test_poisoned_fingerprint_fails_the_master_instead_of_silencing_it(monkeypatch, real_fingerprint):
+    """WIRING: the live HybridProcessor → ContinuousMode path. A NaN dimension
+    used to become NaN parameters and an all-zero master (#5505); it is now
+    surfaced as a failure (#6107) rather than mastered with wrong parameters."""
     from auralis.core.config import UnifiedConfig
     from auralis.core.hybrid_processor import HybridProcessor
 
@@ -75,17 +78,9 @@ def test_poisoned_fingerprint_does_not_silence_the_master(monkeypatch, real_fing
     poisoned["crest_db"] = float("nan")
     monkeypatch.setattr(afa, "compute_fingerprint_schema", lambda *a: dict(poisoned))
 
-    audio = _noise()
     processor = HybridProcessor(UnifiedConfig(internal_sample_rate=44100))
     try:
-        out = processor.process(audio)
+        with pytest.raises(afa.FingerprintUnavailable):
+            processor.process(_noise())
     finally:
         processor.close()
-
-    assert out is not None
-    assert out.shape == audio.shape
-    assert np.all(np.isfinite(out))
-    assert float(np.sqrt(np.mean(out.astype(np.float64) ** 2))) > 1e-4, (
-        "master came out silent — a non-finite fingerprint dimension reached "
-        "parameter generation"
-    )

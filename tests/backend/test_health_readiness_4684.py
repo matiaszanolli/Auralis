@@ -28,18 +28,30 @@ def _client(**kwargs) -> TestClient:
 def test_rolled_back_startup_is_not_reported_available():
     resp = _client(HAS_AURALIS=True, get_library_database=lambda: None).get("/api/health")
     assert resp.status_code == 200  # still the liveness probe desktop/main.js waits on
-    assert resp.json() == {"status": "healthy", "auralis_available": False}
+    assert resp.json() == {"status": "healthy", "auralis_available": False,
+                           "fingerprint_engine_available": True}
 
 
 def test_fully_initialised_backend_is_healthy_and_available():
     resp = _client(HAS_AURALIS=True, get_library_database=lambda: object()).get("/api/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "healthy", "auralis_available": True}
+    assert resp.json() == {"status": "healthy", "auralis_available": True,
+                           "fingerprint_engine_available": True}
 
 
 def test_engine_not_importable_is_not_available_even_with_a_database():
     resp = _client(HAS_AURALIS=False, get_library_database=lambda: object()).get("/api/health")
     assert resp.json()["auralis_available"] is False
+
+
+def test_a_missing_fingerprint_engine_is_reported(monkeypatch):
+    """#6107: without auralis_dsp every fingerprint and adaptive master fails."""
+    import routers.health as health
+
+    monkeypatch.setattr(health, "fingerprint_engine_error", lambda: "No module named 'auralis_dsp'")
+    resp = _client(HAS_AURALIS=True, get_library_database=lambda: object()).get("/api/health")
+    assert resp.status_code == 200
+    assert resp.json()["fingerprint_engine_available"] is False
 
 
 def test_the_database_is_read_live_on_each_request():

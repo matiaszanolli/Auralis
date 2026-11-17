@@ -19,6 +19,7 @@ there.
 """
 
 import soundfile as sf
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import FingerprintUnavailable
 from auralis.utils.logging import Code, ModuleError
 from core.encoding import WAVEncoderError
 
@@ -35,6 +36,8 @@ _ERROR_CATEGORIES: list[tuple[type[BaseException], str]] = [
     # message. It now comes from the core.encoding package, which is a normal
     # relative sibling and cannot fail to import, so it is stated inline.
     (WAVEncoderError, "Audio encoding failed"),
+    # #6107: used to be a silent bypass reported as "Processing complete".
+    (FingerprintUnavailable, "Audio analysis failed; the track was not mastered"),
     (FileNotFoundError, "Audio file not found"),
     (PermissionError, "Permission denied accessing audio file"),
     (OSError, "Audio file could not be read"),

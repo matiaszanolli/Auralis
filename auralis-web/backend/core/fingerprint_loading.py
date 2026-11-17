@@ -201,7 +201,7 @@ def extract_from_audio(
         # Shared pipeline (#5531): whole-track analysis up to
         # FINGERPRINT_FULL_TRACK_MAX_S, a bounded body + probe window beyond it
         # (no full-file decode of a multi-hour file, the #4595 LUFS/crest
-        # correction), and sanitize_non_finite
+        # correction), and the require_finite guard
         # (via AudioFingerprintAnalyzer.analyze). The two fingerprint
         # producers used to call the raw Rust schema glue on a full-file
         # decode here — unsanitized, uncapped, and disagreeing with the

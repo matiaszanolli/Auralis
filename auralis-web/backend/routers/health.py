@@ -17,6 +17,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from auralis.analysis.fingerprint.rust_fingerprint import fingerprint_engine_error
 from fastapi import APIRouter, Depends
 from schemas import HealthResponse, VersionInfoResponse
 
@@ -59,7 +60,8 @@ async def health_check(deps: _HealthDeps = Depends(_get_deps)) -> HealthResponse
     engine_ready = deps.has_auralis and (
         deps.get_library_database is not None and deps.get_library_database() is not None
     )
-    return HealthResponse(status="healthy", auralis_available=engine_ready)
+    return HealthResponse(status="healthy", auralis_available=engine_ready,
+                          fingerprint_engine_available=fingerprint_engine_error() is None)
 
 
 async def get_version() -> VersionInfoResponse:
@@ -102,10 +104,6 @@ def create_health_router(
     """Factory: health and version routes."""
     deps = _HealthDeps(HAS_AURALIS, get_library_database)
     router = APIRouter(tags=["system"], dependencies=[Depends(_deps.bind(deps))])
-    router.add_api_route(
-        "/api/health", health_check, methods=["GET"], response_model=HealthResponse
-    )
-    router.add_api_route(
-        "/api/version", get_version, methods=["GET"], response_model=VersionInfoResponse
-    )
+    router.add_api_route("/api/health", health_check, methods=["GET"], response_model=HealthResponse)
+    router.add_api_route("/api/version", get_version, methods=["GET"], response_model=VersionInfoResponse)
     return router

@@ -114,8 +114,8 @@ class FingerprintQuantizer:
                 # min(max_val, nan) returns max_val (nan compares False against
                 # everything), so an unclamped NaN/Inf would silently store as
                 # the dimension's maximum. Fall back to the midpoint instead
-                # (#5350) — callers are expected to sanitize non-finite values
-                # upstream (audio_fingerprint_analyzer.sanitize_non_finite()); this is
+                # (#5350) — callers are expected to reject non-finite values
+                # upstream (audio_fingerprint_analyzer.require_finite()); this is
                 # a storage-layer backstop, not a replacement for that.
                 logger.warning(
                     "FingerprintQuantizer.quantize: non-finite value %r for "

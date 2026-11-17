@@ -197,9 +197,9 @@ class ContinuousMode(ContinuousStagesMixin):
 
         Fast path: convert ``fixed_params`` dict directly (8× faster, no fingerprint).
         Fingerprint path: extract 25D fingerprint → map coordinates → generate params.
-
-        Returns the resolved ``ProcessingParameters``, or ``None`` when fingerprint
-        extraction returns empty (caller should skip processing and return the copy).
+        Returns the resolved ``ProcessingParameters``, or ``None`` when the audio is too
+        short to fingerprint (skip, return the copy). An engine failure raises
+        ``FingerprintUnavailable`` instead of bypassing silently as success (#6107).
         """
         if fixed_params is not None:
             debug("⚡ Using fixed parameters from .25d file (fast path)")

@@ -108,12 +108,29 @@ def rust_fingerprint_to_schema(raw: dict[str, Any]) -> dict[str, float]:
     out["loudness_variation_std"] = max(0.0, min(LOUDNESS_VARIATION_MAX_DB, float(raw["loudness_variation"])))
 
     # Bass/mid ratio: Rust fraction bass/(bass+mid) in [0,1] -> schema dB.
+    # NaN stays NaN for the analyzer's finiteness check: min(60, nan) is 60, so
+    # the clamps alone turned a NaN ratio into a plausible +60 dB (#6144).
     f = float(raw["bass_mid_ratio"])
-    f = min(max(f, 1e-6), 1.0 - 1e-6)  # avoid log(0)/div0 at the extremes
-    bass_mid_db = 10.0 * math.log10(f / (1.0 - f))
-    out["bass_mid_ratio"] = max(-60.0, min(60.0, bass_mid_db))
+    if math.isfinite(f):
+        f = min(max(f, 1e-6), 1.0 - 1e-6)  # avoid log(0)/div0 at the extremes
+        out["bass_mid_ratio"] = max(-60.0, min(60.0, 10.0 * math.log10(f / (1.0 - f))))
+    else:
+        out["bass_mid_ratio"] = math.nan
 
     return out
+
+
+def fingerprint_engine_error() -> str | None:
+    """None when the Rust engine imports, else the reason it does not.
+
+    Startup logs it and ``/api/health`` reports it (#6107): without the wheel every
+    fingerprint and every adaptive master fails, and nothing said so up front.
+    """
+    try:
+        import auralis_dsp  # noqa: F401
+    except ImportError as e:
+        return str(e)
+    return None
 
 
 def compute_fingerprint_schema(

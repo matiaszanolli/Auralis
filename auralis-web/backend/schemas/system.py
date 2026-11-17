@@ -25,6 +25,10 @@ class HealthResponse(BaseModel):
         description="True only when the engine imported AND its library database "
                     "initialised; false after a failed or rolled-back startup (#4684)"
     )
+    fingerprint_engine_available: bool = Field(
+        description="True when the Rust fingerprint engine (auralis_dsp) imports; "
+                    "without it fingerprinting and adaptive mastering fail (#6107)"
+    )
 
 
 class VersionInfoResponse(BaseModel):

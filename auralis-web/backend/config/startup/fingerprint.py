@@ -27,6 +27,16 @@ async def _init_fingerprint_extraction_queue(globals_dict: dict[str, Any]) -> No
     of Auralis component initialization (matches original inline
     behavior).
     """
+    from auralis.analysis.fingerprint.rust_fingerprint import fingerprint_engine_error
+
+    engine_error = fingerprint_engine_error()
+    if engine_error:
+        # #6107: every fingerprint and every adaptive master fails without it.
+        logger.error(
+            f"❌ Rust fingerprint engine (auralis_dsp) unavailable: {engine_error}. "
+            f"Fingerprinting and adaptive mastering will fail until it is built "
+            f"(cd vendor/auralis-dsp && maturin develop)."
+        )
     try:
         from auralis.services.fingerprint_extractor import (
             FingerprintExtractor,
@@ -44,7 +54,7 @@ async def _init_fingerprint_extraction_queue(globals_dict: dict[str, Any]) -> No
         # Create CPU-based fingerprint queue (24+ workers, 36x speedup)
         fingerprint_queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
-            get_repository_factory=lambda: globals_dict.get('repository_factory'),
+            get_repository_factory=lambda: globals_dict['repository_factory'],
             num_workers=None,  # Auto-detect CPU cores
             max_workers=None  # Auto-size based on system
         )
