@@ -743,7 +743,11 @@ class TestPresetApplication:
 
 
 class TestQueueBackpressureAPI:
-    """Tests for 503 responses when the processing queue is full (issue #2332)"""
+    """The router's QueueFull -> 503 mapping (issue #2332), with the exception injected.
+
+    This only proves the mapping. That a full queue is actually reachable while a worker runs
+    - the contract #2332 is about - is test_queue_backpressure_real_engine_5964.py (#5964).
+    """
 
     def test_process_returns_503_when_queue_full(self, client, mock_engine, tmp_path):
         """POST /api/processing/process returns 503 when submit_job raises QueueFull"""

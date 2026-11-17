@@ -15,6 +15,7 @@ A "restart" here is a second ProcessingEngine over the same database file.
 """
 
 import asyncio
+import contextlib
 import sqlite3
 import sys
 from collections.abc import Iterator
@@ -163,14 +164,34 @@ class TestLifecycleWrites:
         assert _rows(db_path) == {}
 
     async def test_a_job_rejected_by_a_full_queue_is_not_persisted(self, db_path: Path) -> None:
-        engine = _engine(db_path, max_queue_size=1)
-        await engine.submit_job(await engine.create_job(input_path="/a.wav", settings={}))
-        rejected = await engine.create_job(input_path="/b.wav", settings={})
+        # With the worker RUNNING and its one slot busy: an engine nothing drains rejects the
+        # second submit only because nobody ever dequeues (#5964), which proves nothing in production.
+        engine = _engine(db_path, max_queue_size=1, max_concurrent_jobs=1)
+        release = asyncio.Event()
+        started = asyncio.Event()
 
-        with pytest.raises(asyncio.QueueFull):
-            await engine.submit_job(rejected)
+        async def blocking_process_job(job: Any) -> None:
+            started.set()
+            await release.wait()
 
-        assert rejected.job_id not in _rows(db_path)
+        with patch.object(engine, "process_job", blocking_process_job):
+            worker = asyncio.create_task(engine.start_worker())
+            try:
+                await engine.submit_job(await engine.create_job(input_path="/a.wav", settings={}))
+                await asyncio.wait_for(started.wait(), 5)
+                await engine.submit_job(await engine.create_job(input_path="/queued.wav", settings={}))
+                rejected = await engine.create_job(input_path="/b.wav", settings={})
+
+                with pytest.raises(asyncio.QueueFull):
+                    await engine.submit_job(rejected)
+
+                assert rejected.job_id not in _rows(db_path)
+            finally:
+                release.set()
+                await engine.stop_worker()
+                worker.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await worker
 
     async def test_a_failing_store_never_fails_the_job(self) -> None:
         def broken() -> Any:
