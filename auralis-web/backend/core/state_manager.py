@@ -31,12 +31,7 @@ class PlayerStateManager(PositionTickerMixin):
     """
 
     def __init__(self, websocket_manager: Any) -> None:
-        """
-        Initialize state manager
-
-        Args:
-            websocket_manager: WebSocket connection manager for broadcasting
-        """
+        """*websocket_manager* is the connection manager state changes are broadcast through."""
         self.state: PlayerState = PlayerState()
         self.ws_manager: Any = websocket_manager
         self._lock: asyncio.Lock = asyncio.Lock()
