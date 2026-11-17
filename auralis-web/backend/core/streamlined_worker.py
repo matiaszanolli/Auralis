@@ -67,17 +67,17 @@ class StreamlinedCacheWorker(WorkerLifecycleMixin):
         self.running = False
         self._worker_task: asyncio.Task[None] | None = None
 
-        # Track what we're currently building
+        # Tier-2 builder state (#5977)
         self._building_track_id: int | None = None
         self._building_chunk_idx: int = 0
+        self._building_attempts, self._tier2_complete_logged_for = 0, None
 
         # Processor cache: reuse the same ChunkedAudioProcessor across chunks
         # for a given (track_id, preset, intensity) so DSP state (compressor
         # envelope, EQ history) is preserved at chunk boundaries (fixes #2737).
         # LRU-ordered and bounded (#4521); per-key build locks (#4369) with a
         # live waiter count so a lock is only dropped when nobody is queued on
-        # it. The worker owns this state; the bookkeeping over it lives in
-        # core/streamlined_processor_cache.py.
+        # it. The bookkeeping lives in core/streamlined_processor_cache.py.
         self._processor_cache: OrderedDict[ProcessorCacheKey, Any] = OrderedDict()
         self._processor_build_locks: dict[ProcessorCacheKey, asyncio.Lock] = {}
         self._build_waiters: dict[ProcessorCacheKey, int] = {}

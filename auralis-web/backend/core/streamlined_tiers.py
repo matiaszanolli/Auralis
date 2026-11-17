@@ -27,6 +27,8 @@ from core.streamlined_processor_cache import prune_processors_for_track
 
 logger = logging.getLogger(__name__)
 
+MAX_CHUNK_ATTEMPTS = 3  # renders of one chunk before the Tier-2 builder moves on (#5977)
+
 
 async def process_priorities(worker: Any) -> None:
     """
@@ -97,7 +99,7 @@ async def ensure_tier1_chunk(
     intensity: float
 ) -> None:
     """
-    Ensure a chunk is cached in Tier 1 (both original and processed).
+    Ensure a chunk is cached in Tier 1 (processed only: nothing ever reads an unprocessed render, #5975).
 
     This method proactively loads chunks into Tier 1 cache to ensure instant
     playback continuity and fast preset switching.
@@ -118,22 +120,6 @@ async def ensure_tier1_chunk(
     # Offloaded: generate() opens, reads and hashes the file (#5490).
     file_signature = await asyncio.to_thread(FileSignatureService.generate, track.filepath)
 
-    # Check if original chunk is cached
-    original_path, tier = await worker.cache_manager.get_chunk(
-        track_id, chunk_idx, preset=None, intensity=intensity, file_signature=file_signature
-    )
-
-    if original_path is None:
-        # Process original chunk
-        original_path = await worker._process_chunk(
-            track, track_id, chunk_idx, preset=None, intensity=intensity, tier="tier1"
-        )
-
-    # Add to warming list if we have the path
-    if original_path:
-        from pathlib import Path
-        tier1_chunks_to_warm.append((chunk_idx, Path(original_path), None))
-
     # Check if processed chunk is cached
     processed_path, tier = await worker.cache_manager.get_chunk(
         track_id, chunk_idx, preset=preset, intensity=intensity, file_signature=file_signature
@@ -147,7 +133,6 @@ async def ensure_tier1_chunk(
 
     # Add to warming list if we have the path
     if processed_path:
-        from pathlib import Path
         tier1_chunks_to_warm.append((chunk_idx, Path(processed_path), preset))
 
     # Immediately warm Tier 1 with these chunks
@@ -191,6 +176,7 @@ async def build_tier2_cache(
     if worker._building_track_id != track_id:
         worker._building_track_id = track_id
         worker._building_chunk_idx = 0
+        worker._building_attempts = 0
         # Close and drop the previous track's processors (#5062) — see
         # prune_processors_for_track for why this early release sits on top of
         # the LRU cap rather than replacing it.
@@ -202,26 +188,28 @@ async def build_tier2_cache(
         )
         logger.info(f"Building Tier 2 cache for track {track_id} ({status.total_chunks} chunks)")
 
-    # Find next uncached chunk
+    # Find the next uncached chunk. Only processed renders are built: no stream reads the
+    # preset=None ones (#5975).
     for chunk_idx in range(worker._building_chunk_idx, status.total_chunks):
-        # Check if original chunk is cached
-        if chunk_idx not in status.cached_chunks_original:
-            await worker._process_chunk(
-                track, track_id, chunk_idx, preset=None, intensity=intensity, tier="tier2"
-            )
+        if chunk_idx in status.cached_chunks_processed:
+            continue
+        path = await worker._process_chunk(
+            track, track_id, chunk_idx, preset=preset, intensity=intensity, tier="tier2"
+        )
+        # Advance only past a chunk that was built, or that has failed too often to keep retrying
+        # (_process_chunk returns None on timeout / missing file / error) (#5977).
+        if path is not None or worker._building_attempts + 1 >= MAX_CHUNK_ATTEMPTS:
+            if path is None:
+                logger.warning(f"Tier 2: giving up on chunk {chunk_idx} of track {track_id}")
             worker._building_chunk_idx = chunk_idx + 1
-            return  # Process one chunk per iteration
+            worker._building_attempts = 0
+        else:
+            worker._building_attempts += 1
+        return  # Process one chunk per iteration
 
-        # Check if processed chunk is cached
-        if chunk_idx not in status.cached_chunks_processed:
-            await worker._process_chunk(
-                track, track_id, chunk_idx, preset=preset, intensity=intensity, tier="tier2"
-            )
-            worker._building_chunk_idx = chunk_idx + 1
-            return  # Process one chunk per iteration
-
-    # All chunks processed
-    if not worker.cache_manager.is_track_fully_cached(track_id):
+    # Pointer reached the end: log completion once per track, and only if it is fully cached.
+    if worker.cache_manager.is_track_fully_cached(track_id) and worker._tier2_complete_logged_for != track_id:
+        worker._tier2_complete_logged_for = track_id
         logger.info(f"Tier 2 cache complete for track {track_id}")
 
 

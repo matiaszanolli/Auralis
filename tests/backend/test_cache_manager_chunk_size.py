@@ -51,7 +51,7 @@ class TestChunkSizeConstant:
         assert CHUNK_SIZE_MB > 2.0
 
     def test_tier1_max_size_derives_from_corrected_constant(self):
-        assert TIER1_MAX_SIZE_MB == pytest.approx(2 * CHUNK_SIZE_MB * 2, rel=0.001)
+        assert TIER1_MAX_SIZE_MB == pytest.approx(2 * CHUNK_SIZE_MB, rel=0.001)
 
 
 class TestTier2EvictionFiresAtCorrectedBudget:

@@ -37,7 +37,7 @@ CHUNK_SIZE_MB = (
 
 # Tier 1: Hot cache (current + next chunk)
 TIER1_MAX_CHUNKS = 2   # Current + next
-TIER1_MAX_SIZE_MB = TIER1_MAX_CHUNKS * CHUNK_SIZE_MB * 2  # × 2 for original + processed (~10 MB)
+TIER1_MAX_SIZE_MB = TIER1_MAX_CHUNKS * CHUNK_SIZE_MB  # processed chunks only (#5975)
 
 # Tier 2: Warm cache (full track). Eviction is purely size-driven
 # (TIER2_MAX_SIZE_MB via _evict_tier2_lru): however many tracks fit in the
@@ -156,6 +156,5 @@ class TrackCacheStatus:
         return (len(self.cached_chunks_processed) / self.total_chunks) * 100
 
     def is_fully_cached(self) -> bool:
-        """Check if track is fully cached (both original and processed)."""
-        return (len(self.cached_chunks_original) == self.total_chunks and
-                len(self.cached_chunks_processed) == self.total_chunks)
+        """Fully cached once every processed chunk exists (originals are never built, #5975)."""
+        return len(self.cached_chunks_processed) == self.total_chunks

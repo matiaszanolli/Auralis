@@ -185,12 +185,12 @@ class TestTrackCacheStatus:
         # Not fully cached
         assert status.is_fully_cached() is False
 
-        # Original cached, processed not cached
-        status.cached_chunks_original.update([0, 1, 2])
+        # Partly cached
+        status.cached_chunks_processed.update([0, 1])
         assert status.is_fully_cached() is False
 
-        # Both cached
-        status.cached_chunks_processed.update([0, 1, 2])
+        # Every processed chunk cached; originals are never built (#5975)
+        status.cached_chunks_processed.update([2])
         assert status.is_fully_cached() is True
 
 
