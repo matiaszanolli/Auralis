@@ -1,0 +1,75 @@
+name: Slow Tests
+
+# The `slow` mark (pytest.ini) means "run nightly", but backend-tests.yml deselects it and nothing
+# scheduled ever ran those ~170 tests, so they could rot unseen (#5966). This is that nightly run.
+#
+# Report-only on purpose: the slow suite has never had a CI baseline, so a red/green verdict would
+# start from an unknown. The job always succeeds, uploads the junit report and prints the failures
+# in the run summary; once a few nights show a stable set, check a baseline in and gate on it the way
+# backend-tests.yml does with pytest-baseline.json.
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest-slow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Must match `.python-version` (3.14); see backend-tests.yml for why 3.13 collects nothing.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements-lock.txt
+          pip install 'pytest==9.0.1' pytest-asyncio pytest-timeout httpx2
+
+      # The two files backend-tests.yml documents as hang-prone when run whole stay out of this run
+      # as well as that one (CLAUDE.md); a per-test timeout keeps any other hang from eating the job.
+      - name: Run slow-marked tests
+        run: |
+          python -m pytest -q -m slow -p no:randomly --timeout=300 \
+            --ignore=tests/backend/test_system_api.py \
+            --ignore=tests/concurrency/test_thread_safety.py \
+            --junitxml=pytest-slow-results.xml || true
+
+      - name: Summarise failures
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import os
+          import xml.etree.ElementTree as ET
+
+          path = "pytest-slow-results.xml"
+          if not os.path.exists(path):
+              print("## Slow tests\n\nNo junit report was produced: the runner itself failed.")
+          else:
+              suite = ET.parse(path).getroot()
+              suite = suite if suite.tag == "testsuite" else suite[0]
+              failed = [
+                  f"{c.get('classname')}::{c.get('name')}"
+                  for c in suite.iter("testcase")
+                  if c.find("failure") is not None or c.find("error") is not None
+              ]
+              print(f"## Slow tests\n\n{suite.get('tests')} run, {len(failed)} failed or errored.\n")
+              print("\n".join(f"- `{name}`" for name in failed[:100]))
+          PY
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pytest-slow-results
+          path: pytest-slow-results.xml
+          retention-days: 14
