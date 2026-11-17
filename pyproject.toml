@@ -95,17 +95,15 @@ dev = [
     # Verified: `pytest --collect-only tests/` succeeds on 9.1.1. The floor
     # mirrors minversion in pytest.ini.
     "pytest>=9.0.1",
-    "pytest-asyncio>=0.17.0",
+    "pytest-asyncio>=1.0",  # asyncio_default_fixture_loop_scope (pytest.ini, --strict-config) needs >=0.24; the lock has 1.4.0 (#6283)
     "pytest-cov>=3.0.0",
     "pytest-timeout>=2.4",
     # Moved out of [project.dependencies] in #4528 — each of these has zero
     # importers in auralis/ or auralis-web/ and is reached only from tests:
     #   sounddevice -> tests/conftest.py::_ensure_portaudio
-    #   websockets  -> tests/integration/test_phase4_player_workflow.py
     #   httpx       -> direct AsyncClient/ASGITransport test call sites
     #   httpx2      -> Starlette 1.x TestClient's maintained transport
     "sounddevice>=0.4.5",
-    "websockets>=10.0",
     "httpx>=0.28",
     "httpx2>=2.9",
     "black>=25.9.0",
