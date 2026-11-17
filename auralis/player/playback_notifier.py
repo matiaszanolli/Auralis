@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from typing import Any
 
 from ..utils.logging import debug
+from .lock_held_hooks import LockHeldNotificationError, active_lock_held_hook
 
 
 class PlaybackNotifierMixin:
@@ -88,6 +89,14 @@ class PlaybackNotifierMixin:
         if self._is_deferring():
             self._defer_state.queue.append(state_info)
             return
+        hook = active_lock_held_hook()
+        if hook is not None:
+            # Dispatching here, under _audio_lock, is the AB-BA deadlock defer_notifications()
+            # exists to prevent (#3781); fail the call rather than hang the player (#6085).
+            raise LockHeldNotificationError(
+                f"playback notification fired inside the lock-held {hook} hook; open "
+                f"playback.defer_notifications() around the call, outside _audio_lock"
+            )
         self._dispatch_callbacks(state_info)
 
     def _dispatch_callbacks(self, state_info: dict[str, Any]) -> None:

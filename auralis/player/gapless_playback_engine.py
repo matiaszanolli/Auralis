@@ -19,6 +19,7 @@ from ..io.loader import load
 from ..utils.logging import error, info, warning
 from .audio_file_manager import AudioFileManager
 from .gapless_prebuffer import PrebufferMixin
+from .lock_held_hooks import lock_held_hook
 from .queue_controller import QueueController
 from .queue_entry import entry_path
 
@@ -48,17 +49,10 @@ class GaplessPlaybackEngine(PrebufferMixin):
         self.prebuffer_thread: threading.Thread | None = None
 
         # Threading
-        # RLock, not Lock (#3782): advance_with_prebuffer() nests
-        # file_manager._audio_lock inside update_lock (to swap audio_data
-        # atomically with get_audio_chunk() readers, #2423).
-        #
-        # #5331: since #5105, next_track() no longer holds _audio_lock on
-        # entry, so the geometry documented here used to be
-        # `_audio_lock -> update_lock -> _audio_lock` (reentrant) is stale —
-        # today the only nesting this file exercises is `update_lock ->
-        # _audio_lock`, the reverse of what that comment said was the
-        # invariant. Ordering invariant, current: update_lock is always the
-        # outer lock — never acquire _audio_lock first and then update_lock.
+        # RLock, not Lock (#3782): advance_with_prebuffer() nests file_manager._audio_lock inside
+        # update_lock (to swap audio_data atomically with get_audio_chunk() readers, #2423).
+        # Ordering invariant (#5331): update_lock is always the outer lock - never acquire
+        # _audio_lock first and then update_lock.
         self.update_lock = threading.RLock()
         self._thread_lock = threading.Lock()   # guards thread creation (#2075)
         self._shutdown = threading.Event()     # signals worker to exit cleanly (#2075)
@@ -100,8 +94,9 @@ class GaplessPlaybackEngine(PrebufferMixin):
             on_swap: Invoked while `_audio_lock` is held, immediately after the
                 new audio is installed. `next_track()` passes the `seek(0, …)`
                 position reset here so it is atomic with the swap (#3717,
-                #2283). Lock nesting is `_audio_lock → PlaybackController._lock`,
-                the same order `get_audio_chunk()` uses, so no inversion risk.
+                #2283). Lock nesting is `_audio_lock → PlaybackController._lock`, the
+                order `get_audio_chunk()` uses. The caller opens `playback.defer_notifications()`
+                OUTSIDE `_audio_lock`, or a notification raises LockHeldNotificationError (#6085).
             abort: Polled after the blocking decode, before the queue advance is
                 committed; when true nothing is advanced or installed (#6127).
 
@@ -212,9 +207,9 @@ class GaplessPlaybackEngine(PrebufferMixin):
                 self.file_manager.sample_rate = sample_rate
                 self.file_manager.current_file = file_path
                 if on_swap is not None:
-                    on_swap()
+                    with lock_held_hook("on_swap"):
+                        on_swap()
 
-            # Clear prebuffer
             self.next_track_buffer = None
             self.next_track_info = None
             self.next_track_sample_rate = None

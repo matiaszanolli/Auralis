@@ -18,6 +18,7 @@ import numpy as np
 
 from ..io.loader import load
 from ..utils.logging import error, info
+from .lock_held_hooks import lock_held_hook
 
 
 class AudioFileManager:
@@ -53,9 +54,11 @@ class AudioFileManager:
                 critical section as the buffer swap. Callers use it to reset
                 playback state atomically with the new audio — without it, a
                 concurrent ``get_audio_chunk()`` could observe the new track
-                at the old position (#5581). Must not fire notifications:
-                callbacks running under ``_audio_lock`` are the AB-BA
-                deadlock ``defer_notifications`` exists to prevent (#3781).
+                at the old position (#5581). Must not fire notifications
+                outside a ``defer_notifications()`` scope opened by the caller, before this
+                call: callbacks running under ``_audio_lock`` are the AB-BA deadlock that
+                exists to prevent (#3781); a violation raises ``LockHeldNotificationError``
+                instead of hanging (#6085).
 
         Returns:
             bool: True if successful
@@ -72,7 +75,8 @@ class AudioFileManager:
                 self.current_file = file_path
                 self.sample_rate = loaded_sample_rate
                 if on_loaded is not None:
-                    on_loaded()
+                    with lock_held_hook("on_loaded"):
+                        on_loaded()
 
             info(f"Loaded audio file: {file_path}")
             info(f"Duration: {self.get_duration():.1f}s")
