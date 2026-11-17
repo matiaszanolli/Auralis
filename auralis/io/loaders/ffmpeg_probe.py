@@ -11,10 +11,10 @@ import json
 import re
 import subprocess
 from pathlib import Path
-from collections.abc import Callable
 from typing import Any
 
 from ...utils.logging import warning
+from .definitive_cache import cache_definitive
 from .ffmpeg_path_guard import ffmpeg_input_path
 from .ffmpeg_process import (
     FFMPEG_VERSION_CHECK_TIMEOUT_S,
@@ -83,39 +83,14 @@ def _parse_ffmpeg_version(version_output: str) -> tuple[int, ...] | None:
     except ValueError:
         return None
 
-def _cache_definitive(probe: Callable[[], bool | None]) -> Callable[[], bool]:
-    """Memoize a probe, but only a DEFINITIVE answer (#6318).
 
-    ``probe`` returns True (present), False (absent) or None (it could not tell: a timeout on a
-    cold first spawn, a non-zero exit, an OSError). None is reported as False for this call and
-    NOT cached, so one slow spawn does not disable every FFmpeg format until restart.
-    ``cache_clear()`` forces a re-probe, as ``lru_cache`` offered.
-    """
-    answer: list[bool] = []
-
-    @functools.wraps(probe)
-    def wrapper() -> bool:
-        if answer:
-            return answer[0]
-        result = probe()
-        if result is None:
-            return False
-        answer.append(result)
-        return result
-
-    wrapper.cache_clear = answer.clear  # type: ignore[attr-defined]
-    return wrapper
-
-
-@_cache_definitive
+@cache_definitive
 def check_ffmpeg() -> bool | None:
     """Check if FFmpeg is available, warning if its version is below the floor.
 
-    Memoized for the process lifetime (#4117): FFmpeg availability does not
-    change within a run, so probing once avoids forking an `ffmpeg -version`
-    subprocess on every FFmpeg-routed file load (one redundant probe per file
-    during bulk scans). Call ``check_ffmpeg.cache_clear()`` to force a re-probe
-    (e.g. in tests that toggle availability).
+    A definitive answer is memoized for the process lifetime (#4117, #6318): availability does not
+    change within a run, so a bulk scan probes once; a timeout or OSError is not remembered.
+    ``check_ffmpeg.cache_clear()`` forces a re-probe.
 
     A version below MINIMUM_FFMPEG_VERSION only warns (#4344) — presence is
     still all that's required to proceed, since a hard refusal on a heuristic
@@ -149,14 +124,9 @@ def check_ffmpeg() -> bool | None:
         return None
 
 
-@_cache_definitive
+@cache_definitive
 def check_ffprobe() -> bool | None:
-    """Check if the ffprobe binary is available.
-
-    ffprobe is a separate binary from ffmpeg (#4119): an environment may have
-    ffmpeg but not ffprobe. Memoized for the process lifetime like
-    ``check_ffmpeg`` (#4117); call ``check_ffprobe.cache_clear()`` to re-probe.
-    """
+    """Whether ffprobe, a separate binary from ffmpeg (#4119), is available; cached like ``check_ffmpeg``."""
     try:
         result = subprocess.run(
             ['ffprobe', '-version'],
