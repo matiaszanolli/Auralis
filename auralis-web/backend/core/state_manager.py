@@ -13,7 +13,6 @@ import asyncio
 import logging
 from typing import Any, cast
 
-from helpers import spawn_background_task
 from player_state import PlaybackState, PlayerState, TrackInfo, create_track_info
 from websocket.outbound.player import PlayerStatePayload
 from websocket.outbound_messages import broadcast_typed
