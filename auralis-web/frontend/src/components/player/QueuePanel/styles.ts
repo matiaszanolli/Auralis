@@ -135,8 +135,8 @@ export const styles = {
     transition: tokens.transitions.hover_out,
 
     ':hover': {
-      backgroundColor: themeVars.error,
-      color: themeVars.textStrong,
+      backgroundColor: themeVars.errorFill,
+      color: themeVars.onError,
     },
 
     ':disabled': {
@@ -147,8 +147,8 @@ export const styles = {
 
   errorBanner: {
     padding: tokens.spacing.md,
-    backgroundColor: themeVars.error,
-    color: themeVars.textStrong,
+    backgroundColor: themeVars.errorFill,
+    color: themeVars.onError,
     fontSize: tokens.typography.fontSize.sm,
   },
 
@@ -250,15 +250,15 @@ export const styles = {
     padding: tokens.spacing.xs,
     borderRadius: tokens.borderRadius.md,
     border: 'none',
-    backgroundColor: themeVars.error,
-    color: themeVars.textStrong,
+    backgroundColor: themeVars.errorFill,
+    color: themeVars.onError,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     transition: tokens.transitions.opacity,
     flexShrink: 0,
 
     ':hover': {
-      opacity: 0.8,
+      backgroundColor: themeVars.errorFillHover,
     },
 
     ':disabled': {

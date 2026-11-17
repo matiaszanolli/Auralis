@@ -75,7 +75,7 @@ export const ClearQueueDialog = ({ onConfirm, onCancel }: ClearQueueDialogProps)
             onClick={onConfirm}
             style={{
               padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
-              background: themeVars.error,
+              background: themeVars.errorFill,
               border: 'none',
               borderRadius: tokens.borderRadius.sm,
               color: themeVars.onError,

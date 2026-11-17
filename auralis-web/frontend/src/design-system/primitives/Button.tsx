@@ -157,19 +157,19 @@ const StyledButton = styled(MuiButton as ComponentType<Omit<MuiButtonProps, 'var
       },
     },
 
+    // A fill that carries text: errorFill (4.83:1 with onError), darkening on hover/active rather than
+    // fading, because opacity lets the surface behind pull the contrast back under 4.5:1 (#6073).
     danger: {
-      background: themeVars.error,
-      color: themeVars.textPrimary,
+      background: themeVars.errorFill,
+      color: themeVars.onError,
 
       '&:hover': {
-        background: themeVars.error,
-        opacity: 0.9,
+        background: themeVars.errorFillHover,
         boxShadow: tokens.shadows.md,
       },
 
       '&:active': {
-        background: themeVars.error,
-        opacity: 0.8,
+        background: themeVars.errorFillHover,
       },
     },
   };

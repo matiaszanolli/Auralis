@@ -217,10 +217,10 @@ export const AdvancedSettingsPanel = ({
           onClick={() => setShowResetConfirm(true)}
           sx={{
             padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-            background: tokens.colors.semantic.error,
+            background: themeVars.errorFill,
             border: 'none',
             borderRadius: '6px',
-            color: themeVars.textPrimary,
+            color: themeVars.onError,
             fontSize: tokens.typography.fontSize.sm,
             fontWeight: tokens.typography.fontWeight.semibold,
             cursor: 'pointer',

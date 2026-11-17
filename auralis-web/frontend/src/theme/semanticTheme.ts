@@ -61,6 +61,9 @@ export interface SemanticTheme {
   error: string;
   info: string;
   errorSoft: string;
+  /** Fill for anything that carries text on red; `error` itself is for text/icons/borders (#6073). */
+  errorFill: string;
+  errorFillHover: string;
   onError: string;
   backdrop: string;
   shadowRaised: string;
@@ -105,6 +108,8 @@ const darkSemanticTheme: SemanticTheme = {
   error: tokens.colors.semantic.error,
   info: tokens.colors.semantic.info,
   errorSoft: tokens.colors.utility.errorBg,
+  errorFill: tokens.colors.semantic.errorFill,
+  errorFillHover: tokens.colors.semantic.errorFillHover,
   onError: tokens.colors.text.primaryFull,
   backdrop: tokens.colors.opacityScale.dark.nearOpaque,
   shadowRaised: tokens.shadows.lg,
@@ -154,6 +159,8 @@ const lightSemanticTheme: SemanticTheme = {
   error: tokens.colors.lightMode.accent.error,
   info: tokens.colors.lightMode.accent.info,
   errorSoft: tokens.colors.utility.errorBg,
+  errorFill: tokens.colors.semantic.errorFill,
+  errorFillHover: tokens.colors.semantic.errorFillHover,
   onError: tokens.colors.text.primaryFull,
   backdrop: tokens.colors.opacityScale.dark.veryStrong,
   shadowRaised: tokens.shadows.md,
@@ -202,6 +209,8 @@ export const themeVars = {
   error: 'var(--app-error)',
   info: 'var(--app-info)',
   errorSoft: 'var(--app-error-soft)',
+  errorFill: 'var(--app-error-fill)',
+  errorFillHover: 'var(--app-error-fill-hover)',
   onError: 'var(--app-on-error)',
   backdrop: 'var(--app-backdrop)',
   shadowRaised: 'var(--app-shadow-raised)',
@@ -246,6 +255,8 @@ export const getSemanticCssVariables = (mode: ThemeMode): Record<string, string>
     '--app-error': theme.error,
     '--app-info': theme.info,
     '--app-error-soft': theme.errorSoft,
+    '--app-error-fill': theme.errorFill,
+    '--app-error-fill-hover': theme.errorFillHover,
     '--app-on-error': theme.onError,
     '--app-backdrop': theme.backdrop,
     '--app-shadow-raised': theme.shadowRaised,

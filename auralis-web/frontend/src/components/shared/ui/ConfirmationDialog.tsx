@@ -113,18 +113,18 @@ export function ConfirmationDialog({
             disabled={disabled}
             sx={{
               padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-              background: isDangerous ? tokens.colors.semantic.error : tokens.colors.accent.primary,
+              background: isDangerous ? themeVars.errorFill : tokens.colors.accent.primary,
               border: 'none',
               borderRadius: tokens.borderRadius.sm,
               color: themeVars.onAccent,
               cursor: disabled ? 'not-allowed' : 'pointer',
               fontSize: tokens.typography.fontSize.sm,
               fontWeight: tokens.typography.fontWeight.semibold,
-              opacity: disabled ? 0.6 : 0.9,
+              // Opacity would let the dialog surface pull white-on-red back under 4.5:1 (#6073): a danger
+              // confirm stays opaque and darkens on hover instead.
+              opacity: disabled ? 0.6 : isDangerous ? 1 : 0.9,
               transition: tokens.transitions.hover_out,
-              '&:hover:not(:disabled)': {
-                opacity: 1,
-              },
+              '&:hover:not(:disabled)': isDangerous ? { background: themeVars.errorFillHover } : { opacity: 1 },
             }}
           >
             {confirmText}

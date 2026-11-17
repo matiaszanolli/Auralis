@@ -49,7 +49,9 @@ export const colors = {
     semantic: {
       success: '#10B981',      // Success (positive)
       warning: '#F59E0B',      // Warning (caution)
-      error: '#EF4444',        // Error (critical)
+      error: '#EF4444',        // Error (critical): text/icon/border colour, 3.5:1 against white - NOT a text-bearing fill
+      errorFill: '#DC2626',    // Fill behind white text (danger buttons, banners): 4.83:1 (#6073)
+      errorFillHover: '#B91C1C', // Its hover/active state, darker instead of translucent: 6.5:1
       info: '#3B82F6',         // Info (informational)
     },
 

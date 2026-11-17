@@ -209,3 +209,24 @@ describe('fill and disabled-label semantic roles (#6056)', () => {
     }
   });
 });
+
+describe('red fills that carry text meet 4.5:1 in both modes (#6073)', () => {
+  it.each(['dark', 'light'] as ThemeMode[])('%s: onError on errorFill and on its hover/active fill', (mode) => {
+    const theme = getSemanticTheme(mode);
+
+    expect(contrast(theme.onError, theme.errorFill)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(theme.onError, theme.errorFillHover)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the plain error colour is the one that fails, which is why it must not be a text-bearing fill', () => {
+    const theme = getSemanticTheme('dark');
+
+    expect(contrast(theme.onError, theme.error)).toBeLessThan(4.5);
+  });
+
+  it('the hover state darkens the fill instead of relying on opacity', () => {
+    const theme = getSemanticTheme('light');
+
+    expect(contrast(theme.onError, theme.errorFillHover)).toBeGreaterThan(contrast(theme.onError, theme.errorFill));
+  });
+});
