@@ -466,7 +466,8 @@ def test_cached_chunks_are_reused(processor):
     # Verify cache was actually used (Phase 5.1: Use ChunkCacheManager API)
     from core.chunk_cache_manager import ChunkCacheManager
     cache_key = ChunkCacheManager.get_chunk_cache_key(
-        processor.track_id, processor.file_signature, processor.preset, processor.intensity, 0
+        processor.track_id, processor.file_signature, processor.preset, processor.intensity, 0,
+        targets_hash=processor.targets_hash,  # part of the key since #4666
     )
     assert cache_key in processor.chunk_cache, "Chunk should be in cache"
 

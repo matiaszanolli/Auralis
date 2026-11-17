@@ -39,7 +39,7 @@ from config.limits import chunk_cache_dir, create_secure_temp_dir
 # Chunk geometry lives in chunk_boundaries and is imported, never redeclared
 # (#4024); tests import constants and helpers from where they are defined (#5775).
 from core.chunk_boundaries import CHUNK_DURATION
-from core import chunk_batch, chunk_render, chunk_streaming
+from core import chunk_render, chunk_streaming
 from core.chunk_metadata import load_audio_metadata
 from core.chunk_mastering import compute_mastering_recommendation
 from core.chunk_processor_init import build_collaborators, init_fingerprint_and_processor
@@ -272,10 +272,6 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
     def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Any | None:
         """Weighted mastering profile recommendation. Delegates to chunk_mastering (#4245)."""
         return compute_mastering_recommendation(self, confidence_threshold)
-
-    async def get_full_processed_audio_path(self) -> str:
-        """Concatenate all processed chunks into one file. Delegates to chunk_batch (#4245)."""
-        return await chunk_batch.get_full_processed_audio_path(self)
 
     def get_wav_chunk_path(self, chunk_index: int) -> str:
         """PRIMARY output method: process a chunk directly to WAV. Delegates to chunk_streaming (#4245)."""

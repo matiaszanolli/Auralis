@@ -62,9 +62,8 @@ def _run_sweep(temp_root: Path) -> None:
 def test_sweep_targets_the_directory_atomic_save_audio_stages_into(tmp_path):
     """The sweep and the writers must agree on the directory.
 
-    Both production writers (core/chunk_batch.py and
-    core/encoding/wav_encoder.py) stage into `ChunkedAudioProcessor.chunk_dir`,
-    which is `gettempdir() / CHUNK_TEMP_DIRNAME`. A mismatch would make the
+    The production writer (core/encoding/wav_encoder.py) stages into
+    `ChunkedAudioProcessor.chunk_dir`, which is `gettempdir() / CHUNK_TEMP_DIRNAME`. A mismatch would make the
     sweep a silent no-op.
     """
     chunk_dir = tmp_path / CHUNK_TEMP_DIRNAME
