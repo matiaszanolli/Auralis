@@ -2,7 +2,7 @@
  * useInfiniteAlbums Hook
  *
  * Modern infinite scroll implementation using TanStack Query.
- * Replaces custom useAlbumsQuery + useInfiniteScroll pattern.
+ * Replaces the former useAlbumsQuery + useInfiniteScroll pattern (both removed, #6287).
  *
  * Uses transformation layer to convert backend snake_case to frontend camelCase.
  *

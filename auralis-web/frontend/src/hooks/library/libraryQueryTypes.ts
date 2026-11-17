@@ -106,8 +106,7 @@ export interface UseLibraryQueryResult<T> {
 
 /**
  * Runtime shape guard per query type (#5026) — covers every consumer of
- * *this* hook (useLibraryQuery, useTracksQuery, useAlbumsQuery,
- * useArtistsQuery, useInfiniteScroll) at once, since these three list
+ * *this* hook (useLibraryQuery, useArtistsQuery) at once, since these three list
  * responses are its only fetch call sites. It is NOT the only place tracks
  * are fetched, though: the main library track list is fed by the separate
  * useLibraryPagination.ts stack, which has (since #5346) its own

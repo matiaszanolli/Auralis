@@ -13,7 +13,6 @@ import type { Track, Album, Artist } from '@/types/domain';
 import { extractItemsFromResponse } from '../libraryQueryRequest';
 import type { UseLibraryQueryResult } from '../libraryQueryTypes';
 import { useLibraryQuery } from '../useLibraryQuery';
-import { useInfiniteScroll } from '../useLibraryQueries';
 
 describe('library query result types follow the query type (#6054)', () => {
   it('useLibraryQuery yields the item type of its query type', () => {
@@ -22,7 +21,6 @@ describe('library query result types follow the query type (#6054)', () => {
       expectTypeOf(useLibraryQuery('tracks').data).toEqualTypeOf<Track[]>();
       expectTypeOf(useLibraryQuery('albums').data).toEqualTypeOf<Album[]>();
       expectTypeOf(useLibraryQuery('artists')).toEqualTypeOf<UseLibraryQueryResult<Artist>>();
-      expectTypeOf(useInfiniteScroll('albums').items).toEqualTypeOf<Album[]>();
     };
     void typeChecks;
   });

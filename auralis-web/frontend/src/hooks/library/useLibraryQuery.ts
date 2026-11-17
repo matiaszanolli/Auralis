@@ -10,7 +10,7 @@
  * The pure request/response shaping and the shared page-fetch machinery live
  * in ./libraryQueryRequest; the query types, shape guards and deriveHasMore
  * in ./libraryQueryTypes; the per-entity convenience hooks
- * (useTracksQuery/useAlbumsQuery/useArtistsQuery/useInfiniteScroll) in
+ * (useArtistsQuery) in
  * ./useLibraryQueries — all split out of this file (#5043, #5478). This file
  * holds only the stateful hook.
  *
@@ -295,4 +295,4 @@ export function useLibraryQuery<Q extends LibraryQueryType>(
 
 // Convenience hooks live in ./useLibraryQueries (#5478); re-exported here so
 // existing `from './useLibraryQuery'` imports keep working.
-export { useTracksQuery, useAlbumsQuery, useArtistsQuery, useInfiniteScroll } from './useLibraryQueries';
+export { useArtistsQuery } from './useLibraryQueries';

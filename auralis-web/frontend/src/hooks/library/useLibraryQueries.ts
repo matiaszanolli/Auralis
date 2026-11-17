@@ -2,40 +2,14 @@
  * Convenience wrappers around useLibraryQuery.
  *
  * Split out of useLibraryQuery.ts (#5478) so the core hook file holds only
- * the shared query machinery; these add per-entity sugar and the infinite
- * scroll adapter on top of it.
+ * the shared query machinery. Only useArtistsQuery has a production caller
+ * (CozyArtistList); the tracks/albums wrappers and useInfiniteScroll had none
+ * and were removed (#6287) — use useLibraryQuery('tracks' | 'albums') directly.
  *
  * @module hooks/library/useLibraryQueries
  */
 
-import { useLibraryQuery, type LibraryQueryOptions, type LibraryQueryType } from './useLibraryQuery';
-
-/**
- * Convenience hook for track queries only
- *
- * @example
- * ```typescript
- * const { data: tracks, hasMore, fetchMore } = useTracksQuery({
- *   search: 'beatles',
- *   limit: 50
- * });
- * ```
- */
-export function useTracksQuery(options?: LibraryQueryOptions) {
-  return useLibraryQuery('tracks', options);
-}
-
-/**
- * Convenience hook for album queries only
- *
- * @example
- * ```typescript
- * const { data: albums } = useAlbumsQuery({ limit: 20 });
- * ```
- */
-export function useAlbumsQuery(options?: LibraryQueryOptions) {
-  return useLibraryQuery('albums', options);
-}
+import { useLibraryQuery, type LibraryQueryOptions } from './useLibraryQuery';
 
 /**
  * Convenience hook for artist queries only
@@ -47,44 +21,4 @@ export function useAlbumsQuery(options?: LibraryQueryOptions) {
  */
 export function useArtistsQuery(options?: LibraryQueryOptions) {
   return useLibraryQuery('artists', options);
-}
-
-/**
- * Hook for infinite scroll pagination
- *
- * Automatically manages fetching and appending more items as user scrolls.
- *
- * @example
- * ```typescript
- * const { items, isLoading, hasMore, getMoreItems } = useInfiniteScroll(
- *   'tracks',
- *   { limit: 50 }
- * );
- *
- * // In scroll handler:
- * const handleScroll = () => {
- *   if (hasMore && !isLoading) {
- *     getMoreItems();
- *   }
- * };
- * ```
- */
-export function useInfiniteScroll<Q extends LibraryQueryType>(
-  queryType: Q,
-  options?: LibraryQueryOptions
-) {
-  const { data, isLoading, isLoadingMore, error, hasMore, fetchMore, clearError } = useLibraryQuery(
-    queryType,
-    { ...options, skip: options?.skip ?? false }
-  );
-
-  return {
-    items: data,
-    isLoading,
-    isLoadingMore,
-    error,
-    hasMore,
-    getMoreItems: fetchMore,
-    clearError,
-  };
 }

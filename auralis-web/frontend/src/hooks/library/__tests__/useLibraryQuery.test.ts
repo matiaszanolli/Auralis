@@ -17,10 +17,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import {
   useLibraryQuery,
-  useTracksQuery,
-  useAlbumsQuery,
   useArtistsQuery,
-  useInfiniteScroll,
 } from '@/hooks/library/useLibraryQuery';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { isTracksListShape, isAlbumsListShape, isArtistsListShape } from '@/api/responseGuards';
@@ -1035,7 +1032,7 @@ describe('useLibraryQuery', () => {
   });
 
   describe('convenience hooks', () => {
-    it('should use useTracksQuery for tracks', async () => {
+    it('should type tracks queries by query type', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         tracks: [mockTrackApi],
         total: 1,
@@ -1052,7 +1049,7 @@ describe('useLibraryQuery', () => {
         delete: vi.fn(),
       } as any);
 
-      const { result } = renderHook(() => useTracksQuery());
+      const { result } = renderHook(() => useLibraryQuery('tracks'));
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -1061,7 +1058,7 @@ describe('useLibraryQuery', () => {
       expect(result.current.data).toEqual([mockTrack]);
     });
 
-    it('should use useAlbumsQuery for albums', async () => {
+    it('should type albums queries by query type', async () => {
       // Backend sends snake_case; the hook runs it through transformAlbums (#4418).
       const mockGet = vi.fn().mockResolvedValue({
         albums: [{
@@ -1081,7 +1078,7 @@ describe('useLibraryQuery', () => {
         delete: vi.fn(),
       } as any);
 
-      const { result } = renderHook(() => useAlbumsQuery());
+      const { result } = renderHook(() => useLibraryQuery('albums'));
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -1148,7 +1145,7 @@ describe('useLibraryQuery', () => {
       expect(result.current.data[0].albumCount).toBe(3);
     });
 
-    it('should use useInfiniteScroll for infinite scroll pattern', async () => {
+    it('should expose the infinite-scroll surface (items, hasMore, fetchMore)', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         tracks: [mockTrackApi],
         total: 200,
@@ -1165,15 +1162,15 @@ describe('useLibraryQuery', () => {
         delete: vi.fn(),
       } as any);
 
-      const { result } = renderHook(() => useInfiniteScroll('tracks'));
+      const { result } = renderHook(() => useLibraryQuery('tracks'));
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.items).toEqual([mockTrack]);
+      expect(result.current.data).toEqual([mockTrack]);
       expect(result.current.hasMore).toBe(true);
-      expect(typeof result.current.getMoreItems).toBe('function');
+      expect(typeof result.current.fetchMore).toBe('function');
     });
   });
 
