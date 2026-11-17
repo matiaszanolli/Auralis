@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from core.chunk_boundaries import CHUNK_DURATION
-from core.chunk_cache_manager import intensity_cache_key
+from core.intensity_key import intensity_cache_key
 
 # Configuration
 #

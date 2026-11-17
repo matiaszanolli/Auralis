@@ -50,9 +50,9 @@ class CacheStatusMixin(CacheEvictionMixin):
         tier1_size_mb = self._tier_size_mb(self.tier1_cache)
         tier2_size_mb = self._tier_size_mb(self.tier2_cache)
 
-        # tier1_misses and tier2_misses both describe the same full-cache miss;
-        # do not double-count it in overall request/miss totals (#5252).
-        total_requests = self.tier1_hits + self.tier2_hits + self.tier1_misses
+        # Every request has exactly one Tier-1 outcome: a hit, or a miss that Tier 2 then served or
+        # also missed (#5252 double counting, #6003 Tier-2 hits ignored by the Tier-1 rate).
+        total_requests = self.tier1_hits + self.tier1_misses
 
         return {
             "tier1": {
@@ -73,7 +73,7 @@ class CacheStatusMixin(CacheEvictionMixin):
                 "total_chunks": len(self.tier1_cache) + len(self.tier2_cache),
                 "total_size_mb": tier1_size_mb + tier2_size_mb,
                 "total_hits": self.tier1_hits + self.tier2_hits,
-                "total_misses": self.tier1_misses,
+                "total_misses": self.tier2_misses,  # full misses: both tiers missed
                 "overall_hit_rate": (self.tier1_hits + self.tier2_hits) / max(1, total_requests),
                 # (#4785) Belongs under "overall", not "tier2" — schemas.OverallCacheStats,
                 # standardizedAPIClient.ts and types/api.ts all read it from here.

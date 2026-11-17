@@ -157,11 +157,11 @@ class StreamlinedCacheManager(
                 self.tier1_hits += 1
             else:
                 self.tier2_hits += 1
+                self.tier1_misses += 1  # Tier 1 did not serve this request (#6003)
             logger.debug(f"{tier} HIT: {cache_key}")
             return chunk.chunk_path, tier
 
-        # Both tiers were checked and missed. Each tier exposes its own miss
-        # counter, while the overall stats below count this request once.
+        # Both tiers missed; a Tier-2-served request is a Tier-1 miss only (above, #6003).
         self.tier1_misses += 1
         self.tier2_misses += 1
         logger.debug(f"Cache MISS: {cache_key}")

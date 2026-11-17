@@ -8,7 +8,6 @@ API endpoints for streamlined two-tier cache management and statistics.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import logging
 from collections.abc import Callable
 from pathlib import Path as FilePath
@@ -94,7 +93,8 @@ async def get_cache_stats(cache_manager: StreamlinedCacheManager = Depends(_get_
     - Overall hit rates and memory usage
     - Per-track cache completion status
     """
-    stats = await asyncio.to_thread(cache_manager.get_stats)
+    # On the loop, not a thread: no I/O, and it iterates dicts the loop mutates (#6003).
+    stats = cache_manager.get_stats()
     # get_stats()'s tier1/tier2 dicts don't carry a tier_name field
     # (there's nothing to derive it from once the two dicts are
     # separate) — CacheTierStats requires it, so fill it in here at
@@ -119,7 +119,7 @@ async def get_track_cache_status(
         Cache status including completion percentage and chunk counts
     """
     try:
-        status = await asyncio.to_thread(cache_manager.get_track_cache_status, track_id)
+        status = cache_manager.get_track_cache_status(track_id)  # on the loop with the state it reads (#6003)
 
         if status is None:
             raise NotFoundError("Track", detail=f"Track {track_id} not found in cache")
@@ -174,7 +174,7 @@ async def clear_cache(
 @with_error_handling("check cache health")
 async def cache_health(cache_manager: StreamlinedCacheManager = Depends(_get_cache_manager)) -> CacheHealthResponse:
     """Get cache system health: memory usage against the tier budgets."""
-    stats = await asyncio.to_thread(cache_manager.get_stats)
+    stats = cache_manager.get_stats()  # on the loop, see get_cache_stats (#6003)
 
     overall = stats["overall"]
     tier1 = stats["tier1"]

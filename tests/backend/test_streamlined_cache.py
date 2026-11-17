@@ -340,7 +340,7 @@ class TestStreamlinedCacheManager:
         assert result_path == chunk_path
         assert tier == "tier2"
         assert cache_manager.tier2_hits == 1
-        assert cache_manager.tier1_misses == 0  # Tier 2 miss doesn't count as Tier 1 miss
+        assert cache_manager.tier1_misses == 1  # Tier 1 did not serve it (#6003)
 
     @pytest.mark.asyncio
     async def test_get_chunk_miss(self, cache_manager):
@@ -508,7 +508,7 @@ class TestStreamlinedCacheManager:
 
         assert stats["tier1"]["chunks"] == 1
         assert stats["tier1"]["hits"] == 1
-        assert stats["tier1"]["misses"] == 1
+        assert stats["tier1"]["misses"] == 2  # the Tier-2-served request and the full miss (#6003)
         assert stats["tier2"]["chunks"] == 1
         assert stats["tier2"]["hits"] == 1
         assert stats["tier2"]["misses"] == 1
