@@ -254,7 +254,6 @@ class HybridProcessor:
             "sample_rate": self.config.internal_sample_rate,
             "fft_size": self.config.fft_size,
             "adaptation_strength": self.config.adaptive.adaptation_strength,
-            "enable_genre_detection": self.config.adaptive.enable_genre_detection,
             "available_genres": list(self.config.genre_profiles.keys()),
             "current_targets": self.current_targets
         }

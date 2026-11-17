@@ -44,7 +44,6 @@ class TestUnifiedConfig:
 
         assert config.internal_sample_rate == 44100
         assert config.adaptive.mode == "adaptive"
-        assert config.adaptive.enable_genre_detection is True
         assert len(config.genre_profiles) > 0
 
     def test_adaptive_config_modes(self):
@@ -404,8 +403,7 @@ class TestHybridProcessor:
         info = self.processor.get_processing_info()
 
         required_keys = [
-            "mode", "sample_rate", "adaptation_strength",
-            "enable_genre_detection", "available_genres"
+            "mode", "sample_rate", "adaptation_strength", "available_genres"
         ]
 
         for key in required_keys:

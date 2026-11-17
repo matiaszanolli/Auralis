@@ -35,7 +35,6 @@ class TestEQCurrentAPI:
         self.settings = EQSettings(
             sample_rate=self.sample_rate,
             fft_size=4096,
-            smoothing_factor=0.1,
             adaptation_speed=0.2
         )
 
@@ -66,13 +65,12 @@ class TestEQCurrentAPI:
         settings = EQSettings()
         assert settings.sample_rate == 44100
         assert settings.fft_size == 4096
-        assert settings.smoothing_factor == 0.1
+        assert settings.adaptation_speed == 0.2
 
         # Test with custom values
         custom_settings = EQSettings(
             sample_rate=48000,
             fft_size=8192,
-            smoothing_factor=0.2,
             adaptation_speed=0.3
         )
         assert custom_settings.sample_rate == 48000
@@ -158,7 +156,6 @@ class TestEQCurrentAPI:
         eq_custom = PsychoacousticEQ(EQSettings(
             sample_rate=48000,
             fft_size=8192,
-            smoothing_factor=0.1
         ))
         assert eq_custom.sample_rate == 48000
         assert eq_custom.fft_size == 8192

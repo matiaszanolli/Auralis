@@ -40,7 +40,6 @@ class EQSettings:
     # as UnifiedConfig.fft_size, which the pipeline passes explicitly
     # (hybrid_setup); a bare construction can no longer disagree with it.
     fft_size: int = DEFAULT_FFT_SIZE
-    smoothing_factor: float = 0.1
     adaptation_speed: float = 0.2
 
     def __post_init__(self) -> None:

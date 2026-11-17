@@ -10,6 +10,7 @@ gain buffers through it (#3747).
 """
 
 import numpy as np
+import pytest
 
 from auralis.dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
 
@@ -42,3 +43,21 @@ def test_reset_still_zeroes_the_gains():
 
     np.testing.assert_array_equal(eq.current_gains, 0.0)
     np.testing.assert_array_equal(eq.target_gains, 0.0)
+
+
+def test_unread_config_fields_are_gone_6122():
+    """EQSettings.smoothing_factor, UnifiedConfig.max_length/temp_folder and
+    AdaptiveConfig.enable_genre_detection had no reader (#6122): setting them changed nothing."""
+    import dataclasses
+
+    from auralis.core.config.settings import AdaptiveConfig
+    from auralis.core.config.unified_config import UnifiedConfig
+    from auralis.dsp.eq.psychoacoustic_eq import EQSettings
+
+    assert "smoothing_factor" not in {f.name for f in dataclasses.fields(EQSettings)}
+    assert "enable_genre_detection" not in {f.name for f in dataclasses.fields(AdaptiveConfig)}
+    config = UnifiedConfig()
+    assert not hasattr(config, "max_length") and not hasattr(config, "temp_folder")
+    assert {"max_length", "enable_genre_detection"}.isdisjoint(config.to_dict())
+    with pytest.raises(TypeError):
+        UnifiedConfig(max_length=60)

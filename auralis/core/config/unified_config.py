@@ -9,7 +9,7 @@ Main configuration class for audio processing
 """
 
 import math
-from typing import Any, Literal
+from typing import Any
 
 from ...dsp.constants import DEFAULT_FFT_SIZE
 from ...utils.logging import debug
@@ -39,11 +39,7 @@ class UnifiedConfig:
         self,
         # Core audio settings
         internal_sample_rate: int = 44100,
-        max_length: float = 15 * 60,  # 15 minutes
         fft_size: int = DEFAULT_FFT_SIZE,
-
-        # System settings
-        temp_folder: str | None = None,
 
         # New adaptive settings
         adaptive: AdaptiveConfig | None = None,
@@ -57,17 +53,11 @@ class UnifiedConfig:
             debug(f"Using non-standard sample rate {internal_sample_rate}Hz")
         self.internal_sample_rate = internal_sample_rate
 
-        if not max_length > 0:
-            raise ValueError(f"max_length must be positive, got {max_length!r}")
-        self.max_length = max_length
-
         # FFT size must be power of 2
         if not (fft_size > 1 and math.log2(fft_size).is_integer()):
             raise ValueError(f"fft_size must be a power of two greater than 1, got {fft_size!r}")
         self.fft_size = fft_size
 
-        # System settings
-        self.temp_folder = temp_folder
 
         # Adaptive processing configuration
         if adaptive is None:
@@ -158,11 +148,9 @@ class UnifiedConfig:
         """Convert configuration to dictionary for serialization"""
         return {
             "internal_sample_rate": self.internal_sample_rate,
-            "max_length": self.max_length,
             "fft_size": self.fft_size,
             "processing_mode": self.adaptive.mode,
             "adaptation_strength": self.adaptive.adaptation_strength,
-            "enable_genre_detection": self.adaptive.enable_genre_detection,
             "chunk_size_ms": self.adaptive.chunk_size_ms,
             "latency_budget_ms": self.adaptive.latency_budget_ms
         }
@@ -173,7 +161,7 @@ class UnifiedConfig:
         config_dict = dict(config_dict)
         # Extract adaptive settings
         adaptive_settings = {}
-        for key in ["processing_mode", "adaptation_strength", "enable_genre_detection",
+        for key in ["processing_mode", "adaptation_strength",
                    "chunk_size_ms", "latency_budget_ms"]:
             if key in config_dict:
                 adaptive_key = key.replace("processing_", "")

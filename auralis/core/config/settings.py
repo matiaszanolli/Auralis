@@ -24,9 +24,6 @@ class AdaptiveConfig:
     # Processing mode
     mode: ProcessingMode = "adaptive"
 
-    # Content analysis settings
-    enable_genre_detection: bool = True
-
     # Adaptation settings
     adaptation_strength: float = 0.8  # 0.0 = no adaptation, 1.0 = full adaptation
 

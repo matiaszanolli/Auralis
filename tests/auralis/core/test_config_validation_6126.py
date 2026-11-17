@@ -26,7 +26,7 @@ PROFILE = dict(
 class TestUnifiedConfig:
     @pytest.mark.parametrize("kwargs", [
         {"internal_sample_rate": 0}, {"internal_sample_rate": -44100}, {"internal_sample_rate": 44100.5},
-        {"internal_sample_rate": "44100"}, {"max_length": 0}, {"max_length": -1},
+        {"internal_sample_rate": "44100"},
         {"fft_size": 1}, {"fft_size": 1000}, {"fft_size": 0},
     ])
     def test_invalid_core_settings_raise_value_error(self, kwargs):
