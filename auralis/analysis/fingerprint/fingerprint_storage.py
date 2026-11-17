@@ -101,14 +101,7 @@ class FingerprintStorage:
 
         Returns:
             Path to created cache file
-
-        Example:
-            >>> fingerprint = analyzer.analyze(audio, sr)
-            >>> targets = generate_targets(fingerprint)
-            >>> FingerprintStorage.save(Path("track.flac"), fingerprint, targets)
-            Path("/home/user/.auralis/fingerprints/abc123def456.25d")
         """
-        # Get cache directory and key
         cache_dir = FingerprintStorage._get_cache_dir()
         cache_key = FingerprintStorage._get_cache_key(audio_path, strategy)
         cache_path = cache_dir / f"{cache_key}.25d"
@@ -173,14 +166,7 @@ class FingerprintStorage:
 
         Returns:
             Tuple of (fingerprint, targets) if valid cache exists, None otherwise
-
-        Example:
-            >>> data = FingerprintStorage.load(Path("track.flac"))
-            >>> if data:
-            ...     fingerprint, targets = data
-            ...     print(f"Loaded cached fingerprint")
         """
-        # Get cache path for this file
         cache_dir = FingerprintStorage._get_cache_dir()
         cache_key = FingerprintStorage._get_cache_key(audio_path, strategy)
         cache_path = cache_dir / f"{cache_key}.25d"
@@ -208,24 +194,18 @@ class FingerprintStorage:
             fingerprint = content.get('fingerprint')
             targets = content.get('mastering_targets')
 
-            # Targets may legitimately be empty until mastering-target
-            # derivation runs (fingerprint_service.py writes `{}` here, and
-            # mastering targets get computed lazily by callers). Only reject
-            # when the fingerprint itself is missing/empty (#3464, #3451).
+            # Targets may legitimately be empty until derived (fingerprint_service.py writes `{}`);
+            # only a missing/empty fingerprint is rejected (#3464, #3451).
             if (
                 not isinstance(fingerprint, dict)
                 or not set(DIMENSION_SCHEMA).issubset(fingerprint)
             ):
                 return None
 
-            # #5697: refuse fingerprints from an older algorithm (or from
-            # before the stamp existed). The "2.0" file-format check above
-            # says nothing about WHICH algorithm measured the values: the
-            # pre-stamp central cache holds thousands of .25d files computed
-            # before fixes like #5556's stereo layout, and serving them let
-            # get_or_compute()'s upsert() persist them as current-version
-            # rows that the stale-row sweep then never revisits. This is the
-            # ONE shared rule; loaders must not keep private copies.
+            # #5697: refuse fingerprints from an older algorithm (or from before the stamp existed).
+            # The "2.0" format check above says nothing about WHICH algorithm measured the values;
+            # serving old ones let upsert() persist them as current-version rows the stale-row sweep
+            # never revisits. This is the ONE shared rule; loaders must not keep private copies.
             stored_version = fingerprint.get('fingerprint_version')
             if not isinstance(stored_version, int) or stored_version < FINGERPRINT_ALGORITHM_VERSION:
                 logger.info(
