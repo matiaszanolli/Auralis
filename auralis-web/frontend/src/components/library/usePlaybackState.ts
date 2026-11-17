@@ -1,15 +1,20 @@
 import { useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import type { LibraryTrack as Track } from '@/types/domain';
-import { selectIsPlaying, selectCurrentTrack } from '@/store/slices/playerSlice';
+import { selectCurrentTrack } from '@/store/slices/playerSlice';
 import { usePlayTrack } from '@/hooks/player/usePlayTrack';
 import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 
 /**
  * usePlaybackState - Library playback state management
  *
- * Reads isPlaying and currentTrackId from Redux (single source of truth)
- * and provides action methods.
+ * Reads currentTrackId from Redux and `isPlaying` from the local playback session, and provides
+ * action methods.
+ *
+ * `isPlaying` is the session's own `isPlaybackActive && !isPaused` — the same derivation the transport
+ * bar uses. Redux `player.isPlaying` is written only by backend events and snapshots, which the
+ * session that actually plays the audio never produces, so rows and album buttons that read it
+ * showed "paused" for the track the user was hearing (#6015).
  *
  * The play flow lives in `usePlayTrack` (#3940) — the canonical "play this
  * track" hook — so it is shared with the detail views instead of being drilled
@@ -24,13 +29,12 @@ import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
  * stream self-paces through buffer_full flow control.
  */
 export const usePlaybackState = () => {
-  // Read from Redux — single source of truth for playback state
-  const isPlaying = useSelector(selectIsPlaying);
   const currentTrack = useSelector(selectCurrentTrack);
   const currentTrackId = currentTrack?.id;
 
   const { playTrack } = usePlayTrack();
-  const { handlePlayPause } = usePlaybackControls();
+  const { handlePlayPause, isPlaybackActive, isPaused } = usePlaybackControls();
+  const isPlaying = isPlaybackActive && !isPaused;
 
   const handlePlayTrack = useCallback(
     (track: Pick<Track, 'id'>) => playTrack(track),

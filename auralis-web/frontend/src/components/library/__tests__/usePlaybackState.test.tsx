@@ -35,8 +35,9 @@ vi.mock('@/hooks/player/usePlayTrack', () => ({
 // raw WS `pause` frame, which had no matching resume sender and stalled the
 // backend stream mid-track.
 const mockHandlePlayPause = vi.fn();
+const session = { isPlaybackActive: false, isPaused: false };
 vi.mock('@/contexts/PlaybackSessionContext', () => ({
-  usePlaybackControls: () => ({ handlePlayPause: mockHandlePlayPause }),
+  usePlaybackControls: () => ({ handlePlayPause: mockHandlePlayPause, ...session }),
 }));
 
 const mockTrack = {
@@ -59,6 +60,8 @@ const makeWrapper = () => {
 describe('usePlaybackState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    session.isPlaybackActive = false;
+    session.isPaused = false;
   });
 
   describe('Redux-derived state', () => {
@@ -74,13 +77,48 @@ describe('usePlaybackState', () => {
       const { store, wrapper } = makeWrapper();
       act(() => {
         store.dispatch(setCurrentTrack(mockTrack as never));
-        store.dispatch(setIsPlaying(true));
       });
 
       const { result } = renderHook(() => usePlaybackState(), { wrapper });
 
       expect(result.current.currentTrackId).toBe(1);
+    });
+  });
+
+  // #6015: Redux player.isPlaying is written only by backend events, which the browser session
+  // that plays the audio never triggers, so rows and album buttons showed "paused" mid-track.
+  describe('isPlaying follows the local playback session (#6015)', () => {
+    it('is true while the session streams and is not paused, whatever Redux says', () => {
+      session.isPlaybackActive = true;
+      const { wrapper } = makeWrapper();
+
+      const { result } = renderHook(() => usePlaybackState(), { wrapper });
+
       expect(result.current.isPlaying).toBe(true);
+    });
+
+    it('is false when the session is paused', () => {
+      session.isPlaybackActive = true;
+      session.isPaused = true;
+      const { store, wrapper } = makeWrapper();
+      act(() => {
+        store.dispatch(setIsPlaying(true)); // a stale backend flag must not make a paused row look playing
+      });
+
+      const { result } = renderHook(() => usePlaybackState(), { wrapper });
+
+      expect(result.current.isPlaying).toBe(false);
+    });
+
+    it('is false when nothing is playing, even if Redux still says playing', () => {
+      const { store, wrapper } = makeWrapper();
+      act(() => {
+        store.dispatch(setIsPlaying(true));
+      });
+
+      const { result } = renderHook(() => usePlaybackState(), { wrapper });
+
+      expect(result.current.isPlaying).toBe(false);
     });
   });
 

@@ -21,6 +21,7 @@
 
 import { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
+import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { useSelector } from 'react-redux';
 import { tokens, withOpacity } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
@@ -71,8 +72,9 @@ export const AlbumCharacterPane = ({
   // Enhancement state from unified hook (eliminates prop drilling, fixes #2765)
   const { enabled: isEnhancementEnabled, setEnabled } = useEnhancementControl();
 
-  // Get playback state from Redux
-  const isPlayingRaw = useSelector(playerSelectors.selectIsPlaying);
+  // The session's own derivation, not Redux player.isPlaying, which only backend events write (#6015)
+  const { isPlaybackActive, isPaused } = usePlaybackControls();
+  const isPlayingRaw = isPlaybackActive && !isPaused;
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
 
   // Fetch playing track's fingerprint when available
