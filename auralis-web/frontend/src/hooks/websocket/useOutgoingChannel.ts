@@ -9,7 +9,12 @@
  * @module hooks/websocket/useOutgoingChannel
  */
 
-import type { StreamCommand, StreamOverrides } from '@/types/ws/commands';
+import type {
+  ReissueActiveStream,
+  SetResumePositionGetter,
+  StreamCommand,
+  StreamOverrides,
+} from '@/types/ws/commands';
 import { useCallback, type MutableRefObject } from 'react';
 import type { WebSocketManager } from '@/utils/errorHandling';
 import {
@@ -20,12 +25,8 @@ import {
 
 export interface OutgoingChannel {
   send: (message: OutgoingWebSocketMessage) => void;
-  setResumePositionGetter: (streamType: StreamCommand['type'], getter: (() => number) | null) => void;
-  reissueActiveStreamAs: (
-    type: 'play_enhanced' | 'play_normal',
-    dataOverrides?: StreamOverrides,
-    startPositionOverride?: number
-  ) => boolean;
+  setResumePositionGetter: SetResumePositionGetter;
+  reissueActiveStreamAs: ReissueActiveStream;
 }
 
 export function useOutgoingChannel(

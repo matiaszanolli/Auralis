@@ -17,7 +17,7 @@
  * 605-line WebSocketContext so the reconnect path can be reviewed alone (#4297).
  */
 
-import type { StreamCommand, StreamOverrides } from '@/types/ws/commands';
+import type { ReissueActiveStream, SetResumePositionGetter } from '@/types/ws/commands';
 import { useReconnectOnNetwork } from './useReconnectOnNetwork';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WebSocketManager } from '@/utils/errorHandling';
@@ -57,12 +57,8 @@ export interface UseWebSocketConnection {
   connect: () => Promise<void>;
   disconnect: () => void;
   send: (message: OutgoingWebSocketMessage) => void;
-  setResumePositionGetter: (streamType: StreamCommand['type'], getter: (() => number) | null) => void;
-  reissueActiveStreamAs: (
-    type: 'play_enhanced' | 'play_normal',
-    dataOverrides?: StreamOverrides,
-    startPositionOverride?: number
-  ) => boolean;
+  setResumePositionGetter: SetResumePositionGetter;
+  reissueActiveStreamAs: ReissueActiveStream;
 }
 
 export function useWebSocketConnection({

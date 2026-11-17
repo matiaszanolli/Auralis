@@ -52,3 +52,19 @@ export interface StreamOverrides {
   intensity?: number;
   force?: boolean;
 }
+
+/** Register (or clear, with null) the playback-position getter used when a stream is resumed. */
+export type SetResumePositionGetter = (
+  streamType: StreamCommand['type'],
+  getter: (() => number) | null
+) => void;
+
+/**
+ * Re-issue the tracked stream as `type`, applying `dataOverrides`; `startPositionOverride` (seconds)
+ * wins over the live resume position. False when there is no active stream to re-issue (#3759).
+ */
+export type ReissueActiveStream = (
+  type: StreamCommand['type'],
+  dataOverrides?: StreamOverrides,
+  startPositionOverride?: number
+) => boolean;

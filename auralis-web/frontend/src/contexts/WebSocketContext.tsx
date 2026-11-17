@@ -15,7 +15,7 @@
  * hook with the subscription/dispatch surface.
  */
 
-import type { StreamCommand, StreamOverrides } from '@/types/ws/commands';
+import type { ReissueActiveStream, SetResumePositionGetter } from '@/types/ws/commands';
 import { ReactNode, createContext, useCallback, useContext, useMemo, useRef } from 'react';
 import { WS_BASE_URL } from '@/config/api';
 import {
@@ -91,7 +91,7 @@ interface WebSocketContextValue {
 
   // Stream resumption: register a callback that returns current playback position (#3185)
   // Keyed by stream type to avoid race between usePlayEnhanced and usePlayNormal (#3373)
-  setResumePositionGetter: (streamType: StreamCommand['type'], getter: (() => number) | null) => void;
+  setResumePositionGetter: SetResumePositionGetter;
 
   // #3759 + #3763: re-issue the active stream with updated config (preset,
   // intensity, or a stream-type swap on enhancement toggle) while
@@ -99,11 +99,7 @@ interface WebSocketContextValue {
   // Returns false if no active stream is being tracked (e.g. nothing is
   // playing yet). The new command supersedes singletonLastStreamCommand
   // for subsequent reconnects.
-  reissueActiveStreamAs: (
-    type: 'play_enhanced' | 'play_normal',
-    dataOverrides?: StreamOverrides,
-    startPositionOverride?: number
-  ) => boolean;
+  reissueActiveStreamAs: ReissueActiveStream;
 }
 
 // ============================================================================
