@@ -1,8 +1,5 @@
 """
-Dynamic Range Analysis
-~~~~~~~~~~~~~~~~~~~~~
-
-Comprehensive dynamic range measurement and analysis tools.
+Dynamic Range Analysis: comprehensive dynamic range measurement and analysis tools.
 """
 
 from typing import Any
@@ -196,8 +193,7 @@ class DynamicRangeAnalyzer(DynamicsMetricsMixin, DRValueMixin):
 
         peak_amplitudes = np.abs(audio[peaks])
         # Use SafeOperations for safe log conversion with epsilon protection
-        # ref=1.0: these are documented as levels in dBFS; the default ref is the loudest element, which made
-        # max_peak_level_db 0.0 for any signal (#6328).
+        # ref=1.0: dBFS levels (the loudest-element default made max_peak_level_db 0.0 for any signal, #6328).
         peak_levels_db = AudioMetrics.rms_to_db(peak_amplitudes, ref=1.0)
 
         # Calculate peak density (peaks per second)
