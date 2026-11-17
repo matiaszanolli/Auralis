@@ -282,7 +282,10 @@ class TestFingerprintStorageSaveIsAtomic:
 
         assert loaded is not None, "the atomically-written cache entry did not load"
         loaded_fingerprint, targets = loaded
-        assert loaded_fingerprint == fingerprint
+        from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
+
+        # save() stamps the algorithm version (#5697); everything else round-trips unchanged.
+        assert loaded_fingerprint == {**fingerprint, "fingerprint_version": FINGERPRINT_ALGORITHM_VERSION}
         assert targets["gain"] == 1.0
 
 
