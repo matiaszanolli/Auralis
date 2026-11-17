@@ -151,6 +151,7 @@ class LibraryScanner:
         # wiped the live progress of the scan actually running. Both emitters
         # bridge this callback to the WebSocket.
         self.file_discovery.on_directory_error = result.record_directory_error  # #5877
+        self.file_discovery.on_stale_backup = result.record_stale_backup  # #6177
         self._report_progress({
             'stage': 'started',
             'directories': normalized,
@@ -245,8 +246,7 @@ class LibraryScanner:
             return result
 
         finally:
-            # Release per-directory dedup guard (#3455 / #4509)
-            self.library_database.release_scan_paths(normalized)
+            self.library_database.release_scan_paths(normalized)  # per-directory dedup guard (#3455, #4509)
             self.library_database.release_scan_slot()
 
             # #3479: fire scan-complete callback outside the scan-slot lock

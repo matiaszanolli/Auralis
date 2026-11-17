@@ -16,6 +16,7 @@ from collections.abc import Callable, Generator
 
 from ...utils.logging import debug, error, warning
 from .config import AUDIO_EXTENSIONS, SKIP_DIRECTORIES
+from .stale_backups import is_stale_backup
 
 # Maximum directory nesting depth to traverse (guards against very deep trees)
 MAX_SCAN_DEPTH = 50
@@ -46,6 +47,8 @@ class FileDiscovery:
         # dropped mid-walk reported a normal completion. The owner wires this
         # to ScanResult.record_directory_error; the reason never names a path.
         self.on_directory_error: Callable[[str, str], None] | None = None
+        # #6177: told of each orphaned metadata-edit backup the walk passes (report only).
+        self.on_stale_backup: Callable[[str], None] | None = None
         # Whether the last discover_audio_files() root could not be read at
         # all, so the caller does not count it in directories_scanned.
         self.last_root_failed = False
@@ -191,6 +194,8 @@ class FileDiscovery:
                 yield from self._walk_directory(entry_path, visited_inodes, depth + 1)
         elif is_file and self._is_wanted_file(entry_path):
             yield str(entry_path)
+        elif is_file and self.on_stale_backup is not None and is_stale_backup(entry):
+            self.on_stale_backup(str(entry_path))
 
     @staticmethod
     def _claim_subdirectory(

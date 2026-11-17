@@ -151,7 +151,7 @@ class TestScanDirectory:
         detail = response.json()["errors"][0]["message"]
         assert "does not exist" in detail
 
-    def test_scan_directory_library_unavailable(self, client):
+    def test_scan_directory_library_unavailable(self, client, tmp_path):
         """Test scan when library manager not available"""
         # library_database is resolved lazily from main.globals_dict at request
         # time (config/routes.py's get_component() closure), not a patchable
@@ -165,7 +165,7 @@ class TestScanDirectory:
         try:
             response = client.post(
                 "/api/library/scan",
-                json={"directories": ["/tmp"]}
+                json={"directories": [str(tmp_path)]}  # not /tmp itself: the temp root is refused as a scan root (#6164)
             )
         finally:
             main.globals_dict['library_database'] = original

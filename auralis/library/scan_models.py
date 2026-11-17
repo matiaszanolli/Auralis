@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from ..utils.logging import warning
+
 
 # #4841: cap on how many individual failures a scan reports. A folder of
 # corrupt files should not turn a scan result into an unbounded payload
@@ -87,6 +89,9 @@ class ScanResult:
     # permission-denied or vanished subfolder. Their files are absent from the
     # counts above, so a scan with any is incomplete. Bounded like `failures`.
     directory_errors: list[ScanFailure] = field(default_factory=list)
+    # Orphaned hidden metadata-edit backups (#6177) found in the scanned folders: reported, never
+    # deleted. Bounded like `failures`.
+    stale_backups: list[str] = field(default_factory=list)
     # Set when the scan aborted on an unexpected exception (#5877); the
     # emitters then send library_scan_error instead of scan_complete.
     error: str | None = None
@@ -103,6 +108,14 @@ class ScanResult:
             return
         if all(existing.filepath != path for existing in self.directory_errors):
             self.directory_errors.append(ScanFailure(filepath=path, reason=reason))
+
+    def record_stale_backup(self, path: str) -> None:
+        """Record an orphaned metadata-edit backup once (the walk can run twice, #4840)."""
+        if len(self.stale_backups) < MAX_RECORDED_FAILURES and path not in self.stale_backups:
+            if not self.stale_backups:
+                warning("Orphaned metadata-edit backups (.<name>.XXXXXXXX.bak) found in the scanned "
+                        "folders: each is a pre-edit copy of a track, left untouched (see ScanResult.stale_backups)")
+            self.stale_backups.append(path)
 
     @property
     def walk_complete(self) -> bool:
