@@ -73,11 +73,6 @@ ACCEPTED_DIFFERENCES: dict[str, str] = {
     "index tracks.idx_tracks_created_at: only on upgraded databases": _EXTRA_UPGRADED_INDEX,
     "index tracks.idx_tracks_favorite: only on upgraded databases": _EXTRA_UPGRADED_INDEX,
     "index tracks.idx_tracks_play_count: only on upgraded databases": _EXTRA_UPGRADED_INDEX,
-    "index tracks.ix_tracks_filepath_key: definition differs (upgraded unique=False)": (
-        "REAL DRIFT: the model's filepath_key index is UNIQUE, the migrated one is not, so an "
-        "upgraded database can hold two rows with the same key. Fixing it needs a migration; see #6103 "
-        "for the related fresh-vs-migrated schema work. Remove this entry when it is unique."
-    ),
 }
 
 

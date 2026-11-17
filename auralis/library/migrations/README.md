@@ -10,7 +10,8 @@ Examples:
 - `migration_v000_to_v001_initial_schema.sql` - Initial schema (the only file with a description suffix)
 - `migration_v001_to_v002.sql` - Adds lyrics column to tracks and artwork_path to albums
 - `migration_v029_to_v030.sql` - Merges duplicate albums, makes albums unique per title and artist
-- `migration_v030_to_v031.sql` - Current schema version (clears `tracks.file_mtime` so the next scan re-reads every track's tags)
+- `migration_v030_to_v031.sql` - Clears `tracks.file_mtime` so the next scan re-reads every track's tags
+- `migration_v031_to_v032.sql` - Current schema version (merges tracks that share a `filepath_key` onto the lowest id, then makes `ix_tracks_filepath_key` unique like a fresh database's)
 
 ## How Migrations Work
 

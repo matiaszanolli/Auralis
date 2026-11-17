@@ -5,7 +5,7 @@ and fingerprint algorithm versions are independent and must only change with
 their respective formats.
 """
 
-__db_schema_version__ = 31  # next scan re-reads every track so albums are owned by ALBUMARTIST (#6332)
+__db_schema_version__ = 32  # tracks.filepath_key is unique on upgraded databases too (#6335)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.
