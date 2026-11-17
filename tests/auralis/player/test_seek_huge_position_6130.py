@@ -41,3 +41,10 @@ def test_a_negative_position_seeks_to_the_start(player, seconds):
 def test_an_ordinary_position_is_unchanged(player):
     assert player.seek(2.5) is True
     assert player._seen == [(int(2.5 * SR), TOTAL)]
+
+
+def test_a_nan_position_is_rejected_without_raising(player):
+    """#6312: max(nan, 0.0) and min(nan, x) are both nan, so the float clamp let
+    it through and int(nan) raised ValueError. NaN has no meaningful target."""
+    assert player.seek(float("nan")) is False
+    assert player._seen == []

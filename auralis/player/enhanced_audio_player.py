@@ -17,6 +17,7 @@ Uses Facade pattern to maintain backward-compatible API.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import math
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -191,15 +192,14 @@ class AudioPlayer(
         Returns:
             bool: True if successful
         """
-        # #3713: hold `_audio_lock` across the ENTIRE seek, including the
-        # `playback.seek()` call. The original #3357 fix only snapshotted
-        # `max_samples` and `sample_rate` atomically — but a gapless
-        # `advance_with_prebuffer` could still swap to a shorter track in
-        # between, leaving the clamp using the old (larger) length: the new
-        # track got a position > its length → silence + immediate
-        # auto-advance. PlaybackController.seek() takes only its own
-        # `_lock`; the canonical nesting `_audio_lock → PlaybackController._lock`
-        # is already used by `get_audio_chunk` so no inversion risk.
+        # NaN slips through the min/max clamp below (every comparison is False)
+        # and int(nan) raises; inf is clamped there (#6130, #6312).
+        if math.isnan(position_seconds):
+            return False
+        # #3713: hold `_audio_lock` across the ENTIRE seek: a gapless swap to a
+        # shorter track mid-seek left the clamp on the old length (position past
+        # the end -> silence + auto-advance). Nesting `_audio_lock ->
+        # PlaybackController._lock` matches `get_audio_chunk`, so no inversion.
         #
         # #3781: `defer_notifications()` is the OUTER context manager (exits
         # last) so `playback.seek()`'s notify — which re-enters `_audio_lock`
