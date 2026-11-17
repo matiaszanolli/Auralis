@@ -199,7 +199,6 @@ EXPECTED_SIMILARITY_PATHS = {
     "/api/similarity/fingerprint-queue/status",
     "/api/similarity/fingerprint-queue/enqueue/{track_id}",
     "/api/similarity/fingerprint-queue/enqueue-all",
-    "/api/similarity/fingerprint-stats",
 }
 
 

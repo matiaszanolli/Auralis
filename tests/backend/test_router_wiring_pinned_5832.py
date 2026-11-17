@@ -63,7 +63,6 @@ _CASES: list[tuple[str, Callable[[], Any], set[tuple[str, tuple[str, ...]]]]] = 
         ("/api/similarity/fingerprint-queue/status", ("GET",)),
         ("/api/similarity/fingerprint-queue/enqueue/{track_id}", ("POST",)),
         ("/api/similarity/fingerprint-queue/enqueue-all", ("POST",)),
-        ("/api/similarity/fingerprint-stats", ("GET",)),
     }),
     ("health", lambda: create_health_router(True), {
         ("/api/health", ("GET",)),

@@ -52,12 +52,3 @@ class EnqueueAllFingerprintsResponse(BaseModel):
     total_tracks: int = Field(description="Total tracks in the library")
     pending_after: int | None = Field(default=None, description="Tracks still missing a fingerprint")
     message: str = Field(description="Human-readable summary")
-
-
-class FingerprintStatsResponse(BaseModel):
-    """Library-wide fingerprint coverage."""
-    total_tracks: int = Field(description="Total tracks in the library")
-    fingerprinted: int = Field(description="Tracks with a fingerprint")
-    pending: int = Field(description="Tracks still missing a fingerprint")
-    progress_percent: float = Field(description="Coverage percentage (0–100)")
-    message: str = Field(description="Human-readable summary")

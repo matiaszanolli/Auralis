@@ -26,7 +26,6 @@ from .fingerprint_queue_models import (  # noqa: F401
     EnqueueAllFingerprintsResponse,
     EnqueueFingerprintResponse,
     FingerprintQueueStatusResponse,
-    FingerprintStatsResponse,
 )
 from .similarity_common import _with_similarity_error_handling
 
@@ -185,24 +184,6 @@ async def enqueue_all_missing_fingerprints(
     }
 
 
-@_with_similarity_error_handling("Error getting fingerprint stats")
-async def get_fingerprint_stats(repos: Any = Depends(_repo_deps.get_repos)) -> dict[str, Any]:
-    """
-    Get overall fingerprint statistics for the library.
-
-    Returns: total tracks, fingerprinted count, and progress.
-    """
-    stats = await asyncio.to_thread(repos.fingerprint_stats.get_fingerprint_stats)
-    fingerprinted = stats.get('current', stats['fingerprinted'])  # usable rows, as progress_percent counts (#5891)
-    return {
-        "total_tracks": stats['total'],
-        "fingerprinted": fingerprinted,
-        "pending": max(0, stats['total'] - fingerprinted),
-        "progress_percent": stats['progress_percent'],
-        "message": f"{fingerprinted}/{stats['total']} tracks fingerprinted ({stats['progress_percent']}%)"
-    }
-
-
 def create_fingerprint_queue_router(
     get_repository_factory: Callable[[], Any]
 ) -> APIRouter:
@@ -237,11 +218,5 @@ def create_fingerprint_queue_router(
         enqueue_all_missing_fingerprints,
         methods=["POST"],
         response_model=EnqueueAllFingerprintsResponse,
-    )
-    router.add_api_route(
-        "/fingerprint-stats",
-        get_fingerprint_stats,
-        methods=["GET"],
-        response_model=FingerprintStatsResponse,
     )
     return router

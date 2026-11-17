@@ -131,8 +131,8 @@ Pipeline: **raw 25D vector → normalize → weighted Euclidean distance → ran
 prefix `/api/similarity`:
 `GET /tracks/{id}/similar` (graph-first, real-time fallback, auto-enqueues missing
 fingerprints), `/tracks/{a}/compare/{b}`, `/tracks/{a}/explain/{b}`, `POST /fit`,
-`POST /graph/build`, `GET /graph/stats`, `DELETE /graph`, plus `/fingerprint-queue/*` and
-`/fingerprint-stats`. CPU-bound work is offloaded via `asyncio.to_thread` (#2738); errors go
+`POST /graph/build`, `GET /graph/stats`, `DELETE /graph`, plus `/fingerprint-queue/*`
+(coverage is `GET /api/library/fingerprints/status`, #5921). CPU-bound work is offloaded via `asyncio.to_thread` (#2738); errors go
 through a correlation-id wrapper that never leaks `str(exc)` (#3331).
 
 ---

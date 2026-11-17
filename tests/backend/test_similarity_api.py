@@ -15,7 +15,6 @@ Coverage:
 - GET /api/similarity/fingerprint-queue/status - Get queue status
 - POST /api/similarity/fingerprint-queue/enqueue/{track_id} - Enqueue track
 - POST /api/similarity/fingerprint-queue/enqueue-all - Enqueue all tracks
-- GET /api/similarity/fingerprint-stats - Get fingerprint statistics
 
 #4716: this module absorbed the old, hard-skipped test_similarity_api.py
 (written for the pre-#4270 single-router shape; skipped for requiring a
@@ -404,23 +403,11 @@ class TestEnqueueAll:
         assert response.status_code in [404, 405]
 
 
-class TestFingerprintStats:
-    """Test GET /api/similarity/fingerprint-stats"""
+class TestFingerprintStatsRouteIsGone:
+    """Fingerprint coverage has one route, /api/library/fingerprints/status (#5921)."""
 
-    def test_get_fingerprint_stats_structure(self, client):
-        """Test fingerprint stats response structure"""
-        response = client.get("/api/similarity/fingerprint-stats")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        # Should have statistics about fingerprints
-        assert isinstance(data, dict)
-
-    def test_get_fingerprint_stats_accepts_get_only(self, client):
-        """Test that stats endpoint only accepts GET"""
-        response = client.post("/api/similarity/fingerprint-stats")
-        assert response.status_code in [404, 405]
+    def test_the_duplicate_similarity_route_no_longer_exists(self, client):
+        assert client.get("/api/similarity/fingerprint-stats").status_code in [404, 405]
 
 
 class TestSimilarityIntegration:
