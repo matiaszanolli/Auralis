@@ -1,5 +1,4 @@
 import { css } from '@emotion/react';
-import { tokens } from '@/design-system/tokens';
 
 /**
  * Global animation keyframes. Split out of globalStyles.ts (#5841).
@@ -40,52 +39,12 @@ export const keyframeStyles = css`
     }
   }
 
-  @keyframes glow {
-    0%, 100% {
-      filter: drop-shadow(0 0 8px ${tokens.colors.opacityScale.accent.veryStrong});
-    }
-    50% {
-      filter: drop-shadow(0 0 16px ${tokens.colors.opacityScale.accent.vivid});
-    }
-  }
-
   @keyframes shimmer {
     0% {
       background-position: -1000px 0;
     }
     100% {
       background-position: 1000px 0;
-    }
-  }
-
-  @keyframes slideInUp {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes scaleIn {
-    from {
-      transform: scale(0.95);
-      opacity: 0;
-    }
-    to {
-      transform: scale(1);
-      opacity: 1;
     }
   }
 
@@ -100,36 +59,4 @@ export const keyframeStyles = css`
     }
   }
 
-  @keyframes fadeInDown {
-    from {
-      opacity: 0;
-      transform: translateY(-30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes fadeInLeft {
-    from {
-      opacity: 0;
-      transform: translateX(-30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-
-  @keyframes fadeInRight {
-    from {
-      opacity: 0;
-      transform: translateX(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
 `;
