@@ -8,7 +8,7 @@ Content-aware compressor with a linked peak envelope
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import AMPLITUDE_EPS, amplitude_to_db_array
+from auralis.dsp.utils.conversion import amplitude_to_db_array
 import numpy as np
 
 from ...utils.logging import debug
@@ -66,10 +66,11 @@ class AdaptiveCompressor:
 
         # In knee: soft compression (quadratic interpolation)
         in_knee = (levels_db > threshold - half_knee) & ~above_knee
+        # Standard quadratic knee: zero at the bottom edge, equal to the linear branch (value and slope) at the
+        # top edge. The previous soft-ratio form dropped by knee*(r-1)*(1/(2r-1) - 1/(2r)) crossing the top
+        # edge, so more input gave LESS gain reduction (#6301).
         over_threshold_knee = levels_db[in_knee] - threshold + half_knee
-        knee_ratio = over_threshold_knee / knee
-        soft_ratio = 1 + knee_ratio * (ratio - 1) / ratio
-        gain_reduction[in_knee] = -over_threshold_knee * (1 - 1 / soft_ratio)
+        gain_reduction[in_knee] = -(1 - 1 / ratio) * over_threshold_knee**2 / (2 * knee)
 
         # Below knee: gain_reduction stays 0.0 (already initialized)
         return gain_reduction
