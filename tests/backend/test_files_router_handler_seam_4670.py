@@ -57,17 +57,20 @@ async def test_upload_files_callable_with_a_bare_stub_repo_provider():
 
     import routers.files_upload as files_module
 
-    # load_audio is the only engine call in the success path; patching it
-    # keeps this a pure handler test (a 44-byte stub WAV is not decodable).
-    original_load = files_module.load_audio
-    files_module.load_audio = lambda path: (MagicMock(ndim=1, __len__=lambda s: 44100), 44100)
+    # The header read is the only engine call in the success path (#5962
+    # replaced the full decode with get_audio_info); patching it keeps this a
+    # pure handler test (a 44-byte stub WAV has no readable header).
+    original_info = files_module.get_audio_info
+    files_module.get_audio_info = lambda path: {
+        "sample_rate": 44100, "channels": 1, "duration_seconds": 1.5,
+    }
     try:
         result = await upload_files(
             files=[_upload("song.wav", wav)],
             get_repos=lambda: repos,
         )
     finally:
-        files_module.load_audio = original_load
+        files_module.get_audio_info = original_info
 
     assert len(result["results"]) == 1
     assert result["results"][0]["status"] == "success"

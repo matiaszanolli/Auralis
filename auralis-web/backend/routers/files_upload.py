@@ -28,6 +28,14 @@ from .files_validation import _has_valid_audio_magic
 logger = logging.getLogger(__name__)
 
 
+def _remove_quietly(path: str | Path, what: str) -> None:
+    """Best-effort cleanup: a file that cannot be removed is logged, never raised."""
+    try:
+        Path(path).unlink(missing_ok=True)
+    except Exception as e:
+        logger.debug(f"Failed to clean {what}: {e}")
+
+
 async def upload_files(
     files: list[UploadFile] = File(...),
     get_repos: Callable[[], Any] = Depends(_get_repos_provider),
@@ -188,17 +196,11 @@ async def upload_files(
                 # shutil.move already removed the temp file on success; unlink is a
                 # no-op (missing_ok) in that case. On failure the temp file still
                 # exists and must be cleaned up here.
-                try:
-                    Path(temp_path).unlink(missing_ok=True)
-                except Exception as e:
-                    logger.debug(f"Failed to clean temp file: {e}")
+                _remove_quietly(temp_path, "temp file")
                 # The file was moved into ~/.auralis/uploads before the DB insert; if the insert
                 # failed (or returned None) nothing references it, and it stayed there forever (#5968).
                 if permanent_path is not None and not track_added:
-                    try:
-                        permanent_path.unlink(missing_ok=True)
-                    except Exception as e:
-                        logger.debug(f"Failed to clean orphaned upload: {e}")
+                    _remove_quietly(permanent_path, "orphaned upload")
 
         except Exception as e:
             logger.error(f"Upload error for {sanitize_log_value(file.filename)}: {e}", exc_info=True)
