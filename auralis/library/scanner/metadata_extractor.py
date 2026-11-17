@@ -44,6 +44,10 @@ if not MUTAGEN_AVAILABLE:
     )
 
 
+# Tags whose several values are all kept (the track model holds lists of artists and genres, #5732).
+MULTI_VALUED_FIELDS = frozenset({'artist', 'genre'})
+
+
 class MetadataExtractor:
     """
     Extracts music metadata from audio files
@@ -126,21 +130,41 @@ class MetadataExtractor:
                     # not just skipping the one inapplicable key.
                     continue
 
-                if isinstance(value, list) and value:
-                    value = value[0]
-                # An ID3 TextFrame is not a list, and str() of a multi-valued one
-                # is mutagen's NUL-joined text; take its first value (#6133).
-                frame_text = getattr(value, 'text', None)
-                if isinstance(frame_text, list) and frame_text:
-                    value = frame_text[0]
-
-                if value:
-                    normalized_value = self._normalize_field_value(field, value)
+                values = self._raw_values(value)
+                if field in MULTI_VALUED_FIELDS:
+                    # Repeated ARTIST/GENRE (Vorbis), a multi-valued ID3 frame or an MP4 list: keep every
+                    # value. A single one stays a string, so single-valued files read exactly as before.
+                    kept = self._distinct(self._normalize_field_value(field, v) for v in values if v)
+                    if kept:
+                        metadata[field] = kept[0] if len(kept) == 1 else kept
+                        break
+                elif values and values[0]:
+                    normalized_value = self._normalize_field_value(field, values[0])
                     if normalized_value is not None:
                         metadata[field] = normalized_value
                         break
 
         return metadata
+
+    @staticmethod
+    def _raw_values(value: Any) -> list[Any]:
+        """Every value a tag holds: a list as is, an ID3 TextFrame's ``text`` list (``str()`` of a
+        multi-valued frame is mutagen's NUL-joined text, #6133), otherwise the value itself."""
+        if isinstance(value, list):
+            return value
+        frame_text = getattr(value, 'text', None)
+        if isinstance(frame_text, list):
+            return frame_text
+        return [value]
+
+    @staticmethod
+    def _distinct(values: Any) -> list[Any]:
+        """The non-empty values in order, without repeats."""
+        seen: list[Any] = []
+        for value in values:
+            if value is not None and value not in seen:
+                seen.append(value)
+        return seen
 
     def _normalize_field_value(self, field: str, value: Any) -> Any | None:
         """
