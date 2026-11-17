@@ -45,8 +45,14 @@ class PlayerStateManager(PositionTickerMixin):
         self._update_seq: int = 0
 
     def get_state(self) -> PlayerState:
-        """Get current player state snapshot"""
-        return self.state.model_copy(deep=True)
+        """Current player state snapshot.
+
+        A shallow copy (#5960): a deep copy cost O(queue) on every mutation, ~45 ms at 20 000 tracks.
+        Safe because nothing mutates ``queue``, ``current_track`` or ``analysis`` in place — each is
+        replaced via ``_mutate_state`` — so a snapshot's scalars are its own and its containers are
+        never changed under it. Keep it that way.
+        """
+        return self.state.model_copy()
 
     async def _mutate_state(self, **kwargs: Any) -> PlayerState:
         """Apply a state mutation and return its sequenced snapshot."""
@@ -63,7 +69,7 @@ class PlayerStateManager(PositionTickerMixin):
 
             self._update_seq += 1
             self.state.seq = self._update_seq
-            return self.state.model_copy(deep=True)
+            return self.state.model_copy()  # shallow, see get_state (#5960)
 
     async def broadcast_state(self, state: PlayerState) -> None:
         """Broadcast a snapshot previously returned by a deferred mutation."""
