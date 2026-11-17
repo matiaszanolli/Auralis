@@ -64,3 +64,26 @@ def test_loader_failure_paths_clear_previous_track_state(failure):
     assert loader.processor.auto_master is not None
     assert loader.processor.auto_master.fingerprint is None
     assert loader.processor.auto_master.adaptive_params is None
+
+
+def test_a_track_change_clears_the_previous_adaptive_state_before_the_new_fingerprint_resolves():
+    """#6128: the previous track's makeup gain/ceiling shaped the new track until analysis finished."""
+    loader = PlayerFingerprintLoaderMixin()
+    loader.processor = RealtimeProcessor(_config())
+    loader.processor.set_fingerprint(FINGERPRINT)
+    loader._current_fingerprint = FINGERPRINT
+    loader._fingerprint_lock = threading.Lock()
+    loader._track_generation = 3
+    assert loader.processor.auto_master.adaptive_params is not None
+
+    release = threading.Event()
+    loader._load_fingerprint_for_file = lambda path, generation: release.wait(5)  # analysis still running
+
+    loader._schedule_fingerprint_load("/music/next.flac")
+    try:
+        assert loader.processor.auto_master.fingerprint is None
+        assert loader.processor.auto_master.adaptive_params is None
+        assert loader._current_fingerprint is None
+        assert loader._track_generation == 4
+    finally:
+        release.set()

@@ -10,7 +10,7 @@ that ran ``get_or_compute()`` (a cache miss decodes the file again and runs the
 """
 
 import threading
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 from auralis.player.fingerprint_loader_mixin import PlayerFingerprintLoaderMixin
 
@@ -62,4 +62,8 @@ def test_with_auto_mastering_the_fingerprint_is_still_loaded_and_applied():
     _join_loaders()
 
     player.fingerprint_service.get_or_compute.assert_called_once()
-    player.processor.set_fingerprint.assert_called_once_with({"lufs": -14.0, "crest_db": 12.0})
+    # Cleared at the track change (#6128), then the resolved fingerprint applied.
+    assert player.processor.set_fingerprint.call_args_list == [
+        call(None),
+        call({"lufs": -14.0, "crest_db": 12.0}),
+    ]

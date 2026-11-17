@@ -58,6 +58,11 @@ class PlayerFingerprintLoaderMixin:
         with self._fingerprint_lock:
             self._track_generation += 1
             generation = self._track_generation
+            # The previous track's adaptive params (makeup gain, ceiling) must not shape this one while
+            # its fingerprint resolves, which is a full analysis on a cache miss (#6128). Same call the
+            # failure path makes; a no-op without auto-mastering.
+            self._current_fingerprint = None
+            self.processor.set_fingerprint(None)
 
         if self.processor.auto_master is None:
             # #5708: set_fingerprint() is a no-op without auto-mastering (the
