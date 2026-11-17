@@ -36,14 +36,8 @@ interface SelectableTrackRowProps {
   isCurrent?: boolean;
   onPlay: (trackId: number) => void;
   onPause?: () => void;
-  onDoubleClick?: (trackId: number) => void;
   onEditMetadata?: (trackId: number) => void;
   onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks
-  onToggleFavorite?: (trackId: number) => void;
-  onShowAlbum?: (albumId: number) => void;
-  onShowArtist?: (artistName: string) => void;
-  onShowInfo?: (trackId: number) => void;
-  onDelete?: (trackId: number) => void;
 }
 
 const SelectableTrackRow = ({
@@ -57,14 +51,8 @@ const SelectableTrackRow = ({
   isCurrent,
   onPlay,
   onPause,
-  onDoubleClick,
   onEditMetadata,
   onFindSimilar,
-  onToggleFavorite,
-  onShowAlbum,
-  onShowArtist,
-  onShowInfo,
-  onDelete,
 }: SelectableTrackRowProps) => {
   // Bind track.id to the selection handler so the parent can pass a
   // single stable callback for all rows (fixes inline arrow in #3413)
@@ -100,14 +88,8 @@ const SelectableTrackRow = ({
           setSize={setSize}
           onPlay={onPlay}
           onPause={onPause}
-          onDoubleClick={onDoubleClick}
           onEditMetadata={onEditMetadata}
           onFindSimilar={onFindSimilar}
-          onToggleFavorite={onToggleFavorite}
-          onShowAlbum={onShowAlbum}
-          onShowArtist={onShowArtist}
-          onShowInfo={onShowInfo}
-          onDelete={onDelete}
         />
       </TrackContainer>
     </SelectableContainer>
