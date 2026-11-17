@@ -9,8 +9,7 @@ remasters. It encodes:
 3. Training Data: Which albums/tracks led to this profile
 4. Versioning: Track improvements over time as new data arrives
 
-The adaptive engine compares incoming fingerprints against profiles to find
-the best matching mastering strategy, rather than using preset configurations.
+The adaptive engine ranks incoming fingerprints against profiles to pick a strategy.
 """
 
 from dataclasses import asdict, dataclass, field
@@ -19,7 +18,9 @@ from typing import Any
 
 import numpy as np
 
+from ..utils.logging import debug
 from .fingerprint.metrics import MetricUtils
+
 
 @dataclass
 class DetectionRules:
@@ -189,11 +190,9 @@ class MasteringProfileDatabase:
 
     def add_profile(self, profile: MasteringProfile) -> None:
         """Add a profile to the database."""
-        if profile.profile_id not in self.profile_history:
-            self.profile_history[profile.profile_id] = []
-        self.profile_history[profile.profile_id].append(profile)
+        self.profile_history.setdefault(profile.profile_id, []).append(profile)
         self.profiles[profile.profile_id] = profile
-        print(f"Added profile: {profile.name} (v{profile.version})")
+        debug(f"Added profile: {profile.name} (v{profile.version})")
 
     def rank_profiles(self, fingerprint: Any, top_k: int = 5) -> list[tuple[MasteringProfile, float]]:
         """
@@ -233,21 +232,21 @@ class MasteringProfileDatabase:
             f"ID: {profile.profile_id}",
             f"Version: {profile.version}",
             f"Confidence: {profile.confidence:.0%}",
-            f"",
-            f"Detection Rules:",
+            "",
+            "Detection Rules:",
             f"  Loudness: {profile.detection_rules.loudness_min:.1f} to {profile.detection_rules.loudness_max:.1f} dBFS",
             f"  Crest: {profile.detection_rules.crest_min:.1f} to {profile.detection_rules.crest_max:.1f} dB",
             f"  ZCR: {profile.detection_rules.zcr_min:.4f} to {profile.detection_rules.zcr_max:.4f}",
-            f"",
-            f"Processing Targets:",
+            "",
+            "Processing Targets:",
             f"  Loudness Change: {profile.processing_targets.loudness_change_db:+.2f} dB",
             f"  Crest Change: {profile.processing_targets.crest_change_db:+.2f} dB",
             f"  Centroid Change: {profile.processing_targets.centroid_change_hz:+.1f} Hz",
-            f"",
-            f"Training Data:",
+            "",
+            "Training Data:",
             f"  Albums: {', '.join(profile.source_albums) if profile.source_albums else '(none yet)'}",
             f"  Tracks: {profile.training_tracks}",
-            f"",
+            "",
             f"Strategy: {profile.processing_targets.description}",
         ]
 
