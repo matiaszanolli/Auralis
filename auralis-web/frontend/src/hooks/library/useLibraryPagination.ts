@@ -4,7 +4,13 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { useLatestRequestGuard } from '@/hooks/shared/useLatestRequestGuard';
 import type { LibraryTrack } from '@/types/domain';
-import { PAGE_LIMIT, fetchTracksPage, friendlyFetchError } from './libraryPageFetch';
+import {
+  PAGE_LIMIT,
+  fetchLoadedPages,
+  fetchTracksPage,
+  friendlyFetchError,
+  replaceAbortController,
+} from './libraryPageFetch';
 
 export interface UseLibraryPaginationOptions {
   view: string;
@@ -89,9 +95,7 @@ export const useLibraryPagination = ({ view, search = '' }: UseLibraryPagination
       try {
         const currentOffset = resetPagination ? 0 : offsetRef.current;
 
-        fetchAbortRef.current?.abort();
-        controller = new AbortController();
-        fetchAbortRef.current = controller;
+        controller = replaceAbortController(fetchAbortRef);
 
         const page = await fetchTracksPage(view, currentOffset, controller.signal, search);
         if (isStale()) return;
@@ -160,31 +164,17 @@ export const useLibraryPagination = ({ view, search = '' }: UseLibraryPagination
 
     let controller: AbortController | undefined;
     try {
-      const refreshed: LibraryTrack[] = [];
-      let newOffset = 0;
-      let more = true;
-      let latestTotal = 0;
-      // Re-fetch exactly as many pages as are loaded: the visible rows are
-      // replaced with current data AND pagination continuity is kept —
-      // loadMore continues from the refresh's last offset.
-      while (refreshed.length < loaded && more) {
-        fetchAbortRef.current?.abort();
-        controller = new AbortController();
-        fetchAbortRef.current = controller;
+      const refreshed = await fetchLoadedPages(
+        view, search, loaded,
+        () => (controller = replaceAbortController(fetchAbortRef)).signal,
+        isStale
+      );
+      if (!refreshed) return;
 
-        const page = await fetchTracksPage(view, newOffset, controller.signal, search);
-        if (isStale()) return;
-
-        refreshed.push(...page.tracks);
-        more = page.hasMore;
-        latestTotal = page.total;
-        newOffset += PAGE_LIMIT;
-      }
-
-      setTracks(refreshed);
-      setOffset(newOffset);
-      setHasMore(more);
-      setTotalTracks(latestTotal);
+      setTracks(refreshed.tracks);
+      setOffset(refreshed.offset);
+      setHasMore(refreshed.hasMore);
+      setTotalTracks(refreshed.total);
     } catch (err) {
       if (controller?.signal.aborted) return;
       if (isStale()) return;
@@ -219,12 +209,8 @@ export const useLibraryPagination = ({ view, search = '' }: UseLibraryPagination
       // Read live offset via ref — avoids stale closure capturing page-0 offset (#3378).
       const newOffset = offsetRef.current + PAGE_LIMIT;
 
-      fetchAbortRef.current?.abort();
-      controller = new AbortController();
-      fetchAbortRef.current = controller;
+      controller = replaceAbortController(fetchAbortRef);
 
-      // Same guard as fetchTracks (#5346) — this is the loadMore call site
-      // the issue's WIRING check named explicitly.
       const page = await fetchTracksPage(view, newOffset, controller.signal, search);
       if (isStale()) return;
 

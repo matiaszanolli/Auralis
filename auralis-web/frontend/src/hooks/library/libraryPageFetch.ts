@@ -78,3 +78,52 @@ export function friendlyFetchError(err: unknown, serverFailureMessage: string): 
     ? 'Failed to connect to server'
     : serverFailureMessage;
 }
+
+/**
+ * Abort whatever request the ref holds and install a fresh controller (#4891, #5346).
+ *
+ * Callers keep the returned controller to tell "deliberately aborted (supersession or unmount)"
+ * apart from a genuine failure: get() does not preserve the original error's type/name, so abort
+ * detection reads the controller's own signal instead.
+ */
+export function replaceAbortController(ref: { current: AbortController | null }): AbortController {
+  ref.current?.abort();
+  const controller = new AbortController();
+  ref.current = controller;
+  return controller;
+}
+
+export interface RefreshedPages {
+  tracks: TracksPage['tracks'];
+  /** Where loadMore continues from. */
+  offset: number;
+  hasMore: boolean;
+  total: number;
+}
+
+/**
+ * Re-fetch exactly as many pages as are loaded, so the visible rows are replaced with current data
+ * AND pagination continuity is kept (#5626). Returns null when `isStale()` turned true mid-way.
+ * `nextSignal` is called before each page so the caller can supersede the previous request.
+ */
+export async function fetchLoadedPages(
+  view: string,
+  search: string,
+  loaded: number,
+  nextSignal: () => AbortSignal,
+  isStale: () => boolean
+): Promise<RefreshedPages | null> {
+  const tracks: TracksPage['tracks'] = [];
+  let offset = 0;
+  let hasMore = true;
+  let total = 0;
+  while (tracks.length < loaded && hasMore) {
+    const page = await fetchTracksPage(view, offset, nextSignal(), search);
+    if (isStale()) return null;
+    tracks.push(...page.tracks);
+    hasMore = page.hasMore;
+    total = page.total;
+    offset += PAGE_LIMIT;
+  }
+  return { tracks, offset, hasMore, total };
+}
