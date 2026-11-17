@@ -14,7 +14,6 @@ reported PASS — a scanner regression was invisible in CI. They now use plain
 `assert`s so a misbehaving scanner actually fails the suite.
 """
 
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -22,9 +21,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile as sf
-
-# Add parent directory to Python path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 def create_test_music_library(tmpdir):
