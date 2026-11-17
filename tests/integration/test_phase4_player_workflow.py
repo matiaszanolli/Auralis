@@ -56,21 +56,41 @@ class FakeTrack:
     disc_number: int | None = None
     favorite: bool = False
 
+    def to_dict(self) -> dict[str, Any]:
+        """Track.to_dict()'s shape: the routers serialize rows only through it (#5803)."""
+        return {
+            "id": self.id,
+            "title": self.title,
+            "duration": self.duration,
+            "sample_rate": self.sample_rate,
+            "format": self.format,
+            "album_id": self.album_id,
+            "track_number": self.track_number,
+            "disc_number": self.disc_number,
+            "year": self.year,
+            "favorite": self.favorite,
+            "album": self.album.title,
+            "artwork_url": self.artwork_url,
+            "artists": [self.artist],
+            "genres": [self.genre] if self.genre else [],
+        }
+
 
 class FakeTrackRepository:
     def __init__(self, tracks: list[FakeTrack]) -> None:
         self._tracks = tracks
 
+    # Same keywords as TrackRepository.get_all/search (ordering is ignored here).
     def get_all(
-        self, *, limit: int, offset: int, order_by: str
+        self, *, limit: int, offset: int, order_by: str, order: str | None = None
     ) -> tuple[list[FakeTrack], int]:
-        del order_by
+        del order_by, order
         return self._tracks[offset : offset + limit], len(self._tracks)
 
     def search(
-        self, query: str, *, limit: int, offset: int, order_by: str
+        self, query: str, *, limit: int, offset: int, order_by: str, order: str | None = None
     ) -> tuple[list[FakeTrack], int]:
-        del order_by
+        del order_by, order
         query = query.casefold()
         matches = [
             track
