@@ -113,7 +113,9 @@ Broadcast when playback stops completely.
 ```
 
 #### `track_loaded`
-Broadcast when a new track is loaded into the player.
+Broadcast when a new track is loaded into the player. Informational: the app's own frontend learns
+of a load from `player_state` / `track_changed` and has no `track_loaded` subscriber, so this is
+for other WebSocket clients. Whether `POST /api/player/load` itself stays is tracked in #5708.
 
 **Trigger**: `POST /api/player/load`
 
@@ -600,7 +602,7 @@ Broadcast when playback resumes from pause. `{ "data": { "state": "playing" } }`
 Broadcast when a seek begins. `{ "data": { "position": number /* seconds */, "track_id?": number } }`
 
 #### `queue_changed`
-Broadcast when the queue is mutated. `{ "data": { "tracks": TrackInfo[], "current_index?": number, "action?": "added" | "removed" | "reordered" | "shuffled" | "unshuffled" | "cleared" | "undo" } }`
+Broadcast when the queue is mutated. `{ "data": { "tracks": TrackInfo[], "current_index?": number, "action?": "added" | "removed" | "reordered" | "shuffled" | "unshuffled" | "cleared" } }`
 
 #### `queue_shuffled`
 Broadcast when shuffle is toggled. `{ "data": { "is_shuffled?": boolean, "tracks?": TrackInfo[] /* reordered queue */ } }`

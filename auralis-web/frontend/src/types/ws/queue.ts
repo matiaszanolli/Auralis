@@ -40,8 +40,7 @@ export interface QueueChangedMessage extends WebSocketMessage {
       | 'reordered'
       | 'shuffled'
       | 'unshuffled'
-      | 'cleared'
-      | 'undo';
+      | 'cleared';
     track_id?: number;
     position?: number | null;
     index?: number;

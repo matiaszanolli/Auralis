@@ -21,7 +21,6 @@ QueueChangeAction = Literal[
     "shuffled",
     "unshuffled",
     "cleared",
-    "undo",
 ]
 
 
