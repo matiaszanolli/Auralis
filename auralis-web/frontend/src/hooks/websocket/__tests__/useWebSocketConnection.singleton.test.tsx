@@ -295,4 +295,52 @@ describe('useWebSocketConnection - singleton reuse (issue #4522)', () => {
     expect(connState.url).toBeNull();
     expect(connState.connectPromise).toBeNull();
   });
+
+  it('retries when the network returns after the manager gave up (#5917)', async () => {
+    const managers: MockWSManager[] = [];
+    let firstConfig: any;
+    vi.mocked(WebSocketManager).mockImplementation(function (_url: string, config: any) {
+      const { mgr } = makeMockManager({ connected: false });
+      if (managers.length === 0) firstConfig = config;
+      managers.push(mgr);
+      return mgr as any;
+    });
+
+    const { result } = renderConnection();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      firstConfig.onMaxAttemptsExceeded();
+    });
+    expect(result.current.connectionStatus).toBe('error');
+    expect(managers).toHaveLength(1);
+
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+      await Promise.resolve();
+    });
+
+    expect(managers).toHaveLength(2);
+  });
+
+  it('does not retry on online while it is still connected or connecting (#5917)', async () => {
+    const managers: MockWSManager[] = [];
+    vi.mocked(WebSocketManager).mockImplementation(function () {
+      const { mgr } = makeMockManager({ connected: false, deferConnect: true });
+      managers.push(mgr);
+      return mgr as any;
+    });
+
+    renderConnection();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+      await Promise.resolve();
+    });
+
+    expect(managers).toHaveLength(1);
+  });
 });

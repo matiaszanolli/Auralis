@@ -17,6 +17,7 @@
  * 605-line WebSocketContext so the reconnect path can be reviewed alone (#4297).
  */
 
+import { useReconnectOnNetwork } from './useReconnectOnNetwork';
 import { DEFAULT_MAX_RECONNECT_ATTEMPTS, DEV_MAX_RECONNECT_ATTEMPTS } from '@/config/timing';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WebSocketManager } from '@/utils/errorHandling';
@@ -276,6 +277,8 @@ export function useWebSocketConnection({
       disconnect();
     };
   }, [connect, disconnect]);
+
+  useReconnectOnNetwork(connectionStatus === 'error', connect);
 
   const { send, setResumePositionGetter, reissueActiveStreamAs } = useOutgoingChannel(
     wsManagerRef,
