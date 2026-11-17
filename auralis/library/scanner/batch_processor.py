@@ -157,8 +157,10 @@ class BatchProcessor:
             # Repository access: the scanner is handed a LibraryDatabase,
             # which has `.tracks` but no convenience wrappers.
             tracks_repo = self.library_database.tracks
-            existing_track = tracks_repo.get_by_path(file_path) if skip_existing else None
-            if existing_track and self._skip_existing_track(
+            # Looked up even when skip_existing is False: a re-scan then UPDATES the row instead of
+            # failing to insert a duplicate filepath and reporting it as added/failed (#6146).
+            existing_track = tracks_repo.get_by_path(file_path)
+            if existing_track and skip_existing and self._skip_existing_track(
                 existing_track, file_path, check_modifications
             ):
                 return 'skipped', None, None
