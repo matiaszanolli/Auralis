@@ -36,14 +36,27 @@ def _unopenable(tmp_path: Path, name: str = "track.m4a", payload: bytes = b"") -
 
 @pytest.fixture
 def decodes():
-    """Counts full-file decodes through the real conversion code."""
+    """Counts full-file decodes through the real conversion code.
+
+    FFmpeg formats are streamed to a WAV on disk by decode_to_wav (#6166); anything else goes
+    through load_audio. Both are faked, and both count.
+    """
+    import soundfile as sf
+
     calls: list[str] = []
 
     def fake_load_audio(path, *_args, **_kwargs):
         calls.append(path)
         return FAKE_AUDIO, 44100
 
-    with patch("auralis.io.unified_loader.load_audio", side_effect=fake_load_audio):
+    def fake_decode_to_wav(path, temp_folder, cancel_event=None):
+        calls.append(str(path))
+        out = Path(temp_folder) / "decoded.wav"
+        sf.write(str(out), FAKE_AUDIO, 44100, subtype="FLOAT")
+        return out
+
+    with patch("auralis.io.unified_loader.load_audio", side_effect=fake_load_audio), \
+         patch("auralis.io.loaders.decode_to_wav", side_effect=fake_decode_to_wav):
         yield calls
 
 
@@ -96,14 +109,18 @@ class TestConcurrentListeners:
         track = _unopenable(tmp_path)
         calls = []
 
-        def slow_load_audio(path, *_args, **_kwargs):
-            calls.append(path)
+        def slow_decode(path, temp_folder, cancel_event=None):
+            import soundfile as sf
+
+            calls.append(str(path))
             time.sleep(0.05)  # hold the build while the other listener arrives
-            return FAKE_AUDIO, 44100
+            out = Path(temp_folder) / "decoded.wav"
+            sf.write(str(out), FAKE_AUDIO, 44100, subtype="FLOAT")
+            return out
 
         sources = [SeekableSource(track, registry) for _ in range(4)]
         results: list[str] = []
-        with patch("auralis.io.unified_loader.load_audio", side_effect=slow_load_audio):
+        with patch("auralis.io.loaders.decode_to_wav", side_effect=slow_decode):
             threads = [threading.Thread(target=lambda s=s: results.append(s.resolve())) for s in sources]
             for t in threads:
                 t.start()
@@ -191,13 +208,20 @@ class TestFailedConversion:
         registry = ConvertedWavRegistry()
         track = _unopenable(tmp_path)
 
-        with patch("auralis.io.unified_loader.load_audio", side_effect=RuntimeError("ffmpeg died")):
+        with patch("auralis.io.loaders.decode_to_wav", side_effect=RuntimeError("ffmpeg died")):
             with pytest.raises(RuntimeError):
                 SeekableSource(track, registry).resolve()
 
         assert registry._conversions == {}
 
-        with patch("auralis.io.unified_loader.load_audio", return_value=(FAKE_AUDIO, 44100)):
+        import soundfile as sf
+
+        def good_decode(path, temp_folder, cancel_event=None):
+            out = Path(temp_folder) / "decoded.wav"
+            sf.write(str(out), FAKE_AUDIO, 44100, subtype="FLOAT")
+            return out
+
+        with patch("auralis.io.loaders.decode_to_wav", side_effect=good_decode):
             source = SeekableSource(track, registry)
             assert Path(source.resolve()).exists()
             source.close()
@@ -214,3 +238,64 @@ class TestNormalStreamSharesTheRegistry:
         assert "acquire_conversion(" in source and "converted_wavs" in source
         assert "converted_wavs.release" in source
         assert "convert_to_temp_wav" not in source
+
+
+class TestConversionIsBoundedByFreeSpace:
+    """#6166: a conversion that cannot fit in the temp root is refused before any decode."""
+
+    def test_a_file_that_cannot_fit_is_refused_without_decoding(self, tmp_path, decodes):
+        track = _unopenable(tmp_path)
+        info = {"duration_seconds": 3600.0, "sample_rate": 96000, "channels": 2}  # ~2.6 GiB of float32
+        free = type("Usage", (), {"free": 1024 ** 3})()
+
+        with patch.object(seekable_source, "get_audio_info", return_value=info), \
+             patch.object(seekable_source.shutil, "disk_usage", return_value=free):
+            with pytest.raises(OSError, match="Not enough free space"):
+                seekable_source.convert_to_temp_wav(track)
+
+        assert decodes == [], "the decode ran although the file could not fit"
+        assert not list(Path(tmp_path).glob("**/seekable*")), "no temp dir may be left behind"
+
+    def test_a_file_that_fits_is_converted_without_reading_it_into_memory(self, tmp_path, decodes):
+        track = _unopenable(tmp_path)
+        info = {"duration_seconds": 1.0, "sample_rate": 44100, "channels": 2}
+
+        with patch.object(seekable_source, "get_audio_info", return_value=info), \
+             patch("auralis.io.unified_loader.load_audio", side_effect=AssertionError("read the decode into memory")):
+            temp_dir, wav_path = seekable_source.convert_to_temp_wav(track)
+
+        try:
+            assert Path(wav_path).name == "seekable.wav" and Path(wav_path).exists()
+            assert decodes == [track]  # went through decode_to_wav (a path in, a path out), not load_audio
+        finally:
+            import shutil
+
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_a_real_mp3_converts_to_the_same_samples_load_audio_would_produce(tmp_path):
+    """No fakes: ffmpeg writes the seekable WAV (#6166) and its samples equal the in-memory decode's."""
+    import shutil
+    import subprocess
+
+    import soundfile as sf
+
+    if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
+        pytest.skip("ffmpeg not installed")
+    from auralis.io.unified_loader import load_audio
+
+    tone = (0.3 * np.sin(2 * np.pi * 440 * np.arange(44100) / 44100)).astype(np.float32)
+    src_wav = tmp_path / "src.wav"
+    sf.write(str(src_wav), np.column_stack([tone, tone]), 44100)
+    mp3 = tmp_path / "song.mp3"
+    subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src_wav), str(mp3)], check=True)
+
+    temp_dir, wav_path = seekable_source.convert_to_temp_wav(str(mp3))
+    try:
+        converted, rate = sf.read(wav_path, dtype="float32")
+        expected, expected_rate = load_audio(str(mp3))
+        assert rate == expected_rate
+        np.testing.assert_array_equal(converted, expected)
+        assert sf.info(wav_path).subtype == "FLOAT"
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
