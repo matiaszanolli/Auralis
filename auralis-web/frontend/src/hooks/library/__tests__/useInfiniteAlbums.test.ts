@@ -163,6 +163,19 @@ describe('useInfiniteAlbums', () => {
     expect(result.current.error?.message).toContain('timed out');
   });
 
+  it('hands the albums shape guard to the transport so a wrong body is a located failure (#6063)', async () => {
+    const { result } = renderHook(() => useInfiniteAlbums(), { wrapper: createWrapper() });
+    await waitFor(() => expect(getMock).toHaveBeenCalled());
+
+    const options = getMock.mock.calls[0][1] as { validate: (v: unknown) => boolean };
+
+    expect(typeof options.validate).toBe('function');
+    expect(options.validate(mockAlbumsPage(0, 5, 5))).toBe(true);
+    expect(options.validate({ not: 'an albums page' })).toBe(false);
+    expect(options.validate(null)).toBe(false);
+    void result;
+  });
+
   it('should not fetch when enabled is false', async () => {
     const { result } = renderHook(() => useInfiniteAlbums({ enabled: false }), {
       wrapper: createWrapper(),

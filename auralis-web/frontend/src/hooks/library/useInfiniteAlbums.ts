@@ -9,6 +9,7 @@
  * @module hooks/library/useInfiniteAlbums
  */
 
+import { isAlbumsListShape } from '@/api/responseGuards';
 import { LIBRARY_PAGE_LIMIT } from '@/config/api';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { transformAlbumsResponse } from '@/api/transformers';
@@ -61,7 +62,9 @@ async function fetchAlbums({
   // default timeout with the query's AbortSignal. TanStack Query only
   // retries *rejected* promises, so the old bare fetch() left the grid's
   // loading states pending forever when the backend stalled.
-  return get<AlbumsApiResponse>(`/api/albums?${params}`);
+  // A response of the wrong shape is a located failure here, not a TypeError inside
+  // transformAlbumsResponse (#6063).
+  return get<AlbumsApiResponse>(`/api/albums?${params}`, { validate: isAlbumsListShape });
 }
 
 /**
