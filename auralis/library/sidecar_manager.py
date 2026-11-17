@@ -23,6 +23,7 @@ from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..utils.atomic_write import write_json_atomic
 from ..utils.logging import debug, error, info
 from ..version import __version__
+from .sidecar_mtime import modified_at_stamp
 from .sidecar_validation import sidecar_matches_audio
 
 
@@ -154,12 +155,11 @@ class SidecarManager:
         sidecar_path = self.get_sidecar_path(audio_path)
 
         try:
-            # Get audio file metadata
             audio_stat = audio_path.stat()
             audio_meta = {
                 'path': str(audio_path.name),
                 'size_bytes': audio_stat.st_size,
-                'modified_at': datetime.fromtimestamp(audio_stat.st_mtime).isoformat()
+                'modified_at': modified_at_stamp(audio_stat.st_mtime)
             }
 
             # Build sidecar data structure

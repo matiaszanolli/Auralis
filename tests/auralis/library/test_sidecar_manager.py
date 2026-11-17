@@ -12,7 +12,7 @@ Tests the .25d sidecar file management system
 
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -467,9 +467,9 @@ def test_timestamp_recorded_correctly(sidecar_manager, temp_audio_file, sample_s
 
     data = sidecar_manager.read(temp_audio_file)
 
-    # Parse timestamps (both as naive for comparison)
+    # The stamp is offset-aware UTC (#6325), so compare it with the aware mtime
     recorded_time = datetime.fromisoformat(data["audio_file"]["modified_at"])
-    actual_time = datetime.fromtimestamp(temp_audio_file.stat().st_mtime)
+    actual_time = datetime.fromtimestamp(temp_audio_file.stat().st_mtime, tz=timezone.utc)
 
     # Should be very close (within 1 second)
     time_diff = abs((recorded_time - actual_time).total_seconds())

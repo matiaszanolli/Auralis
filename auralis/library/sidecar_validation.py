@@ -8,13 +8,13 @@ dimensions.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..utils.logging import debug, warning
 from .sidecar_fingerprint_check import fingerprint_block_is_valid
+from .sidecar_mtime import modified_at_stamp, mtime_matches
 
 
 def sidecar_matches_audio(
@@ -60,9 +60,9 @@ def sidecar_matches_audio(
     # Check modification time. Required: a sidecar without modified_at used to
     # pass on file size alone (#6175); every writer records it.
     expected_mtime = audio_meta.get('modified_at')
-    actual_mtime = datetime.fromtimestamp(audio_path.stat().st_mtime).isoformat()
-    if expected_mtime != actual_mtime:
-        debug(f"Audio file modified: {expected_mtime} → {actual_mtime}")
+    mtime = audio_path.stat().st_mtime
+    if not mtime_matches(expected_mtime, mtime):
+        debug(f"Audio file modified: {expected_mtime} → {modified_at_stamp(mtime)}")
         return False
 
     # Size + mtime is the deliberate validation strategy — a checksum
