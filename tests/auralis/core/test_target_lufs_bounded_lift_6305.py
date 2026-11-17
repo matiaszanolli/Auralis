@@ -46,8 +46,8 @@ def test_target_rises_with_the_source_below_the_ceiling():
     assert np.all(np.diff(targets) > 0.0), "plateau in the target law"
 
 
-def test_ceiling_stops_the_lift_but_does_not_pull_a_hot_source_down():
-    assert _target(-5.0) == pytest.approx(TARGET_LUFS_CEILING)
+def test_a_source_above_the_ceiling_is_not_pulled_down():
+    """The old clip attenuated a -1 LUFS source to -2."""
     assert _target(-1.0) == pytest.approx(-1.0, abs=1e-6)
 
 
@@ -59,4 +59,7 @@ def test_a_negative_preference_still_attenuates():
 
 def test_a_positive_preference_cannot_lift_past_the_ceiling():
     louder = PreferenceVector(loudness_bias=1.0)
-    assert _target(-6.0, preference=louder) == pytest.approx(TARGET_LUFS_CEILING)
+    assert _target(-6.0, preference=louder) == pytest.approx(-4.0, abs=1e-3)
+    assert _target(-3.0, preference=louder) == pytest.approx(TARGET_LUFS_CEILING)
+    # Already above the ceiling: not lifted further, not pulled down either.
+    assert _target(-1.0, preference=louder) == pytest.approx(-1.0, abs=1e-6)

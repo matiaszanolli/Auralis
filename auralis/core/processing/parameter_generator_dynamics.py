@@ -19,6 +19,9 @@ import numpy as np
 from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from .continuous_space_types import PreferenceVector, ProcessingCoordinates
 
+# The loudest target a lift may reach (#6305).
+TARGET_LUFS_CEILING = -2.0
+
 
 def calculate_target_lufs(
     coords: ProcessingCoordinates,
@@ -27,9 +30,11 @@ def calculate_target_lufs(
     """
     Calculate target LUFS based on input energy and dynamic range.
 
-    The lift approaches a dynamics-aware maximum smoothly as the source
-    moves below the reference loudness. No source category or coordinate
-    boundary selects a different formula.
+    The lift approaches a dynamics-aware maximum (8.25 dB minus the dynamic
+    range coordinate) smoothly as the source moves below the reference
+    loudness, so the target rises with the source at every level. No source
+    category or coordinate boundary selects a different formula. A lift never
+    carries the target past ``TARGET_LUFS_CEILING``.
 
     Args:
         coords: Processing space coordinates
@@ -59,10 +64,13 @@ def calculate_target_lufs(
         preference_adjustment = preference.loudness_bias * 2.0
         target_lufs += preference_adjustment
 
-    # Clamp to reasonable range
-    # Minimum: -28 dB (very quiet material)
-    # Maximum: -2 dB (prevent excessive clipping risk)
-    return float(np.clip(target_lufs, -28.0, -2.0))
+    # #6305: bound the boost, not the absolute target. The tanh above already
+    # caps the lift at maximum_lift; the old clip to [-28, -2] overrode it,
+    # pinning every source below ~-36 LUFS to -28 (a lift of +12 to +24 dB,
+    # all landing on one loudness) and attenuating a source above -2. The
+    # ceiling still stops a lift past -2 LUFS, but never pulls a hotter source
+    # down; a negative loudness preference still can.
+    return float(min(target_lufs, max(TARGET_LUFS_CEILING, input_lufs)))
 
 
 def calculate_peak_target(
