@@ -14,30 +14,32 @@ Extracted from audio_stream_controller.py (#4071).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import logging
-import threading
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from collections.abc import Callable
 
 from fastapi import WebSocket
-from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
 from .chunk_boundaries import (
     SEEK_MIN_CHUNK_REMAINDER,
     chunk_for_position,
 )
-from .job_error_mapping import _safe_error_message
-from .stream_gates import stream_chunk_cancel_events
 from .stream_enhanced_chunks import pump_chunks, validate_processor_metadata
-from .stream_track_resolution import resolve_and_validate_track
+from .stream_enhanced_lifecycle import EnhancedStream, StreamFlavour, run_enhanced_stream
 from security.path_security import validate_file_path
 
-if TYPE_CHECKING:
-    from .chunked_processor import ChunkedAudioProcessor
-
 logger = logging.getLogger(__name__)
+
+_FLAVOUR = StreamFlavour(
+    stopped_log="Seek streaming stopped: client disconnected",
+    failed_log="Seek streaming failed",
+    init_timeout_log_suffix=" during seek",
+    init_timeout_message=(
+        "Audio processor initialization timed out during seek. File may be corrupt or on slow storage."
+    ),
+    error_code="SEEK_ERROR",
+)
 
 
 async def stream_enhanced_audio_from_position(
@@ -52,8 +54,8 @@ async def stream_enhanced_audio_from_position(
     """
     Stream enhanced audio chunks starting from a specific position (seek).
 
-    This method is used for seeking - it starts streaming from the chunk
-    containing the target position, with an offset applied for precise seeking.
+    It starts streaming from the chunk containing the target position, with an offset applied for
+    precise seeking. The lifecycle skeleton is shared with stream_enhanced_audio (#6214).
 
     Args:
         controller: AudioStreamController instance
@@ -65,94 +67,12 @@ async def stream_enhanced_audio_from_position(
         on_progress: Optional callback for progress updates
 
     Raises:
-        ValueError: If track not found or processor unavailable
-        Exception: If processing or streaming fails
+        ValueError: If the chunked processor class or the repository factory is unavailable
     """
-    _asc._stream_type_var.set("enhanced")  # per-task; safe for concurrent coroutines (fixes #2493)
 
-    if not controller.chunked_processor_class:
-        raise ValueError("ChunkedProcessor not available")
-
-    if not controller._get_repository_factory:
-        raise ValueError("RepositoryFactory not available")
-
-    # Limit concurrent streams to prevent unbounded memory growth (#2185)
-    try:
-        await asyncio.wait_for(
-            controller._stream_semaphore.acquire(),
-            timeout=_asc.STREAM_ACQUIRE_TIMEOUT_SECONDS,
-        )
-    except TimeoutError:
-        logger.warning(
-            f"Stream limit ({_asc.MAX_CONCURRENT_STREAMS}) reached, rejecting track {track_id}"
-        )
-        await controller._send_error(websocket, track_id, "Server busy - too many active streams")
-        return
-    # The look-ahead task moved into pump_chunks with the loop that owns
-    # it (#5032); #3493's drain now lives in that function's own finally.
-    #
-    # `processor` still needs the unbound-var guard here, for the same reason
-    # lookahead_task used to:
-    # the outer `finally:` below must be able to release this processor's
-    # temp WAV (SeekableSource, #4737) even when construction itself timed
-    # out or an earlier step raised before `processor` was ever assigned
-    # (#5253 — a leaked temp WAV per seek of a non-natively-seekable format,
-    # since nothing here used to call .close() at all).
-    processor: 'ChunkedAudioProcessor | None' = None
-
-    # Cooperative-cancel signal for in-flight chunk DSP (#4815) — same
-    # mechanism as stream_enhanced.py, see its comment for the full
-    # rationale. Registered before track lookup/processor construction so
-    # _cancel_prior_task can find and set() it for this task's whole
-    # lifetime.
-    chunk_cancel_event = threading.Event()
-    stream_chunk_cancel_events[_asc.ws_id(websocket)] = chunk_cancel_event
-
-    # Same early-exit accounting as the non-seek path (#4659): a stream stopped
-    # by a mid-stream enhancement toggle must not report the full track length.
-    stopped_early: bool = False
-    delivered_samples: int = 0
-    # Chunk indices skipped via the #3190 continue-and-keep-going recovery
-    # path (#4790) — see stream_enhanced.py's identical field for the full
-    # rationale: the loop can run to its natural end with gaps in the
-    # delivered audio without stopped_early ever being set.
-    failed_chunks: list[int] = []
-
-    # A single try/finally from here guards the semaphore permit acquired above:
-    # it is released exactly once in the finally at the end. The track lookup
-    # lives INSIDE this try so a task cancellation (CancelledError — a
-    # BaseException that `except Exception` does not catch) during the awaited
-    # get_by_id cannot escape before the permit is released, which would leak a
-    # permit permanently for the process lifetime (#4329).
-    try:
-        # Get track from library and validate its filepath (#5032: shared
-        # with stream_normal.py/stream_enhanced.py — see stream_track_resolution.py).
-        resolved = await resolve_and_validate_track(
-            controller, track_id, websocket, validate_file_path=validate_file_path
-        )
-        if resolved is None:
-            return
-        _track, validated_filepath = resolved
-
-        # Create processor for this track with timeout (#2125)
-        try:
-            processor = await asyncio.wait_for(
-                asyncio.to_thread(
-                    controller.chunked_processor_class,
-                    track_id=track_id,
-                    filepath=validated_filepath,
-                    preset=preset,
-                    intensity=intensity,
-                    cancel_event=chunk_cancel_event,
-                ),
-                timeout=_asc.PROCESSOR_INIT_TIMEOUT,
-            )
-        except TimeoutError:
-            chunk_cancel_event.set()  # the abandoned init thread drops its analysis wait (#6336)
-            logger.error(f"Processor instantiation timed out for track {track_id} during seek ({_asc.PROCESSOR_INIT_TIMEOUT:.0f}s)")
-            await controller._send_error(websocket, track_id, "Audio processor initialization timed out during seek. File may be corrupt or on slow storage.", error_code="SEEK_ERROR")
-            return
-
+    async def body(stream: EnhancedStream, _validated_filepath: str) -> None:
+        processor = stream.processor
+        assert processor is not None
         # Ensure processor has loaded metadata (fixes #2735)
         meta = validate_processor_metadata(processor)
 
@@ -220,14 +140,7 @@ async def stream_enhanced_audio_from_position(
             logger.info("WebSocket disconnected, cannot start seek stream")
             return
 
-        # Process and stream chunks with look-ahead (same pattern as
-        # normal streaming): process chunk N+1 while streaming chunk N
-        # to eliminate inter-chunk gaps on slow storage.
-        # (`lookahead_task` is declared at function scope so the outer
-        # `finally:` can drain it on every exit path — fixes #3493.)
-
-        # The process/send loop lives in stream_enhanced_chunks (#5032); what stays
-        # here is the semaphore/cancel/finally skeleton around it.
+        # The process/send loop with look-ahead lives in stream_enhanced_chunks (#5032).
         pump = await pump_chunks(
             controller,
             websocket,
@@ -240,53 +153,20 @@ async def stream_enhanced_audio_from_position(
             label="seek stream",
             on_progress=on_progress,
         )
-        stopped_early = pump.stopped_early
-        failed_chunks = pump.failed_chunks
-        delivered_samples = pump.delivered_samples
 
-        # Distinguish a truncated seek stream from a completed one and report
-        # what was actually delivered — shared with stream_normal.py/
-        # stream_enhanced.py (#5032), see stream_lifecycle.send_stream_completion
-        # for the reason= rules (#4659/#4790).
+        # Distinguish a truncated seek stream from a completed one (#4659, #4790).
         await controller._send_stream_completion(
             websocket,
             track_id=track_id,
             label="Seek stream",
-            stopped_early=stopped_early,
-            failed_chunks=failed_chunks,
-            delivered_samples=delivered_samples,
+            stopped_early=pump.stopped_early,
+            failed_chunks=pump.failed_chunks,
+            delivered_samples=pump.delivered_samples,
             sample_rate=processor.sample_rate,
             full_duration=processor.duration,
         )
 
-    except WebSocketDisconnect:
-        # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).
-        logger.info("Seek streaming stopped: client disconnected")
-    except Exception as e:
-        logger.error(f"Seek streaming failed: {e}", exc_info=True)
-        if controller._is_websocket_connected(websocket):
-            await controller._send_error(
-                websocket, track_id,
-                # #5488: surface the specific category, not a blanket string.
-                _safe_error_message(e, default="Audio streaming failed"),
-                error_code="SEEK_ERROR",
-            )
-    finally:
-        # The look-ahead drain that used to sit here moved into
-        # pump_chunks' own finally (#3493 still holds — the task cannot
-        # outlive that function).
-        controller._stream_semaphore.release()
-        # #5253: release the temp WAV this processor may own (SeekableSource,
-        # #4737) — a non-natively-seekable format (m4a/aac/wma) converts once
-        # per ChunkedAudioProcessor instance, and since a new instance is
-        # constructed per seek, nothing ever reclaimed it before this fix.
-        # close() also returns this stream's leased HybridProcessor to the
-        # factory (#6091).
-        if processor is not None:
-            await asyncio.to_thread(processor.close)
-        # #4815: only remove OUR OWN registration — a reissued stream on the
-        # same ws_id may already have registered its own event by the time
-        # this (cancelled) task's finally runs.
-        _ws_id_key = _asc.ws_id(websocket)
-        if stream_chunk_cancel_events.get(_ws_id_key) is chunk_cancel_event:
-            stream_chunk_cancel_events.pop(_ws_id_key, None)
+    await run_enhanced_stream(
+        controller, track_id, preset, intensity, websocket,
+        flavour=_FLAVOUR, validate_file_path=validate_file_path, body=body,
+    )

@@ -177,14 +177,22 @@ class TestSemaphoreCleanup:
         )
 
     async def test_source_enhanced_has_finally_release(self):
+        # The enhanced and seek streams share one lifecycle (#6214): the release lives there, once,
+        # and the entry point must not carry a second, skippable one.
+        import inspect
+
         from core import stream_enhanced
-        self._assert_single_finally_release(stream_enhanced.stream_enhanced_audio)
+        from core.stream_enhanced_lifecycle import run_enhanced_stream
+        self._assert_single_finally_release(run_enhanced_stream)
+        source = inspect.getsource(stream_enhanced.stream_enhanced_audio)
+        assert "run_enhanced_stream(" in source and "_stream_semaphore" not in source
 
     async def test_source_seek_has_finally_release(self):
+        import inspect
+
         from core import stream_seek
-        self._assert_single_finally_release(
-            stream_seek.stream_enhanced_audio_from_position
-        )
+        source = inspect.getsource(stream_seek.stream_enhanced_audio_from_position)
+        assert "run_enhanced_stream(" in source and "_stream_semaphore" not in source
 
     async def test_source_normal_has_finally_release(self):
         from core import stream_normal
