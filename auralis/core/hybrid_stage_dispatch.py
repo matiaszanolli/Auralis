@@ -29,6 +29,9 @@ if TYPE_CHECKING:
 #: Audio shorter than one analysis window (1024 samples, ~23ms at 44.1kHz) is
 #: returned unprocessed rather than rejected (#4520). See
 #: validate_and_normalize_input()'s docstring for the full rationale.
+#: Most channels a (samples, channels) buffer is assumed to carry (7.1); more rows than this cannot be a
+#: channels-first load, so a short (samples, channels) array is never mistaken for one.
+MAX_CHANNELS = 8
 MIN_SAMPLES = 1024
 
 
@@ -69,7 +72,9 @@ def validate_and_normalize_input(
         raise ValueError(f"Audio must be (samples,) or (samples, channels), got shape {target_audio.shape}")
     # A librosa-style (channels, samples) array has shape[0] == 2, so it used to look "too short" and
     # come back unprocessed with a warning about milliseconds: refuse it by name instead (#6118).
-    if target_audio.ndim == 2 and target_audio.shape[0] <= 2 and target_audio.shape[1] >= MIN_SAMPLES:
+    # Up to 8 rows: a librosa multichannel load (mono=False) of 3-8 channels is (C, N) too, and fell
+    # through to the "too short" branch as a silent no-op (#6298).
+    if target_audio.ndim == 2 and target_audio.shape[0] <= MAX_CHANNELS and target_audio.shape[1] >= MIN_SAMPLES:
         raise ValueError(
             f"Audio looks channels-first {target_audio.shape}; expected (samples, channels). "
             "Transpose it (audio.T)."

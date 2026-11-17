@@ -73,3 +73,20 @@ def test_ordinary_stereo_and_1d_mono_pass_through_validation(processor):
 class _FakeProcessor:
     class config:  # noqa: N801 - mimics the attribute chain the warning reads
         internal_sample_rate = 44100
+
+
+@pytest.mark.parametrize("channels", [3, 4, 6, 8])
+def test_multichannel_channels_first_input_is_refused_by_name(processor, channels):
+    """A librosa mono=False load of 3-8 channels is (C, N) too; it was a silent 'too short' no-op (#6298)."""
+    audio = np.stack([_tone(4096)] * channels)
+
+    with pytest.raises(ValueError, match="channels-first"):
+        processor.process(audio)
+
+
+def test_a_short_multichannel_buffer_in_the_right_layout_is_not_mistaken_for_channels_first():
+    short = np.zeros((6, 6), dtype=np.float32)  # 6 samples of 6 channels
+
+    audio, early = validate_and_normalize_input(_FakeProcessor(), short)  # type: ignore[arg-type]
+
+    assert early is not None and audio.shape == (6, 6)
