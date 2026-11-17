@@ -22,7 +22,7 @@ from pathlib import Path
 
 import soundfile as sf
 
-from .formats import SOUNDFILE_FORMATS
+from .formats import soundfile_format_name
 
 
 class Result:
@@ -50,9 +50,7 @@ class Result:
             file: Output file path
             subtype: Audio format subtype (PCM_16, PCM_24, etc.)
         """
-        # The registry knows `.aif` is AIFF; libsndfile only knows the name AIFF (#6319).
-        suffix = Path(file).suffix.lower()
-        file_ext = SOUNDFILE_FORMATS.get(suffix, suffix[1:].upper())
+        file_ext = soundfile_format_name(file) or Path(file).suffix[1:].upper()  # `.aif` -> AIFF (#6319)
 
         if not sf.check_format(file_ext):
             raise TypeError(f"{file_ext} format is not supported")

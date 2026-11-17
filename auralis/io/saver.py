@@ -15,6 +15,7 @@ import soundfile as sf
 
 from ..utils.audio_validation import validate_audio_finite
 from ..utils.logging import debug, info
+from .formats import soundfile_format_name
 
 
 def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str = 'PCM_16') -> None:
@@ -52,7 +53,8 @@ def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str 
         audio_data = np.clip(audio_data, -1.0, 1.0)
 
         # Save the audio file
-        sf.write(file_path, audio_data, sample_rate, subtype=subtype)
+        # An explicit format for `.aif`, which libsndfile cannot infer from the extension (#6319).
+        sf.write(file_path, audio_data, sample_rate, subtype=subtype, format=soundfile_format_name(file_path))
 
         info(f"Saved: {file_path} ({audio_data.shape[0]} samples)")
 

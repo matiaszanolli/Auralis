@@ -40,3 +40,13 @@ FFMPEG_FORMATS = set(FFMPEG_FORMAT_NAMES)
 # decode. Note this deliberately excludes .mp4/.m4p/.webm (video/DRM
 # containers with no working audio decode path — see #4109).
 AUDIO_EXTENSIONS = set(SUPPORTED_FORMATS)
+
+
+def soundfile_format_name(path: str) -> str | None:
+    """libsndfile's format name for *path*'s extension, or None when it is not a native format.
+
+    ``.aif`` is accepted everywhere Auralis reads audio but libsndfile only knows the name AIFF,
+    so output paths go through this instead of upper-casing the suffix (#6319).
+    """
+    suffix = "." + path.rsplit(".", 1)[-1].lower() if "." in path else ""
+    return SOUNDFILE_FORMATS.get(suffix)
