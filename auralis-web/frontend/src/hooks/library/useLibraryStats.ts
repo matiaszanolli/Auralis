@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { type LibraryStats } from '@/types/domain';
 import { get } from '@/utils/apiRequest';
+import { isLibraryStatsShape } from '@/api/responseGuards';
 import { isAbortError } from '@/utils/errorGuards';
 
 export type { LibraryStats };
@@ -42,7 +43,10 @@ export const useLibraryStats = ({ includeStats }: UseLibraryStatsOptions): UseLi
       // DEFAULT_TIMEOUT_MS with the unmount signal below. The raw fetch() this
       // replaces had no upper bound, so a hung backend left statsLoading stuck
       // true for as long as the view stayed mounted.
-      const data = await get<LibraryStats>('/api/library/stats', { signal: controller.signal });
+      const data = await get<LibraryStats>('/api/library/stats', {
+        signal: controller.signal,
+        validate: isLibraryStatsShape,
+      });
       if (controller.signal.aborted) return;
       setStats(data);
     } catch (err) {

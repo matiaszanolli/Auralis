@@ -243,6 +243,10 @@ export async function deletePlaylist(playlistId: number): Promise<void> {
   await crudService.delete(playlistId);
 }
 
+// The count is read as `data.added_count`; a body without it returned undefined as a number (#6063).
+const hasNumericAddedCount = (v: unknown): v is { added_count: number } =>
+  v !== null && typeof v === 'object' && typeof (v as { added_count?: unknown }).added_count === 'number';
+
 /**
  * Add tracks to playlist (pass a one-element array for a single track)
  */
@@ -252,7 +256,8 @@ export async function addTracksToPlaylist(
 ): Promise<number> {
   const data = await post<{ added_count: number }>(
     ENDPOINTS.ADD_PLAYLIST_TRACK(playlistId),
-    { track_ids: trackIds }
+    { track_ids: trackIds },
+    { validate: hasNumericAddedCount }
   );
   return data.added_count;
 }

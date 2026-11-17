@@ -35,6 +35,11 @@ import {
 } from './similarityCache';
 
 /** Wire shape of GET /api/similarity/tracks/{id}/similar (snake_case). */
+/** The endpoint answers a bare array; an entry without a numeric `track_id` is not one of ours (#6063). */
+const isRawSimilarTracks = (v: unknown): v is RawSimilarTrack[] =>
+  Array.isArray(v) &&
+  v.every((item) => item !== null && typeof item === 'object' && typeof (item as { track_id?: unknown }).track_id === 'number');
+
 interface RawSimilarTrack {
   track_id: number;
   distance: number;
@@ -197,7 +202,7 @@ export function useSimilarTracks(): UseSimilarTracksReturn {
         // both arrive as a 404.
         const data = await get<RawSimilarTrack[]>(
           `/api/similarity/tracks/${trackId}/similar?${params.toString()}`,
-          { signal: controller.signal }
+          { signal: controller.signal, validate: isRawSimilarTracks }
         );
 
         // Map response (backend uses snake_case, convert to camelCase)

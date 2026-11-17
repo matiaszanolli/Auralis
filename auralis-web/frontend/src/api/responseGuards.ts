@@ -41,6 +41,7 @@ import type { ArtistTracksResponse } from '@/services/libraryService';
 import type { CreatePlaylistResponse, PlaylistWire, PlaylistsResponse } from '@/services/playlistService';
 import type { QueueResponse } from '@/services/queueService';
 import type { UserSettings } from '@/services/settingsService';
+import type { LibraryStats } from '@/types/domain';
 
 /** Narrow an unknown value to an indexable object. */
 function asObject(v: unknown): Record<string, unknown> | null {
@@ -202,4 +203,22 @@ export function isArtistDetailShape(v: unknown): v is ArtistDetailApiResponse {
 export function isCreatePlaylistResponseShape(v: unknown): v is CreatePlaylistResponse {
   const o = asObject(v);
   return o !== null && isPlaylistShape(o.playlist);
+}
+
+/**
+ * A guard for an envelope whose one collection key is optional but an array of id-carrying
+ * items when present, e.g. the search lookups that read `data.tracks ?? []` (#6063).
+ */
+export function optionalListGuard<T extends object>(collectionKey: string) {
+  return (v: unknown): v is T => {
+    const o = asObject(v);
+    return o !== null && (o[collectionKey] === undefined || isItemArray(o[collectionKey]));
+  };
+}
+
+/** `GET /api/library/stats` — the track counter every consumer reads; the rest are display extras (#6063). */
+export function isLibraryStatsShape(v: unknown): v is LibraryStats {
+  const o = asObject(v);
+  if (!o) return false;
+  return typeof o.total_tracks === 'number';
 }

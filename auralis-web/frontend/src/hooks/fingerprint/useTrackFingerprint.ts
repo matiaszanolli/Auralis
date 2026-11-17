@@ -47,6 +47,11 @@ interface TrackFingerprintResponse {
  * broken" used to be indistinguishable, both driving refetchInterval's
  * indefinite 5s poll and leaving `query.error` permanently empty.
  */
+/** `data.fingerprint` is dereferenced downstream; a body without that object is a drifted contract (#6063). */
+const isTrackFingerprintResponse = (v: unknown): v is TrackFingerprintResponse =>
+  v !== null && typeof v === 'object' && typeof (v as { fingerprint?: unknown }).fingerprint === 'object'
+  && (v as { fingerprint?: unknown }).fingerprint !== null;
+
 const fetchTrackFingerprint = (
   trackId: number,
   signal?: AbortSignal
@@ -55,7 +60,10 @@ const fetchTrackFingerprint = (
   // The bare fetch() this replaces had no signal and no timeout, so a stalled
   // backend left the query loading forever with `refetchInterval` unable to
   // reach a terminal state.
-  getOrNullOn404<TrackFingerprintResponse>(`/api/tracks/${trackId}/fingerprint`, { signal });
+  getOrNullOn404<TrackFingerprintResponse>(`/api/tracks/${trackId}/fingerprint`, {
+    signal,
+    validate: isTrackFingerprintResponse,
+  });
 
 /**
  * Hook to fetch track fingerprint with caching

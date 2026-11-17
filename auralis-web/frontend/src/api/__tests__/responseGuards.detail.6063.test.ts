@@ -46,3 +46,21 @@ describe('isCreatePlaylistResponseShape', () => {
     expect(isCreatePlaylistResponseShape({ playlist: { name: 'no id' } })).toBe(false);
   });
 });
+
+describe('isLibraryStatsShape and optionalListGuard', () => {
+  it('requires the numeric track counter', async () => {
+    const { isLibraryStatsShape } = await import('../responseGuards');
+    expect(isLibraryStatsShape({ total_tracks: 10 })).toBe(true);
+    expect(isLibraryStatsShape({ total_tracks: '10' })).toBe(false);
+    expect(isLibraryStatsShape({})).toBe(false);
+  });
+
+  it('allows an absent collection but not a malformed one', async () => {
+    const { optionalListGuard } = await import('../responseGuards');
+    const guard = optionalListGuard<{ tracks?: Array<{ id: number }> }>('tracks');
+    expect(guard({})).toBe(true);
+    expect(guard({ tracks: [{ id: 1 }] })).toBe(true);
+    expect(guard({ tracks: {} })).toBe(false);
+    expect(guard({ tracks: [{ nope: 1 }] })).toBe(false);
+  });
+});

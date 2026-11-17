@@ -71,6 +71,11 @@ export async function addTrackToQueue(trackId: number, position?: number): Promi
  * `trackIds`' order, and one `queue_changed` broadcast goes out. Like the
  * single add, callers must NOT also write the Redux queue (#5612).
  */
-export async function addTracksToQueue(trackIds: number[]): Promise<{ added_count: number; requested_count: number; queue_size: number }> {
-  return post(ENDPOINTS.QUEUE_ADD_TRACKS, { track_ids: trackIds });
+type AddTracksToQueueResult = { added_count: number; requested_count: number; queue_size: number };
+
+const isAddTracksToQueueResult = (v: unknown): v is AddTracksToQueueResult =>
+  v !== null && typeof v === 'object' && typeof (v as { added_count?: unknown }).added_count === 'number';
+
+export async function addTracksToQueue(trackIds: number[]): Promise<AddTracksToQueueResult> {
+  return post<AddTracksToQueueResult>(ENDPOINTS.QUEUE_ADD_TRACKS, { track_ids: trackIds }, { validate: isAddTracksToQueueResult });
 }

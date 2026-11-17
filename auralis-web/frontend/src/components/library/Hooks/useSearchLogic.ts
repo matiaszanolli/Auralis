@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { get } from '@/utils/apiRequest';
+import { optionalListGuard } from '@/api/responseGuards';
 import { ENDPOINTS } from '@/config/api';
 import { SEARCH_DEBOUNCE_MS } from '@/config/timing';
 
@@ -105,15 +106,15 @@ export const useSearchLogic = (
       const [tracksData, albumsData, artistsData] = await Promise.all([
         get<{ tracks?: SearchTrackResponse[] }>(
           `${ENDPOINTS.LIBRARY_TRACKS}?search=${encoded}&limit=5`,
-          { signal: controller.signal }
+          { signal: controller.signal, validate: optionalListGuard<{ tracks?: SearchTrackResponse[] }>('tracks') }
         ),
         get<{ albums?: SearchAlbumResponse[] }>(
           `${ENDPOINTS.LIBRARY_ALBUMS}?search=${encoded}&limit=5`,
-          { signal: controller.signal }
+          { signal: controller.signal, validate: optionalListGuard<{ albums?: SearchAlbumResponse[] }>('albums') }
         ),
         get<{ artists?: SearchArtistResponse[] }>(
           `${ENDPOINTS.LIBRARY_ARTISTS}?search=${encoded}&limit=5`,
-          { signal: controller.signal }
+          { signal: controller.signal, validate: optionalListGuard<{ artists?: SearchArtistResponse[] }>('artists') }
         ),
       ]);
 

@@ -136,6 +136,10 @@ interface AlbumFingerprintsResponse {
   albums: Array<{ album_id: number; fingerprint: AudioFingerprint }>;
 }
 
+/** The batch is read as `data.albums.map(...)`: without the array that is a TypeError (#6063). */
+const isAlbumFingerprintsResponse = (v: unknown): v is AlbumFingerprintsResponse =>
+  v !== null && typeof v === 'object' && Array.isArray((v as { albums?: unknown }).albums);
+
 interface PendingFingerprint {
   albumId: number;
   signal?: AbortSignal;
@@ -171,7 +175,7 @@ function flushFingerprintBatch(): void {
     new Set(batch.map((entry) => entry.albumId)).forEach((id) => params.append('ids', String(id)));
     const signal = abortWhenAllAbort(batch);
     withFingerprintSlot(
-      () => get<AlbumFingerprintsResponse>(`/api/albums/fingerprints?${params}`, { signal }),
+      () => get<AlbumFingerprintsResponse>(`/api/albums/fingerprints?${params}`, { signal, validate: isAlbumFingerprintsResponse }),
       signal,
     )
       .then((data) => {
