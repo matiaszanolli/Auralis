@@ -135,3 +135,14 @@ export interface ArtistDetailApiResponse {
   artwork_url?: string | null;
   artwork_source?: string | null;
 }
+
+/** Wire shape of GET /api/albums/{id}/tracks — snake_case, unlike the domain Album. */
+export interface AlbumTracksResponse {
+  album_id: number;
+  album_title: string;
+  artist: string | null; // null when the album has no artist (#5905)
+  year?: number | null;
+  genre?: string | null;
+  total_tracks: number;
+  tracks?: TrackApiResponse[];
+}

@@ -12,7 +12,7 @@
 import { post } from '@/utils/apiRequest';
 import { ENDPOINTS } from '@/config/api';
 import { createCrudService } from '@/utils/serviceFactory';
-import { isPlaylistShape, isPlaylistsListShape } from '@/api/responseGuards';
+import { isCreatePlaylistResponseShape, isPlaylistShape, isPlaylistsListShape } from '@/api/responseGuards';
 import { transformTracks } from '@/api/transformers';
 import type { TrackApiResponse } from '@/api/transformers';
 
@@ -46,6 +46,12 @@ import type { Track } from '@/types/domain';
  * never see the raw rows (#5606). Everything else matches `Playlist`.
  */
 export type PlaylistWire = Omit<Playlist, 'tracks'> & { tracks?: TrackApiResponse[] };
+
+/** `POST /api/playlists`: the created playlist inside a message envelope. */
+export interface CreatePlaylistResponse {
+  message?: string;
+  playlist: PlaylistWire;
+}
 
 export interface PlaylistsResponse {
   playlists: Playlist[];
@@ -210,12 +216,14 @@ export async function getPlaylist(
  * Create a new playlist
  */
 export async function createPlaylist(request: CreatePlaylistRequest): Promise<Playlist> {
-  const data = await crudService.create(request);
-  // Response may be {playlist: {...}} or a bare Playlist object
-  if (data && typeof data === 'object' && 'playlist' in data) {
-    return toDomainPlaylist(data.playlist as PlaylistWire);
-  }
-  return toDomainPlaylist(data);
+  // POST /api/playlists answers the {message, playlist} envelope and nothing else (#6063): the
+  // generic CRUD create is typed as a bare playlist, which the backend never sends.
+  const data = await post<CreatePlaylistResponse>(
+    ENDPOINTS.PLAYLISTS,
+    { ...request },
+    { validate: isCreatePlaylistResponseShape },
+  );
+  return toDomainPlaylist(data.playlist);
 }
 
 /**

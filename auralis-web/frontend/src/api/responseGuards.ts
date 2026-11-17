@@ -30,9 +30,15 @@
  * get('/api/player/queue', { validate: isQueueResponseShape });
  */
 
-import type { AlbumsApiResponse, ArtistsApiResponse, TracksApiResponse } from '@/api/transformers';
+import type {
+  AlbumsApiResponse,
+  AlbumTracksResponse,
+  ArtistDetailApiResponse,
+  ArtistsApiResponse,
+  TracksApiResponse,
+} from '@/api/transformers';
 import type { ArtistTracksResponse } from '@/services/libraryService';
-import type { PlaylistWire, PlaylistsResponse } from '@/services/playlistService';
+import type { CreatePlaylistResponse, PlaylistWire, PlaylistsResponse } from '@/services/playlistService';
 import type { QueueResponse } from '@/services/queueService';
 import type { UserSettings } from '@/services/settingsService';
 
@@ -169,4 +175,31 @@ export function isUserSettingsShape(v: unknown): v is UserSettings {
   if (o.auto_scan !== undefined && typeof o.auto_scan !== 'boolean') return false;
   if (o.crossfade_enabled !== undefined && typeof o.crossfade_enabled !== 'boolean') return false;
   return true;
+}
+
+/**
+ * `GET /api/albums/{id}/tracks` — the album detail view reads `tracks` (optional, an
+ * array when present) and `total_tracks` (numeric when present), then maps each track
+ * through the canonical transformer (#6063).
+ */
+export function isAlbumTracksShape(v: unknown): v is AlbumTracksResponse {
+  const o = asObject(v);
+  if (!o) return false;
+  if (o.tracks !== undefined && !isItemArray(o.tracks)) return false;
+  if (o.total_tracks !== undefined && typeof o.total_tracks !== 'number') return false;
+  return true;
+}
+
+/** `GET /api/artists/{id}` — the artist page reads `id`, `name` and the `albums` list (#6063). */
+export function isArtistDetailShape(v: unknown): v is ArtistDetailApiResponse {
+  const o = asObject(v);
+  if (!o) return false;
+  if (typeof o.id !== 'number' || typeof o.name !== 'string') return false;
+  return Array.isArray(o.albums);
+}
+
+/** `POST /api/playlists` — the created playlist inside a `{ message, playlist }` envelope (#6063). */
+export function isCreatePlaylistResponseShape(v: unknown): v is CreatePlaylistResponse {
+  const o = asObject(v);
+  return o !== null && isPlaylistShape(o.playlist);
 }

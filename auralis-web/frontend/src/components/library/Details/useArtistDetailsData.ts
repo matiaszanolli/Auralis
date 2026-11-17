@@ -12,6 +12,7 @@ import { ApiErrorHandler } from '@/types/api';
 import { transformArtistDetail } from '@/api/transformers/artistTransformer';
 import { isAbortError } from '@/utils/errorGuards';
 import { get } from '@/utils/apiRequest';
+import { isArtistDetailShape } from '@/api/responseGuards';
 import { getArtistTracks, type TrackInArtist } from '@/services/libraryService';
 
 export interface Album {
@@ -61,7 +62,10 @@ export const useArtistDetailsData = (artistId: number) => {
         // their own endpoint, so "All Tracks" and Play All / Shuffle had nothing to
         // work with (#6009). Fetched together; a failed track list is not fatal.
         const [data, trackList] = await Promise.all([
-          get<ArtistDetailApiResponse>(`/api/artists/${artistId}`, { signal: controller.signal }),
+          get<ArtistDetailApiResponse>(`/api/artists/${artistId}`, {
+            signal: controller.signal,
+            validate: isArtistDetailShape,
+          }),
           getArtistTracks(artistId, controller.signal).catch((err) => {
             if (!controller.signal.aborted) console.error('Error fetching artist tracks:', err);
             return null;

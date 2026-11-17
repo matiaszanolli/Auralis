@@ -10,7 +10,8 @@
 
 import { useState, useEffect } from 'react';
 import { transformTracks } from '@/api/transformers/trackTransformer';
-import type { TrackApiResponse } from '@/api/transformers/types';
+import type { AlbumTracksResponse } from '@/api/transformers/types';
+import { isAlbumTracksShape } from '@/api/responseGuards';
 import type { DetailTrack } from '@/types/domain';
 import type { ApiError } from '@/types/api';
 import { ApiErrorHandler } from '@/types/api';
@@ -30,17 +31,6 @@ export interface Album {
   track_count: number;
   total_duration: number;
   tracks?: DetailTrack[];
-}
-
-/** Wire shape of GET /api/albums/{id}/tracks — snake_case, unlike `Album` above. */
-interface AlbumTracksResponse {
-  album_id: number;
-  album_title: string;
-  artist: string | null; // null when the album has no artist (#5905)
-  year?: number | null;
-  genre?: string | null;
-  total_tracks: number;
-  tracks?: TrackApiResponse[];
 }
 
 export const useAlbumDetails = (albumId: number) => {
@@ -68,6 +58,7 @@ export const useAlbumDetails = (albumId: number) => {
         // offer a differentiated recovery action.
         const data = await get<AlbumTracksResponse>(`/api/albums/${albumId}/tracks`, {
           signal: controller.signal,
+          validate: isAlbumTracksShape,
         });
         if (controller.signal.aborted) return;
 

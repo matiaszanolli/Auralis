@@ -167,7 +167,7 @@ describe('PlaylistService', () => {
 
       const result = await playlistService.createPlaylist(request)
 
-      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists', request)
+      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists', request, expect.objectContaining({ validate: expect.any(Function) }))
       expect(result).toEqual(mockPlaylist)
     })
 
@@ -182,7 +182,7 @@ describe('PlaylistService', () => {
 
       await playlistService.createPlaylist(request)
 
-      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists', request)
+      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists', request, expect.objectContaining({ validate: expect.any(Function) }))
     })
 
     it('throws error on creation failure', async () => {
