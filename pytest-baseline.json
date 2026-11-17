@@ -73,8 +73,6 @@
     "tests.stress.test_large_library.TestMemoryManagement::test_gc_performance",
     "tests.stress.test_processing_stress.TestHighVolumeProcessing::test_processing_prioritization",
     "tests.stress.test_processing_stress.TestHighVolumeProcessing::test_processing_queue_overflow",
-    "tests.test_adaptive_processing.TestHybridProcessor::test_adaptive_processing",
-    "tests.test_adaptive_processing.TestIntegration::test_end_to_end_adaptive",
     "tests.test_fix_2166_double_windowing.TestDoubleWindowingFix::test_constant_amplitude_sine_wave_with_zero_db_gains",
     "tests.test_fix_2166_double_windowing.TestDoubleWindowingFix::test_rms_consistency_with_zero_db_gains",
     "tests.test_fix_2166_double_windowing.TestDoubleWindowingFix::test_spectral_content_preserved_with_zero_db_gains",
