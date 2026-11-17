@@ -21,6 +21,16 @@ export interface AlbumApiResponse {
   artwork_url: string | null; // Backend field name
   track_count: number; // Backend field name (snake_case)
   total_duration: number; // Backend field name (snake_case)
+  // Sent on every row (Album.to_dict()); nothing reads them yet. Optional because they are null
+  // until analysis/tags fill them. Pinned against the backend model by
+  // tests/backend/test_api_types_cover_responses_5131.py.
+  declared_track_count?: number | null; // track count declared by tags (track_count is the real one)
+  total_discs?: number | null;
+  avg_dr_rating?: number | null;
+  avg_lufs?: number | null;
+  mastering_consistency?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface AlbumsApiResponse {
@@ -48,6 +58,13 @@ export interface ArtistApiResponse {
    * carried, so `dateAdded` was always undefined (#4833).
    */
   created_at?: string | null;
+  updated_at?: string | null;
+  // Sent on every row (Artist.to_dict()); nothing reads them yet (#5131).
+  genres?: string[] | null;
+  artwork_source?: string | null; // 'musicbrainz', 'discogs', ...
+  normalized_name?: string | null; // canonical form used for duplicate detection
+  total_plays?: number | null;
+  avg_mastering_quality?: number | null;
 }
 
 export interface ArtistsApiResponse {
@@ -95,6 +112,15 @@ export interface TrackApiResponse {
   channels?: number | null;
   format?: string | null;
   filesize?: number | null; // → fileSize
+
+  // Audio analysis and playback statistics — sent on every row (Track.to_dict()); nothing
+  // reads them yet (#5131).
+  dr_rating?: number | null;
+  mastering_quality?: number | null;
+  processing_profile?: string | null;
+  play_count?: number | null;
+  last_played?: string | null;
+  skip_count?: number | null;
 
   // Timestamps
   created_at?: string | null;
