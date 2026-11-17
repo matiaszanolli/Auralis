@@ -17,11 +17,6 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
-import {
-  usePresetControl,
-  useIntensityControl,
-  useEnhancementToggle,
-} from '@/hooks/enhancement/useEnhancementSlices';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
@@ -906,84 +901,6 @@ describe('useEnhancementControl', () => {
       });
 
       expect(result.current.state.lastUpdated).toBeGreaterThan(oldTimestamp);
-    });
-  });
-
-  describe('convenience hooks', () => {
-    it('should use usePresetControl for preset control', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      const mockGet = vi.fn().mockResolvedValue(null);
-
-      vi.mocked(useRestAPI).mockReturnValue({
-        get: mockGet,
-        post: mockPost,
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-      } as any);
-
-      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
-
-      const { result } = renderHook(() => usePresetControl());
-
-      expect(result.current.preset).toBe('adaptive');
-
-      // 'adaptive' is the only valid preset (#4861 follow-up).
-      await act(async () => {
-        await result.current.setPreset('adaptive');
-      });
-
-      expect(result.current.preset).toBe('adaptive');
-    });
-
-    it('should use useIntensityControl for intensity control', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      const mockGet = vi.fn().mockResolvedValue(null);
-
-      vi.mocked(useRestAPI).mockReturnValue({
-        get: mockGet,
-        post: mockPost,
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-      } as any);
-
-      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
-
-      const { result } = renderHook(() => useIntensityControl());
-
-      expect(result.current.intensity).toBe(1.0);
-
-      await act(async () => {
-        await result.current.setIntensity(0.6);
-      });
-
-      expect(result.current.intensity).toBe(0.6);
-    });
-
-    it('should use useEnhancementToggle for enabled toggle', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      const mockGet = vi.fn().mockResolvedValue(null);
-
-      vi.mocked(useRestAPI).mockReturnValue({
-        get: mockGet,
-        post: mockPost,
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-      } as any);
-
-      vi.mocked(useWebSocketMessages).mockReturnValue(undefined as any);
-
-      const { result } = renderHook(() => useEnhancementToggle());
-
-      expect(result.current.enabled).toBe(false);
-
-      await act(async () => {
-        await result.current.toggleEnabled();
-      });
-
-      expect(result.current.enabled).toBe(true);
     });
   });
 

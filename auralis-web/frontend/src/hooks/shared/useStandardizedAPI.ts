@@ -1,5 +1,5 @@
 /**
- * Cache telemetry hooks — `useCacheStats` / `useCacheHealth`
+ * Cache telemetry hook — `useCacheStats`
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * React-Query-backed polling hooks over the cache-monitoring endpoints.
@@ -8,7 +8,7 @@
  *
  * #4693: these used to go through `CacheAwareAPIClient`, the app's third
  * parallel HTTP layer. They now use `utils/apiRequest.ts` like everything
- * else, with the `isCacheStatsShape` / `isCacheHealthShape` guards (#4440)
+ * else, with the `isCacheStatsShape` guard (#4440)
  * carried over as `apiRequest`'s `validate` step — same contract: a bare
  * payload (these endpoints send no envelope), and a throw rather than a silent
  * `null` on a wrong shape or an HTTP error.
@@ -32,9 +32,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CacheStats,
-  CacheHealth,
   isCacheStatsShape,
-  isCacheHealthShape,
 } from '@/services/api/cacheShapeGuards';
 import { get } from '@/utils/apiRequest';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
@@ -110,35 +108,5 @@ export function useCacheStats(): APIRequestState<CacheStats> & {
     loading: query.isLoading,
     error: query.error ? query.error.message : null,
     refetch: stableRefetch,
-  }), [query.data, query.isLoading, query.error, stableRefetch]);
-}
-
-/**
- * Hook for monitoring cache health (#2806: React Query for dedup)
- */
-export function useCacheHealth(refreshInterval: number = 10000): APIRequestState<CacheHealth> & {
-  refetch: () => Promise<void>;
-  isHealthy: boolean;
-  healthStatus: 'healthy' | 'critical';
-} {
-  const query = useQuery<CacheHealth | null>({
-    queryKey: ['cache', 'health'],
-    queryFn: ({ signal }) => get<CacheHealth>('/api/cache/health', { validate: isCacheHealthShape, signal }),
-    refetchInterval: refreshInterval,
-  });
-
-  useCacheClearedInvalidation();
-
-  const refetchRef = useRef(query.refetch);
-  refetchRef.current = query.refetch;
-  const stableRefetch = useCallback(async () => { await refetchRef.current(); }, []);
-
-  return useMemo(() => ({
-    data: query.data ?? null,
-    loading: query.isLoading,
-    error: query.error ? query.error.message : null,
-    refetch: stableRefetch,
-    isHealthy: query.data?.healthy ?? false,
-    healthStatus: query.data?.healthy ? 'healthy' as const : 'critical' as const,
   }), [query.data, query.isLoading, query.error, stableRefetch]);
 }

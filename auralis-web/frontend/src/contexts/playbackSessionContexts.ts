@@ -49,6 +49,9 @@ export interface PlaybackControlsContextValue {
 
   /** Start a track using the current enhancement enabled/preset/intensity state. */
   startTrack: (trackId: number) => Promise<void>;
+  /** After the queue row at `index` was removed: if it was the playing track, move
+   *  playback to the track now in that slot, or stop when none follows (#6016). */
+  followRemovedTrack: (index: number, removedTrackId: number) => Promise<void>;
 
   /** Seek to a position (seconds) in the current track. */
   handleSeek: (position: number) => void;

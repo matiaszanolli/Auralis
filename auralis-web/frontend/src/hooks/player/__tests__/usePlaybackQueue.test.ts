@@ -9,7 +9,7 @@ import { ReactNode, createElement } from 'react';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { usePlaybackQueue, usePlaybackQueueView } from '../usePlaybackQueue';
+import { usePlaybackQueue } from '../usePlaybackQueue';
 import { createTestStore } from '@/test/test-utils';
 import * as useRestAPIModule from '@/hooks/api/useRestAPI';
 import * as useWebSocketModule from '@/hooks/websocket/useWebSocketMessages';
@@ -758,39 +758,6 @@ describe('usePlaybackQueue', () => {
     });
 
     expect(result.current.error).toBeNull();
-  });
-
-  // =========================================================================
-  // usePlaybackQueueView Convenience Hook
-  // =========================================================================
-
-  it('should provide view-only queue access', async () => {
-    vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
-      get: vi.fn().mockResolvedValue({
-        tracks: mockTracks,
-        current_index: 1,
-        shuffle_enabled: true,
-        repeat_mode: 'all',
-        lastUpdated: Date.now(),
-      }),
-      post: vi.fn().mockResolvedValue({}),
-      put: vi.fn().mockResolvedValue({}),
-      delete: vi.fn().mockResolvedValue({}),
-      patch: vi.fn().mockResolvedValue({}),
-      clearError: vi.fn(),
-      isLoading: false,
-      error: null,
-    } as any);
-
-    const { result } = renderHook(() => usePlaybackQueueView(), { wrapper: createWrapper() });
-
-    await waitFor(() => {
-      expect(result.current.queue).toEqual(storedTracks);
-      expect(result.current.currentIndex).toBe(1);
-      expect(result.current.currentTrack).toEqual(storedTracks[1]);
-      expect(result.current.isShuffled).toBe(true);
-      expect(result.current.repeatMode).toBe('all');
-    });
   });
 
   // =========================================================================

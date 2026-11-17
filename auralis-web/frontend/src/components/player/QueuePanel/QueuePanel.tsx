@@ -1,4 +1,5 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
+import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 import { QueuePanelExpanded } from './QueuePanelExpanded';
 import { styles } from './styles';
@@ -36,6 +37,18 @@ const QueuePanelComponent = ({
     isLoading,
     error,
   } = usePlaybackQueue();
+  const { followRemovedTrack } = usePlaybackControls();
+
+  // #6016: removing the current row moves playback to the track that takes its
+  // slot (the session checks it really was the playing track: ids can repeat).
+  const removeTrackFollowingPlayback = useCallback(
+    async (index: number) => {
+      const removedId = index === currentIndex ? queue[index]?.id : undefined;
+      await removeTrack(index);
+      if (removedId != null) await followRemovedTrack(index, removedId);
+    },
+    [currentIndex, queue, removeTrack, followRemovedTrack]
+  );
 
   if (collapsed) {
     return (
@@ -60,7 +73,7 @@ const QueuePanelComponent = ({
       repeatMode={repeatMode}
       isLoading={isLoading}
       error={error}
-      removeTrack={removeTrack}
+      removeTrack={removeTrackFollowingPlayback}
       reorderTrack={reorderTrack}
       toggleShuffle={toggleShuffle}
       setRepeatMode={setRepeatMode}

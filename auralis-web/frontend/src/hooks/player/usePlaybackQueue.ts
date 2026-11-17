@@ -185,24 +185,3 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     ...mutations,
   }), [state, currentTrack, mutations]);
 }
-
-/**
- * Convenience hook for queue without write operations
- *
- * @example
- * ```typescript
- * const { queue, currentTrack, isShuffled } = usePlaybackQueueView();
- * ```
- */
-export function usePlaybackQueueView() {
-  const { queue, currentIndex, currentTrack, isShuffled, repeatMode } =
-    usePlaybackQueue();
-
-  return {
-    queue,
-    currentIndex,
-    currentTrack,
-    isShuffled,
-    repeatMode,
-  };
-}

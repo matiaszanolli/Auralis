@@ -36,6 +36,7 @@ import {
   type PlaybackProgressContextValue,
 } from './playbackSessionContexts';
 import { useAutoAdvance, useStartTrackRetry, useTransportCommand } from './usePlaybackSessionHooks';
+import { useFollowRemovedTrack } from './useFollowRemovedTrack';
 
 const DEBUG = import.meta.env.DEV;
 
@@ -100,6 +101,9 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   );
 
   const startTrack = useStartTrackRetry(gate, startTrackForSettings);
+  const followRemovedTrack = useFollowRemovedTrack({
+    gate, stopPlayback, startTrackForSettings, isRunning: isPlaybackActive && !isPaused,
+  });
 
   const handleSeek = useCallback((position: number) => {
     if (!isStreaming && !currentTrack?.id) {
@@ -256,6 +260,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     isCommandPending,
     error,
     startTrack,
+    followRemovedTrack,
     handleSeek,
     handlePlayPause,
     handleNext,
@@ -264,7 +269,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     handleMuteToggle,
   }), [
     isStreaming, isPlaybackActive, streamingState, isPaused, isSeeking, isCommandPending, error,
-    startTrack, handleSeek, handlePlayPause, handleNext, handlePrevious,
+    startTrack, followRemovedTrack, handleSeek, handlePlayPause, handleNext, handlePrevious,
     handleVolumeChange, handleMuteToggle,
   ]);
 

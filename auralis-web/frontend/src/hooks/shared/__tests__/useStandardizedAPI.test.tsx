@@ -1,5 +1,5 @@
 /**
- * Cache telemetry hook tests — `useCacheStats` / `useCacheHealth`
+ * Cache telemetry hook tests — `useCacheStats`
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Written for #4693, which retires `StandardizedAPIClient` and moves these two
@@ -25,7 +25,6 @@ import { server } from '@/test/mocks/server';
 import { AllProviders } from '@/test/test-utils';
 import {
   useCacheStats,
-  useCacheHealth,
   CACHE_STATS_REFRESH_INTERVAL_MS,
 } from '../useStandardizedAPI';
 import { mockCacheStats } from '@/components/shared/__tests__/test-utils';
@@ -37,7 +36,7 @@ const mockCacheHealth = {
   usage_percent: 45.0,
 };
 
-describe('useCacheStats / useCacheHealth (#4693)', () => {
+describe('useCacheStats (#4693)', () => {
   beforeEach(() => {
     server.use(
       http.get('/api/cache/stats', () => HttpResponse.json(mockCacheStats)),
@@ -94,57 +93,8 @@ describe('useCacheStats / useCacheHealth (#4693)', () => {
       expect(result.current.refetch).toBe(first);
     });
   });
-
-  describe('useCacheHealth', () => {
-    it('resolves the bare payload and derives the health flags', async () => {
-      const { result } = renderHook(() => useCacheHealth(), { wrapper: AllProviders });
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      expect(result.current.data).toEqual(mockCacheHealth);
-      expect(result.current.isHealthy).toBe(true);
-      expect(result.current.healthStatus).toBe('healthy');
-    });
-
-    it('reports critical when the backend says unhealthy', async () => {
-      server.use(
-        http.get('/api/cache/health', () =>
-          HttpResponse.json({ ...mockCacheHealth, healthy: false })
-        )
-      );
-
-      const { result } = renderHook(() => useCacheHealth(), { wrapper: AllProviders });
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      expect(result.current.isHealthy).toBe(false);
-      expect(result.current.healthStatus).toBe('critical');
-    });
-
-    it('reports critical, not healthy, while the request is failing', async () => {
-      // `healthy` defaults to false when data is null, so a failed request
-      // must not read as a healthy cache.
-      server.use(
-        http.get('/api/cache/health', () => HttpResponse.json({ bad: 'shape' }))
-      );
-
-      const { result } = renderHook(() => useCacheHealth(), { wrapper: AllProviders });
-
-      await waitFor(() => expect(result.current.error).not.toBeNull());
-
-      expect(result.current.isHealthy).toBe(false);
-      expect(result.current.healthStatus).toBe('critical');
-    });
-  });
 });
 
-// #4486: the hooks own the dashboards' auto-refresh, but the only component
-// test that could have covered it mocks the hooks wholesale (and is skipped,
-// #4264). Drive the real hooks against MSW and count requests instead.
-//
-// Deliberately no `waitFor` here: under vitest's fake timers Testing Library
-// mis-detects Jest and calls a `jest.advanceTimersByTime` that does not exist.
-// `advanceUntil` steps the fake clock itself, flushing React between steps.
 describe('cache telemetry polling (#4486)', () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -192,26 +142,6 @@ describe('cache telemetry polling (#4486)', () => {
     unmount();
     const atUnmount = hits.count;
     await advance(CACHE_STATS_REFRESH_INTERVAL_MS * 3, 250);
-    expect(hits.count).toBe(atUnmount);
-  });
-
-  it('useCacheHealth polls on the interval it is given, not the default', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const hits = countingHandler('/api/cache/health', mockCacheHealth);
-
-    const { result, unmount } = renderHook(() => useCacheHealth(1000), { wrapper: AllProviders });
-    await advanceUntil(() => result.current.data !== null, 1000);
-    expect(result.current.data).not.toBeNull();
-    const afterInitial = hits.count;
-
-    // Well short of the 10 s default, so a refetch here can only come from
-    // the custom interval being honoured.
-    await advanceUntil(() => hits.count > afterInitial, 2000);
-    expect(hits.count).toBeGreaterThan(afterInitial);
-
-    unmount();
-    const atUnmount = hits.count;
-    await advance(5000, 250);
     expect(hits.count).toBe(atUnmount);
   });
 });
