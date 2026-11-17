@@ -18,20 +18,17 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { ReactNode, createElement } from 'react';
 import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
 import { usePlayEnhanced } from '../usePlayEnhanced';
 import { STREAM_START_WATCHDOG_MS } from '../useAudioStreamingCore';
 import PCMStreamBuffer from '@/services/audio/PCMStreamBuffer';
 import AudioPlaybackEngine from '@/services/audio/AudioPlaybackEngine';
 import * as pcmDecoding from '@/utils/audio/pcmDecoding';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
-import playerReducer, {
+import {
   setVolume as setVolumeAction,
   setMuted as setMutedAction,
 } from '@/store/slices/playerSlice';
-import queueReducer from '@/store/slices/queueSlice';
-import cacheReducer from '@/store/slices/cacheSlice';
-import connectionReducer from '@/store/slices/connectionSlice';
+import { createTestStore } from '@/test/test-utils';
 
 // ============================================================================
 // Module mocks (hoisted by Vitest)
@@ -61,19 +58,6 @@ vi.mock('@/utils/audio/pcmDecoding', () => ({ decodeAudioChunkMessage: vi.fn() }
 // ============================================================================
 // Test infrastructure
 // ============================================================================
-
-function createTestStore() {
-  return configureStore({
-    reducer: {
-      player: playerReducer,
-      queue: queueReducer,
-      cache: cacheReducer,
-      connection: connectionReducer,
-    },
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware({ serializableCheck: false }),
-  });
-}
 
 type TestStore = ReturnType<typeof createTestStore>;
 

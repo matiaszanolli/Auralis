@@ -12,15 +12,13 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { configureStore } from '@reduxjs/toolkit';
-import playerReducer, {
+import {
   setCurrentTime,
   setDuration,
   setIsPlaying,
 } from '@/store/slices/playerSlice';
-import queueReducer, { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
-import cacheReducer from '@/store/slices/cacheSlice';
-import connectionReducer, { setWSConnected, setAPIConnected } from '@/store/slices/connectionSlice';
+import { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
+import { setWSConnected, setAPIConnected } from '@/store/slices/connectionSlice';
 import {
   // Simple selectors
   playerSelectors,
@@ -39,23 +37,11 @@ import {
   optimizedSelectors,
 } from '../index';
 import type { RootState } from '@/store/index';
+import { createTestStore } from '@/test/test-utils';
 
 // ============================================================================
 // Test store helpers
 // ============================================================================
-
-function createTestStore() {
-  return configureStore({
-    reducer: {
-      player: playerReducer,
-      queue: queueReducer,
-      cache: cacheReducer,
-      connection: connectionReducer,
-    },
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware({ serializableCheck: false }),
-  });
-}
 
 type TestStore = ReturnType<typeof createTestStore>;
 

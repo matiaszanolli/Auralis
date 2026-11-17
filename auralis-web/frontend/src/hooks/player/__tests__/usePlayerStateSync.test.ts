@@ -19,14 +19,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { ReactNode, createElement } from 'react';
 import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
 import { usePlayerStateSync } from '../usePlayerStateSync';
-import playerReducer, { setCurrentTrack, setIsPlaying, setMuted, setVolume } from '@/store/slices/playerSlice';
-import queueReducer, { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
-import cacheReducer from '@/store/slices/cacheSlice';
-import connectionReducer from '@/store/slices/connectionSlice';
+import { setCurrentTrack, setIsPlaying, setMuted, setVolume } from '@/store/slices/playerSlice';
+import { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
 import { selectTotalQueueTime } from '@/store/selectors/queue';
+import { createTestStore } from '@/test/test-utils';
 
 // ============================================================================
 // Mock WebSocket context
@@ -40,19 +38,6 @@ vi.mock('@/contexts/WebSocketContext', async (importOriginal) => {
 // ============================================================================
 // Test helpers
 // ============================================================================
-
-function createTestStore() {
-  return configureStore({
-    reducer: {
-      player: playerReducer,
-      queue: queueReducer,
-      cache: cacheReducer,
-      connection: connectionReducer,
-    },
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware({ serializableCheck: false }),
-  });
-}
 
 type TestStore = ReturnType<typeof createTestStore>;
 

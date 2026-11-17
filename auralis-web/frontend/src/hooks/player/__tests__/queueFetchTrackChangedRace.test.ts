@@ -21,34 +21,19 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ReactNode, createElement } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
 import { useQueueFetch } from '../useQueueFetch';
 import { usePlayerStateSync } from '../usePlayerStateSync';
-import playerReducer from '@/store/slices/playerSlice';
-import queueReducer, { selectQueueTracks } from '@/store/slices/queueSlice';
-import cacheReducer from '@/store/slices/cacheSlice';
-import connectionReducer from '@/store/slices/connectionSlice';
+import { selectQueueTracks } from '@/store/slices/queueSlice';
 import * as useRestAPIModule from '@/hooks/api/useRestAPI';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
+import { createTestStore } from '@/test/test-utils';
 
 vi.mock('@/contexts/WebSocketContext', async (importOriginal) => {
   const actual = await importOriginal<typeof WebSocketContextModule>();
   return { ...actual, useWebSocketContext: vi.fn() };
 });
 
-function createStore() {
-  return configureStore({
-    reducer: {
-      player: playerReducer,
-      queue: queueReducer,
-      cache: cacheReducer,
-      connection: connectionReducer,
-    },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware({ serializableCheck: false }),
-  });
-}
-
-type TestStore = ReturnType<typeof createStore>;
+type TestStore = ReturnType<typeof createTestStore>;
 
 function wrapperFor(store: TestStore) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -106,7 +91,7 @@ describe('track_changed racing the REST-seeded queue (#5009)', () => {
       repeat_mode: 'off',
     }));
 
-    const store = createStore();
+    const store = createTestStore();
     const wrapper = wrapperFor(store);
     renderHook(() => {
       useQueueFetch();
