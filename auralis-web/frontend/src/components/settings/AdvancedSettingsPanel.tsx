@@ -139,7 +139,7 @@ export const AdvancedSettingsPanel = ({
       <NumericSettingField
         label="Max Concurrent Scans"
         ariaLabel="Max concurrent scans"
-        description="Number of parallel threads for library scanning"
+        description="How many library scans may run at the same time (each scan is single-threaded)"
         value={maxConcurrentScans}
         min={1}
         max={16}
