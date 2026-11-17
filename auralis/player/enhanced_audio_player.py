@@ -165,16 +165,13 @@ class AudioPlayer(
         """Pause playback"""
         # #5240: record the explicit pause so an in-flight resume
         # (next_track()/previous_track()) honors it.
-        # #5588: set the flag BEFORE the transition, like stop(): the reverse
-        # order raced a concurrent play() (T1 pause() transitions, T2 play()
-        # transitions and clears, T1 then sets) and left PLAYING with the flag
-        # armed. With set-first, play()'s clear wins every interleaving; a
-        # pause() that fails clears the speculative set.
+        # #5588: set the flag BEFORE the transition, like stop(), so play()'s
+        # clear wins every interleaving. A pause() that fails KEEPS it (#6309):
+        # mid-skip the state is briefly STOPPED, and clearing it there dropped
+        # the user's pause. It cannot go stale: only a navigation resume reads
+        # it, and the only other way into PLAYING, play(), clears it.
         self._pause_requested.set()
-        paused = self.playback.pause()
-        if not paused:
-            self._pause_requested.clear()
-        return paused
+        return self.playback.pause()
 
     def stop(self) -> bool:
         """Stop playback"""

@@ -59,14 +59,19 @@ class TestPauseFlagOrdering:
         assert player.playback.state is PlaybackState.PAUSED
         assert player._pause_requested.is_set()
 
-    def test_failed_pause_leaves_the_flag_unset(self):
-        """A pause() on a non-playing player must not arm a stale flag."""
+    def test_failed_pause_keeps_the_flag_but_it_cannot_go_stale(self):
+        """#6309: a failed pause() keeps the flag (mid-skip the state is briefly
+        STOPPED and the navigation resume must honour it). It still cannot
+        leak: the next real play() clears it, so a later skip resumes."""
         player = _make_player()
         player.playback.state = PlaybackState.STOPPED
 
         assert player.pause() is False
-
         assert player.playback.state is PlaybackState.STOPPED
+        assert player._pause_requested.is_set()
+
+        assert player.play() is True
+        assert player.playback.state is PlaybackState.PLAYING
         assert not player._pause_requested.is_set()
 
     def test_play_interleaved_inside_pause_ends_with_the_flag_cleared(self):

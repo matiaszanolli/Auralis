@@ -208,6 +208,26 @@ class TestConcurrentPauseDuringPrevious:
         assert player.is_playing() is False
         assert player.playback.state is PlaybackState.PAUSED
 
+    def test_pause_inside_the_stopped_window_leaves_player_paused(self):
+        """#6309: the gap between #5240 (pause before the swap) and the resume.
+        After load_and_stop() the state is STOPPED, so PlaybackController.pause()
+        fails; AudioPlayer.pause() used to clear the flag on that failure and the
+        resume then played on through the user's pause."""
+        player = _make_player()
+        player.playback.state = PlaybackState.PLAYING
+
+        def load_file_then_pause_while_stopped(_path: str, on_loaded=None) -> bool:
+            if on_loaded is not None:
+                on_loaded()  # load_and_stop(): state is now STOPPED
+            assert player.playback.state is PlaybackState.STOPPED
+            assert player.pause() is False  # the transition itself cannot happen
+            return True
+
+        player.file_manager.load_file.side_effect = load_file_then_pause_while_stopped
+
+        assert player.previous_track() is True
+        assert player.playback.state is PlaybackState.PAUSED
+
     def test_pause_does_not_leak_across_a_later_explicit_resume(self):
         """`_pause_requested` must clear on the next real play(), not linger."""
         player = _make_player()
