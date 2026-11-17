@@ -254,11 +254,6 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
                     error(f"Worker {worker_id} error during processing: {e}")
                     time.sleep(0.1)
 
-            # #3479: Phase 1 drained (or worker is stopping) — record the
-            # transition so on_drained fires when all workers settle.
-            if not self.should_stop:
-                self._on_worker_drained()
-
             # Phase 2: Re-fingerprint tracks whose fingerprint was computed with an
             # older algorithm version.  Only runs when FINGERPRINT_ALGORITHM_VERSION
             # has been bumped; claim_next_outdated_fingerprint() returns None
@@ -277,7 +272,9 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
                     error(f"Worker {worker_id} error during outdated re-fingerprinting: {e}")
                     time.sleep(0.1)
 
-            # #3479: Phase 2 drained — same drain-wave bookkeeping.
+            # #3479: both phases drained — the ONE report this worker makes per wave. It used to
+            # also report after Phase 1, so a worker that finished both phases counted twice
+            # while a slow one was still extracting and on_drained fired early (#6324).
             if not self.should_stop:
                 self._on_worker_drained()
 
