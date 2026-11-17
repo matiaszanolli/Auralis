@@ -85,7 +85,8 @@ class TestJobPool:
         """WIRING: all three processor.process sites in execute_job."""
         source = inspect.getsource(job_execution)
         assert "asyncio.to_thread(processor.process" not in source
-        assert source.count("run_in_job_executor(processor.process") == 3
+        # run_job_dsp (#5978) submits to the job pool via run_in_job_executor.
+        assert source.count("run_job_dsp(timeout, processor.process") == 3
 
 
 def _hung_processor(preset: str | None = "adaptive") -> Mock:

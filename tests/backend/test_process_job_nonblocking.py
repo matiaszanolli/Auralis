@@ -8,6 +8,7 @@ Verifies that:
 """
 
 import asyncio
+import threading
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -100,36 +101,37 @@ async def test_load_audio_offloaded_to_thread():
 
 @pytest.mark.asyncio
 async def test_processor_process_offloaded_to_thread():
-    """processor.process() must be called via asyncio.to_thread()."""
+    """processor.process() must not run on the event-loop thread (#2319).
+
+    Observed rather than spied: the DSP call goes through run_job_dsp (#5978), which
+    wraps it, so its identity no longer reaches asyncio.to_thread.
+    """
     engine = _make_engine()
     job = _make_job()
 
     fake_audio = np.zeros(44100, dtype=np.float32)
     # HybridProcessor.process() returns a bare ndarray, and _execute_job now
     # rejects anything else outright (#3489).
-    fake_result = fake_audio
+    ran_on: list[int] = []
+
+    def process(audio, *args):
+        ran_on.append(threading.get_ident())
+        return fake_audio
 
     mock_processor = MagicMock()
-    mock_processor.process = MagicMock(return_value=fake_result)
-
-    thread_calls: list[object] = []
-    real_to_thread = asyncio.to_thread
-
-    async def spy_to_thread(func, *args, **kwargs):
-        thread_calls.append(func)
-        return await real_to_thread(func, *args, **kwargs)
+    mock_processor.process = process
 
     with (
         patch("core.job_execution.load_audio", return_value=(fake_audio, 44100)),
         patch("core.job_execution.save"),
         patch.object(engine, "_create_processor_config", return_value=_make_config()),
         patch.object(engine, "_get_or_create_processor", return_value=mock_processor),
-        patch("asyncio.to_thread", side_effect=spy_to_thread),
     ):
         await engine.process_job(job)
 
-    assert mock_processor.process in thread_calls, (
-        "processor.process() must be called via asyncio.to_thread() (fixes #2319)"
+    assert ran_on, "processor.process() never ran"
+    assert ran_on[0] != threading.get_ident(), (
+        "processor.process() ran on the event-loop thread (fixes #2319)"
     )
 
 

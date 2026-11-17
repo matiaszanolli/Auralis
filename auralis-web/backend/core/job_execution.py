@@ -47,7 +47,7 @@ from auralis.io.processing import resample_audio
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
 
-from core.executors import run_in_job_executor
+from core.job_budget import run_job_dsp
 from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_store import persist
 
@@ -162,10 +162,7 @@ async def execute_job(
                 reference_audio = await asyncio.to_thread(
                     resample_audio, reference_audio, reference_sr, sample_rate
                 )
-            result = await asyncio.wait_for(
-                run_in_job_executor(processor.process, audio, reference_audio),
-                timeout=timeout,
-            )
+            result = await run_job_dsp(timeout, processor.process, audio, reference_audio)
         else:
             # Fall back to adaptive if the reference is unavailable. The
             # config was already switched to reference/hybrid mode in
@@ -192,18 +189,12 @@ async def execute_job(
             original_mode = processor.config.adaptive.mode
             processor.config.set_processing_mode("adaptive")
             try:
-                result = await asyncio.wait_for(
-                    run_in_job_executor(processor.process, audio),
-                    timeout=timeout,
-                )
+                result = await run_job_dsp(timeout, processor.process, audio)
             finally:
                 processor.config.set_processing_mode(original_mode)
     else:
         # Adaptive mode
-        result = await asyncio.wait_for(
-            run_in_job_executor(processor.process, audio),
-            timeout=timeout,
-        )
+        result = await run_job_dsp(timeout, processor.process, audio)
 
     await engine._notify_progress(job.job_id, 80.0)
 
