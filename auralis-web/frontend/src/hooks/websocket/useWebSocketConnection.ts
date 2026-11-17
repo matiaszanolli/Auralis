@@ -18,18 +18,16 @@
  */
 
 import { useReconnectOnNetwork } from './useReconnectOnNetwork';
-import { DEFAULT_MAX_RECONNECT_ATTEMPTS, DEV_MAX_RECONNECT_ATTEMPTS } from '@/config/timing';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { WebSocketManager } from '@/utils/errorHandling';
 import {
   closeCurrentManager,
   connState,
-  handleSocketFrame,
-  replayQueueAndResume,
   type ConnectionStatus,
   type DispatchMessage,
   type OutgoingWebSocketMessage,
 } from '@/hooks/websocket/websocketConnectionCore';
+import { attachSocketHandlers, createSingletonManager } from './websocketConnectionLifecycle';
 import { useOutgoingChannel } from './useOutgoingChannel';
 
 // Re-export the shared connection types + test reset so existing importers
@@ -86,50 +84,11 @@ export function useWebSocketConnection({
   const dispatchRef = useRef(dispatchMessage);
   dispatchRef.current = dispatchMessage;
 
-  /**
-   * Wire this hook instance's state and dispatch onto a manager.
-   *
-   * Applied on the reuse path too (#4522), not just at construction.
-   * `WebSocketManager.on()` assigns a single handler slot per event rather than
-   * appending, so re-attaching replaces — it cannot duplicate dispatches. A
-   * consumer that took the reuse path without this kept its `mountedRef` and
-   * `dispatchRef` unwired: it would never see inbound frames and its
-   * `isConnected` / `connectionStatus` would never move.
-   */
-  const attachHandlers = useCallback((manager: WebSocketManager) => {
-    // Inbound frames (text JSON + binary PCM) — parsing/pairing/ping lives in
-    // the core helper; it dispatches via the latest provider callback.
-    manager.on('message', (event) => {
-      handleSocketFrame(event, manager, dispatchRef.current);
-    });
-
-    manager.on('open', () => {
-      console.log('✅ WebSocket connected (singleton)');
-      if (mountedRef.current) {
-        setIsConnected(true);
-        setConnectionStatus('connected');
-      }
-      // Flush the offline queue and re-issue the active stream (#2385/#3185/#3345).
-      replayQueueAndResume(manager, messageQueueRef.current);
-    });
-
-    manager.on('error', (event: Event) => {
-      console.error('❌ WebSocket error:', event);
-      // Only update state if component is still mounted
-      if (mountedRef.current) {
-        setConnectionStatus('error');
-      }
-    });
-
-    manager.on('close', () => {
-      console.log('🔌 WebSocket disconnected (will auto-reconnect)');
-      // Only update state if component is still mounted
-      if (mountedRef.current) {
-        setIsConnected(false);
-        setConnectionStatus('disconnected');
-      }
-    });
-  }, []);
+  const attachHandlers = useCallback(
+    (manager: WebSocketManager) =>
+      attachSocketHandlers(manager, { dispatchRef, mountedRef, messageQueueRef, setIsConnected, setConnectionStatus }),
+    []
+  );
 
   /**
    * Connect to WebSocket (Uses WebSocketManager with singleton pattern).
@@ -186,32 +145,11 @@ export function useWebSocketConnection({
     setConnectionStatus('connecting');
 
     try {
-      // Create WebSocketManager with Phase 3c error handling.
-      // In development, limit reconnection attempts to reduce console spam.
-      const maxAttempts = import.meta.env.DEV
-        ? DEV_MAX_RECONNECT_ATTEMPTS
-        : DEFAULT_MAX_RECONNECT_ATTEMPTS;
-      const manager = new WebSocketManager(url, {
-        // Backoff delays and multiplier come from WebSocketManager's defaults
-        // (utils/errorHandling.ts); only the dev attempt cap is overridden here.
-        maxReconnectAttempts: maxAttempts,
-        onReconnectAttempt: (attempt, delay) => {
-          console.log(`🔄 Reconnection attempt ${attempt}/${maxAttempts} (waiting ${delay}ms)`);
-        },
-        onMaxAttemptsExceeded: () => {
-          // Retire the exhausted manager (#4522). Widening the reuse guard to
-          // "a manager exists" would otherwise strand the app on one that has
-          // permanently given up — it never reconnects and, because it is still
-          // the singleton, no later connect() would ever replace it.
-          console.warn('🔌 WebSocket gave up reconnecting - retiring the singleton');
-          if (connState.manager === manager) {
-            closeCurrentManager();
-          }
-          if (mountedRef.current) {
-            setIsConnected(false);
-            setConnectionStatus('error');
-          }
-        },
+      const manager = createSingletonManager(url, () => {
+        if (mountedRef.current) {
+          setIsConnected(false);
+          setConnectionStatus('error');
+        }
       });
 
       // Store as singleton
