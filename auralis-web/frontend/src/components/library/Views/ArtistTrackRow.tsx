@@ -2,7 +2,7 @@
  * ArtistTrackRow - Individual track row in artist tracks table
  */
 
-import { KeyboardEvent, memo } from 'react';
+import { KeyboardEvent, Ref, memo } from 'react';
 import { TableCell, Typography, Box } from '@mui/material';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import Pause from '@mui/icons-material/Pause';
@@ -17,6 +17,8 @@ interface ArtistTrackRowProps {
   isPlaying: boolean;
   onTrackClick: (track: Track) => void;
   formatDuration: (seconds: number) => string;
+  /** Lets the table measure one rendered row to size its windowing spacers (#6023). */
+  rowRef?: Ref<HTMLTableRowElement>;
 }
 
 const ArtistTrackRowImpl = ({
@@ -26,9 +28,11 @@ const ArtistTrackRowImpl = ({
   isPlaying,
   onTrackClick,
   formatDuration,
+  rowRef,
 }: ArtistTrackRowProps) => {
   return (
     <StyledTableRow
+      ref={rowRef}
       onClick={() => onTrackClick(track)}
       className={isCurrentTrack ? 'current-track' : ''}
       tabIndex={0}
@@ -99,7 +103,8 @@ export const ArtistTrackRow = memo(ArtistTrackRowImpl, (prev, next) =>
   prev.isCurrentTrack === next.isCurrentTrack &&
   (prev.isPlaying === next.isPlaying || (!prev.isCurrentTrack && !next.isCurrentTrack)) &&
   prev.onTrackClick === next.onTrackClick &&
-  prev.formatDuration === next.formatDuration
+  prev.formatDuration === next.formatDuration &&
+  prev.rowRef === next.rowRef
 );
 
 export default ArtistTrackRow;
