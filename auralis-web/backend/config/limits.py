@@ -248,6 +248,13 @@ RATE_LIMIT_MAX_WINDOW_ENTRIES: int = 10_000
 # (play/seek/pause commands, small JSON payloads) with headroom to spare.
 WS_MAX_MESSAGE_SIZE: int = 64 * 1024
 
+# Most WebSocket connections the backend holds at once; the next one is refused with close code 1013
+# ("try again later"). A single-user desktop app has one or two legitimate sockets (the renderer, a
+# reconnect overlapping its dying predecessor), so this is generous headroom, not a tuning knob: it
+# exists so a runaway local process cannot grow active_connections - and every broadcast's fan-out -
+# without bound (#6171).
+WS_MAX_CONNECTIONS: int = 16
+
 # Per-connection message rate limit: at most this many messages accepted
 # within WS_MESSAGE_WINDOW_SECONDS before WebSocketRateLimiter starts
 # rejecting (#3811 also maintains a per-client-IP fallback bucket so closing

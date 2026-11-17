@@ -15,6 +15,8 @@ from typing import Any, NoReturn
 
 from fastapi import WebSocket
 
+from config.limits import WS_MAX_CONNECTIONS
+
 logger = logging.getLogger(__name__)
 
 # Allowed origins for WebSocket connections — single authoritative allowlist
@@ -99,7 +101,7 @@ class ConnectionManager:
         self._lock = asyncio.Lock()
 
     @staticmethod
-    async def _reject_origin(websocket: WebSocket, reason: str) -> NoReturn:
+    async def _reject_origin(websocket: WebSocket, reason: str, code: int = 1008) -> NoReturn:
         """Complete the handshake, then close with 1008 (Policy Violation), and raise.
 
         A close *before* accept() is answered as an HTTP 403 handshake failure,
@@ -110,7 +112,7 @@ class ConnectionManager:
         socket, so accepting here grants no access.
         """
         await websocket.accept()
-        await websocket.close(code=1008)
+        await websocket.close(code=code)
         raise WebSocketOriginRejected(reason)
 
     async def connect(self, websocket: WebSocket) -> None:
@@ -149,7 +151,15 @@ class ConnectionManager:
 
         await websocket.accept()
         async with self._lock:
-            self.active_connections.append(websocket)
+            full = len(self.active_connections) >= WS_MAX_CONNECTIONS
+            if not full:
+                self.active_connections.append(websocket)
+        if full:
+            # Checked under the lock AFTER accept, so two handshakes that both passed an earlier
+            # check cannot both register (#6171). 1013: try again later, not a policy refusal.
+            logger.warning(f"WebSocket connection refused: {WS_MAX_CONNECTIONS} connections already open")
+            await websocket.close(code=1013)
+            raise WebSocketOriginRejected(f"connection limit ({WS_MAX_CONNECTIONS}) reached")
         client = websocket.client
         client_id = f"{client.host}:{client.port}" if client else "unknown"
         # DEBUG, not INFO (#3903): routine once-per-connection traffic (every
