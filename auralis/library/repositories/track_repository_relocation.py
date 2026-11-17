@@ -19,7 +19,7 @@ from ...utils.logging import info
 from ..models import Track
 from ..path_key import make_filepath_key
 from .base import BaseRepository
-from .track_repository_maintenance import _file_is_definitely_missing
+from .track_missing_files import _file_is_definitely_missing
 from .track_repository_mutation import _reload_detached
 
 # Same bytes give the same duration; the slack only absorbs analyzer changes

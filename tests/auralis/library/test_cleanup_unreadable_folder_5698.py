@@ -20,7 +20,7 @@ import pytest
 from sqlalchemy import func, select
 
 from auralis.library.models import Track, track_playlist
-from auralis.library.repositories.track_repository_maintenance import (
+from auralis.library.repositories.track_missing_files import (
     _file_is_definitely_missing,
     _track_file_is_missing,
 )

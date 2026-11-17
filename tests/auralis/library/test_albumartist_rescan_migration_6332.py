@@ -18,7 +18,7 @@ import auralis.library.migrations as migrations_pkg
 from auralis.__version__ import __db_schema_version__
 from auralis.library.migration_manager import MigrationManager
 from auralis.library.models import Album, Artist, Track
-from auralis.library.repositories.track_repository_mutation import _audio_changed
+from auralis.library.repositories.track_audio_change import _audio_changed
 from auralis.library.scanner.batch_processor import BatchProcessor
 
 MIGRATIONS = Path(migrations_pkg.__file__).parent

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from ...utils.logging import error, warning
-from ..repositories.track_repository_mutation import MTIME_TOLERANCE_SEC
+from ..repositories.track_audio_change import MTIME_TOLERANCE_SEC
 from ..scan_models import ScannedTrackRef, ScanResult
 
 
