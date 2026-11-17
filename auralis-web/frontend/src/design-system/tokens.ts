@@ -13,14 +13,13 @@
 
 import { colors } from './tokens/colors';
 import { typography } from './tokens/typography';
-import { spacing, borderRadius, blur, opacity, zIndex, breakpoints } from './tokens/layout';
-import { shadows, elevation, transitions, audioReactive, animations } from './tokens/effects';
+import { spacing, borderRadius, zIndex, breakpoints } from './tokens/layout';
+import { shadows, transitions, animations } from './tokens/effects';
 import { gradients, glass } from './tokens/surfaces';
-import { numbersPolicy, visualization, components } from './tokens/semantics';
+import { components } from './tokens/semantics';
 
 export const tokens = {
-  colors, spacing, typography, borderRadius, shadows, blur, elevation,
-  opacity, transitions, audioReactive, numbersPolicy, visualization,
+  colors, spacing, typography, borderRadius, shadows, transitions,
   zIndex, breakpoints, components, gradients, glass, animations,
 } as const;
 

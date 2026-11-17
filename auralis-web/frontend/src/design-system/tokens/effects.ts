@@ -36,35 +36,6 @@ export const shadows = {
 } as const;
 
   /**
-   * Elevation System (UX Polish - Phase 4b)
-   * Standardized depth patterns for consistent visual hierarchy
-   *
-   * Based on shadow-based depth (no hard borders) established in Phases 1-4a:
-   * - Cards use resting + hover elevations
-   * - Panels use separation shadows (left/right)
-   * - Sections use subtle background differences + spacing
-   */
-export const elevation = {
-    // Card elevations (track cards, album cards)
-    card: {
-      resting: '0 2px 8px rgba(0, 0, 0, 0.15)',     // Subtle depth at rest
-      hover: '0 8px 24px rgba(0, 0, 0, 0.25)',      // Clear elevation on hover
-    },
-
-    // Panel separations (sidebar, right panel)
-    panel: {
-      left: '-2px 0 16px rgba(0, 0, 0, 0.12)',      // Right panel (left shadow)
-      right: '2px 0 16px rgba(0, 0, 0, 0.12)',      // Sidebar (right shadow)
-    },
-
-    // Section depth (internal components)
-    section: {
-      subtle: '0 1px 4px rgba(0, 0, 0, 0.08)',      // Very subtle separation
-      medium: '0 2px 8px rgba(0, 0, 0, 0.12)',      // Medium depth
-    },
-} as const;
-
-  /**
    * Transition System (smooth, intentional animations)
    */
   /**
@@ -117,32 +88,6 @@ export const transitions = {
     transform: '600ms transform cubic-bezier(0.25, 0.1, 0.25, 1)',
     opacity: '450ms opacity cubic-bezier(0.4, 0, 0.6, 1)',
     all: '450ms all cubic-bezier(0.4, 0, 0.6, 1)',
-} as const;
-
-  /**
-   * Audio-Reactive Motion (Style Guide §6.3)
-   * Rules:
-   * - Heavy smoothing
-   * - No frame-perfect sync
-   * - Motion represents trend, not sample data
-   * - UI should feel like it's interpreting, not measuring
-   */
-export const audioReactive = {
-    // Timing
-    lagMs: 100,           // Lag audio by 80-120ms (middle)
-    lagMinMs: 80,         // Minimum lag
-    lagMaxMs: 120,        // Maximum lag
-
-    // Smoothing (heavy smoothing required)
-    smoothingFactor: 0.85, // High smoothing (0 = none, 1 = max)
-    decayRate: 0.92,       // Slow decay for trailing visuals
-
-    // Update rate
-    updateIntervalMs: 50,  // ~20fps max for visuals (not frame-perfect)
-
-    // CSS transitions for audio-reactive elements
-    transition: '100ms cubic-bezier(0.25, 0.1, 0.25, 1)',
-    glowTransition: '150ms cubic-bezier(0.25, 0.1, 0.25, 1)',
 } as const;
 
   /**

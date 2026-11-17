@@ -252,7 +252,7 @@ Motion in Auralis is:
 |-------------|----------|-------|
 | Hover | 120–180ms | `transitions.hover` |
 | State change | 300–600ms | `transitions.stateChange` |
-| Audio-reactive | Lag audio by ~80–120ms | `audioReactive.lagMs` |
+| Audio-reactive | Lag audio by ~80–120ms | (a rule; no token consumes it, #6062) |
 
 **Forbidden**:
 - No fast oscillations
@@ -350,11 +350,6 @@ tokens.colors.audioSemantic.spatial // Cyan for spatial/width
 // Motion
 tokens.transitions.hover          // 150ms
 tokens.transitions.stateChange    // 450ms
-tokens.audioReactive.lagMs        // 100ms audio lag
-
-// Visualization policy
-tokens.numbersPolicy.defaultVisibility // 'hidden'
-tokens.visualization.allowed      // ['flowingWaves', 'halos', ...]
 ```
 
 ### Quick Reference Card

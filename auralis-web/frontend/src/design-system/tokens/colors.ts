@@ -81,9 +81,6 @@ export const colors = {
       // Magenta/Pink - Harmonic richness, vibrancy
       harmonic: '#EC4899',
       harmonicGlow: 'rgba(236, 72, 153, 0.4)',
-      // Darkened harmonic accent (#3949) — the dark-mode neon purple/magenta,
-      // kept distinct from the brand violet. Was a magic hex in themeConfig.ts.
-      harmonicDark: '#C44569',
     },
 
     /**
@@ -110,9 +107,6 @@ export const colors = {
       // convenience names, not backwards-compat shims (#4402).
       tertiary: 'rgba(255, 255, 255, 0.60)',  // Maps to metadata
       muted: 'rgba(255, 255, 255, 0.50)',     // Between metadata and disabled
-
-      // Inverse (for light backgrounds)
-      inverse: '#0D111A',
     },
 
     // Border colors (using soft opacity + brand colors)
@@ -188,14 +182,7 @@ export const colors = {
      * Ready-to-use color combinations for typical UI states.
      */
     utility: {
-      // Hover/active backgrounds
-      hoverBg: 'rgba(115, 102, 240, 0.08)',
-      activeBg: 'rgba(115, 102, 240, 0.20)',
       disabledBg: 'rgba(115, 102, 240, 0.05)',
-
-      // Focus rings and glows
-      focusRing: '0 0 0 3px rgba(115, 102, 240, 0.10)',
-      focusGlow: '0 0 12px rgba(115, 102, 240, 0.30)',
 
       // Destructive actions
       error: '#EF4444',
@@ -206,7 +193,6 @@ export const colors = {
       errorGlow: 'rgba(239, 68, 68, 0.20)',       // error banner box-shadow tint (#3980)
 
       // Success backgrounds
-      successBg: 'rgba(16, 185, 129, 0.10)',
     },
 
     // #5646: the `export` palettes (#3596 — resolved colors for hypothetical
@@ -244,13 +230,6 @@ export const colors = {
         error: '#DC2626',       // semantic.error, darkened: 4.6:1
         warning: '#B45309',     // semantic.warning, darkened: 4.8:1
         info: '#3B82F6',        // matches semantic.info
-      },
-      neon: {
-        pink: '#D9577E',
-        purple: '#A03D5A',
-        blue: '#3B82F6',
-        cyan: '#10B981',
-        orange: '#F59E0B',
       },
     },
 } as const;

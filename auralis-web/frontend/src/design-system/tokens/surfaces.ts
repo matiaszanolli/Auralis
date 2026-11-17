@@ -11,22 +11,15 @@
 export const gradients = {
     // Brand gradients (solid)
     aurora: 'linear-gradient(135deg, #6F62EC 0%, #5A5CC4 100%)',              // Aurora (Soft Violet → darker); light stop 4.53:1 with white label (#5675)
-    auroraSoft: 'linear-gradient(135deg, rgba(115, 102, 240, 0.80) 0%, rgba(90, 92, 196, 0.80) 100%)', // Aurora soft (overlays)
-    auroraVertical: 'linear-gradient(180deg, #7366F0 0%, #5A5CC4 100%)',      // Aurora vertical (headers)
     aqua: 'linear-gradient(135deg, #47D6FF 0%, #00BCC4 100%)',                // Aqua (audio-reactive)
     darkSubtle: 'linear-gradient(180deg, #1B232E 0%, #131A24 100%)',          // Dark subtle (background transitions)
 
     // Glass gradients (translucent overlays)
-    glassViolet: 'linear-gradient(135deg, rgba(115, 102, 240, 0.08) 0%, rgba(90, 92, 196, 0.12) 100%)',   // Glass violet tint
-    glassAqua: 'linear-gradient(135deg, rgba(71, 214, 255, 0.06) 0%, rgba(0, 188, 196, 0.10) 100%)',     // Glass aqua tint
     glassShimmer: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(255, 255, 255, 0.08) 100%)', // Glass shimmer
     shimmerSweep: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%)', // Card hover shimmer sweep (#4199) — single source for track/album cards
 
-    // Mesh gradients (multi-color glass)
-    glassMesh: 'radial-gradient(at 0% 0%, rgba(115, 102, 240, 0.15) 0%, transparent 50%), radial-gradient(at 100% 100%, rgba(71, 214, 255, 0.12) 0%, transparent 50%)',
 
     // Border gradients (for glass edges)
-    borderGlow: 'linear-gradient(135deg, rgba(115, 102, 240, 0.4) 0%, rgba(71, 214, 255, 0.3) 100%)',
     borderSubtle: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.12) 100%)',
 
     // Decorative gradients (for album art placeholders, mood visualization)
@@ -45,12 +38,6 @@ export const gradients = {
       gradientRose: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
     },
 
-    // Overlay gradients (for fades, scrim effects)
-    overlay: {
-      bottomFade: 'linear-gradient(to top, rgba(11, 16, 32, 0.8), transparent)',
-      topFade: 'linear-gradient(to bottom, rgba(11, 16, 32, 0.8), transparent)',
-      radialDark: 'radial-gradient(circle, transparent 0%, rgba(11, 16, 32, 0.6) 100%)',
-    },
 } as const;
 
   /**
@@ -117,21 +104,4 @@ export const glass = {
       boxShadow: '0 16px 48px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -1px 0 rgba(0, 0, 0, 0.20)',
     },
 
-    // Violet-tinted glass (accent surfaces - playback/active states)
-    violet: {
-      background: 'linear-gradient(135deg, rgba(115, 102, 240, 0.12) 0%, rgba(21, 29, 47, 0.50) 100%)',
-      backdropFilter: 'blur(10px) saturate(1.15)',
-      border: 'none',
-      // Violet bevel
-      boxShadow: '0 8px 32px rgba(115, 102, 240, 0.20), inset 0 1px 0 rgba(115, 102, 240, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.20)',
-    },
-
-    // Aqua-tinted glass (audio-reactive surfaces - processing/energy)
-    aqua: {
-      background: 'linear-gradient(135deg, rgba(71, 214, 255, 0.10) 0%, rgba(21, 29, 47, 0.50) 100%)',
-      backdropFilter: 'blur(10px) saturate(1.15)',
-      border: 'none',
-      // Aqua bevel
-      boxShadow: '0 8px 32px rgba(71, 214, 255, 0.18), inset 0 1px 0 rgba(71, 214, 255, 0.20), inset 0 -1px 0 rgba(0, 0, 0, 0.20)',
-    },
 } as const;

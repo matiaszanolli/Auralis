@@ -49,56 +49,6 @@ export const borderRadius = {
 } as const;
 
   /**
-   * Backdrop Blur System (Glassmorphism)
-   * Premium translucent surfaces with background blur
-   */
-export const blur = {
-    none: 'none',
-    xs: 'blur(4px)',
-    sm: 'blur(8px)',
-    md: 'blur(12px)',
-    lg: 'blur(16px)',
-    xl: 'blur(24px)',
-    xxl: 'blur(32px)',
-} as const;
-
-  /**
-   * Opacity System (UX Polish - Phase 4b)
-   * Standardized opacity levels for fading UI elements
-   *
-   * Based on fade patterns established in Phases 1-4a:
-   * - Infrastructure elements (labels, dividers) fade more (~40-60%)
-   * - Inactive content (icons, text) fade less (~15-30%)
-   * - Duration badges and secondary UI fade moderately (~20-40%)
-   */
-export const opacity = {
-    // Infrastructure (should recede into background)
-    infrastructure: {
-      labels: 0.6,        // Section labels, dividers (~40% fade)
-      dividers: 0.5,      // Dividers between sections (~50% fade)
-    },
-
-    // Inactive states (reduce prominence, not hide)
-    inactive: {
-      icons: 0.7,         // Inactive navigation icons (~30% fade)
-      text: 0.75,         // Inactive navigation text (~25% fade)
-      labels: 0.85,       // Parameter labels (~15% fade)
-    },
-
-    // Secondary UI elements
-    secondary: {
-      badges: 0.6,        // Duration badges at rest (~40% fade)
-      headers: 0.8,       // Section headers (~20% fade)
-    },
-
-    // Active/visible states (full visibility)
-    active: {
-      full: 1.0,          // Active/important elements
-      emphasized: 1.0,    // Emphasized content
-    },
-} as const;
-
-  /**
    * Z-Index Scale
    */
 export const zIndex = {
