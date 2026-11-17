@@ -30,6 +30,8 @@ from config.limits import (
 )
 from core.encoding.atomic_io import PARTIAL_MAX_AGE_SECONDS, cleanup_partial_files
 
+from .decode_temps import reclaim_leftover_decode_wavs
+
 logger = logging.getLogger(__name__)
 
 
@@ -94,11 +96,8 @@ def reclaim_leftover_stream_temps(temp_root: Path, max_age_hours: float = 1.0) -
     skipped = 0
     cutoff = time.time() - (max_age_hours * 3600)
 
-    # #5253: auralis_seekable_* carries no PID tag at all (SeekableSource
-    # never adopted the #4713 tagging scheme), so owning_pid_from_stream_temp_name
-    # correctly returns None for it below and every match falls straight to
-    # the age-based guard — the same safe default an untagged auralis_stream_*
-    # directory already gets.
+    # #5253: auralis_seekable_* has no PID tag, so every match falls to the age guard below,
+    # the same default an untagged auralis_stream_* directory gets.
     leftovers = itertools.chain(
         temp_root.glob(f"{STREAM_TEMP_PREFIX}*"),
         temp_root.glob(f"{SEEKABLE_TEMP_PREFIX}*"),
@@ -255,6 +254,6 @@ async def _cleanup_temp_directories() -> None:
     # but never called it from anywhere but its own test.
     await asyncio.to_thread(cleanup_partial_files, chunk_dir, partial_min_age)
 
-    # Sweep temp WAVs orphaned by interrupted compressed-format streams (#3877),
-    # skipping any a live process still owns (#4713).
+    # Temp WAVs orphaned by interrupted streams (#3877, skipping live owners, #4713) and decodes (#5734).
     await asyncio.to_thread(reclaim_leftover_stream_temps, temp_root)
+    await asyncio.to_thread(reclaim_leftover_decode_wavs, temp_root)

@@ -21,6 +21,7 @@ from pathlib import Path
 import numpy as np
 
 from ...utils.logging import Code, ModuleError, debug, warning
+from .decode_temp import DECODE_TEMP_PREFIX
 from .ffmpeg_command import build_ffmpeg_cmd, check_truncation
 from .ffmpeg_path_guard import ffmpeg_input_path
 from .ffmpeg_probe import (
@@ -135,9 +136,8 @@ def _temp_wav_path(temp_folder: str | None) -> Path:
     else:
         temp_dir = Path(tempfile.gettempdir())
 
-    # Use mkstemp for unique temp filenames — prevents collision when two
-    # threads concurrently load files with the same stem (#2908).
-    fd, temp_wav_str = tempfile.mkstemp(suffix='.wav', dir=str(temp_dir), prefix='auralis_')
+    # mkstemp: unique names, so two threads loading files with one stem cannot collide (#2908).
+    fd, temp_wav_str = tempfile.mkstemp(suffix='.wav', dir=str(temp_dir), prefix=DECODE_TEMP_PREFIX)
     os.close(fd)  # Close fd so FFmpeg can write to the path
     return Path(temp_wav_str)
 

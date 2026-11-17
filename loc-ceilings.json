@@ -5,7 +5,7 @@
     "auralis-web/backend/cache/manager.py": 266,
     "auralis-web/backend/config/bootstrap.py": 155,
     "auralis-web/backend/config/fallback_routes.py": 204,
-    "auralis-web/backend/config/startup/tempfiles.py": 260,
+    "auralis-web/backend/config/startup/tempfiles.py": 259,
     "auralis-web/backend/core/audio_stream_controller.py": 296,
     "auralis-web/backend/core/audio_validation.py": 119,
     "auralis-web/backend/core/chunk_boundary_manager.py": 235,
