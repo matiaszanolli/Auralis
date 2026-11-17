@@ -65,10 +65,9 @@ class TestCatchUnwindPresent:
         assert BINDINGS_SRC.exists(), f"py_bindings.rs not found at {BINDINGS_SRC}"
         return BINDINGS_SRC.read_text()
 
-    @pytest.mark.parametrize(
-        "call",
-        ["fingerprint_compute::compute_complete_fingerprint(", "processor.process_chunks("],
-    )
+    # The fingerprint is the only DSP call left in the bindings: the process_chunks
+    # binding was deleted with chunk_processor.rs (#5738).
+    @pytest.mark.parametrize("call", ["fingerprint_compute::compute_complete_fingerprint("])
     def test_dsp_call_is_wrapped_by_catch_unwind(self, call):
         src = self._src()
         idx = src.find(call)
