@@ -30,7 +30,7 @@
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useDispatch, useStore } from 'react-redux';
 import type { AppDispatch, RootState } from '@/store';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
@@ -43,6 +43,7 @@ import { setCurrentTrack, setIsPlaying, setCurrentTime, setVolume } from '@/stor
 import { setCurrentIndex } from '@/store/slices/queueSlice';
 import type { RawPlayerStateData } from '@/types/websocket';
 import { applyPlayerStateSnapshot } from './playerStateSnapshot';
+import { acceptSeq, isStaleSeq, useSyncWatermarks } from './playerSyncWatermarks';
 
 /** Stands in for an absent context's `subscribe`: nothing to subscribe to, nothing to undo. */
 const noopSubscribe = (() => () => undefined) as unknown as SubscribeFn;
@@ -59,52 +60,13 @@ export function usePlayerStateSync() {
   // every state change.
   const store = useStore<RootState>();
   const { subscribe } = useWebSocketContext();
-  // Highest `seq` applied so far (fixes #3732). The backend broadcasts
-  // player_state outside its update lock, so concurrent update_state() calls
-  // can deliver snapshots out of order; drop anything older than what we've
-  // already applied instead of regressing the UI to stale state.
-  const lastSeenSeqRef = useRef(0);
-
-  // Highest track_changed `seq` applied so far (#4582). This is a SEPARATE
-  // watermark from lastSeenSeqRef above, not a shared one: track_changed's
-  // seq comes from NavigationService's own counter (it mutates the engine's
-  // queue, not PlayerStateManager.state, so there is no shared generation to
-  // draw from — see the backend's _TrackChangeSequencer). Comparing it
-  // against lastSeenSeqRef would reject valid track_changed events any time
-  // the two counters happened to disagree in magnitude.
-  const lastSeenTrackChangedSeqRef = useRef(0);
-
-  // Discrete transport events share one backend sequence across both REST
-  // PlaybackService broadcasts and WebSocket-native pause/resume/stop replies
-  // (#5294). A single watermark across all four event types is essential: a
-  // delayed playback_started must not overwrite a newer playback_paused.
-  // Volume is independent state and therefore has its own sequence domain.
-  const lastSeenTransportEventSeqRef = useRef(0);
-  const lastSeenVolumeEventSeqRef = useRef(0);
-
-  // A backend restart resets every one of these counters (fresh process), but
-  // the refs survive the reconnect — every post-restart frame would otherwise
-  // be dropped as "older" until the counters climbed back past the pre-restart
-  // max (#4338). The restart is detected from the snapshot itself: each
-  // player_state carries the backend's per-process server_instance_id, and the
-  // server pushes one immediately after accept(). Resetting on that change, in
-  // the same handler that applies the snapshot, cannot lose the race the old
-  // useEffect([connectionStatus]) reset did — that ran after React rendered
-  // 'connected', by which point the first post-restart frame could already
-  // have been dropped against the stale watermark (#5882). A reconnect to the
-  // same process keeps its counters, so it needs no reset.
-  const serverInstanceIdRef = useRef<string | null>(null);
+  const watermarks = useSyncWatermarks();
 
   // The handlers are rebuilt each render and read through useMessageSubscriptions' ref, so the eight
   // subscriptions are made once; everything they touch (dispatch, store, the watermark refs) is
   // stable (#6041).
-  const shouldApplyTransportEvent = (message: { data?: { seq?: number } }): boolean => {
-    const data = message.data;
-    if (typeof data?.seq !== 'number') return true;
-    if (data.seq < lastSeenTransportEventSeqRef.current) return false;
-    lastSeenTransportEventSeqRef.current = data.seq;
-    return true;
-  };
+  const shouldApplyTransportEvent = (message: { data?: { seq?: number } }): boolean =>
+    acceptSeq(watermarks.transport, message.data?.seq);
 
   const handlers: MessageHandlers = {
     player_state: (message) => {
@@ -112,21 +74,8 @@ export function usePlayerStateSync() {
         const state: Partial<RawPlayerStateData> | undefined = message.data;
         if (!state || typeof state !== 'object') return;
 
-        const instanceId = state.server_instance_id;
-        if (typeof instanceId === 'string' && instanceId !== serverInstanceIdRef.current) {
-          if (serverInstanceIdRef.current !== null) {
-            lastSeenSeqRef.current = 0;
-            lastSeenTrackChangedSeqRef.current = 0;
-            lastSeenTransportEventSeqRef.current = 0;
-            lastSeenVolumeEventSeqRef.current = 0;
-          }
-          serverInstanceIdRef.current = instanceId;
-        }
-
-        if (typeof state.seq === 'number') {
-          if (state.seq < lastSeenSeqRef.current) return;
-          lastSeenSeqRef.current = state.seq;
-        }
+        watermarks.observeServerInstance(state.server_instance_id);
+        if (!acceptSeq(watermarks.state, state.seq)) return;
 
         applyPlayerStateSnapshot(state, dispatch, store);
 
@@ -154,18 +103,12 @@ export function usePlayerStateSync() {
       // exists for (#3732). Without this check a stale pre-seek tick could land
       // after the post-seek snapshot and rewind the progress bar.
       //
-      // The tick carries the CURRENT generation rather than a new one, so
-      // `seq === lastSeenSeqRef.current` is a legitimate refinement and must be
-      // applied; only strictly older ticks are dropped. The dispatch is skipped
-      // entirely rather than clamped — a stale-but-finite position is wrong,
-      // not merely out of range.
-      //
-      // lastSeenSeqRef is deliberately NOT advanced here: a tick is not a new
-      // state generation, and only player_state should move the watermark. The
-      // backend-restart reset (#4338, #5882) is shared automatically via the same ref.
-      if (typeof data.seq === 'number' && data.seq < lastSeenSeqRef.current) {
-        return;
-      }
+      // The tick carries the CURRENT generation rather than a new one, so an equal seq is a
+      // legitimate refinement and must be applied; only strictly older ticks are dropped, and
+      // the dispatch is skipped entirely rather than clamped - a stale-but-finite position is
+      // wrong, not merely out of range. The watermark is deliberately NOT advanced: a tick is
+      // not a new state generation, only player_state moves it.
+      if (isStaleSeq(watermarks.state, data.seq)) return;
 
       dispatch(setCurrentTime(data.position));
     },
@@ -197,10 +140,7 @@ export function usePlayerStateSync() {
       // player_state snapshot uses.
       const data = message.data;
       if (data && typeof data.volume === 'number' && Number.isFinite(data.volume)) {
-        if (typeof data.seq === 'number') {
-          if (data.seq < lastSeenVolumeEventSeqRef.current) return;
-          lastSeenVolumeEventSeqRef.current = data.seq;
-        }
+        if (!acceptSeq(watermarks.volume, data.seq)) return;
         dispatch(setVolume(data.volume));
       }
     },
@@ -221,10 +161,7 @@ export function usePlayerStateSync() {
       // _TrackChangeSequencer). Drop anything older than the newest seq
       // already applied instead of regressing the queue position — same
       // shape as the player_state guard above, but its own watermark.
-      if (typeof data.seq === 'number') {
-        if (data.seq < lastSeenTrackChangedSeqRef.current) return;
-        lastSeenTrackChangedSeqRef.current = data.seq;
-      }
+      if (!acceptSeq(watermarks.trackChanged, data.seq)) return;
 
       const index = data.track_index;
       const tracks = store.getState().queue.tracks;
