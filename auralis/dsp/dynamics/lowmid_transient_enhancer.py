@@ -13,6 +13,7 @@ that frequency range, especially after aggressive compression/limiting.
 import numpy as np
 from scipy import signal
 
+from ..utils.filters import normalized_corner, sosfiltfilt_safe
 from .soft_clipper import soft_clip
 
 
@@ -42,19 +43,14 @@ class LowMidTransientEnhancer:
         self.low_mid_freq_low = 150
         self.low_mid_freq_high = 1500
 
-        # Design bandpass filter for low-mid extraction
-        nyquist = sample_rate / 2
-        low_norm = self.low_mid_freq_low / nyquist
-        high_norm = self.low_mid_freq_high / nyquist
-
-        # Butterworth bandpass filter (4th order)
-        self.b_low_mid, self.a_low_mid = signal.butter(
-            4, [low_norm, high_norm], btype='band'
-        )
+        # Second-order sections, like every other band filter in the engine: the (b, a) form of an
+        # order-8 band-pass with a 150 Hz edge is ill-conditioned at high rates (#6302).
+        low_norm = normalized_corner(self.low_mid_freq_low, sample_rate)
+        high_norm = normalized_corner(self.low_mid_freq_high, sample_rate)
+        self.sos_low_mid = signal.butter(4, [low_norm, high_norm], btype='band', output='sos')
 
         # High-pass filter for transient detection (>2kHz)
-        hp_freq_norm = 2000 / nyquist
-        self.b_hp, self.a_hp = signal.butter(2, hp_freq_norm, btype='high')
+        self.sos_hp = signal.butter(2, normalized_corner(2000, sample_rate), btype='high', output='sos')
 
     def enhance_transients(
         self,
@@ -105,10 +101,10 @@ class LowMidTransientEnhancer:
         output = audio.copy()
 
         # Extract low-mid band
-        low_mid = signal.filtfilt(self.b_low_mid, self.a_low_mid, audio)
+        low_mid = sosfiltfilt_safe(self.sos_low_mid, audio, context="low-mid band", on_too_short="zeros")
 
         # Extract high frequencies for transient detection
-        high_freq = signal.filtfilt(self.b_hp, self.a_hp, audio)
+        high_freq = sosfiltfilt_safe(self.sos_hp, audio, context="transient detector", on_too_short="zeros")
 
         # Detect transient onsets via high-frequency energy
         # Smooth the high-frequency energy
