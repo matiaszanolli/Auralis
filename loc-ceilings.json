@@ -59,7 +59,7 @@
     "auralis-web/backend/services/scanner_watchdog.py": 121,
     "auralis-web/backend/websocket/outbound_messages.py": 245,
     "auralis-web/backend/ws_handlers/playback_commands.py": 237,
-    "auralis-web/frontend/src/components/background/StarfieldBackground.tsx": 293,
+    "auralis-web/frontend/src/components/background/StarfieldBackground.tsx": 249,
     "auralis-web/frontend/src/components/background/starfield.shaders.ts": 296,
     "auralis-web/frontend/src/components/library/AlbumCharacterPane/AlbumCharacterPane.tsx": 296,
     "auralis-web/frontend/src/components/library/CozyLibraryView.tsx": 335,

@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VERTEX_SHADER, FRAGMENT_SHADER } from './starfield.shaders';
+import { initStarfieldGL } from './starfieldGL';
 import {
   getAudioVisualization,
   sampleAudioVisualization,
@@ -66,93 +66,17 @@ export const StarfieldBackground = ({
   const { mode } = useTheme();
   const prefersReducedMotion = usePrefersReducedMotion();
 
-  const compileShader = useCallback((
-    gl: WebGLRenderingContext,
-    source: string,
-    type: number
-  ): WebGLShader | null => {
-    const shader = gl.createShader(type);
-    if (!shader) return null;
-
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      console.error('[StarfieldBackground] Shader compile error:', gl.getShaderInfoLog(shader));
-      gl.deleteShader(shader);
-      return null;
-    }
-
-    return shader;
-  }, []);
-
   const initWebGL = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return false;
-
-    const gl = canvas.getContext('webgl', {
-      alpha: false,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      preserveDrawingBuffer: false,
-    });
-
-    if (!gl) {
-      console.warn('[StarfieldBackground] WebGL not supported');
-      return false;
-    }
-
-    glRef.current = gl;
-
-    const vertexShader = compileShader(gl, VERTEX_SHADER, gl.VERTEX_SHADER);
-    const fragmentShader = compileShader(gl, FRAGMENT_SHADER, gl.FRAGMENT_SHADER);
-
-    if (!vertexShader || !fragmentShader) return false;
-
-    const program = gl.createProgram();
-    if (!program) return false;
-
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-
-    // A linked program keeps its own copy: the shader objects are released here, not leaked on
-    // every re-init (#6036).
-    gl.deleteShader(vertexShader);
-    gl.deleteShader(fragmentShader);
-
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      console.error('[StarfieldBackground] Program link error:', gl.getProgramInfoLog(program));
-      gl.deleteProgram(program);
-      return false;
-    }
-
-    programRef.current = program;
-
-    // Cache uniform locations (called once, not per frame — fixes #3099)
-    const uniformNames = [
-      'u_time', 'u_resolution', 'u_mouse', 'u_parallaxStrength',
-      'u_bass', 'u_mid', 'u_treble', 'u_loudness', 'u_peak', 'u_isPlaying',
-    ];
-    const locs: Record<string, WebGLUniformLocation | null> = {};
-    for (const name of uniformNames) {
-      locs[name] = gl.getUniformLocation(program, name);
-    }
-    uniformsRef.current = locs;
-
-    const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
-    const buffer = gl.createBuffer();
-    bufferRef.current = buffer;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-    const positionLoc = gl.getAttribLocation(program, 'a_position');
-    gl.enableVertexAttribArray(positionLoc);
-    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-
+    const resources = initStarfieldGL(canvas);
+    if (!resources) return false;
+    glRef.current = resources.gl;
+    programRef.current = resources.program;
+    bufferRef.current = resources.buffer;
+    uniformsRef.current = resources.uniforms;
     return true;
-  }, [compileShader]);
+  }, []);
 
   const draw = useCallback((now: number) => {
     const gl = glRef.current;
@@ -196,12 +120,47 @@ export const StarfieldBackground = ({
     };
   }, [enableParallax]);
 
+  // GL resources: created once per context (a light/dark switch or a restored context), NOT on
+  // every play/pause the render loop below restarts for (#6036). Context loss is handled here:
+  // the browser can drop the context under GPU pressure, after which every call is a silent
+  // no-op until it is restored and the program and buffer rebuilt.
+  const [glReady, setGlReady] = useState(false);
   useEffect(() => {
     // The light theme composites the canvas at 3.5% opacity for the same GPU
     // cost — skip the context entirely there (#5661).
     if (mode === 'light') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    if (!initWebGL()) return;
+    const release = () => {
+      const gl = glRef.current;
+      if (gl && programRef.current) gl.deleteProgram(programRef.current);
+      if (gl && bufferRef.current) gl.deleteBuffer(bufferRef.current);
+      programRef.current = null;
+      bufferRef.current = null;
+    };
+    const handleLost = (event: Event) => {
+      event.preventDefault(); // without this the context is never restored
+      setGlReady(false);
+      programRef.current = null;
+      bufferRef.current = null;
+    };
+    const handleRestored = () => setGlReady(initWebGL());
+
+    canvas.addEventListener('webglcontextlost', handleLost);
+    canvas.addEventListener('webglcontextrestored', handleRestored);
+    setGlReady(initWebGL());
+
+    return () => {
+      canvas.removeEventListener('webglcontextlost', handleLost);
+      canvas.removeEventListener('webglcontextrestored', handleRestored);
+      release();
+      setGlReady(false);
+    };
+  }, [initWebGL, mode]);
+
+  useEffect(() => {
+    if (mode === 'light' || !glReady) return;
 
     let rafId = 0;
     let running = false;
@@ -249,26 +208,23 @@ export const StarfieldBackground = ({
     const handleVisibilityChange = () => {
       if (!document.hidden && !running && !settledIdle) start();
     };
+    // Assigning canvas.width clears the drawing buffer, and draw() only resizes it inside a
+    // frame, so a window resized while the loop is idle showed a blank canvas (#6036).
+    const handleResize = () => {
+      if (!running && !document.hidden) draw(performance.now());
+    };
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('resize', handleResize, { passive: true });
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       running = false;
       cancelAnimationFrame(rafId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
-
-      const gl = glRef.current;
-      if (gl && programRef.current) {
-        gl.deleteProgram(programRef.current);
-        programRef.current = null;
-      }
-      if (gl && bufferRef.current) {
-        gl.deleteBuffer(bufferRef.current);
-        bufferRef.current = null;
-      }
     };
-  }, [initWebGL, draw, handleMouseMove, prefersReducedMotion, mode, audioIsActive]);
+  }, [glReady, draw, handleMouseMove, prefersReducedMotion, mode, audioIsActive]);
 
   if (mode === 'light') return null;
 

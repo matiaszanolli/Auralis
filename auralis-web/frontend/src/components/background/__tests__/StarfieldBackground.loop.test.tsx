@@ -254,4 +254,46 @@ describe('StarfieldBackground render loop (#5661)', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     expect(rafCallbacks.size).toBe(1);
   });
+
+  it('keeps one program and buffer across audio toggles instead of rebuilding them (#6036)', () => {
+    render(<StarfieldBackground />);
+    expect(fakeGL.createProgram).toHaveBeenCalledTimes(1);
+
+    act(() => { setAudioVisualizationActive(true); });
+    act(() => { setAudioVisualizationActive(false); });
+
+    expect(fakeGL.createProgram).toHaveBeenCalledTimes(1);
+    expect(fakeGL.createBuffer).toHaveBeenCalledTimes(1);
+    expect(fakeGL.deleteProgram).not.toHaveBeenCalled();
+  });
+
+  it('stops drawing on context loss and rebuilds its resources when the context returns (#6036)', () => {
+    const { container } = render(<StarfieldBackground />);
+    const canvas = container.querySelector('canvas')!;
+    tick(16); // settle to idle
+    const drawsBefore = vi.mocked(fakeGL.drawArrays).mock.calls.length;
+
+    const lost = new Event('webglcontextlost', { cancelable: true });
+    act(() => { canvas.dispatchEvent(lost); });
+
+    expect(lost.defaultPrevented).toBe(true); // otherwise the browser never restores it
+    act(() => { window.dispatchEvent(new Event('resize')); });
+    expect(vi.mocked(fakeGL.drawArrays).mock.calls.length).toBe(drawsBefore);
+
+    act(() => { canvas.dispatchEvent(new Event('webglcontextrestored')); });
+
+    expect(fakeGL.createProgram).toHaveBeenCalledTimes(2);
+    expect(rafCallbacks.size).toBe(1); // the loop restarted
+  });
+
+  it('redraws on window resize while the loop is idle (#6036)', () => {
+    render(<StarfieldBackground />);
+    tick(16); // settle to idle: one static frame, no more scheduled
+    expect(rafCallbacks.size).toBe(0);
+    const drawsBefore = vi.mocked(fakeGL.drawArrays).mock.calls.length;
+
+    act(() => { window.dispatchEvent(new Event('resize')); });
+
+    expect(vi.mocked(fakeGL.drawArrays).mock.calls.length).toBe(drawsBefore + 1);
+  });
 });
