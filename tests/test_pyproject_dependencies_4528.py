@@ -142,6 +142,8 @@ def test_numpy_is_capped_below_numba_ceiling():
 
 
 def test_test_only_packages_live_in_the_dev_extra():
+    # websockets left the dev extra in #6283: no test imports it any more, and
+    # uvicorn[standard] in the runtime dependencies supplies it.
     dev = _names(_dev_specs())
-    for package in ("sounddevice", "websockets", "httpx", "pytest"):
+    for package in ("sounddevice", "httpx", "pytest"):
         assert package in dev
