@@ -17,6 +17,7 @@ import soundfile as sf
 
 from ...utils.logging import Code, ModuleError, warning
 from ..processing import downmix_to_stereo, requires_layout_aware_downmix
+from .container_size import get_aiff_au_declared_size
 
 
 def _get_wav_declared_size(file_path: Path) -> int | None:
@@ -57,9 +58,10 @@ def load_with_soundfile(
         # Check WAV header for truncation before loading.
         # libsndfile silently adjusts frame counts to actual data, so
         # sf.info().frames == len(sf.read()) even for truncated files.
-        # We compare the RIFF-declared size to the real file size instead.
+        # We compare the header-declared size (RIFF, or AIFF/AU via container_size, #6315) to the
+        # real file size instead.
         actual_file_size = file_path.stat().st_size
-        declared_size = _get_wav_declared_size(file_path)
+        declared_size = _get_wav_declared_size(file_path) or get_aiff_au_declared_size(file_path)
         if declared_size is not None and actual_file_size < declared_size:
             completeness = (actual_file_size / declared_size) * 100
 
