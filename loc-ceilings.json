@@ -71,7 +71,7 @@
     "auralis-web/frontend/src/hooks/enhancement/useAudioStreamingCore.ts": 250,
     "auralis-web/frontend/src/hooks/enhancement/useEnhancedStreamStart.ts": 286,
     "auralis-web/frontend/src/hooks/enhancement/useStreamMessageHandlers.ts": 194,
-    "auralis-web/frontend/src/hooks/library/useLibraryQuery.ts": 296,
+    "auralis-web/frontend/src/hooks/library/useLibraryQuery.ts": 135,
     "auralis-web/frontend/src/hooks/library/useScanProgress.ts": 286,
     "auralis-web/frontend/src/hooks/player/useQueueMutations.ts": 31,
     "auralis-web/frontend/src/hooks/websocket/useWebSocketConnection.ts": 235,
