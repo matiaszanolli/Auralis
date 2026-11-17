@@ -11,6 +11,8 @@ never drift apart again (#4109).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import os
+
 # Extensions decoded natively by libsndfile (the soundfile path).
 SOUNDFILE_FORMATS = {
     '.wav': 'WAV',
@@ -42,11 +44,13 @@ FFMPEG_FORMATS = set(FFMPEG_FORMAT_NAMES)
 AUDIO_EXTENSIONS = set(SUPPORTED_FORMATS)
 
 
-def soundfile_format_name(path: str) -> str | None:
+def soundfile_format_name(path: str | os.PathLike[str]) -> str | None:
     """libsndfile's format name for *path*'s extension, or None when it is not a native format.
 
     ``.aif`` is accepted everywhere Auralis reads audio but libsndfile only knows the name AIFF,
-    so output paths go through this instead of upper-casing the suffix (#6319).
+    so output paths go through this instead of upper-casing the suffix (#6319). A ``Path`` is
+    accepted like a string: saver.save() callers pass both.
     """
+    path = os.fspath(path)
     suffix = "." + path.rsplit(".", 1)[-1].lower() if "." in path else ""
     return SOUNDFILE_FORMATS.get(suffix)
