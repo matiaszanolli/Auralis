@@ -149,7 +149,7 @@ async def reset_library(
         await clear_all_caches(
             cache_manager,
             deps.get_artwork_cache_dir(),
-            clear_source_artwork=True,
+            clear_source_artwork=True, clear_fingerprint_store=True,
         )
 
         # No query cache to drop: every read goes straight to SQLite.

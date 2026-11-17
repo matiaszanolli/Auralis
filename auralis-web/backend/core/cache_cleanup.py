@@ -7,6 +7,8 @@ from typing import Protocol
 
 from config.limits import chunk_cache_dir
 
+from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
+
 from core.encoding.wav_encoder import delete_chunk_files
 from core.mastering_target_service import clear_global_mastering_target_cache
 from core.thumbnail_cache import clear_artwork_cache
@@ -26,6 +28,7 @@ class CacheClearResult:
     artwork_bytes_reclaimed: int
     analysis_cache_cleared: bool
     chunk_files_removed: int = 0
+    fingerprint_files_removed: int = 0
 
 
 async def clear_all_caches(
@@ -34,6 +37,7 @@ async def clear_all_caches(
     *,
     clear_source_artwork: bool = False,
     chunk_dir: Path | None = None,
+    clear_fingerprint_store: bool = False,
 ) -> CacheClearResult:
     """Clear chunk, thumbnail, and track-analysis caches.
 
@@ -50,6 +54,10 @@ async def clear_all_caches(
     is swept whether or not ``cache_manager`` exists (#5340): the manager's
     tiers only record the streamlined worker's chunks, while live playback
     writes its own files there, found later by name alone.
+
+    The central ``.25d`` fingerprint store (#6004) only ever has its dead entries swept here - a
+    Clear Cache click must not throw away live, expensive analysis - unless
+    ``clear_fingerprint_store`` is set, which a library reset does: every track it described is gone.
     """
     if cache_manager is not None:
         await cache_manager.clear_all()
@@ -59,9 +67,13 @@ async def clear_all_caches(
 
     cleanup_root = artwork_dir if clear_source_artwork else artwork_dir / "thumbnails"
     files_removed, bytes_reclaimed = await asyncio.to_thread(clear_artwork_cache, cleanup_root)
+    fingerprint_files_removed = await asyncio.to_thread(
+        FingerprintStorage.clear_all if clear_fingerprint_store else FingerprintStorage.sweep_orphans
+    )
     return CacheClearResult(
         artwork_files_removed=files_removed,
         artwork_bytes_reclaimed=bytes_reclaimed,
         analysis_cache_cleared=clear_global_mastering_target_cache(),
         chunk_files_removed=chunk_files_removed,
+        fingerprint_files_removed=fingerprint_files_removed,
     )

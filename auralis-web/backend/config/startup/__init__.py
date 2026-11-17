@@ -53,6 +53,7 @@ from .fingerprint import (
 )
 from .rollback import _rollback_partial_startup
 from .shutdown import _shutdown_components
+from .fingerprint_store import sweep_fingerprint_store
 from .tempfiles import _cleanup_temp_directories
 from .workers import _init_processing_engine, _init_streamlined_cache
 
@@ -165,6 +166,7 @@ def create_lifespan(
         _install_thread_pools()
 
         await _cleanup_temp_directories()
+        await sweep_fingerprint_store()
         await _init_auralis_components(HAS_AURALIS, HAS_SIMILARITY, manager, globals_dict)
         await _init_processing_engine(HAS_PROCESSING, globals_dict)
         await _init_streamlined_cache(HAS_STREAMLINED_CACHE, globals_dict)

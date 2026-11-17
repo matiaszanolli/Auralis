@@ -36,6 +36,16 @@ def _reset_rejection_log_throttle():
 
 
 @pytest.fixture(autouse=True)
+def _isolated_fingerprint_store(tmp_path_factory, monkeypatch):
+    """A library reset clears the whole central .25d store and Clear Cache sweeps it (#6004); a
+    backend test must never do either to the developer's real ~/.auralis/fingerprints."""
+    store = tmp_path_factory.mktemp("fingerprint-store")
+    monkeypatch.setattr(
+        "auralis.analysis.fingerprint.fingerprint_storage.fingerprints_dir", lambda: store
+    )
+
+
+@pytest.fixture(autouse=True)
 def _bypass_streaming_path_validation(monkeypatch):
     """Stand in for validate_file_path()'s allowed-directory/is_file/readable
     checks in streaming tests, while still honoring Path.exists() (#4345).
