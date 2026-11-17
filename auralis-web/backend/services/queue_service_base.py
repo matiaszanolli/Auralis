@@ -189,6 +189,7 @@ class QueueServiceBase:
             current_index = -1
 
         tracks: list[TrackPayload] = []
+        resolved: list[Any] = []
         hydrated = False
         try:
             resolved = await self._enricher.resolve_tracks(list(raw_tracks))
@@ -210,6 +211,22 @@ class QueueServiceBase:
                         if resolved[current_index] is not None
                         else -1
                     )
+
+        # #5460: every queue edit ends here, and the state manager's copy of the
+        # queue must follow it. Only set_queue used to update it, so the next
+        # unrelated player_state (volume, pause, navigation) carried the pre-edit
+        # queue and the frontend applied it, undoing the edit on screen. Its
+        # current track follows the engine's (the successor after removing the
+        # playing track, none after a clear). Not broadcast: queue_changed below
+        # is this edit's message. Best-effort like the read and hydration above:
+        # the engine edit already happened, and its broadcast must still go out.
+        if hydrated and self.player_state_manager is not None:
+            try:
+                await self.player_state_manager.set_queue(
+                    [ti for ti in resolved if ti is not None], current_index, broadcast=False
+                )
+            except Exception as exc:
+                logger.warning(f"queue_changed: could not mirror the queue into player state: {exc}")
 
         payload: QueueChangedPayload = {
             'tracks': tracks,
