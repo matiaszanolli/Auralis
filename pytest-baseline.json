@@ -68,7 +68,6 @@
     "tests.regression.test_version_compatibility.TestConfigurationCompatibility::test_old_config_format_loads",
     "tests.regression.test_version_compatibility.TestConfigurationCompatibility::test_parameter_name_changes_backward_compatible",
     "tests.regression.test_version_compatibility.TestDatabaseSchemaMigrations::test_composite_index_on_favorites",
-    "tests.regression.test_version_compatibility.TestDatabaseSchemaMigrations::test_schema_v2_to_v3_migration",
     "tests.regression.test_version_compatibility.TestDeprecatedFeatures::test_deprecated_config_keys_ignored",
     "tests.security.test_data_security.TestBackupSecurity::test_backup_encryption_readiness",
     "tests.stress.test_large_library.TestMemoryManagement::test_gc_performance",
