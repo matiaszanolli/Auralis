@@ -26,6 +26,8 @@ from ..limits import (
     RATE_LIMIT_PROCESSING_WINDOW,
     RATE_LIMIT_RECOMMENDATION_MAX,
     RATE_LIMIT_RECOMMENDATION_WINDOW,
+    RATE_LIMIT_RESET_MAX,
+    RATE_LIMIT_RESET_WINDOW,
     RATE_LIMIT_SCAN_MAX,
     RATE_LIMIT_SCAN_STATUS_MAX,
     RATE_LIMIT_SCAN_STATUS_WINDOW,
@@ -54,6 +56,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     _RATE_LIMITS: dict[str, tuple[int, int]] = {
         "/api/files/upload": (RATE_LIMIT_UPLOAD_MAX, RATE_LIMIT_UPLOAD_WINDOW),
         "/api/processing": (RATE_LIMIT_PROCESSING_MAX, RATE_LIMIT_PROCESSING_WINDOW),
+        "/api/library/reset": (RATE_LIMIT_RESET_MAX, RATE_LIMIT_RESET_WINDOW),
         "/api/library/scan": (RATE_LIMIT_SCAN_MAX, RATE_LIMIT_SCAN_WINDOW),
         "/api/library/scan/status": (RATE_LIMIT_SCAN_STATUS_MAX, RATE_LIMIT_SCAN_STATUS_WINDOW),
         "/api/similarity": (RATE_LIMIT_SIMILARITY_MAX, RATE_LIMIT_SIMILARITY_WINDOW),

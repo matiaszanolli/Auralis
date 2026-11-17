@@ -205,6 +205,9 @@ RATE_LIMIT_SCAN_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_WINDOW", 60)
 # POST: flapping reconnects would 429 the resync and leave "Scanning…" stuck (#5911).
 RATE_LIMIT_SCAN_STATUS_MAX: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_STATUS_MAX", 30)
 RATE_LIMIT_SCAN_STATUS_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SCAN_STATUS_WINDOW", 60)
+# POST /api/library/reset wipes the library: one a minute is plenty, and a loop hammering it is a bug (#5069).
+RATE_LIMIT_RESET_MAX: int = get_int_env("AURALIS_RATE_LIMIT_RESET_MAX", 1)
+RATE_LIMIT_RESET_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_RESET_WINDOW", 60)
 RATE_LIMIT_SIMILARITY_MAX: int = get_int_env("AURALIS_RATE_LIMIT_SIMILARITY_MAX", 20)
 RATE_LIMIT_SIMILARITY_WINDOW: int = get_int_env("AURALIS_RATE_LIMIT_SIMILARITY_WINDOW", 60)
 # GET /api/player/mastering/recommendation/{id}: each uncached call runs a 1-5 s
