@@ -14,6 +14,7 @@ from mutagen.id3 import ID3
 from mutagen.mp4 import MP4, MP4Cover
 
 from ..utils.logging import debug
+from .artwork_tag_pictures import ape_picture, asf_picture
 from .picture_choice import front_cover_first
 
 
@@ -43,13 +44,7 @@ class TagArtworkReadersMixin:
         try:
             if audio_file.tags and 'covr' in audio_file.tags:  # type: ignore[unreachable]
                 cover = audio_file.tags['covr'][0]  # type: ignore[unreachable]
-                # MP4Cover has imageformat attribute
-                if cover.imageformat == MP4Cover.FORMAT_JPEG:
-                    mime_type = 'image/jpeg'
-                elif cover.imageformat == MP4Cover.FORMAT_PNG:
-                    mime_type = 'image/png'
-                else:
-                    mime_type = 'image/jpeg'  # Default
+                mime_type = 'image/png' if cover.imageformat == MP4Cover.FORMAT_PNG else 'image/jpeg'
                 return bytes(cover), mime_type
 
         except Exception as e:
@@ -73,9 +68,12 @@ class TagArtworkReadersMixin:
         """Extract artwork from generic tag formats (OGG, etc.)"""
         try:
             tags = audio_file.tags
+            for read in (asf_picture, ape_picture):  # WMA WM/Picture, WavPack/APE Cover Art
+                data, mime = read(tags)
+                if data:
+                    return data, mime
 
-            # Try common artwork tag names
-            artwork_keys = ['COVERART', 'COVER', 'METADATA_BLOCK_PICTURE']
+            artwork_keys = ['COVERART', 'COVER', 'METADATA_BLOCK_PICTURE']  # common names
 
             import base64
 

@@ -104,3 +104,55 @@ def test_folder_art_with_uppercase_name_is_extracted(extractor, tmp_path):
 
 def test_a_missing_folder_has_no_candidates(tmp_path):
     assert candidate_cover_files(tmp_path / "nope") == []
+
+
+# --- ASF/WMA and APEv2 (WavPack, Monkey's Audio) covers ----------------------------------------
+
+def _wm_picture(kind: int, data: bytes, mime: str = "image/jpeg") -> bytes:
+    import struct
+    return (struct.pack("<BI", kind, len(data)) + mime.encode("utf-16-le") + b"\x00\x00"
+            + "cover".encode("utf-16-le") + b"\x00\x00" + data)
+
+
+def test_asf_front_cover_wins_over_an_earlier_back_cover(extractor):
+    from mutagen.asf import ASFByteArrayAttribute, ASFTags
+
+    tags = ASFTags()
+    tags["WM/Picture"] = [ASFByteArrayAttribute(_wm_picture(4, BACK)), ASFByteArrayAttribute(_wm_picture(3, FRONT))]
+
+    class _Wma:
+        pass
+
+    wma = _Wma()
+    wma.tags = tags
+    data, mime = extractor._extract_from_generic(wma)
+
+    assert data == FRONT
+    assert mime == "image/jpeg"
+
+
+def test_ape_cover_art_reads_the_image_after_the_filename(extractor):
+    from mutagen.apev2 import APEv2, APEValue, BINARY
+
+    tags = APEv2()
+    tags["Cover Art (Back)"] = APEValue(b"back.jpg\x00" + BACK, BINARY)
+    tags["Cover Art (Front)"] = APEValue(b"front.png\x00" + _image("PNG", "green"), BINARY)
+
+    class _Wv:
+        pass
+
+    wv = _Wv()
+    wv.tags = tags
+    data, mime = extractor._extract_from_generic(wv)
+
+    assert data == _image("PNG", "green")
+    assert mime == "image/png"
+
+
+def test_a_tag_without_pictures_still_reports_none(extractor):
+    from mutagen.apev2 import APEv2
+
+    class _Wv:
+        tags = APEv2()
+
+    assert extractor._extract_from_generic(_Wv()) == (None, None)

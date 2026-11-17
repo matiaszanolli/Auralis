@@ -121,7 +121,7 @@
     "auralis/io/loaders/ffmpeg_probe.py": 205,
     "auralis/io/loaders/ffmpeg_process.py": 118,
     "auralis/library/artwork.py": 224,
-    "auralis/library/artwork_tags.py": 98,
+    "auralis/library/artwork_tags.py": 96,
     "auralis/library/database.py": 251,
     "auralis/library/database_accessors.py": 76,
     "auralis/library/database_engine.py": 133,
