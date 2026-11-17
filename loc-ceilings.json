@@ -116,7 +116,7 @@
     "auralis/dsp/eq/psychoacoustic_eq.py": 166,
     "auralis/dsp/eq/spectrum_gains.py": 104,
     "auralis/io/loaders/ffmpeg_command.py": 111,
-    "auralis/io/loaders/ffmpeg_loader.py": 218,
+    "auralis/io/loaders/ffmpeg_loader.py": 217,
     "auralis/io/loaders/ffmpeg_path_guard.py": 48,
     "auralis/io/loaders/ffmpeg_probe.py": 205,
     "auralis/io/loaders/ffmpeg_process.py": 118,

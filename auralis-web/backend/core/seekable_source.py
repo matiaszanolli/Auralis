@@ -46,7 +46,6 @@ when a different file converts or the app shuts down.
 """
 
 import asyncio
-import errno
 import functools
 import logging
 import shutil
@@ -58,7 +57,7 @@ from pathlib import Path
 
 from auralis.io.audio_probe import get_audio_info
 from auralis.io.formats import FFMPEG_FORMATS
-from auralis.io.loader import estimated_decoded_bytes
+from auralis.io.loaders.ffmpeg_space import require_decode_space
 from config.limits import SEEKABLE_TEMP_PREFIX
 from core.file_signature import FileSignatureService
 
@@ -71,9 +70,6 @@ ConversionKey = tuple[str, str]
 # acquires) while bounding the disk a decoded track holds — which is RAM where
 # the temp root is a tmpfs.
 IDLE_CONVERSIONS_RETAINED = 1
-
-# Headroom left free beyond one conversion's own size, for the conversions still being written.
-FREE_SPACE_MARGIN_BYTES = 512 * 1024 * 1024
 
 
 # libsndfile sizes an MP3 that has no Xing/VBRI header (header-less VBR, files
@@ -133,24 +129,14 @@ def can_seek_natively(filepath: str) -> bool:
 def _require_free_space(filepath: str, temp_dir: str) -> None:
     """Refuse a conversion whose float32 WAV cannot fit in the temp root, before decoding it (#6166).
 
-    The estimate is the same one the per-file decode cap uses. Conversions already written count
-    against the free space, so several long tracks started in quick succession are refused instead of
-    exhausting a tmpfs and the RAM behind it; one still in flight is not counted, so the margin below
-    absorbs a few of them.
+    Several long tracks started in quick succession are refused instead of exhausting a tmpfs (and
+    the RAM behind it). The FFmpeg path gets the same check inside decode_to_wav; this covers the
+    libsndfile one. See auralis.io.loaders.ffmpeg_space.
     """
     meta = get_audio_info(filepath)
     duration, rate, channels = meta.get("duration_seconds"), meta.get("sample_rate"), meta.get("channels")
-    if not (duration and rate and channels):
-        return  # unreadable header: the decode itself reports that, with its own error
-    needed = estimated_decoded_bytes(duration, rate, channels) + FREE_SPACE_MARGIN_BYTES
-    free = shutil.disk_usage(temp_dir).free
-    if needed > free:
-        gib = 1024 ** 3
-        raise OSError(
-            errno.ENOSPC,
-            f"Not enough free space in the temp directory to decode this file "
-            f"(needs about {needed / gib:.1f} GiB, {free / gib:.1f} GiB free)",
-        )
+    if duration and rate and channels:  # an unreadable header is reported by the decode itself
+        require_decode_space(temp_dir, duration, rate, channels)
 
 
 def convert_to_temp_wav(filepath: str, *, prefix: str = SEEKABLE_TEMP_PREFIX) -> tuple[str, str]:
@@ -169,7 +155,6 @@ def convert_to_temp_wav(filepath: str, *, prefix: str = SEEKABLE_TEMP_PREFIX) ->
     temp_dir = tempfile.mkdtemp(prefix=prefix)
     try:
         wav_path = str(Path(temp_dir) / "seekable.wav")
-        _require_free_space(filepath, temp_dir)
         if Path(filepath).suffix.lower() in FFMPEG_FORMATS:
             # FFmpeg writes the float32 WAV itself and it is never read into memory: a 6 GiB decode
             # used to be held as an array AND written out, and the temp root is often a tmpfs (#6166).
@@ -180,6 +165,7 @@ def convert_to_temp_wav(filepath: str, *, prefix: str = SEEKABLE_TEMP_PREFIX) ->
             sanitize_wav_in_place(decoded)
             decoded.replace(wav_path)
         else:
+            _require_free_space(filepath, temp_dir)
             audio, sample_rate = load_audio(filepath, "audio", temp_dir)
             sf.write(wav_path, audio, sample_rate, format="WAV", subtype="FLOAT")
         return temp_dir, wav_path

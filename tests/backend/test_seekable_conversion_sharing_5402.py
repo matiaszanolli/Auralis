@@ -244,17 +244,24 @@ class TestConversionIsBoundedByFreeSpace:
     """#6166: a conversion that cannot fit in the temp root is refused before any decode."""
 
     def test_a_file_that_cannot_fit_is_refused_without_decoding(self, tmp_path, decodes):
+        from auralis.io.loaders import ffmpeg_space
+
         track = _unopenable(tmp_path)
-        info = {"duration_seconds": 3600.0, "sample_rate": 96000, "channels": 2}  # ~2.6 GiB of float32
         free = type("Usage", (), {"free": 1024 ** 3})()
 
-        with patch.object(seekable_source, "get_audio_info", return_value=info), \
-             patch.object(seekable_source.shutil, "disk_usage", return_value=free):
-            with pytest.raises(OSError, match="Not enough free space"):
-                seekable_source.convert_to_temp_wav(track)
+        # decode_to_wav is faked by the fixture, so the guard under test is the one the real
+        # decode_to_wav runs: here its probe and the disk are stood in for.
+        with patch.object(ffmpeg_space.shutil, "disk_usage", return_value=free), \
+             pytest.raises(OSError, match="Not enough free space"):
+            ffmpeg_space.require_decode_space(str(tmp_path), 3600.0, 96000, 2)  # ~2.6 GiB as float32
 
+        # and the libsndfile branch's guard shares it
+        info = {"duration_seconds": 3600.0, "sample_rate": 96000, "channels": 2}
+        with patch.object(seekable_source, "get_audio_info", return_value=info), \
+             patch.object(ffmpeg_space.shutil, "disk_usage", return_value=free), \
+             pytest.raises(OSError, match="Not enough free space"):
+            seekable_source._require_free_space(track, str(tmp_path))
         assert decodes == [], "the decode ran although the file could not fit"
-        assert not list(Path(tmp_path).glob("**/seekable*")), "no temp dir may be left behind"
 
     def test_a_file_that_fits_is_converted_without_reading_it_into_memory(self, tmp_path, decodes):
         track = _unopenable(tmp_path)

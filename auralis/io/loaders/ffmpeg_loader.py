@@ -24,6 +24,7 @@ from ...utils.logging import Code, ModuleError, debug, warning
 from .decode_temp import DECODE_TEMP_PREFIX
 from .ffmpeg_command import build_ffmpeg_cmd, check_truncation_frames
 from .ffmpeg_path_guard import ffmpeg_input_path
+from .ffmpeg_space import require_decode_space
 from .ffmpeg_probe import (
     _probe_audio,
     check_ffmpeg,
@@ -36,12 +37,10 @@ from .ffmpeg_process import (
 )
 from .soundfile_loader import load_with_soundfile
 
-# Upper bound on plausible audio bitrate, used only when ffprobe reports no
-# duration (e.g. true-VBR MP3 without a Xing/VBRI header, #4128). Estimating
-# duration as file_bits / this value yields a *lower bound* on the real
-# duration, so the pre-decode guard rejects only genuinely oversized files
-# (>~1.8 GB at MAX_DURATION_SECONDS=7200) and never a normal one. The
-# post-decode duration check remains the backstop for everything in between.
+# Upper bound on plausible audio bitrate, used only when ffprobe reports no duration (true-VBR MP3
+# without a Xing/VBRI header, #4128). file_bits / this value is a *lower bound* on the real duration,
+# so the pre-decode guard rejects only genuinely oversized files (>~1.8 GB at MAX_DURATION_SECONDS=7200);
+# the post-decode duration check remains the backstop.
 _MAX_PLAUSIBLE_BITRATE_BPS = 2_000_000
 
 
@@ -150,9 +149,10 @@ def _decode_wav(
     """
     file_path, file_path_str = _validate_input(file_path)
     expected_duration, source_sample_rate, source_channels = _probe_or_fail(file_path)
+    window = expected_duration if not duration else min(duration, expected_duration or duration)
+    require_decode_space(temp_folder, window, source_sample_rate, source_channels)
     temp_wav = _temp_wav_path(temp_folder)
     try:
-        debug(f"Converting {file_path} to WAV using FFmpeg")
         ffmpeg_cmd = build_ffmpeg_cmd(
             file_path_str, temp_wav, source_sample_rate, source_channels, offset, duration
         )
@@ -160,8 +160,7 @@ def _decode_wav(
             ffmpeg_cmd, timeout=FFMPEG_DECODE_TIMEOUT_S, cancel_event=cancel_event
         )
         if result.returncode != 0:
-            # Raw stderr echoes the input path: DEBUG only; the exception carries the last line (#4806).
-            debug(f"FFmpeg conversion failed for {file_path}: {result.stderr}")
+            debug(f"FFmpeg conversion failed for {file_path}: {result.stderr}")  # raw stderr echoes the path (#4806)
             raise ModuleError(
                 f"{Code.ERROR_FFMPEG_CONVERSION}: "
                 f"{redact_subprocess_output(result.stderr, known_path=str(file_path))}",

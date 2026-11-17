@@ -106,3 +106,35 @@ def test_sanitize_leaves_a_clean_file_untouched(tmp_path):
 
     assert sanitize_wav_in_place(wav, block_frames=1000) is False
     assert wav.stat().st_mtime_ns == before
+
+
+def test_a_decode_that_cannot_fit_in_the_temp_root_is_refused_before_ffmpeg_runs(tmp_path, monkeypatch):
+    """#5734/#6166: the intermediate float32 WAV is checked against the free space first."""
+    import shutil as _shutil
+    from unittest.mock import patch
+
+    from auralis.io.loaders import ffmpeg_loader, ffmpeg_space
+
+    src = tmp_path / "song.mp3"
+    src.write_bytes(b"x" * 64)
+    monkeypatch.setattr(ffmpeg_loader, "_validate_input", lambda p: (p, str(p)))
+    monkeypatch.setattr(ffmpeg_loader, "_probe_or_fail", lambda p: (3600.0, 96000, 2))  # ~2.6 GiB as float32
+    monkeypatch.setattr(ffmpeg_space.shutil, "disk_usage", lambda p: type("U", (), {"free": 1024 ** 3})())
+
+    with patch.object(ffmpeg_loader, "_run_ffmpeg_cancellable") as run:
+        with pytest.raises(OSError, match="Not enough free space"):
+            decode_to_wav(src, str(tmp_path))
+
+    run.assert_not_called()
+    assert list(tmp_path.glob("auralis_decode_*")) == [], "no half-made temp file may be left"
+    assert _shutil  # keep the import used by the module-level patching above
+
+
+@needs_ffmpeg
+def test_a_decode_with_room_still_succeeds(tmp_path):
+    src = tmp_path / "song.mp3"
+    _make_mp3(src, 1.0)
+
+    wav = decode_to_wav(src, str(tmp_path))
+
+    assert wav.exists()
