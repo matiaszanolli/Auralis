@@ -25,7 +25,10 @@ function isSafeExternalUrl(url) {
 // Origins the app window itself is ever allowed to sit on. Production serves
 // the built React app from the backend; :3000 is the Vite dev server and is
 // accepted only in development.
-const APP_ORIGIN = 'http://localhost:8765';
+// The port the packaged backend serves on. backend-env.js pins AURALIS_PORT to it, so an exported
+// AURALIS_PORT cannot move the backend away from the origin Electron loads and trusts (#6170).
+const APP_PORT = 8765;
+const APP_ORIGIN = `http://localhost:${APP_PORT}`;
 const DEV_ORIGIN = 'http://localhost:3000';
 
 // Passed to the renderer via webPreferences.additionalArguments only when
@@ -90,6 +93,7 @@ module.exports = {
   isSafeExternalUrl,
   ALLOWED_EXTERNAL_SCHEMES,
   isAllowedAppNavigation,
+  APP_PORT,
   APP_ORIGIN,
   DEV_ORIGIN,
   DEV_ORIGIN_FLAG,

@@ -1,5 +1,7 @@
 'use strict';
 
+const { APP_PORT } = require('./url-safety');
+
 // The backend is spawned with `env: { ...process.env, ... }` — the entire
 // parent environment is inherited unfiltered. `is_dev_mode()`
 // (auralis-web/backend/config/app.py) treats an ambient AURALIS_DEV_MODE=1
@@ -12,6 +14,10 @@
 // A packaged build never passes `--dev` in pythonArgs, so the only guard
 // available to the *production* spawn path is to explicitly clear whatever
 // AURALIS_DEV_MODE the parent shell happened to have set.
+//
+// AURALIS_PORT is pinned the same way (#6170): the backend honours it, but Electron health-checks,
+// loads and trusts APP_ORIGIN, so an AURALIS_PORT exported in the launching shell would move the
+// backend while the privileged window kept trusting whatever listens on 8765.
 //
 // The development spawn path sets it to '1' instead (#5373). The renderer is
 // served from the Vite dev server on :3000 and its WebSocket handshake carries
@@ -31,6 +37,7 @@ function buildBackendEnv(baseEnv, isDevelopment) {
   // Production: never let an ambient AURALIS_DEV_MODE reach the backend.
   // Development: always on, so the :3000 renderer's origin is admitted.
   env.AURALIS_DEV_MODE = isDevelopment ? '1' : '0';
+  env.AURALIS_PORT = String(APP_PORT);
   return env;
 }
 

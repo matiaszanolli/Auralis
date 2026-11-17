@@ -4,7 +4,7 @@ const log = require('electron-log/main');
 const { spawn, exec } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
-const { isSafeExternalUrl, isAllowedAppNavigation, escapeControlChars, DEV_ORIGIN_FLAG } = require('./url-safety');
+const { isSafeExternalUrl, isAllowedAppNavigation, escapeControlChars, DEV_ORIGIN_FLAG, APP_PORT, APP_ORIGIN } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
 const { findListeners, stopProcess } = require('./port-cleanup');
 
@@ -58,7 +58,7 @@ class AuralisApp {
     this.backendReady = false;
     this.isQuitting = false;
     this.isDevelopment = !app.isPackaged;
-    this.backendPort = 8765;
+    this.backendPort = APP_PORT;
   }
 
   /**
@@ -222,7 +222,7 @@ class AuralisApp {
         if (output.includes('address already in use')) {
           if (!resolved) {
             resolved = true;
-            reject(new Error('Port 8765 is already in use — backend cannot start'));
+            reject(new Error(`Port ${APP_PORT} is already in use — backend cannot start`));
           }
         }
       });
@@ -258,7 +258,7 @@ class AuralisApp {
       const http = require('node:http');
       const options = {
         hostname: 'localhost',
-        port: 8765,
+        port: APP_PORT,
         path: '/api/health',
         method: 'GET',
         timeout: 5000
@@ -328,7 +328,7 @@ class AuralisApp {
       startUrl = 'http://localhost:3000'; // Try React dev server first
     } else {
       // Production: Backend serves the built React app
-      startUrl = 'http://localhost:8765';
+      startUrl = APP_ORIGIN;
     }
 
     console.log(`Loading URL: ${startUrl}`);
@@ -376,7 +376,7 @@ class AuralisApp {
       if (this.isDevelopment) {
         console.log('Trying backend URL instead...');
         try {
-          await this.mainWindow.loadURL('http://localhost:8765');
+          await this.mainWindow.loadURL(APP_ORIGIN);
           this.mainWindow.show();
         } catch (backendError) {
           // Show error page

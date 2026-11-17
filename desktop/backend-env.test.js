@@ -47,3 +47,11 @@ test('preserves other inherited env vars', () => {
   assert.equal(env.PATH, '/usr/bin');
   assert.equal(env.HOME, '/home/user');
 });
+
+// #6170: Electron health-checks, loads and trusts APP_ORIGIN, so the backend must not be moved off it.
+test('pins AURALIS_PORT to the port Electron loads, overriding an ambient value', () => {
+  for (const isDev of [false, true]) {
+    assert.equal(buildBackendEnv({ AURALIS_PORT: '9000' }, isDev).AURALIS_PORT, '8765');
+    assert.equal(buildBackendEnv({}, isDev).AURALIS_PORT, '8765');
+  }
+});
