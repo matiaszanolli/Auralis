@@ -30,7 +30,6 @@ class PlaybackReportingMixin:
     processor: Any
     auto_reference_selection: bool
     tracks_played: int
-    total_play_time: float
     session_start_time: float
     _current_track_dict: dict[str, Any] | None
     _position_lock: "threading.RLock"
@@ -61,15 +60,13 @@ class PlaybackReportingMixin:
             # access happens inside the lock.
             current_track_snapshot = self._current_track_dict
 
-        # #4552: read the session counters under _stats_lock, matching the
-        # write side in record_track_completion (#2472). Unlocked, a poll could
-        # observe a torn tracks_played / total_play_time pair mid-update.
-        # Taken after _position_lock is released, so the two never nest.
+        # #4552: read the session counter under _stats_lock, matching the write
+        # side in record_track_completion (#2472). Taken after _position_lock is
+        # released, so the two never nest.
         with self._stats_lock:
             session_info = {
                 'tracks_played': self.tracks_played,
                 'session_duration': time.time() - self.session_start_time,
-                'total_play_time': self.total_play_time,
             }
 
         return {
@@ -84,7 +81,10 @@ class PlaybackReportingMixin:
         }
 
     def record_track_completion(self) -> None:
-        """Record that current track completed (fixes #2472: atomic increment)."""
+        """Record that the current track played to its end (auto-advance only, #6313).
+
+        Atomic increment (#2472).
+        """
         with self._stats_lock:
             self.tracks_played += 1
             count = self.tracks_played

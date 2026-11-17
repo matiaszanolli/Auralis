@@ -56,7 +56,7 @@ class PlayerStreamingMixin:
     # Provided by PlayerQueueNavigationMixin. Bare annotation only (no
     # assignment) — see PlayerQueueNavigationMixin for why this must not
     # become a real attribute in this class's __dict__.
-    next_track: Callable[[], bool]
+    next_track: Callable[..., bool]
     # Provided by the integration-manager mixin; bare annotation for the
     # type checker, same rule as next_track above.
     integration: Any
@@ -183,7 +183,8 @@ class PlayerStreamingMixin:
             # cleanup()" hold deterministically.
             if self._cleanup_in_progress.is_set():
                 return
-            if self.playback.is_playing() and not self.next_track():
+            # completed=True: only this path is a natural end of track (#6313).
+            if self.playback.is_playing() and not self.next_track(completed=True):
                 # #5706: next_track() returns False -- successor missing,
                 # undecodable or without a path key -- without moving the queue.
                 # Ignoring that re-armed the spawn in the finally block, so every

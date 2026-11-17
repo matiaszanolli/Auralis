@@ -118,7 +118,7 @@
     "auralis/player/gapless_playback_engine.py": 279,
     "auralis/player/gapless_prebuffer.py": 242,
     "auralis/player/integration_library.py": 133,
-    "auralis/player/integration_manager.py": 234,
+    "auralis/player/integration_manager.py": 233,
     "auralis/player/integration_reporting.py": 126,
     "auralis/player/queue_controller.py": 264,
     "auralis/player/queue_loading.py": 129,

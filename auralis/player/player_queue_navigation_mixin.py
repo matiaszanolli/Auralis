@@ -56,9 +56,13 @@ class PlayerQueueNavigationMixin:
     # Provided by PlayerFingerprintLoaderMixin.
     _schedule_fingerprint_load: Callable[[str], None]
 
-    def next_track(self) -> bool:
+    def next_track(self, completed: bool = False) -> bool:
         """
         Skip to next track in queue with gapless playback support.
+
+        Args:
+            completed: True only from auto-advance, when the current track
+                played to its end; a user skip is not a completion (#6313).
 
         Returns:
             bool: True if advanced, False if no next track
@@ -115,7 +119,8 @@ class PlayerQueueNavigationMixin:
         if not advanced:
             return False
 
-        self.integration.record_track_completion()
+        if completed:
+            self.integration.record_track_completion()
         self._sync_current_track_from_queue()
 
         # The gapless advance also bypasses AudioPlayer.load_file(), so

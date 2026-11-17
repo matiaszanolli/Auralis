@@ -113,7 +113,6 @@ class TestConstructor:
         assert m.auto_reference_selection is True
         assert m.callbacks == []
         assert m.tracks_played == 0
-        assert m.total_play_time == 0.0
 
     def test_registers_playback_callback(self):
         """PlaybackController.add_callback must be called once at init."""

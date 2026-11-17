@@ -93,7 +93,6 @@ class IntegrationManager(LibraryLoadingMixin, PlaybackReportingMixin):
 
         # Statistics
         self.tracks_played = 0
-        self.total_play_time = 0.0
         self.session_start_time = time.time()
         self._stats_lock = threading.Lock()  # guards tracks_played (fixes #2472)
         # Cross-component lock: ensures position + sample_rate are read atomically
