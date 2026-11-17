@@ -43,43 +43,63 @@ describe('replaceAbortController', () => {
 describe('fetchLoadedPages', () => {
   beforeEach(() => mockGet.mockReset());
 
-  it('re-fetches exactly as many pages as are loaded and reports where loadMore continues', async () => {
-    mockGet
-      .mockResolvedValueOnce(page([1, 2], true, 6))
-      .mockResolvedValueOnce(page([3, 4], true, 6))
-      .mockResolvedValueOnce(page([5, 6], false, 6));
+  /** A server of `total` rows that honours the limit/offset in the URL. */
+  const serve = (total: number) =>
+    mockGet.mockImplementation(async (url: string) => {
+      const params = new URL(url, 'http://x').searchParams;
+      const limit = Number(params.get('limit'));
+      const offset = Number(params.get('offset'));
+      const ids = Array.from({ length: Math.max(0, Math.min(limit, total - offset)) }, (_, i) => offset + i + 1);
+      return page(ids, offset + limit < total, total);
+    });
+  const fresh = () => new AbortController().signal;
 
-    // 3 loaded -> two pages cover it; the third is never requested.
-    const result = await fetchLoadedPages('songs', '', 3, () => new AbortController().signal, () => false);
+  it('reads the loaded rows in requests as large as the server allows', async () => {
+    serve(1000);
 
-    expect(mockGet).toHaveBeenCalledTimes(2);
-    expect(result?.tracks.map((t) => t.id)).toEqual([1, 2, 3, 4]);
-    expect(result).toMatchObject({ offset: 2 * PAGE_LIMIT, hasMore: true, total: 6 });
+    // 500 loaded rows = ten pages: 200 + 200 + 100 rows, three requests.
+    const result = await fetchLoadedPages('songs', '', 500, fresh, () => false);
+
+    expect(mockGet.mock.calls.map((c) => new URL(String(c[0]), 'http://x').searchParams.get('limit'))).toEqual([
+      '200', '200', '100',
+    ]);
+    expect(result?.tracks).toHaveLength(500);
+    expect(result).toMatchObject({ offset: 9 * PAGE_LIMIT, hasMore: true, total: 1000 }); // start of the last page read
   });
 
-  it('stops early when the server has no more pages', async () => {
-    mockGet.mockResolvedValueOnce(page([1], false, 1));
+  it('reports the last page start for a single loaded page', async () => {
+    serve(1000);
 
-    const result = await fetchLoadedPages('songs', '', 50, () => new AbortController().signal, () => false);
+    const result = await fetchLoadedPages('songs', '', PAGE_LIMIT, fresh, () => false);
 
     expect(mockGet).toHaveBeenCalledTimes(1);
-    expect(result).toMatchObject({ hasMore: false, total: 1 });
+    expect(result).toMatchObject({ offset: 0, hasMore: true });
   });
 
-  it('takes a fresh signal for every page', async () => {
-    mockGet.mockResolvedValueOnce(page([1], true, 2)).mockResolvedValueOnce(page([2], false, 2));
-    const nextSignal = vi.fn(() => new AbortController().signal);
+  it('stops when the library shrank below what was loaded', async () => {
+    serve(70);
 
-    await fetchLoadedPages('songs', '', 2, nextSignal, () => false);
+    const result = await fetchLoadedPages('songs', '', 150, fresh, () => false);
 
-    expect(nextSignal).toHaveBeenCalledTimes(2);
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(result?.tracks).toHaveLength(70);
+    expect(result).toMatchObject({ offset: PAGE_LIMIT, hasMore: false, total: 70 });
+  });
+
+  it('takes a fresh signal for every request', async () => {
+    serve(1000);
+    const nextSignal = vi.fn(fresh);
+
+    await fetchLoadedPages('songs', '', 250, nextSignal, () => false);
+
+    expect(nextSignal).toHaveBeenCalledTimes(2); // 200 + 50 rows
   });
 
   it('returns null, applying nothing, once the request is superseded mid-way', async () => {
-    mockGet.mockResolvedValue(page([1, 2], true, 9));
+    serve(1000);
     let calls = 0;
 
-    const result = await fetchLoadedPages('songs', '', 6, () => new AbortController().signal, () => ++calls > 1);
+    const result = await fetchLoadedPages('songs', '', 500, fresh, () => ++calls > 1);
 
     expect(result).toBeNull();
     expect(mockGet).toHaveBeenCalledTimes(2);

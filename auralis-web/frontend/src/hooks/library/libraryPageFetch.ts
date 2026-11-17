@@ -10,7 +10,7 @@
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
-import { ENDPOINTS, LIBRARY_PAGE_LIMIT } from '@/config/api';
+import { ENDPOINTS, LIBRARY_MAX_PAGE_LIMIT, LIBRARY_PAGE_LIMIT } from '@/config/api';
 import { transformTracks, type TrackApiResponse } from '@/api/transformers';
 import type { LibraryTrack } from '@/types/domain';
 import { get, APIRequestError } from '@/utils/apiRequest';
@@ -32,8 +32,8 @@ export interface TracksPage {
   rawCount: number;
 }
 
-export function tracksEndpoint(view: string, offset: number, search = ''): string {
-  const params = new URLSearchParams({ limit: String(PAGE_LIMIT), offset: String(offset) });
+export function tracksEndpoint(view: string, offset: number, search = '', limit = PAGE_LIMIT): string {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   // #5866: server-side search (title/artist/album ILIKE) — the client-side
   // filter only ever saw the already-loaded pages, so anything outside them
   // showed as a false "no results" in a large library.
@@ -53,9 +53,10 @@ export async function fetchTracksPage(
   view: string,
   offset: number,
   signal: AbortSignal,
-  search = ''
+  search = '',
+  limit = PAGE_LIMIT
 ): Promise<TracksPage> {
-  const data = await get<TracksPageResponse>(tracksEndpoint(view, offset, search), {
+  const data = await get<TracksPageResponse>(tracksEndpoint(view, offset, search, limit), {
     signal,
     validate: isTracksListShape,
   });
@@ -95,16 +96,19 @@ export function replaceAbortController(ref: { current: AbortController | null })
 
 export interface RefreshedPages {
   tracks: TracksPage['tracks'];
-  /** Where loadMore continues from. */
+  /** Start of the LAST page read - what useLibraryPagination's `offset` means (loadMore adds one
+   *  page to it). The first unread page's start would make loadMore skip a whole page. */
   offset: number;
   hasMore: boolean;
   total: number;
 }
 
 /**
- * Re-fetch exactly as many pages as are loaded, so the visible rows are replaced with current data
- * AND pagination continuity is kept (#5626). Returns null when `isStale()` turned true mid-way.
- * `nextSignal` is called before each page so the caller can supersede the previous request.
+ * Re-fetch the rows already loaded, so the visible rows are replaced with current data AND
+ * pagination continuity is kept (#5626). Requests are as large as the server allows
+ * (LIBRARY_MAX_PAGE_LIMIT, in whole pages), so refreshing N loaded pages costs ceil(N / 4)
+ * requests instead of N (#5902). Returns null when `isStale()` turned true mid-way.
+ * `nextSignal` is called before each request so the caller can supersede the previous one.
  */
 export async function fetchLoadedPages(
   view: string,
@@ -113,17 +117,21 @@ export async function fetchLoadedPages(
   nextSignal: () => AbortSignal,
   isStale: () => boolean
 ): Promise<RefreshedPages | null> {
+  const pagesPerRequest = Math.floor(LIBRARY_MAX_PAGE_LIMIT / PAGE_LIMIT);
   const tracks: TracksPage['tracks'] = [];
-  let offset = 0;
+  let rowsRead = 0;
   let hasMore = true;
   let total = 0;
-  while (tracks.length < loaded && hasMore) {
-    const page = await fetchTracksPage(view, offset, nextSignal(), search);
+  while (rowsRead < loaded && hasMore) {
+    const pagesWanted = Math.min(pagesPerRequest, Math.ceil((loaded - rowsRead) / PAGE_LIMIT));
+    const page = await fetchTracksPage(view, rowsRead, nextSignal(), search, pagesWanted * PAGE_LIMIT);
     if (isStale()) return null;
     tracks.push(...page.tracks);
+    rowsRead += page.rawCount;
     hasMore = page.hasMore;
     total = page.total;
-    offset += PAGE_LIMIT;
+    if (page.rawCount === 0) break; // an empty page cannot make progress
   }
-  return { tracks, offset, hasMore, total };
+  // `offset` is the start of the LAST page read (loadMore adds one page to it).
+  return { tracks, offset: Math.max(0, Math.ceil(rowsRead / PAGE_LIMIT) - 1) * PAGE_LIMIT, hasMore, total };
 }

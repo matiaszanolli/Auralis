@@ -35,6 +35,18 @@ const page = (ids: number[], hasMore: boolean, total: number, titlePrefix = 'Tra
   }),
 });
 
+/** A server holding `ids`, answering /api/library/tracks by its real limit/offset contract. */
+function serve(ids: number[], titlePrefix = 'Track') {
+  return (url: unknown) => {
+    const params = new URL(String(url), 'http://x').searchParams;
+    const limit = Number(params.get('limit'));
+    const offset = Number(params.get('offset'));
+    return Promise.resolve(page(ids.slice(offset, offset + limit), offset + limit < ids.length, ids.length, titlePrefix));
+  };
+}
+
+const range = (from: number, count: number) => Array.from({ length: count }, (_, i) => from + i);
+
 /** A fetch promise the test settles by hand, for mid-refresh assertions. */
 function deferredPage(p: () => ReturnType<typeof page>) {
   let resolve!: (value: unknown) => void;
@@ -70,39 +82,85 @@ describe('useLibraryPagination.refreshTracks (#5626)', () => {
   it('replaces loaded pages in place: never empties, never appends', async () => {
     const { result } = renderHook(() => useLibraryPagination({ view: 'all' }));
 
-    // Load two pages (100 tracks of 120).
-    mockFetch
-      .mockResolvedValueOnce(page([1, 2], true, 120))
-      .mockResolvedValueOnce(page([3, 4], true, 120));
+    // Load two pages (rows 1-100 of 120).
+    mockFetch.mockImplementation(serve(range(1, 120)));
     await act(async () => {
       await result.current.fetchTracks();
     });
     await act(async () => {
       await result.current.loadMore();
     });
-    expect(result.current.tracks).toHaveLength(4);
+    expect(result.current.tracks).toHaveLength(100);
 
-    // The refresh pages carry server-side changes: track 2 was deleted,
-    // and every surviving title changed.
-    mockFetch
-      .mockResolvedValueOnce(page([1, 3], true, 120, 'Updated'))
-      .mockResolvedValueOnce(page([4, 5], false, 120, 'Updated'));
-
+    // The server changed: track 2 was deleted, and every surviving title changed.
+    mockFetch.mockImplementation(serve(range(1, 120).filter((id) => id !== 2), 'Updated'));
     await act(async () => {
       await result.current.refreshTracks();
     });
 
     const tracks = result.current.tracks;
-    expect(tracks).toHaveLength(4);
-    expect(idsOf(tracks)).toEqual([1, 3, 4, 5]);
-    // Replaced wholesale — no duplicates from append-style merging.
-    expect(new Set(idsOf(tracks)).size).toBe(4);
+    expect(tracks).toHaveLength(100);
+    expect(idsOf(tracks)).toEqual(range(1, 120).filter((id) => id !== 2).slice(0, 100));
+    // Replaced wholesale - no duplicates from append-style merging.
+    expect(new Set(idsOf(tracks)).size).toBe(100);
     expect(tracks[0].title).toBe('Updated 1');
-    // Pagination continuity: the refresh consumed two pages, loadMore
-    // continues from there.
-    expect(result.current.offset).toBe(100);
-    expect(result.current.hasMore).toBe(false);
-    expect(result.current.totalTracks).toBe(120);
+    // Pagination continuity: the last loaded page starts at 50, loadMore continues at 100.
+    expect(result.current.offset).toBe(50);
+    expect(result.current.hasMore).toBe(true);
+    expect(result.current.totalTracks).toBe(119);
+  });
+
+  it('loadMore after a refresh continues at the next unloaded page, not one past it', async () => {
+    const { result } = renderHook(() => useLibraryPagination({ view: 'all' }));
+    const requested = () =>
+      mockFetch.mock.calls.map((call) => new URL(String(call[0]), 'http://x').searchParams.get('offset'));
+
+    mockFetch.mockImplementation(serve(range(1, 300)));
+    await act(async () => {
+      await result.current.fetchTracks();
+    });
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(result.current.offset).toBe(50);
+
+    await act(async () => {
+      await result.current.refreshTracks();
+    });
+    expect(result.current.tracks).toHaveLength(100);
+    expect(result.current.offset).toBe(50); // the last LOADED page, same as before the refresh
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    // 100 is the first row nobody has loaded; 150 would silently skip rows 101-150.
+    expect(requested().slice(-1)).toEqual(['100']);
+    expect(idsOf(result.current.tracks)).toEqual(range(1, 150));
+  });
+
+  it('refreshing many loaded pages takes a bounded number of requests (#5902)', async () => {
+    const { result } = renderHook(() => useLibraryPagination({ view: 'all' }));
+
+    mockFetch.mockImplementation(serve(range(1, 1000)));
+    await act(async () => {
+      await result.current.fetchTracks();
+    });
+    for (let i = 0; i < 9; i += 1) {
+      await act(async () => {
+        await result.current.loadMore();
+      });
+    }
+    expect(result.current.tracks).toHaveLength(500); // ten pages loaded
+
+    mockFetch.mockClear();
+    await act(async () => {
+      await result.current.refreshTracks();
+    });
+
+    expect(result.current.tracks).toHaveLength(500);
+    expect(mockFetch).toHaveBeenCalledTimes(3); // 200 + 200 + 100 rows, not ten 50-row requests
+    expect(result.current.offset).toBe(450);
   });
 
   it('never empties the list or raises `loading` while the refresh is in flight', async () => {

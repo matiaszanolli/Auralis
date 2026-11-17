@@ -120,3 +120,6 @@ export const ENDPOINTS = {
  * has its own PLAYLISTS_PAGE_LIMIT for a different endpoint).
  */
 export const LIBRARY_PAGE_LIMIT = 50;
+
+/** The largest `limit` the paginated library routes accept (backend PaginationParams.MAX_LIMIT). */
+export const LIBRARY_MAX_PAGE_LIMIT = 200;
