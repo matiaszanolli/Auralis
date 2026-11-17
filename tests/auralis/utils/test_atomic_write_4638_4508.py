@@ -237,12 +237,12 @@ class TestFingerprintStorageSaveIsAtomic:
         audio = tmp_path / "track.flac"
         audio.write_bytes(b"audio")
 
-        path = FingerprintStorage.save(audio, {"lufs": -14.0}, {"gain": 1.0})
+        path = FingerprintStorage.save(audio, {"lufs": -14.0}, {"gain": 1.0}, sample_rate=44100, duration=1.0)
         original = path.read_text(encoding="utf-8")
 
         with patch("json.dump", side_effect=OSError("disk full")):
             with pytest.raises(OSError):
-                FingerprintStorage.save(audio, {"lufs": -99.0}, {"gain": 9.0})
+                FingerprintStorage.save(audio, {"lufs": -99.0}, {"gain": 9.0}, sample_rate=44100, duration=1.0)
 
         assert path.read_text(encoding="utf-8") == original, (
             "a failed save discarded an already-computed fingerprint (#4508)"
@@ -257,7 +257,7 @@ class TestFingerprintStorageSaveIsAtomic:
 
         with patch("json.dump", side_effect=OSError("disk full")):
             with pytest.raises(OSError):
-                FingerprintStorage.save(audio, {"lufs": -14.0}, {"gain": 1.0})
+                FingerprintStorage.save(audio, {"lufs": -14.0}, {"gain": 1.0}, sample_rate=44100, duration=1.0)
 
         assert _leftovers(cache_dir) == []
 
@@ -277,7 +277,7 @@ class TestFingerprintStorageSaveIsAtomic:
         audio.write_bytes(b"audio")
 
         fingerprint = {name: float(i) for i, name in enumerate(DIMENSION_SCHEMA)}
-        FingerprintStorage.save(audio, fingerprint, {"gain": 1.0})
+        FingerprintStorage.save(audio, fingerprint, {"gain": 1.0}, sample_rate=44100, duration=1.0)
         loaded = FingerprintStorage.load(audio)
 
         assert loaded is not None, "the atomically-written cache entry did not load"

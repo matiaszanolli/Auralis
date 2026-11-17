@@ -11,6 +11,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import logging as _stdlib_logging
+import os as _os
 import traceback as _traceback
 from collections.abc import Callable
 from types import TracebackType
@@ -22,6 +23,16 @@ from types import TracebackType
 _LOG_UNSAFE_CHARS = frozenset(
     chr(c) for c in range(0x00, 0x20) if c != 0x09
 ) | {chr(0x7F)} | frozenset(chr(c) for c in range(0x80, 0xA0))
+
+
+# The user's home directory carries their OS account name and the install layout; every path under it
+# reads as "~/..." in persisted logs (#6189). Resolved once: a log call must not hit the filesystem.
+try:
+    _HOME_PREFIX = _os.path.expanduser("~")
+except Exception:  # noqa: BLE001 - no resolvable home (a bare service account): nothing to redact
+    _HOME_PREFIX = ""
+if len(_HOME_PREFIX) < 2:  # "" or "/": redacting would mangle every path
+    _HOME_PREFIX = ""
 
 
 def sanitize_log_value(value: object, max_length: int = 500) -> str:
@@ -41,6 +52,8 @@ def sanitize_log_value(value: object, max_length: int = 500) -> str:
         A single-line, control-character-free string safe for logging.
     """
     text = str(value)
+    if _HOME_PREFIX and _HOME_PREFIX in text:
+        text = text.replace(_HOME_PREFIX, "~")
     if len(text) > max_length:
         text = text[:max_length] + "…"
     if not any(ch in _LOG_UNSAFE_CHARS for ch in text):
