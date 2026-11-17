@@ -51,7 +51,6 @@ def _make_wav_bytes(tmp_path: Path, duration: float = 2.0, sample_rate: int = 44
 
 @pytest.mark.integration
 @pytest.mark.audio
-@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_upload_and_process_end_to_end_with_real_engine(tmp_path):
     """Real ProcessingEngine + real HybridProcessor, driven entirely through
