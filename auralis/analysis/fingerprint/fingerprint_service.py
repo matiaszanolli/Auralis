@@ -28,6 +28,7 @@ from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
 from auralis.analysis.fingerprint.schema import DIMENSION_NAMES, band_pct_valid
 from auralis.analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
+from auralis.io.formats import FFMPEG_FORMATS
 from auralis.library.constants import SQLITE_BUSY_TIMEOUT_MS, SQLITE_CONNECT_TIMEOUT_S
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
 from auralis.library.repositories.track_repository import TrackRepository
@@ -172,6 +173,11 @@ class FingerprintService:
                 try:
                     if audio is not None and sr:
                         meta_sr, meta_duration = int(sr), len(audio) / sr
+                    elif audio_path.suffix.lower() in FFMPEG_FORMATS:
+                        # libsndfile cannot open m4a/aac/wma/mp3: ffprobe reads the header (#6330).
+                        from auralis.io.loaders.ffmpeg_probe import _probe_audio
+                        probed = _probe_audio(audio_path)
+                        meta_sr, meta_duration = int(probed['sample_rate']), float(probed['duration'])
                     else:
                         import soundfile as _sf
                         info = _sf.info(str(audio_path))
