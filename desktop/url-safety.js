@@ -51,6 +51,25 @@ function isErrorPageUrl(parsed) {
 }
 
 /**
+ * True when an IPC invoke comes from the top-level document on the app origin (#6174).
+ *
+ * preload.js already withholds electronAPI from other origins, but a handler that never looks at
+ * who is calling trusts that alone: an unexpected subframe, or a document that slipped past the
+ * navigation guard, would reach the native file pickers and window controls. `senderFrame` is
+ * null once its frame is gone, which fails closed. The offline error page (file:) is refused.
+ */
+function isTrustedIpcSender(event, { isDevelopment = false } = {}) {
+  const frame = event && event.senderFrame;
+  if (!frame || typeof frame.url !== 'string' || frame.parent) return false;
+  try {
+    const { origin } = new URL(frame.url);
+    return origin === APP_ORIGIN || (isDevelopment && origin === DEV_ORIGIN);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * True if `url` is an origin the main window may navigate to in-place.
  *
  * Electron allows top-level navigation to anywhere when no `will-navigate`
@@ -93,6 +112,7 @@ module.exports = {
   isSafeExternalUrl,
   ALLOWED_EXTERNAL_SCHEMES,
   isAllowedAppNavigation,
+  isTrustedIpcSender,
   APP_PORT,
   APP_ORIGIN,
   DEV_ORIGIN,

@@ -1,0 +1,36 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+// main.js needs the real electron API at module scope, so, like preload.test.js, these checks read
+// the sources as text (#6174).
+const MAIN_SRC = fs.readFileSync(path.join(__dirname, 'main.js'), 'utf8');
+const PACKAGE = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+
+test('every IPC handler goes through handleTrusted, never a bare ipcMain.handle', () => {
+  const bare = [...MAIN_SRC.matchAll(/ipcMain\.handle\(\s*'([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(bare, [], `unchecked IPC channels: ${bare.join(', ')}`);
+  assert.ok(MAIN_SRC.includes('isTrustedIpcSender(event'), 'handleTrusted must check the sender');
+});
+
+test('web permissions are denied by default', () => {
+  assert.ok(MAIN_SRC.includes('setPermissionRequestHandler('));
+  assert.ok(MAIN_SRC.includes('callback(false);'), 'the request handler must deny');
+  assert.equal(/callback\(true\)/.test(MAIN_SRC), false);
+  assert.match(MAIN_SRC, /setPermissionCheckHandler\(\(\)\s*=>\s*false\)/);
+});
+
+test('the packaged app flips the Electron fuses that expose Node to the environment', () => {
+  const fuses = PACKAGE.build.electronFuses;
+  assert.equal(fuses.runAsNode, false);
+  assert.equal(fuses.enableNodeOptionsEnvironmentVariable, false);
+  assert.equal(fuses.enableNodeCliInspectArguments, false);
+  assert.equal(fuses.onlyLoadAppFromAsar, true);
+});
+
+test('nothing in main.js relies on ELECTRON_RUN_AS_NODE, which the runAsNode fuse disables', () => {
+  assert.equal(/RUN_AS_NODE/.test(MAIN_SRC), false);
+});

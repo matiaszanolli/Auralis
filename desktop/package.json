@@ -40,6 +40,12 @@
     "appId": "com.auralis.desktop",
     "productName": "Auralis",
     "copyright": "Copyright © 2024 Auralis Team",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true
+    },
     "directories": {
       "output": "../dist",
       "buildResources": "assets"

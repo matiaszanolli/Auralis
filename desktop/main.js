@@ -1,10 +1,10 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log/main');
 const { spawn, exec } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
-const { isSafeExternalUrl, isAllowedAppNavigation, escapeControlChars, DEV_ORIGIN_FLAG, APP_PORT, APP_ORIGIN } = require('./url-safety');
+const { isSafeExternalUrl, isAllowedAppNavigation, isTrustedIpcSender, escapeControlChars, DEV_ORIGIN_FLAG, APP_PORT, APP_ORIGIN } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
 const { findListeners, stopProcess } = require('./port-cleanup');
 
@@ -471,8 +471,19 @@ class AuralisApp {
 // Initialize app instance
 const auralisApp = new AuralisApp();
 
+// Every handler refuses a caller that is not the app's own top-level document (#6174).
+function handleTrusted(channel, handler) {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!isTrustedIpcSender(event, { isDevelopment: !app.isPackaged })) {
+      log.warn(`Refused IPC '${channel}' from untrusted frame: ${escapeControlChars(String(event.senderFrame && event.senderFrame.url))}`);
+      throw new Error('Untrusted IPC sender');
+    }
+    return handler(event, ...args);
+  });
+}
+
 // Set up IPC handlers
-ipcMain.handle('select-file', async () => {
+handleTrusted('select-file', async () => {
   const result = await dialog.showOpenDialog(auralisApp.mainWindow, {
     properties: ['openFile'],
     filters: [
@@ -483,20 +494,20 @@ ipcMain.handle('select-file', async () => {
   return result.filePaths;
 });
 
-ipcMain.handle('select-folder', async () => {
+handleTrusted('select-folder', async () => {
   const result = await dialog.showOpenDialog(auralisApp.mainWindow, {
     properties: ['openDirectory']
   });
   return result.filePaths;
 });
 
-ipcMain.handle('window-minimize', () => {
+handleTrusted('window-minimize', () => {
   if (auralisApp.mainWindow) {
     auralisApp.mainWindow.minimize();
   }
 });
 
-ipcMain.handle('window-maximize', () => {
+handleTrusted('window-maximize', () => {
   if (auralisApp.mainWindow) {
     if (auralisApp.mainWindow.isMaximized()) {
       auralisApp.mainWindow.unmaximize();
@@ -506,7 +517,7 @@ ipcMain.handle('window-maximize', () => {
   }
 });
 
-ipcMain.handle('window-close', () => {
+handleTrusted('window-close', () => {
   if (auralisApp.mainWindow) {
     auralisApp.mainWindow.close();
   }
@@ -583,7 +594,7 @@ autoUpdater.on('update-downloaded', (info) => {
 });
 
 // IPC handler for manual update check
-ipcMain.handle('check-for-updates', async () => {
+handleTrusted('check-for-updates', async () => {
   if (!app.isPackaged) {
     return { available: false, message: 'Updates only available in packaged app' };
   }
@@ -617,6 +628,13 @@ if (!hasSingleInstanceLock) {
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return; // quitting: another instance owns the backend
   console.log('Electron app ready');
+  // The renderer needs no web permission (no camera, microphone, notifications, geolocation or
+  // clipboard-read use anywhere in the frontend), so every request and check is refused (#6174).
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => {
+    log.warn(`Denied web permission request: ${escapeControlChars(String(permission))}`);
+    callback(false);
+  });
+  session.defaultSession.setPermissionCheckHandler(() => false);
   auralisApp.initialize();
 
   // Check for updates on startup (only in production)

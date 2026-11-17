@@ -121,3 +121,28 @@ test('escapeControlChars leaves ordinary text and non-strings alone', () => {
   assert.equal(escapeControlChars('https://example.com/a?b=c'), 'https://example.com/a?b=c');
   assert.equal(escapeControlChars(undefined), 'undefined');
 });
+
+// #6174: IPC handlers check who is calling, not just which channel.
+const { isTrustedIpcSender } = require('./url-safety');
+const frame = (url, parent = null) => ({ senderFrame: { url, parent } });
+
+test('isTrustedIpcSender accepts the top-level app document only', () => {
+  assert.equal(isTrustedIpcSender(frame('http://localhost:8765/library')), true);
+  assert.equal(isTrustedIpcSender(frame('http://localhost:8765/', {})), false, 'a subframe, even on the app origin');
+  assert.equal(isTrustedIpcSender(frame('http://localhost:9999/')), false);
+  assert.equal(isTrustedIpcSender(frame('https://evil.example/')), false);
+  assert.equal(isTrustedIpcSender(frame('http://localhost:8765@evil.com/')), false);
+});
+
+test('isTrustedIpcSender fails closed on a missing or malformed sender', () => {
+  assert.equal(isTrustedIpcSender({ senderFrame: null }), false, 'frame already destroyed');
+  assert.equal(isTrustedIpcSender({}), false);
+  assert.equal(isTrustedIpcSender(undefined), false);
+  assert.equal(isTrustedIpcSender(frame('not a url')), false);
+  assert.equal(isTrustedIpcSender(frame(`file://${require('node:path').join(__dirname, 'error.html')}`)), false);
+});
+
+test('isTrustedIpcSender admits the Vite dev origin only in development', () => {
+  assert.equal(isTrustedIpcSender(frame('http://localhost:3000/'), { isDevelopment: true }), true);
+  assert.equal(isTrustedIpcSender(frame('http://localhost:3000/')), false);
+});

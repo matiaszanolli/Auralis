@@ -20,7 +20,7 @@ function invokedChannels(src) {
 }
 
 function handledChannels(src) {
-  const re = /ipcMain\.handle\(\s*'([^']+)'/g;
+  const re = /(?:ipcMain\.handle|handleTrusted)\(\s*'([^']+)'/g;
   const channels = new Set();
   let m;
   while ((m = re.exec(src))) channels.add(m[1]);
