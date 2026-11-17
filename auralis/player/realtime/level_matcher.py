@@ -105,8 +105,8 @@ class RealtimeLevelMatcher:
             # Calculate current RMS
             current_rms = np.sqrt(np.mean(audio ** 2))
 
-            if current_rms == 0:
-                return audio
+            if current_rms == 0 or not np.isfinite(current_rms):
+                return audio  # silence, or a corrupt buffer: no gain decision (#6299)
 
             # Smooth the target RMS to avoid sudden changes
             target_rms = self.reference_rms

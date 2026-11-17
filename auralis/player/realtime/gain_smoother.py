@@ -21,7 +21,10 @@ class AdaptiveGainSmoother:
         self.target_gain = 1.0
 
     def set_target(self, target: float) -> None:
-        """Set target gain"""
+        """Set target gain; a non-finite request (a corrupt buffer's NaN RMS) is ignored, since
+        ``min(10.0, nan)`` is 10.0 and would otherwise ramp to the maximum +20 dB (#6299)."""
+        if not np.isfinite(target):
+            return
         self.target_gain = max(0.0, min(10.0, target))  # Clamp to reasonable range
 
     def process(self, num_samples: int) -> np.ndarray:
