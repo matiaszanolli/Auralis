@@ -15,14 +15,22 @@
  * recovers the library boundary without a click.
  */
 
-import { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode, createContext } from 'react';
 import { tokens } from '@/design-system/tokens';
 import { themeVars } from '@/theme/semanticTheme';
 
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  /** How many times this boundary has reset; see ErrorBoundaryResetContext. */
+  resetCount: number;
 }
+
+/**
+ * The nearest boundary's reset count. A child that caches its own failure (a rejected
+ * React.lazy, #6035) compares it with the count at which it failed to know a retry happened.
+ */
+export const ErrorBoundaryResetContext = createContext(0);
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -44,10 +52,10 @@ interface ErrorBoundaryProps {
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, resetCount: 0 };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error };
   }
 
@@ -73,12 +81,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   private handleRetry = (): void => {
-    this.setState({ hasError: false, error: null });
+    this.setState((state) => ({ hasError: false, error: null, resetCount: state.resetCount + 1 }));
   };
 
   render(): ReactNode {
     if (!this.state.hasError) {
-      return this.props.children;
+      return (
+        <ErrorBoundaryResetContext.Provider value={this.state.resetCount}>
+          {this.props.children}
+        </ErrorBoundaryResetContext.Provider>
+      );
     }
 
     if (typeof this.props.fallback === 'function') {

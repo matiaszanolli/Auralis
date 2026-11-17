@@ -1,15 +1,17 @@
-import { useState, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useCallback, useRef, Suspense } from 'react';
 import { Box } from '@mui/material';
 import { useSelector, useStore } from 'react-redux';
 import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
 import Player from './components/player/Player';
+import { lazyWithRetry } from '@/utils/lazyWithRetry';
 
 // Route-level code splitting: heavy views loaded on demand (fixes #2811)
-const CozyLibraryView = lazy(() => import('./components/library/CozyLibraryView'));
-const SettingsDialog = lazy(() => import('./components/settings/SettingsDialog'));
-const KeyboardShortcutsHelp = lazy(() => import('./components/shared/KeyboardShortcutsHelp'));
+// lazyWithRetry: a failed chunk load must be recoverable from the boundary's retry (#6035).
+const CozyLibraryView = lazyWithRetry(() => import('./components/library/CozyLibraryView'));
+const SettingsDialog = lazyWithRetry(() => import('./components/settings/SettingsDialog'));
+const KeyboardShortcutsHelp = lazyWithRetry(() => import('./components/shared/KeyboardShortcutsHelp'));
 
 // Core app layout components
 import {
