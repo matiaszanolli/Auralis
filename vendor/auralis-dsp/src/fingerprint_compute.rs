@@ -241,10 +241,11 @@ pub fn compute_complete_fingerprint(
     let (freqs, psd) = spectral_features::audio_to_freq_domain(&mono_audio, sample_rate);
     let spectral_centroid = spectral_features::compute_spectral_centroid(&psd, &freqs);
     let spectral_rolloff = spectral_features::compute_spectral_rolloff(&psd, &freqs, 0.85);
-    let spectral_flatness = spectral_features::compute_spectral_flatness(&psd);
+    let spectral_flatness = spectral_features::compute_spectral_flatness(&mono_audio, sample_rate);
 
-    // 5. Harmonic (3D)
-    let harmonic_ratio = estimate_harmonic_ratio(&mono_audio, sample_rate);
+    // 5. Harmonic (3D). harmonic_ratio is flatness's complement (0 = noise, 1 =
+    // tonal); it used to repeat the whole-track FFT just to compute it again.
+    let harmonic_ratio = (1.0 - spectral_flatness).clamp(0.0, 1.0);
     let pitch_stability = estimate_pitch_stability(&mono_audio);
     let chroma_energy = estimate_chroma_energy(&mono_audio, sample_rate);
 
@@ -577,16 +578,6 @@ fn estimate_transient_density(audio: &[f32], sample_rate: u32) -> f32 {
     let seconds = (audio.len() as f32 / sample_rate as f32).max(1.0);
     let onsets_per_second = onsets as f32 / seconds;
     (onsets_per_second / 8.0).clamp(0.0, 1.0)
-}
-
-/// Estimate harmonic ratio (harmonic vs percussive energy)
-fn estimate_harmonic_ratio(audio: &[f32], sample_rate: u32) -> f32 {
-    // Simplified: high spectral flatness = more noise/less harmonic
-    let (_, psd) = spectral_features::audio_to_freq_domain(audio, sample_rate);
-    let flatness = spectral_features::compute_spectral_flatness(&psd);
-
-    // Harmonic ratio = inverse of flatness (0 = noise, 1 = pure tone)
-    (1.0 - flatness).clamp(0.0, 1.0)
 }
 
 /// Estimate chroma energy (harmonic richness) via constant-Q chroma

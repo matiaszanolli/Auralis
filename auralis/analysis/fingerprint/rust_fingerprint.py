@@ -16,7 +16,8 @@ Rust → schema differences handled here:
 
 - **Band keys** ``sub_bass`` … ``air`` → ``sub_bass_pct`` … ``air_pct`` (values are
   already 0-1 fractions that sum to ~1.0; only the key changes).
-- ``loudness_variation`` → ``loudness_variation_std`` (already dB in 0-10; rename only).
+- ``loudness_variation`` → ``loudness_variation_std``, dB, clamped to the schema's
+  0-10 (Rust allows up to 50; the stored row would otherwise differ from the live value).
 - ``spectral_centroid`` raw Hz → 0-1 via ``/ CENTROID_NORMALIZATION_HZ`` (8 kHz).
 - ``spectral_rolloff`` raw Hz → 0-1 via ``/ ROLLOFF_NORMALIZATION_HZ`` (10 kHz — matches
   the Python analyzer's historical convention, and the constant ``schema.rolloff_to_hz``
@@ -38,9 +39,9 @@ peak_consistency, stereo_width, phase_correlation) passes through unchanged.
 import math
 from typing import Any
 
-import numpy as np
+from .schema import CENTROID_NORMALIZATION_HZ, DIMENSION_SCHEMA, ROLLOFF_NORMALIZATION_HZ
 
-from .schema import CENTROID_NORMALIZATION_HZ, ROLLOFF_NORMALIZATION_HZ
+LOUDNESS_VARIATION_MAX_DB: float = DIMENSION_SCHEMA['loudness_variation_std'][2]
 # Dynamic-range variation reaches half response at a 6 dB standard deviation.
 DRV_HALF_RESPONSE_DB: float = 6.0
 
@@ -103,8 +104,8 @@ def rust_fingerprint_to_schema(raw: dict[str, Any]) -> dict[str, float]:
         variation_db + DRV_HALF_RESPONSE_DB
     )
 
-    # Loudness variation: rename only (already dB in 0-10).
-    out["loudness_variation_std"] = float(raw["loudness_variation"])
+    # Loudness variation: dB, clamped to the schema range (#6113).
+    out["loudness_variation_std"] = max(0.0, min(LOUDNESS_VARIATION_MAX_DB, float(raw["loudness_variation"])))
 
     # Bass/mid ratio: Rust fraction bass/(bass+mid) in [0,1] -> schema dB.
     f = float(raw["bass_mid_ratio"])

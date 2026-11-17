@@ -96,7 +96,16 @@ __db_schema_version__ = 31  # next scan re-reads every track so albums are owned
 #             length leaves a short tail changes, and by that tail's share of the energy
 #             (at most ~1.5 s); the ratio's accumulators are f64 now as the bands' are.
 #             Every v14 row's bass_mid_ratio must be recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 15
+# v16 (#6113, #6112): the three variation dimensions skip digitally silent seconds (the
+#             silence_ratio gate, -40 dB from the loudest frame); one silent second read
+#             -120 LUFS and turned loudness_variation_std 0.05 into 12.7 dB. spectral_flatness
+#             is per STFT frame, level-independent and mapped from dB onto 0-1 (it was one
+#             whole-track FFT with an absolute per-bin floor: the same audio read 0.08 at
+#             -24 dBFS, 0.96 at -64). harmonic_ratio = 1 - flatness, so it moves with it:
+#             music spans ~0.4 (distorted guitars) to ~0.8 (orchestral) instead of
+#             0.7-0.9. loudness_variation_std is clamped to its schema range (0-10 dB).
+#             Every v15 row must be recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 16
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

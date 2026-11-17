@@ -1,6 +1,7 @@
 /// Temporal variation analysis
 /// Measures how audio characteristics vary over time
 use crate::dsp_math::{compute_rms, estimate_lufs};
+use crate::rhythm::SILENT_FRAME_RMS_RATIO;
 
 /// Compute crest factor in decibels.
 ///
@@ -22,13 +23,18 @@ fn compute_dynamic_range_db(signal: &[f32]) -> f32 {
     20.0 * (peak / rms).log10()
 }
 
-/// Divide signal into whole frames and compute metric for each.
+/// Divide signal into whole frames and compute metric for each audible one.
 ///
 /// A trailing partial frame is not scored: it would count as much as a full
 /// second in the standard deviation / coefficient of variation, so one extra
 /// sample (or the same audio read at another sample rate) could move the result
 /// by a factor of two on a short track. A signal shorter than one frame yields
 /// no frames, which the callers report as 0.0 (a single value has no variation).
+///
+/// Silent frames (RMS more than 40 dB below the loudest frame, the
+/// `silence_ratio` gate) are not scored either (#6113): a digitally silent
+/// second reads -120 LUFS, 0 dB crest and 0 peak, so one gap or rest made a
+/// steady-level track look wildly dynamic. Silence is `silence_ratio`'s to report.
 fn frame_analysis<F>(
     signal: &[f32],
     sample_rate: u32,
@@ -39,13 +45,18 @@ where
     F: FnMut(&[f32]) -> f32,
 {
     let frame_size = ((frame_duration * sample_rate as f32) as usize).max(1);
-    let mut results = Vec::new();
+    let frames: Vec<(&[f32], f32)> = signal
+        .chunks_exact(frame_size)
+        .map(|frame| (frame, compute_rms(frame)))
+        .collect();
+    let loudest = frames.iter().map(|&(_, rms)| rms).fold(0.0f32, f32::max);
+    let gate = loudest * SILENT_FRAME_RMS_RATIO as f32;
 
-    for chunk in signal.chunks_exact(frame_size) {
-        results.push(metric_fn(chunk));
-    }
-
-    results
+    frames
+        .into_iter()
+        .filter(|&(_, rms)| rms > 0.0 && rms >= gate)
+        .map(|(frame, _)| metric_fn(frame))
+        .collect()
 }
 
 /// Compute standard deviation of a sequence
@@ -281,6 +292,52 @@ mod tests {
         let audio = steady_tone(1)[..30000].to_vec();
         assert_eq!(compute_dynamic_range_variation(&audio, 48000), 0.0);
         assert_eq!(compute_loudness_variation(&audio, 48000), 0.0);
+        assert_eq!(compute_peak_consistency(&audio, 48000), 0.0);
+    }
+
+    /// Deterministic white-ish noise at a constant level (LCG, no rand crate).
+    fn steady_noise(seconds: usize, rate: usize) -> Vec<f32> {
+        let mut state = 0x2545_F491_u32;
+        (0..rate * seconds)
+            .map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                (state as f32 / u32::MAX as f32 - 0.5) * 0.4
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_silent_seconds_do_not_inflate_the_variation_metrics() {
+        // #6113: 60 s of constant-level noise with 1/3/10 s of zeros at t=20 s read
+        // loudness_variation 0.05 -> 12.7/21.6/37.0 dB. Must stay within 10%
+        // of the no-gap values (plus a tiny absolute slack for near-zero values).
+        let rate = 8000;
+        let base = steady_noise(60, rate);
+        let reference = [
+            compute_loudness_variation(&base, rate as u32),
+            compute_dynamic_range_variation(&base, rate as u32),
+            compute_peak_consistency(&base, rate as u32),
+        ];
+        for gap in [1usize, 3, 10] {
+            let mut audio = base[..20 * rate].to_vec();
+            audio.extend(std::iter::repeat(0.0f32).take(gap * rate));
+            audio.extend_from_slice(&base[20 * rate..]);
+            let got = [
+                compute_loudness_variation(&audio, rate as u32),
+                compute_dynamic_range_variation(&audio, rate as u32),
+                compute_peak_consistency(&audio, rate as u32),
+            ];
+            for (g, r) in got.iter().zip(reference.iter()) {
+                assert!((g - r).abs() <= 0.1 * r + 0.01, "gap {gap}s: {got:?} vs {reference:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_all_silent_signal_reports_no_variation() {
+        let audio = vec![0.0f32; 48000 * 3];
+        assert_eq!(compute_loudness_variation(&audio, 48000), 0.0);
+        assert_eq!(compute_dynamic_range_variation(&audio, 48000), 0.0);
         assert_eq!(compute_peak_consistency(&audio, 48000), 0.0);
     }
 

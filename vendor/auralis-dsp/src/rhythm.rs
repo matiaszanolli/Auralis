@@ -33,8 +33,13 @@ use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
 use std::f64::consts::PI;
 
-const N_FFT: usize = 2048;
-const HOP: usize = 512;
+pub(crate) const N_FFT: usize = 2048;
+pub(crate) const HOP: usize = 512;
+
+/// A frame whose RMS is below this fraction of the loudest frame's (-40 dB) is
+/// silence: `silence_ratio` counts such frames, and the frame-statistic
+/// dimensions (variation, spectral flatness) leave them out (#6113, #6112).
+pub(crate) const SILENT_FRAME_RMS_RATIO: f64 = 0.01;
 const N_MELS: usize = 128;
 const N_BINS: usize = N_FFT / 2 + 1; // 1025
 const TG_WIN: usize = 384; // tempogram window (frames) ≈ 8.9 s @ 512/44.1k
@@ -96,7 +101,7 @@ pub fn silence_ratio(samples: &[f64]) -> f64 {
         return 1.0;
     }
     // rms_db = 20*log10(rms/max_rms) < -40  ⇔  rms < max_rms * 10^(-2)
-    let threshold = max_rms * 0.01;
+    let threshold = max_rms * SILENT_FRAME_RMS_RATIO;
     let silent = rms.iter().filter(|&&r| r < threshold).count();
     (silent as f64 / rms.len() as f64).clamp(0.0, 1.0)
 }
@@ -106,7 +111,7 @@ pub fn silence_ratio(samples: &[f64]) -> f64 {
 // ---------------------------------------------------------------------------
 
 /// Periodic Hann window of length `n` (scipy get_window fftbins=True).
-fn hann_periodic(n: usize) -> Vec<f64> {
+pub(crate) fn hann_periodic(n: usize) -> Vec<f64> {
     (0..n)
         .map(|i| 0.5 - 0.5 * (2.0 * PI * i as f64 / n as f64).cos())
         .collect()

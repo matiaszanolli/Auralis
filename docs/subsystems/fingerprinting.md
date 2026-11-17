@@ -108,8 +108,9 @@ per-file sidecar during scanning.
 > numbers as authoritative. Treat `schema.py` as truth.
 
 **Version gating:** fingerprints carry a version; sidecars older than
-`FINGERPRINT_ALGORITHM_VERSION` (= **10** — bumped when the algorithm changes,
-[`auralis/__version__.py::FINGERPRINT_ALGORITHM_VERSION`](../../auralis/__version__.py)) are rejected and re-extracted.
+`FINGERPRINT_ALGORITHM_VERSION` (bumped whenever the algorithm changes; the current value and
+the history of every bump live in
+[`auralis/__version__.py`](../../auralis/__version__.py)) are rejected and re-extracted.
 Bumping that constant auto-triggers Phase-2 re-fingerprinting (see §5).
 
 ---

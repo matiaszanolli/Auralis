@@ -66,45 +66,91 @@ pub fn compute_spectral_rolloff(psd: &[f32], freqs: &[f32], rolloff: f32) -> f32
     freqs[freqs.len() - 1]
 }
 
-/// Compute spectral flatness (Wiener entropy)
-/// Measures noisiness vs tonality
-/// Range: 0.0 (pure tone) to 1.0 (white noise)
+/// Lower edge of the flatness scale: a mean frame flatness this far below 0 dB
+/// (strongly tonal: orchestral, solo instruments) maps to 0.0, 0 dB to 1.0.
+const FLATNESS_DB_RANGE: f64 = 30.0;
+/// Bins measured: above the sub-bass, below a typical codec low-pass. Empty
+/// bins past a low-pass or past Nyquist on a hi-res file used to decide the value.
+const FLATNESS_LOW_HZ: f64 = 50.0;
+const FLATNESS_HIGH_HZ: f64 = 16_000.0;
+/// Per-bin floor relative to the frame's loudest bin (-100 dB), only so log()
+/// stays finite. Relative, so scaling the audio cannot change which bins count.
+const BIN_FLOOR_RELATIVE: f64 = 1e-10;
+
+/// Spectral flatness (Wiener entropy), 0.0 = tonal .. 1.0 = noise.
 ///
-/// Flatness = (geometric_mean) / (arithmetic_mean)
-/// where geometric_mean = exp(mean(log(psd)))
-///       arithmetic_mean = mean(psd)
+/// Per STFT frame (2048 / hop 512, periodic Hann: the rhythm module's frames),
+/// flatness is the geometric over the arithmetic mean of the bin powers in
+/// 50 Hz - 16 kHz (capped at 0.95 x Nyquist). Frames more than 40 dB below the
+/// loudest are skipped (the `silence_ratio` gate). The mean over frames is
+/// mapped from dB onto 0-1 across `FLATNESS_DB_RANGE`: white noise reads about
+/// 0.92, distorted guitars about 0.6, hip-hop 0.5, jazz 0.4, orchestral 0.2.
 ///
-/// # Arguments
-/// * `psd` - Power spectral density
-///
-/// # Returns
-/// Spectral flatness (0.0 = tone, 1.0 = noise)
-pub fn compute_spectral_flatness(psd: &[f32]) -> f32 {
-    if psd.is_empty() {
+/// #6112: this replaced one whole-track FFT whose bins were dropped below an
+/// ABSOLUTE 1e-10. Which bins survived depended on the playback level, so the
+/// same audio read 0.08 at -24 dBFS and 0.96 at -64 dBFS; with any level-free
+/// floor that measure is ~0.005 for all music (the spectral tilt dominates a
+/// whole-track spectrum), which is why it is now per frame.
+pub fn compute_spectral_flatness(audio: &[f32], sample_rate: u32) -> f32 {
+    use crate::rhythm::{hann_periodic, HOP, N_FFT, SILENT_FRAME_RMS_RATIO};
+    use rustfft::num_complex::Complex;
+    use rustfft::FftPlanner;
+
+    if audio.len() < N_FFT || sample_rate == 0 {
+        return 0.0;
+    }
+    let bin_hz = sample_rate as f64 / N_FFT as f64;
+    let high = FLATNESS_HIGH_HZ.min(0.95 * sample_rate as f64 / 2.0);
+    let first = (FLATNESS_LOW_HZ / bin_hz).ceil() as usize;
+    let last = ((high / bin_hz).floor() as usize).min(N_FFT / 2);
+    if last <= first {
         return 0.0;
     }
 
-    // Filter out zeros to avoid log(0). Bins at or below the threshold are
-    // excluded from both means rather than floored, so only the measured part
-    // of the spectrum counts (see test_spectral_flatness_tone, #5859).
-    let nonzero_psd: Vec<f32> = psd.iter().filter(|&&p| p > 1e-10).copied().collect();
-    if nonzero_psd.is_empty() {
-        return 0.0;
+    let window = hann_periodic(N_FFT);
+    let fft = FftPlanner::<f64>::new().plan_fft_forward(N_FFT);
+    let mut buf = vec![Complex { re: 0.0, im: 0.0 }; N_FFT];
+    let mut power = vec![0.0f64; last - first + 1];
+    // (frame energy, frame flatness): the gate needs the loudest frame first.
+    let mut frames: Vec<(f64, f64)> = Vec::new();
+    for start in (0..=audio.len() - N_FFT).step_by(HOP) {
+        let frame = &audio[start..start + N_FFT];
+        for ((slot, &sample), w) in buf.iter_mut().zip(frame).zip(&window) {
+            *slot = Complex { re: sample as f64 * w, im: 0.0 };
+        }
+        fft.process(&mut buf);
+        for (p, c) in power.iter_mut().zip(&buf[first..=last]) {
+            *p = c.norm_sqr();
+        }
+        let energy: f64 = frame.iter().map(|&s| (s as f64) * (s as f64)).sum();
+        frames.push((energy, frame_flatness(&power)));
     }
 
-    // Geometric mean = exp(mean(log(psd)))
-    let log_sum: f32 = nonzero_psd.iter().map(|&p| p.ln()).sum();
-    let geometric_mean = (log_sum / nonzero_psd.len() as f32).exp();
-
-    // Arithmetic mean
-    let arithmetic_mean: f32 = nonzero_psd.iter().sum::<f32>() / nonzero_psd.len() as f32;
-
-    if arithmetic_mean < 1e-10 {
+    let loudest = frames.iter().map(|f| f.0).fold(0.0f64, f64::max);
+    if loudest <= 0.0 {
         return 0.0;
     }
+    let gate = loudest * SILENT_FRAME_RMS_RATIO * SILENT_FRAME_RMS_RATIO; // energy, not RMS
+    let kept: Vec<f64> = frames.iter().filter(|f| f.0 >= gate).map(|f| f.1).collect();
+    let mean = kept.iter().sum::<f64>() / kept.len() as f64; // the loudest frame is always kept
+    let db = 10.0 * mean.max(1e-30).log10();
+    ((db + FLATNESS_DB_RANGE) / FLATNESS_DB_RANGE).clamp(0.0, 1.0) as f32
+}
 
-    // Flatness = geometric / arithmetic (0 to 1)
-    (geometric_mean / arithmetic_mean).clamp(0.0, 1.0)
+/// Geometric over arithmetic mean of one frame's bin powers, each floored
+/// relative to the frame's loudest bin.
+fn frame_flatness(power: &[f64]) -> f64 {
+    let loudest = power.iter().cloned().fold(0.0f64, f64::max);
+    if loudest <= 0.0 {
+        return 0.0;
+    }
+    let floor = loudest * BIN_FLOOR_RELATIVE;
+    let (log_sum, sum) = power.iter().fold((0.0, 0.0), |(l, s), &p| {
+        let q = p.max(floor);
+        (l + q.ln(), s + q)
+    });
+    let n = power.len() as f64;
+    (log_sum / n).exp() / (sum / n)
 }
 
 /// Helper: Convert audio to frequency domain
@@ -196,33 +242,62 @@ mod tests {
         assert!(rolloff > 7000.0 && rolloff < 9000.0);
     }
 
-    #[test]
-    fn test_spectral_flatness_tone() {
-        // Single frequency (tone) over a noise floor - low flatness. The floor
-        // matters (#5859): bins at or below 1e-10 are left out of both means
-        // (they would make log() blow up), so an all-zero background reduces a
-        // tone to one bin, i.e. "perfectly flat". A Hann-windowed FFT of real
-        // audio never yields that exactly-sparse spectrum.
-        let mut psd = vec![1e-6; 100];
-        psd[20] = 1.0; // Single peak
+    /// Deterministic white-ish noise (LCG, no rand crate).
+    fn noise(n: usize, amplitude: f32) -> Vec<f32> {
+        let mut state = 0x1234_5678_u32;
+        (0..n)
+            .map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                (state as f32 / u32::MAX as f32 - 0.5) * 2.0 * amplitude
+            })
+            .collect()
+    }
 
-        let flatness = compute_spectral_flatness(&psd);
-        assert!(flatness < 0.5); // Should be low (tone-like)
+    fn tone(n: usize, rate: u32, hz: f32, amplitude: f32) -> Vec<f32> {
+        (0..n)
+            .map(|i| (i as f32 / rate as f32 * hz * std::f32::consts::TAU).sin() * amplitude)
+            .collect()
     }
 
     #[test]
-    fn test_spectral_flatness_white_noise() {
-        // Uniform spectrum (white noise) - high flatness
-        let psd = vec![1.0; 100];
-
-        let flatness = compute_spectral_flatness(&psd);
-        assert!(flatness > 0.9); // Should be high (noise-like)
+    fn test_spectral_flatness_white_noise_is_high() {
+        let flatness = compute_spectral_flatness(&noise(44100 * 5, 0.3), 44100);
+        assert!(flatness > 0.85, "{flatness}");
     }
 
     #[test]
-    fn test_spectral_flatness_empty() {
-        let psd = vec![];
-        let flatness = compute_spectral_flatness(&psd);
-        assert_eq!(flatness, 0.0);
+    fn test_spectral_flatness_tone_is_low() {
+        let flatness = compute_spectral_flatness(&tone(44100 * 5, 44100, 440.0, 0.5), 44100);
+        assert!(flatness < 0.1, "{flatness}");
+    }
+
+    #[test]
+    fn test_spectral_flatness_does_not_depend_on_level() {
+        // #6112: the absolute per-bin floor made the same audio read 0.08 at
+        // -24 dBFS and 0.96 at -64 dBFS. Scaled copies must agree.
+        let mut mix = tone(44100 * 5, 44100, 220.0, 0.4);
+        for (m, n) in mix.iter_mut().zip(noise(44100 * 5, 0.05)) {
+            *m += n;
+        }
+        let reference = compute_spectral_flatness(&mix, 44100);
+        for gain_db in [-20.0f32, -40.0, -60.0] {
+            let gain = 10f32.powf(gain_db / 20.0);
+            let scaled: Vec<f32> = mix.iter().map(|s| s * gain).collect();
+            let got = compute_spectral_flatness(&scaled, 44100);
+            assert!((got - reference).abs() < 0.02, "{gain_db} dB: {got} vs {reference}");
+        }
+    }
+
+    #[test]
+    fn test_spectral_flatness_ignores_silent_frames_and_empty_input() {
+        let rate = 44100;
+        let body = noise(rate * 4, 0.3);
+        let mut gapped = body[..rate * 2].to_vec();
+        gapped.extend(std::iter::repeat(0.0f32).take(rate * 2));
+        gapped.extend_from_slice(&body[rate * 2..]);
+        let (a, b) = (compute_spectral_flatness(&body, 44100), compute_spectral_flatness(&gapped, 44100));
+        assert!((a - b).abs() < 0.02, "{a} vs {b}");
+        assert_eq!(compute_spectral_flatness(&[], 44100), 0.0);
+        assert_eq!(compute_spectral_flatness(&vec![0.0f32; rate], 44100), 0.0);
     }
 }
