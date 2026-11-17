@@ -10,7 +10,6 @@ Generate adaptive processing targets based on content analysis
 
 from typing import Any
 
-from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 from ...utils.logging import debug
 from ..config import GenreProfile, UnifiedConfig
 from ..utils.fingerprint_unpacker import FingerprintUnpacker
