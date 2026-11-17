@@ -26,9 +26,8 @@ containment guarantee the app doesn't actually enforce. Do not re-add one.
 
 import logging
 import os
-import sys
+import tempfile
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +43,7 @@ __all__ = [
     "validate_user_chosen_directory",
 ]
 
+from auralis.library.data_dir import get_data_dir  # noqa: E402
 from .path_allowlist import (  # noqa: E402  (split #6271; body-used below)
     DEFAULT_ALLOWED_DIRS,
     _extra_allowed_dirs,
@@ -167,6 +167,18 @@ def validate_file_path(
     return resolved_path
 
 
+def _is_app_scratch_root(resolved: Path) -> bool:
+    """True for the system temp directory itself, or the app data directory or anything in it (#6164).
+
+    Scanning those ingests the app's own chunk/decode WAVs and cache. Subdirectories of the temp
+    directory stay valid (a user may keep music there); only the shared root is refused.
+    """
+    try:
+        return resolved == Path(tempfile.gettempdir()).resolve() or resolved.is_relative_to(get_data_dir().resolve())
+    except OSError:
+        return False
+
+
 @_logs_rejections
 def validate_user_chosen_directory(directory: str) -> Path:
     """
@@ -212,6 +224,12 @@ def validate_user_chosen_directory(directory: str) -> Path:
     if _is_system_directory(resolved_path):
         raise PathValidationError(
             "Operating-system directories cannot be used as library scan roots"
+        )
+
+    if _is_app_scratch_root(resolved_path):
+        raise PathValidationError(
+            "The system temp directory and the Auralis data directory cannot be used as library "
+            "scan roots: they hold the app's own working files"
         )
 
     if not resolved_path.is_dir():
