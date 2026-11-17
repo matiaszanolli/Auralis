@@ -78,7 +78,7 @@ export const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }
 }));
 
 export const CollapsedSidebarContainer = styled(Box)({
-  width: tokens.spacing.xxxl, // 64px
+  width: tokens.spacing.xxxl, // 56px
   alignSelf: 'stretch', // Use flex stretch instead of height: 100%
   flexShrink: 0,
   background: themeVars.surfacePrimary,

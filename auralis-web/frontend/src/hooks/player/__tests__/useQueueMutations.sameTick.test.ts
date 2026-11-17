@@ -87,6 +87,9 @@ describe('useQueueMutations same-tick snapshots and loading counter (#5624)', ()
       secondCall = result.current.addTrack(track(8));
     });
     expect(ids()).toEqual([1, 2, 3, 9, 8]);
+    // It rejects inside the act below, before the assertion that awaits it; without an
+    // observer Node reports an unhandled rejection and vitest exits 1 on a green run.
+    secondCall.catch(() => undefined);
 
     await act(async () => {
       first.resolve({});

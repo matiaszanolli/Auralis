@@ -153,7 +153,7 @@ const BatchActionsToolbar = ({
       )}
 
       {/* Clear Selection Button */}
-      <CloseButton onClick={onClearSelection} size="small">
+      <CloseButton onClick={onClearSelection} size="small" aria-label="Clear selection">
         <Close />
       </CloseButton>
     </ToolbarContainer>

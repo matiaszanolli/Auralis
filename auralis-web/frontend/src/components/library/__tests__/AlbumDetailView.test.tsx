@@ -58,24 +58,17 @@ const mockAlbumData = {
 };
 
 /**
- * Helper: build the transformed DetailTrack shape that useAlbumDetails produces.
- * The hook maps raw API fields (snake_case) to the DetailTrack interface (camelCase)
- * and adds default values for missing fields.
+ * Helper: the domain Track the view hands to playTrack for a raw API track. Fields the
+ * API row does not carry stay undefined (toHaveBeenCalledWith ignores undefined keys),
+ * and the artist is the joined `artists` list.
  */
 const transformedTrack = (raw: Record<string, any>) => ({
   id: raw.id,
   title: raw.title ?? '',
-  artist: raw.artist ?? '',
+  artist: raw.artist ?? (raw.artists ?? []).join(', '),
   album: raw.album ?? '',
   duration: raw.duration ?? 0,
-  filepath: raw.filepath ?? raw.file_path ?? '',
-  artworkUrl: raw.artwork_url ?? null,
-  genre: raw.genre ?? null,
-  year: raw.year ?? null,
-  trackNumber: raw.track_number ?? null,
-  discNumber: raw.disc_number ?? null,
-  albumId: raw.album_id ?? null,
-  favorite: raw.favorite ?? undefined,
+  trackNumber: raw.track_number,
 });
 
 
@@ -593,7 +586,7 @@ describe('AlbumDetailView', () => {
         expect(screen.getByText('Abbey Road')).toBeInTheDocument();
       });
 
-      expect(global.fetch).toHaveBeenCalledWith('/api/albums/1/tracks');
+      expect(global.fetch).toHaveBeenCalledWith('/api/albums/1/tracks', expect.objectContaining({ method: 'GET' }));
 
       // Change albumId
       mockFetch.mockClear();
@@ -611,7 +604,7 @@ describe('AlbumDetailView', () => {
       );
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith('/api/albums/2/tracks');
+        expect(global.fetch).toHaveBeenCalledWith('/api/albums/2/tracks', expect.objectContaining({ method: 'GET' }));
       });
     });
   });

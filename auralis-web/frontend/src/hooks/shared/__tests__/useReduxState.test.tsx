@@ -261,7 +261,7 @@ describe('Redux State Hooks', () => {
       const { result } = renderHook(() => usePlayerState(), { wrapper });
 
       expect(result.current.isPlaying).toBe(false);
-      expect(result.current.volume).toBe(70);
+      expect(result.current.volume).toBe(80); // the slice default matches the backend (#2251)
     });
 
     it('useQueueState should return queue slice', () => {

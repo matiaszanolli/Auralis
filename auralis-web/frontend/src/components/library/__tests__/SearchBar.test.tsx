@@ -370,7 +370,7 @@ describe('SearchBar', () => {
     it('should highlight searched query in hint', async () => {
       const mockOnSearch = vi.fn();
 
-      const { container } = render(<SearchBar onSearch={mockOnSearch} />);
+      render(<SearchBar onSearch={mockOnSearch} />);
 
       const input = screen.getByRole('textbox');
 
@@ -379,8 +379,10 @@ describe('SearchBar', () => {
         vi.advanceTimersByTime(300);
       });
 
-      const highlight = container.querySelector('[style*="color"]');
-      expect(highlight?.textContent).toBe('test');
+      // The icon span also carries a colour, so find the highlight by its text.
+      const highlight = screen.getByText('test');
+      expect(highlight.tagName).toBe('SPAN');
+      expect(highlight.closest('p')).toHaveTextContent('Searching for "test"');
     });
   });
 
@@ -479,12 +481,19 @@ describe('SearchBar', () => {
 
       const input = screen.getByRole('textbox');
 
+      // An input that is already empty fires no change event, so type first, then clear it.
+      await act(async () => {
+        fireEvent.input(input, { target: { value: 'abc' } });
+        vi.advanceTimersByTime(300);
+      });
+      expect(mockOnSearch).toHaveBeenLastCalledWith('abc');
+
       await act(async () => {
         fireEvent.input(input, { target: { value: '' } });
         vi.advanceTimersByTime(300);
       });
 
-      expect(mockOnSearch).toHaveBeenCalledWith('');
+      expect(mockOnSearch).toHaveBeenLastCalledWith('');
     });
 
     it('should handle whitespace-only search', async () => {

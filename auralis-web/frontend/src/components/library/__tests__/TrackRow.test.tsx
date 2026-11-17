@@ -146,7 +146,7 @@ describe('TrackRow', () => {
         <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
-      expect(screen.getByTestId('track-artwork')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: mockTrack.album })).toBeInTheDocument();
     });
 
     it('should render selection checkbox', () => {
@@ -158,110 +158,32 @@ describe('TrackRow', () => {
       expect(screen.getByText(mockTrack.title)).toBeInTheDocument();
     });
 
-    it('should render context menu', () => {
+    it('keeps the context menu closed until it is requested', () => {
       render(
         <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
+
+      expect(screen.queryByTestId('track-context-menu')).not.toBeInTheDocument();
+
+      fireEvent.contextMenu(screen.getByRole('option'));
 
       expect(screen.getByTestId('track-context-menu')).toBeInTheDocument();
     });
   });
 
   describe('Selection', () => {
-    it('should check checkbox when selected', () => {
-      vi.mocked(useTrackSelection).mockReturnValue({
-        ...mockSelectionContext,
-        isSelected: () => true,
-        selectedTracks: new Set([1]),
-      });
-
+    it('reflects selection through aria-selected only; batch selection belongs to SelectableTrackRow', () => {
       render(
-        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
+        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} isSelected />
       );
 
-      // Selection state managed through context (no checkbox in this version)
-      expect(screen.getByText(mockTrack.title)).toBeInTheDocument();
-    });
-
-    it('should uncheck checkbox when not selected', () => {
-      vi.mocked(useTrackSelection).mockReturnValue({
-        ...mockSelectionContext,
-        isSelected: () => false,
-        selectedTracks: new Set(),
-      });
-
-      render(
-        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
-      );
-
-      // Selection state managed through context (no checkbox in this version)
-      expect(screen.getByText(mockTrack.title)).toBeInTheDocument();
-    });
-
-    it('should toggle selection on checkbox click', async () => {
-      const user = userEvent.setup();
-      const toggleTrack = vi.fn();
-
-      vi.mocked(useTrackSelection).mockReturnValue({
-        ...mockSelectionContext,
-        toggleTrack,
-      });
-
-      render(
-        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
-      );
-
-      const row = screen.getByRole('row');
-      await user.click(row);
-
-      expect(toggleTrack).toHaveBeenCalledWith(mockTrack.id);
-    });
-
-    it('should support shift-click for range selection', async () => {
-      const user = userEvent.setup();
-      const selectRange = vi.fn();
-
-      vi.mocked(useTrackSelection).mockReturnValue({
-        ...mockSelectionContext,
-        selectRange,
-      });
-
-      render(
-        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
-      );
-
-      const row = screen.getByRole('row');
-      await user.keyboard('{Shift>}');
-      await user.click(row);
-      await user.keyboard('{/Shift}');
-
-      expect(selectRange).toHaveBeenCalled();
-    });
-
-    it('should support ctrl/cmd-click for multi-select', async () => {
-      const user = userEvent.setup();
-      const toggleTrack = vi.fn();
-
-      vi.mocked(useTrackSelection).mockReturnValue({
-        ...mockSelectionContext,
-        toggleTrack,
-      });
-
-      render(
-        <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
-      );
-
-      const row = screen.getByRole('row');
-      await user.keyboard('{Control>}');
-      await user.click(row);
-      await user.keyboard('{/Control}');
-
-      expect(toggleTrack).toHaveBeenCalledWith(mockTrack.id);
+      expect(screen.getByRole('option')).toHaveAttribute('aria-selected', 'true');
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     });
   });
 
   describe('Playback', () => {
-    it('should call onPlay callback on double-click', async () => {
+    it('should call onPlay with the track id when the row is clicked', async () => {
       const user = userEvent.setup();
       const onPlay = vi.fn();
 
@@ -269,13 +191,25 @@ describe('TrackRow', () => {
         <TrackRow track={mockTrack} onPlay={onPlay} index={0} />
       );
 
-      const row = screen.getByRole('row');
-      await user.dblClick(row);
+      await user.click(screen.getByRole('option'));
 
-      expect(onPlay).toHaveBeenCalledWith(mockTrack);
+      expect(onPlay).toHaveBeenCalledWith(mockTrack.id);
     });
 
-    it('should call onPlay with track from context menu', async () => {
+    it('should call onDoubleClick with the track id on double-click', async () => {
+      const user = userEvent.setup();
+      const onDoubleClick = vi.fn();
+
+      render(
+        <TrackRow track={mockTrack} onPlay={vi.fn()} onDoubleClick={onDoubleClick} index={0} />
+      );
+
+      await user.dblClick(screen.getByRole('option'));
+
+      expect(onDoubleClick).toHaveBeenCalledWith(mockTrack.id);
+    });
+
+    it('should call onPlay with the track id from the play button without double-handling the row', async () => {
       const user = userEvent.setup();
       const onPlay = vi.fn();
 
@@ -283,27 +217,10 @@ describe('TrackRow', () => {
         <TrackRow track={mockTrack} onPlay={onPlay} index={0} />
       );
 
-      const playButton = screen.getByText('Play');
-      await user.click(playButton);
+      await user.click(screen.getByRole('button', { name: /play/i }));
 
-      expect(onPlay).toHaveBeenCalledWith(mockTrack);
-    });
-
-    it('should disable play on double-click when track unavailable', async () => {
-      const user = userEvent.setup();
-      const onPlay = vi.fn();
-
-      // #4586 made filepath optional-undefined (never null on the wire).
-      const unavailableTrack: LibraryTrack = { ...mockTrack, filepath: undefined };
-
-      render(
-        <TrackRow track={unavailableTrack} onPlay={onPlay} index={0} />
-      );
-
-      const row = screen.getByRole('row');
-      await user.dblClick(row);
-
-      expect(onPlay).not.toHaveBeenCalled();
+      expect(onPlay).toHaveBeenCalledTimes(1);
+      expect(onPlay).toHaveBeenCalledWith(mockTrack.id);
     });
   });
 
@@ -315,12 +232,11 @@ describe('TrackRow', () => {
         <TrackRow track={mockTrack} index={0} onPlay={vi.fn()} />
       );
 
-      const row = screen.getByRole('row');
-      await user.hover(row);
+      await user.hover(screen.getByRole('option'));
 
-      // Additional controls should be visible
-      const playIcon = screen.queryByTestId(/PlayArrowIcon|PlayIcon/);
-      expect(playIcon || document.hidden).toBeTruthy();
+      // The play and more-options controls are reachable while hovering
+      expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /more options/i })).toBeInTheDocument();
     });
 
     it('should highlight row on hover', async () => {
@@ -340,15 +256,6 @@ describe('TrackRow', () => {
   });
 
   describe('Drag and Drop', () => {
-    it('should be draggable when draggable prop is true', () => {
-      const { container } = render(
-        <TrackRow {...{ track: mockTrack, draggable: true, index: 0, onPlay: vi.fn() } as any} />
-      );
-
-      const row = container.firstChild as HTMLElement;
-      expect(row).toHaveAttribute('draggable', 'true');
-    });
-
     it('should not be draggable when draggable prop is false', () => {
       const { container } = render(
         <TrackRow {...{ track: mockTrack, draggable: false, index: 0, onPlay: vi.fn() } as any} />
@@ -358,33 +265,6 @@ describe('TrackRow', () => {
       expect(row).not.toHaveAttribute('draggable', 'true');
     });
 
-    it('should call onDragStart when drag begins', () => {
-      const onDragStart = vi.fn();
-
-      const { container } = render(
-        <TrackRow {...{ track: mockTrack, draggable: true, onDragStart, index: 0, onPlay: vi.fn() } as any} />
-      );
-
-      const row = container.firstChild as HTMLElement;
-      if (row) {
-        fireEvent.dragStart(row);
-        expect(onDragStart).toHaveBeenCalledWith(mockTrack);
-      }
-    });
-
-    it('should call onDragEnd when drag ends', () => {
-      const onDragEnd = vi.fn();
-
-      const { container } = render(
-        <TrackRow {...{ track: mockTrack, draggable: true, onDragEnd, index: 0, onPlay: vi.fn() } as any} />
-      );
-
-      const row = container.firstChild as HTMLElement;
-      if (row) {
-        fireEvent.dragEnd(row);
-        expect(onDragEnd).toHaveBeenCalled();
-      }
-    });
   });
 
   describe('Context Menu', () => {

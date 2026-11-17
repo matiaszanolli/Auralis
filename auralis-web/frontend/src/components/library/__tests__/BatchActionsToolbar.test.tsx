@@ -30,7 +30,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      expect(screen.getByRole('presentation')).toBeInTheDocument();
+      expect(screen.getByRole('toolbar', { name: 'Batch actions' })).toBeInTheDocument();
     });
 
     it('should display selection count', () => {
@@ -301,8 +301,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      const deleteButton = screen.getByRole('button', { name: /delete/i });
-      expect(deleteButton).toHaveAttribute('title', 'Delete');
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
     });
 
     it('should show remove from playlist label in playlist context', () => {
@@ -315,8 +314,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      const removeButton = screen.getByRole('button', { name: /delete/i });
-      expect(removeButton).toHaveAttribute('title', 'Remove from Playlist');
+      expect(screen.getByRole('button', { name: 'Remove from Playlist' })).toBeInTheDocument();
     });
 
     it('should show remove from favorites label in favorites context', () => {
@@ -329,8 +327,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      const removeButton = screen.getByRole('button', { name: /delete/i });
-      expect(removeButton).toHaveAttribute('title', 'Remove from Favorites');
+      expect(screen.getByRole('button', { name: 'Remove from Favorites' })).toBeInTheDocument();
     });
 
     it('should show remove from queue label in queue context', () => {
@@ -343,8 +340,7 @@ describe('BatchActionsToolbar', () => {
           />
       );
 
-      const removeButton = screen.getByRole('button', { name: /delete/i });
-      expect(removeButton).toHaveAttribute('title', 'Remove from Queue');
+      expect(screen.getByRole('button', { name: 'Remove from Queue' })).toBeInTheDocument();
     });
   });
 
@@ -419,8 +415,8 @@ describe('BatchActionsToolbar', () => {
 
       const buttons = screen.getAllByRole('button');
       buttons.forEach(button => {
-        // Buttons should have title attributes for tooltips
-        expect(button.title || button.getAttribute('aria-label')).toBeTruthy();
+        // Every button needs an accessible name (the tooltip text, via aria-label)
+        expect(button).toHaveAccessibleName();
       });
     });
 

@@ -17,7 +17,7 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import Player from '../Player';
 import { PlaybackSessionProvider } from '@/contexts/PlaybackSessionContext';
-import playerReducer from '@/store/slices/playerSlice';
+import playerReducer, { setVolume } from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
 
 // #4541: Player.tsx now reads playback state/handlers from
@@ -86,6 +86,8 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
       } as any,
       preloadedState: {
         player: {
+          // The slice's own initial state supplies `streaming`, which selectEnhancedStreaming reads.
+          ...playerReducer(undefined, { type: '@@init' }),
           currentTrack: {
             id: 1,
             title: 'Test Track',
@@ -199,7 +201,7 @@ describe('Player - Volume Scale Consistency (#2116)', () => {
     const { rerender } = renderPlayer(store);
 
     // Simulate WebSocket update (backend sends volume as 0-100)
-    store.dispatch({ type: 'player/setVolume', payload: 85 });
+    store.dispatch(setVolume(85));
 
     // Redux should store 85
     expect(store.getState().player.volume).toBe(85);

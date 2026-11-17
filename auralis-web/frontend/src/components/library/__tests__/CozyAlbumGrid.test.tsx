@@ -111,7 +111,8 @@ describe('CozyAlbumGrid', () => {
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/albums')
+          expect.stringContaining('/api/albums'),
+          expect.objectContaining({ method: 'GET' })
         );
       });
     });
@@ -248,14 +249,19 @@ describe('CozyAlbumGrid', () => {
     it('should display error message on failure', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: async () => '',
       });
 
       render(
         <CozyAlbumGrid />
       );
 
+      // The shared transport's own message for a bare 500 is shown as the description.
       await waitFor(() => {
-        expect(screen.getByText(/Failed to fetch albums/)).toBeInTheDocument();
+        expect(screen.getByText(/Error Loading Albums/)).toBeInTheDocument();
+        expect(screen.getByText(/500/)).toBeInTheDocument();
       });
     });
 

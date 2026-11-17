@@ -391,7 +391,8 @@ describe('TrackDisplay', () => {
 
       const title = screen.getByTestId('track-display-title');
       const styles = window.getComputedStyle(title);
-      expect(styles.fontWeight).toBe('bold');
+      // tokens.typography.fontWeight.bold is 700, which `bold` computes to
+      expect(['bold', '700']).toContain(styles.fontWeight);
     });
   });
 

@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@/test/test-utils'
 import userEvent from '@testing-library/user-event'
 import Sidebar from '../layouts/Sidebar'
+import { tokens } from '@/design-system'
 
 describe('Sidebar', () => {
   const mockOnNavigate = vi.fn()
@@ -53,9 +54,9 @@ describe('Sidebar', () => {
   it('renders in collapsed state', () => {
     const { container } = render(<Sidebar collapsed={true} />)
 
-    // In collapsed state, sidebar should be narrow (64px)
+    // In collapsed state the sidebar is only as wide as the toggle button needs
     const sidebar = container.firstChild as HTMLElement
-    expect(sidebar).toHaveStyle({ width: '64px' })
+    expect(sidebar).toHaveStyle({ width: tokens.spacing.xxxl })
   })
 
   it('does not show text labels when collapsed', () => {

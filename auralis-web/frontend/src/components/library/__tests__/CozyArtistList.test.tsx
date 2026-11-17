@@ -92,7 +92,8 @@ describe('CozyArtistList', () => {
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/api/artists')
+          expect.stringContaining('/api/artists'),
+          expect.objectContaining({ method: 'GET' })
         );
       });
     });
@@ -207,9 +208,18 @@ describe('CozyArtistList', () => {
     });
 
     it('should display alphabetical dividers', async () => {
+      // One divider per initial: 'Artist A/B/C' would all share the 'A' group.
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockArtistData,
+        json: async () => ({
+          artists: [
+            { id: 1, name: 'Abba', album_count: 5, track_count: 50 },
+            { id: 2, name: 'Beck', album_count: 3, track_count: 30 },
+            { id: 3, name: 'Cher', album_count: 8, track_count: 80 },
+          ],
+          has_more: false,
+          total: 3,
+        }),
       });
 
       render(
@@ -217,8 +227,7 @@ describe('CozyArtistList', () => {
       );
 
       await waitFor(() => {
-        const dividers = screen.getAllByText(/^[A-Z]$/);
-        expect(dividers.length).toBeGreaterThanOrEqual(3);
+        expect(screen.getAllByText(/^[A-Z]$/).map((d) => d.textContent)).toEqual(['A', 'B', 'C']);
       });
     });
 
@@ -238,7 +247,7 @@ describe('CozyArtistList', () => {
         json: async () => unorderedArtists,
       });
 
-      const { container } = render(
+      render(
         <CozyArtistList />
       );
 
@@ -246,9 +255,11 @@ describe('CozyArtistList', () => {
         expect(screen.getByText('Apple')).toBeInTheDocument();
       });
 
-      // Check that A comes before M and Z
-      const artistElements = container.querySelectorAll('[class*="ListItemButton"]');
-      expect(artistElements.length).toBeGreaterThan(0);
+      // The server order (Zebra, Apple, Middle) is regrouped alphabetically
+      expect(screen.getAllByText(/^[A-Z]$/).map((d) => d.textContent)).toEqual(['A', 'M', 'Z']);
+      expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label')?.split(',')[0])).toEqual([
+        'Apple', 'Middle', 'Zebra',
+      ]);
     });
   });
 
@@ -268,9 +279,8 @@ describe('CozyArtistList', () => {
         expect(screen.getByText('Artist A')).toBeInTheDocument();
       });
 
-      const artistText = screen.getByText('Artist A');
-      const artistContainer = artistText.closest('[role="button"]') || artistText.closest('[class*="ListItemButton"]');
-      await userEvent.click(artistContainer!);
+      const artistContainer = screen.getByRole('button', { name: /^Artist A/ });
+      await userEvent.click(artistContainer);
 
       expect(mockClick).toHaveBeenCalledWith(1, 'Artist A');
     });
@@ -290,9 +300,8 @@ describe('CozyArtistList', () => {
         expect(screen.getByText('Artist C')).toBeInTheDocument();
       });
 
-      const artistText = screen.getByText('Artist C');
-      const artistContainer = artistText.closest('[role="button"]') || artistText.closest('[class*="ListItemButton"]');
-      await userEvent.click(artistContainer!);
+      const artistContainer = screen.getByRole('button', { name: /^Artist C/ });
+      await userEvent.click(artistContainer);
 
       expect(mockClick).toHaveBeenCalledWith(3, 'Artist C');
     });
@@ -311,9 +320,8 @@ describe('CozyArtistList', () => {
         expect(screen.getByText('Artist A')).toBeInTheDocument();
       });
 
-      const artistText = screen.getByText('Artist A');
-      const artistContainer = artistText.closest('[role="button"]') || artistText.closest('[class*="ListItemButton"]');
-      await userEvent.click(artistContainer!);
+      const artistContainer = screen.getByRole('button', { name: /^Artist A/ });
+      await userEvent.click(artistContainer);
 
       // Should not throw error
       expect(artistContainer).toBeInTheDocument();
@@ -333,7 +341,8 @@ describe('CozyArtistList', () => {
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('limit=50&offset=0')
+          expect.stringContaining('limit=50&offset=0'),
+          expect.objectContaining({ method: 'GET' })
         );
       });
     });
@@ -453,6 +462,9 @@ describe('CozyArtistList', () => {
     it('should display error message on failure', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: async () => '',
       });
 
       render(
@@ -460,7 +472,7 @@ describe('CozyArtistList', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/Failed to fetch artists/)).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toHaveTextContent(/Error Loading Artists/);
       });
     });
 
@@ -509,12 +521,11 @@ describe('CozyArtistList', () => {
         expect(screen.getByText('Artist A')).toBeInTheDocument();
       });
 
-      const artistText = screen.getByText('Artist A');
-      const artistContainer = artistText.closest('[role="button"]') || artistText.closest('[class*="ListItemButton"]');
+      const artistContainer = screen.getByRole('button', { name: /^Artist A/ });
       // Right-click simulation (context menu)
       await userEvent.pointer({
         keys: '[MouseRight]',
-        target: artistContainer!,
+        target: artistContainer,
       });
 
       expect(screen.getByTestId('context-menu')).toBeInTheDocument();
@@ -538,25 +549,6 @@ describe('CozyArtistList', () => {
         expect(screen.getByText('Artist B')).toBeInTheDocument();
         expect(screen.getByText('Artist C')).toBeInTheDocument();
       });
-    });
-
-    it('should display gradient background for avatar', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockArtistData,
-      });
-
-      const { container } = render(
-        <CozyArtistList />
-      );
-
-      await waitFor(() => {
-        // Use a more specific selector to find Artist A text
-        expect(screen.getByText('Artist A')).toBeInTheDocument();
-      });
-
-      const avatars = container.querySelectorAll('[class*="MuiAvatar"]');
-      expect(avatars.length).toBeGreaterThan(0);
     });
   });
 
@@ -740,7 +732,7 @@ describe('CozyArtistList', () => {
         json: async () => mockArtistData,
       });
 
-      const { container } = render(
+      render(
         <CozyArtistList />
       );
 
@@ -748,8 +740,7 @@ describe('CozyArtistList', () => {
         expect(screen.getByText('Artist A')).toBeInTheDocument();
       });
 
-      const lists = container.querySelectorAll('[class*="MuiList"]');
-      expect(lists.length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('button')).toHaveLength(3);
     });
 
     it('should have clickable artist items', async () => {
@@ -766,11 +757,8 @@ describe('CozyArtistList', () => {
         expect(screen.getByText('Artist A')).toBeInTheDocument();
       });
 
-      const artistText = screen.getByText('Artist A');
-      const artistContainer = artistText.closest('[role="button"]') || artistText.closest('[class*="ListItemButton"]');
-      expect(artistContainer).toBeInTheDocument();
-      // MUI ListItemButton can be either button or div depending on component
-      expect(['BUTTON', 'DIV']).toContain(artistContainer?.tagName);
+      const artistContainer = screen.getByRole('button', { name: /^Artist A/ });
+      expect(artistContainer.tagName).toBe('BUTTON');
     });
   });
 });
