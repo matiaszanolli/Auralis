@@ -96,4 +96,4 @@ def test_process_chunk_re_renders_when_the_cached_file_vanishes(tmp_path):
 
     with patch.object(chunk_streaming, "_raise_if_cancelled", side_effect=reached_render):
         with pytest.raises(RuntimeError, match="reached the render path"):
-            chunk_streaming.process_chunk(processor, 0, False, locked=False)
+            chunk_streaming.process_chunk(processor, 0, locked=False)

@@ -25,7 +25,7 @@ import numpy as np
 from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
-from .chunk_stream_state import ChunkCancelledError, fast_start_for, invalidate_pooled_processor
+from .chunk_stream_state import ChunkCancelledError, invalidate_pooled_processor
 from .task_cancellation import caller_is_being_cancelled
 
 if TYPE_CHECKING:
@@ -57,12 +57,7 @@ async def process_chunk_only(
     Returns:
         Tuple of (pcm_samples, sample_rate)
     """
-    fast_start: bool = fast_start_for(chunk_index)
-
-    logger.debug(
-        f"Processing chunk {chunk_index}/{processor.total_chunks} "
-        f"(fast_start={fast_start})"
-    )
+    logger.debug(f"Processing chunk {chunk_index}/{processor.total_chunks}")
 
     # Cache hits are served inside processor.process_chunk_safe() by the
     # on-disk chunk tier (#5492 removed the in-memory SimpleChunkCache that
@@ -77,7 +72,7 @@ async def process_chunk_only(
     # flows into the caller's skip-failed-chunk recovery branch.
     try:
         _chunk_path, pcm_samples = await asyncio.wait_for(
-            processor.process_chunk_safe(chunk_index, fast_start=fast_start),
+            processor.process_chunk_safe(chunk_index),
             timeout=_asc.CHUNK_PROCESS_TIMEOUT,
         )
     except TimeoutError as e:

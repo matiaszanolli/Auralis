@@ -4,8 +4,9 @@ chunk key with the same provenance (#6090).
 
 The buffer used to skip any chunk whose file existed (so a cache hit never reached
 the level manager, and chunk 1 was then smoothed against a cold baseline) and
-rendered chunk 0 with ``fast_start=False`` while the live stream uses ``True``, so
-the persisted chunk 0/1 bytes depended on which writer won the startup race.
+rendered chunk 0 differently from the live stream (a ``fast_start`` flag that has since
+been deleted, #5976, because it changed nothing), so the persisted chunk 0/1 bytes depended
+on which writer won the startup race. Every writer now renders through the same call.
 """
 
 import sys
@@ -17,7 +18,6 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core import proactive_buffer
-from core.chunk_stream_state import fast_start_for
 
 
 class _FakeChunkedProcessor:
@@ -28,7 +28,7 @@ class _FakeChunkedProcessor:
 
     def __init__(self, **kwargs) -> None:
         self.cached: set[int] = set(getattr(_FakeChunkedProcessor, "preset_cached", ()))
-        self.calls: list[tuple[int, bool]] = []
+        self.calls: list[int] = []
         self.levels_recorded: list[int] = []
         self.closed = False
         _FakeChunkedProcessor.instances.append(self)
@@ -36,8 +36,8 @@ class _FakeChunkedProcessor:
     def _get_chunk_path(self, chunk_idx: int) -> Path:
         raise AssertionError("the buffer must not probe the chunk path itself (.exists() shortcut)")
 
-    async def process_chunk_safe(self, chunk_idx: int, fast_start: bool = False):
-        self.calls.append((chunk_idx, fast_start))
+    async def process_chunk_safe(self, chunk_idx: int):
+        self.calls.append(chunk_idx)
         if chunk_idx in self.cached:  # cache hit: level restored from the file
             self.levels_recorded.append(chunk_idx)
         else:  # a miss renders and records too; chunk N-1's level must already be there
@@ -65,17 +65,11 @@ async def _run(chunks: int = 3) -> _FakeChunkedProcessor:
     return _FakeChunkedProcessor.instances[-1]
 
 
-def test_fast_start_rule_is_the_live_streams():
-    assert fast_start_for(0) is True
-    assert fast_start_for(1) is False
-    assert fast_start_for(2) is False
-
-
 @pytest.mark.asyncio
-async def test_every_chunk_goes_through_process_chunk_safe_with_the_live_fast_start_rule():
+async def test_every_chunk_goes_through_process_chunk_safe():
     proc = await _run()
 
-    assert proc.calls == [(0, True), (1, False), (2, False)]
+    assert proc.calls == [0, 1, 2]
 
 
 @pytest.mark.asyncio
@@ -87,7 +81,7 @@ async def test_an_already_written_chunk_zero_is_still_recorded_before_chunk_one_
     # chunk 0 was a hit, yet its level is recorded ahead of chunk 1's render
     # (the fake asserts that ordering inside process_chunk_safe).
     assert proc.levels_recorded[:2] == [0, 1]
-    assert proc.calls[0] == (0, True)
+    assert proc.calls[0] == 0
 
 
 @pytest.mark.asyncio

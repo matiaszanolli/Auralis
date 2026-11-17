@@ -29,8 +29,7 @@ def _make_processor() -> MagicMock:
     processor.duration = 30.0
     processor.file_signature = "test-signature"
 
-    async def process_chunk_safe(chunk_idx: int, fast_start: bool = False):
-        del fast_start
+    async def process_chunk_safe(chunk_idx: int):
         return Path(f"/tmp/chunk-{chunk_idx}.wav"), np.zeros((100, 2), dtype=np.float32)
 
     processor.process_chunk_safe = process_chunk_safe

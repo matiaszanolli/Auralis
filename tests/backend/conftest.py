@@ -15,6 +15,17 @@ sys.path.insert(0, str(backend_path))
 
 
 @pytest.fixture(autouse=True)
+def _restore_converted_wav_retention():
+    """Lifespan shutdown calls converted_wavs.shutdown(), which sets the process-wide registry's
+    retention to 0 for good; every later test then decoded a track once per stream instead of
+    sharing one conversion (test_seekable_conversion_sharing_5402 failed after any such test)."""
+    from core import seekable_source
+
+    seekable_source.converted_wavs._max_idle = seekable_source.IDLE_CONVERSIONS_RETAINED
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _reset_rejection_log_throttle():
     """The throttle is process-wide (#6188); a test asserting a rejection log must not be
     silenced by an earlier test that already logged the same reason inside the window."""

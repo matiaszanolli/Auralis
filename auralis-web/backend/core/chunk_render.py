@@ -115,7 +115,7 @@ def smooth_level_transition(
 
 
 def process_chunk_core(
-    processor: "ChunkedAudioProcessor", chunk_index: int, fast_start: bool = False
+    processor: "ChunkedAudioProcessor", chunk_index: int
 ) -> np.ndarray:
     """
     Core chunk processing logic (shared by process_chunk and get_wav_chunk_path).
@@ -150,7 +150,6 @@ def process_chunk_core(
         # config (#5306), see ChunkedAudioProcessor.hybrid_processor().
         processor=processor.hybrid_processor(),
         targets=processor.mastering_targets,
-        fast_start=fast_start,
         chunk_index=chunk_index,
         allow_empty=False  # Don't allow empty chunks
     )

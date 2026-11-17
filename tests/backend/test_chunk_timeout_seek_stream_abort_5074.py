@@ -70,7 +70,7 @@ def _make_processor(calls: list, timeout_at: int = TIMEOUT_AT_CHUNK) -> MagicMoc
 
     good_audio = np.zeros((SAMPLE_RATE * int(CHUNK_DURATION), 2), dtype=np.float32)
 
-    async def process_chunk_safe(chunk_idx: int, fast_start: bool = False):
+    async def process_chunk_safe(chunk_idx: int):
         calls.append(chunk_idx)
         if chunk_idx == timeout_at:
             # Mirrors what a hung DSP call looks like from process_chunk_only's
@@ -179,7 +179,7 @@ class TestSeekChunkTimeoutAbortsStream:
         calls: list[int] = []
         processor = _make_processor(calls, timeout_at=-1)  # never times out
 
-        async def process_chunk_safe(chunk_idx: int, fast_start: bool = False):
+        async def process_chunk_safe(chunk_idx: int):
             calls.append(chunk_idx)
             if chunk_idx == TIMEOUT_AT_CHUNK:
                 raise RuntimeError("simulated non-timeout processing failure")

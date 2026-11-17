@@ -62,8 +62,7 @@ def _make_processor(*, raise_at: int | None = None, exc: Exception | None = None
 
     good_audio = np.zeros((SAMPLE_RATE * int(CHUNK_DURATION), 2), dtype=np.float32)
 
-    async def process_chunk_safe(chunk_idx: int, fast_start: bool = False):
-        del fast_start
+    async def process_chunk_safe(chunk_idx: int):
         if raise_at is not None and chunk_idx == raise_at:
             assert exc is not None
             raise exc

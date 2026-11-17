@@ -46,6 +46,6 @@ async def test_every_chunk_goes_through_the_processor(cache_manager):
 
     samples, sr = await process_chunk_only(controller, 0, processor)
 
-    processor.process_chunk_safe.assert_awaited_once_with(0, fast_start=True)
+    processor.process_chunk_safe.assert_awaited_once_with(0)
     assert samples is pcm
     assert sr == 44100

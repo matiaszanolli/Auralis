@@ -57,7 +57,7 @@ def test_retry_uses_fresh_processor_after_post_dsp_write_failure(tmp_path: Path)
         _lookup_cached_chunk=lambda _index: None,
     )
 
-    def _process_chunk_core(_index: int, _fast_start: bool) -> np.ndarray:
+    def _process_chunk_core(_index: int) -> np.ndarray:
         dsp_instances.append(factory.current)
         processor._dsp_state_advanced = True
         return np.ones((10, 2), dtype=np.float32)

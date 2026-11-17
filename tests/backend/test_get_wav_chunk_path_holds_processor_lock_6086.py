@@ -68,7 +68,7 @@ def test_the_dsp_state_is_touched_only_while_the_processor_lock_is_held():
     observed: dict[str, list[bool]] = {"held": []}
     processor = _processor(spy, [])
 
-    def _dsp(chunk_index, fast_start=False):
+    def _dsp(chunk_index):
         observed["held"].append(spy.depth > 0)
         processor._dsp_state_advanced = True
         return np.zeros((44100, 2), dtype=np.float32)

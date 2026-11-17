@@ -303,7 +303,7 @@ class TestBufferPresetsForTrackHonoursTheEvent:
             missing.exists.return_value = False
             inst._get_chunk_path.return_value = missing
 
-            async def _process(chunk_idx, fast_start=False):
+            async def _process(chunk_idx):
                 processed.append(chunk_idx)
                 cancel_event.set()  # the user stops/seeks while chunk 0 renders
                 return (Path(f"/tmp/chunk_{chunk_idx}.wav"), MagicMock())
@@ -360,7 +360,7 @@ class TestBufferPresetsForTrackHonoursTheEvent:
             missing.exists.return_value = False
             inst._get_chunk_path.return_value = missing
 
-            async def _process(chunk_idx, fast_start=False):
+            async def _process(chunk_idx):
                 processed.append(chunk_idx)
                 return (Path(f"/tmp/chunk_{chunk_idx}.wav"), MagicMock())
 

@@ -43,7 +43,6 @@ logger = logging.getLogger("core.chunked_processor")
 def process_chunk(
     processor: "ChunkedAudioProcessor",
     chunk_index: int,
-    fast_start: bool = False,
     locked: bool = False,
 ) -> tuple[str, np.ndarray]:
     """
@@ -64,7 +63,7 @@ def process_chunk(
     """
     if locked:
         with processor._processor_lock:
-            return processor.process_chunk(chunk_index, fast_start, locked=False)
+            return processor.process_chunk(chunk_index, locked=False)
 
     # Keep the range check below every public processing entry point. This
     # must happen before cache lookup so a stale out-of-range cache file can
@@ -102,7 +101,7 @@ def process_chunk(
     # same pooled processor) for a chunk nothing will ever consume.
     _raise_if_cancelled(processor, chunk_index)
 
-    logger.info(f"Processing chunk {chunk_index}/{processor.total_chunks} (preset: {processor.preset}, fast_start: {fast_start})")
+    logger.info(f"Processing chunk {chunk_index}/{processor.total_chunks} (preset: {processor.preset})")
 
     # Skip synchronous fingerprint extraction during chunk processing.
     # Loading the full audio file to compute a fingerprint blocks the first
@@ -118,7 +117,7 @@ def process_chunk(
         # Process chunk using shared core logic
         # Already the emitted, non-overlapping segment: the core extracts it
         # before smoothing so the gain ramp is audible (#5051).
-        extracted_chunk = processor._process_chunk_core(chunk_index, fast_start)
+        extracted_chunk = processor._process_chunk_core(chunk_index)
         assert processor.sample_rate is not None
 
         # #5328: a seek can land while this DSP is in flight - look-ahead
@@ -160,7 +159,7 @@ def process_chunk(
 
 
 async def process_chunk_safe(
-    processor: "ChunkedAudioProcessor", chunk_index: int, fast_start: bool = False
+    processor: "ChunkedAudioProcessor", chunk_index: int
 ) -> tuple[str, np.ndarray]:
     """
     Process a single chunk with thread-safe locking (async version).
@@ -184,7 +183,7 @@ async def process_chunk_safe(
     # (#3852) fire on queueing delay rather than a genuine DSP hang.
     from .executors import run_in_stream_executor
 
-    return await run_in_stream_executor(processor.process_chunk, chunk_index, fast_start, True)
+    return await run_in_stream_executor(processor.process_chunk, chunk_index, True)
 
 
 def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> str:
@@ -234,7 +233,7 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
             try:
                 # Use shared core processing logic (eliminates duplicate code)
                 # The raw emitted segment: the durable file is never level-smoothed (#5948).
-                extracted_chunk = processor._process_chunk_core(chunk_index, fast_start=False)
+                extracted_chunk = processor._process_chunk_core(chunk_index)
 
                 # #5328: never persist a render its stream abandoned mid-DSP.
                 _raise_if_cancelled(processor, chunk_index)

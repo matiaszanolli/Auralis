@@ -250,19 +250,19 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
         """Smooth level transitions across chunks. Delegates to chunk_render (#4245)."""
         return chunk_render.smooth_level_transition(self, chunk, chunk_index)
 
-    def _process_chunk_core(self, chunk_index: int, fast_start: bool = False) -> np.ndarray:
+    def _process_chunk_core(self, chunk_index: int) -> np.ndarray:
         """Shared core of process_chunk/get_wav_chunk_path. Delegates to chunk_render (#4245)."""
-        return chunk_render.process_chunk_core(self, chunk_index, fast_start)
+        return chunk_render.process_chunk_core(self, chunk_index)
 
     def process_chunk(
-        self, chunk_index: int, fast_start: bool = False, locked: bool = False
+        self, chunk_index: int, locked: bool = False
     ) -> tuple[str, np.ndarray]:
         """Process a chunk to WAV, returning (path, audio); ``locked`` holds _processor_lock (#2388)."""
-        return chunk_streaming.process_chunk(self, chunk_index, fast_start, locked)
+        return chunk_streaming.process_chunk(self, chunk_index, locked)
 
-    async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
+    async def process_chunk_safe(self, chunk_index: int) -> tuple[str, np.ndarray]:
         """Thread-pool-offloaded process_chunk (#2388). Delegates to chunk_streaming (#4245)."""
-        return await chunk_streaming.process_chunk_safe(self, chunk_index, fast_start)
+        return await chunk_streaming.process_chunk_safe(self, chunk_index)
 
     def close(self) -> None:
         """Return the leased HybridProcessor (#6091); release the temp WAV (#4737)."""

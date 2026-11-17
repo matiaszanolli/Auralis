@@ -51,7 +51,7 @@ def _processor(filepath: str) -> ChunkedAudioProcessor:
         track_id=5947, filepath=filepath, preset="adaptive", intensity=1.0, chunk_cache={}
     )
 
-    def fake_core(chunk_index: int, fast_start: bool = False) -> np.ndarray:
+    def fake_core(chunk_index: int) -> np.ndarray:
         assert proc.sample_rate is not None
         n = int(CHUNK_DURATION * proc.sample_rate)
         rng = np.random.default_rng(100 + chunk_index)

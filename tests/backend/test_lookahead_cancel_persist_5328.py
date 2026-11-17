@@ -41,7 +41,7 @@ def _rendering_processor(event: threading.Event, *, cancel_during_dsp: bool) -> 
     processor._path_cache.store = Mock()
     processor._processor_factory.discard_lease = Mock()
 
-    def _dsp(chunk_index, fast_start=False):
+    def _dsp(chunk_index):
         processor._dsp_state_advanced = True
         if cancel_during_dsp:
             event.set()  # the seek lands while this render is in flight

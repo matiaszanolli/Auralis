@@ -89,9 +89,7 @@ class AudioProcessingPipeline:
     def apply_enhancement(
         audio: np.ndarray,
         processor: Any | None,
-        targets: dict[str, Any] | None = None,
         intensity: float = 1.0,
-        fast_start: bool = False,
         chunk_index: int | None = None
     ) -> np.ndarray:
         """
@@ -100,17 +98,19 @@ class AudioProcessingPipeline:
         Consolidates processing delegation from chunked_processor and hybrid_processor.
         Handles:
         - Original audio passthrough (processor=None)
-        - Fixed target mode (targets provided)
-        - Fast-start optimization (skip fingerprint on first chunk)
+        - Output validation (non-finite fallback, sample-count invariant)
         - Intensity blending
+
+        A fixed-targets / fast-start toggle of ``content_analyzer.use_fingerprint_analysis`` used to
+        wrap ``processor.process`` here. Nothing on the live adaptive path reads it (analysis is
+        per track, and the targets are installed on the processor), so it changed nothing while
+        taking the processor's lock (#5976).
 
         Args:
             audio: Input audio array (already validated)
             processor: HybridProcessor instance or None
-            targets: Optional fixed mastering targets (for 8x faster processing)
             intensity: Processing intensity (0.0-1.0)
-            fast_start: If True, skip expensive fingerprint analysis for first chunk
-            chunk_index: Optional chunk index for fast-start detection
+            chunk_index: Chunk index, for log messages
 
         Returns:
             Processed audio array
@@ -120,60 +120,7 @@ class AudioProcessingPipeline:
             logger.debug("No processor, returning original audio")
             return audio
 
-        processed: np.ndarray | None
-
-        # Apply fixed targets if provided (Beta.9 optimization)
-        if targets is not None:
-            logger.debug(f"Processing with fixed targets (8x faster)")
-
-            # #4354 (regression of #3808): the shared ProcessorFactory hands
-            # the SAME HybridProcessor to concurrent callers, so the toggle
-            # set/process/restore below must be atomic under the processor's
-            # own `_process_lock` (RLock — process() re-enters it safely) —
-            # otherwise interleaved set/restore across threads corrupts the
-            # shared flag or leaves it permanently False.
-            with processor._process_lock:
-                # Temporarily disable per-chunk fingerprint analysis
-                original_setting = getattr(
-                    getattr(processor, 'content_analyzer', None),
-                    'use_fingerprint_analysis',
-                    None
-                )
-
-                if original_setting is not None:
-                    processor.content_analyzer.use_fingerprint_analysis = False
-
-                try:
-                    processed = processor.process(audio)
-                finally:
-                    # Restore setting
-                    if original_setting is not None:
-                        processor.content_analyzer.use_fingerprint_analysis = original_setting
-
-        # Fast-start optimization for first chunk (skip fingerprint analysis)
-        elif fast_start and chunk_index == 0:
-            logger.debug("Fast-start: Skipping fingerprint analysis for chunk 0")
-
-            # #4354: same shared-processor toggle race as the branch above.
-            with processor._process_lock:
-                original_setting = getattr(
-                    getattr(processor, 'content_analyzer', None),
-                    'use_fingerprint_analysis',
-                    None
-                )
-
-                if original_setting is not None:
-                    processor.content_analyzer.use_fingerprint_analysis = False
-
-                try:
-                    processed = processor.process(audio)
-                finally:
-                    if original_setting is not None:
-                        processor.content_analyzer.use_fingerprint_analysis = original_setting
-
-        # Normal processing
-        else:
-            processed = processor.process(audio)
+        processed: np.ndarray | None = processor.process(audio)
 
         # Validate processed output
         if processed is None:
@@ -219,7 +166,6 @@ class AudioProcessingPipeline:
         processor_factory: Any | None = None,
         track_id: int | None = None,
         targets: dict[str, Any] | None = None,
-        fast_start: bool = False,
         chunk_index: int | None = None,
         allow_empty: bool = False,
         config: Any | None = None,
@@ -240,9 +186,8 @@ class AudioProcessingPipeline:
             intensity: Processing intensity (0.0-1.0)
             processor_factory: ProcessorFactory instance (Phase 2: unified factory)
             track_id: Optional track ID for cache key
-            targets: Optional fixed mastering targets
-            fast_start: Skip fingerprint analysis for first chunk
-            chunk_index: Chunk index for fast-start detection
+            targets: Optional fixed mastering targets (used to select the processor)
+            chunk_index: Chunk index, for log messages
             allow_empty: Allow empty audio arrays
             config: Optional UnifiedConfig carrying the track's REAL sample
                 rate (#5306) — forwarded to select_processor
@@ -291,9 +236,7 @@ class AudioProcessingPipeline:
         processed = cls.apply_enhancement(
             audio=audio,
             processor=processor,
-            targets=targets,
             intensity=intensity,
-            fast_start=fast_start,
             chunk_index=chunk_index
         )
 

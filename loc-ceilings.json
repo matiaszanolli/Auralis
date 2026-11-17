@@ -12,7 +12,7 @@
     "auralis-web/backend/core/chunk_cache_manager.py": 269,
     "auralis-web/backend/core/chunk_file_loading.py": 162,
     "auralis-web/backend/core/chunk_segment_extraction.py": 166,
-    "auralis-web/backend/core/chunk_streaming.py": 275,
+    "auralis-web/backend/core/chunk_streaming.py": 274,
     "auralis-web/backend/core/chunked_processor.py": 278,
     "auralis-web/backend/core/level_constants.py": 51,
     "auralis-web/backend/core/level_transition.py": 211,

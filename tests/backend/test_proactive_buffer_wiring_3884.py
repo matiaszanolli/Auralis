@@ -74,7 +74,7 @@ def _make_single_chunk_processor() -> MagicMock:
 
     good_audio = np.zeros((SAMPLE_RATE * int(CHUNK_DURATION), 2), dtype=np.float32)
 
-    async def process_chunk_safe(chunk_idx: int, fast_start: bool = False):
+    async def process_chunk_safe(chunk_idx: int):
         return (Path(f"/tmp/chunk_{chunk_idx}.wav"), good_audio.copy())
 
     proc.process_chunk_safe = process_chunk_safe

@@ -363,13 +363,13 @@ class TestProcessChunkSafeEventLoop:
         """process_chunk_safe must delegate to process_chunk exactly once, with
         locked=True so the DSP work serialises under _processor_lock (#4245)."""
         proc = self._make_processor()
-        asyncio.run(proc.process_chunk_safe(0, False))
-        proc.process_chunk.assert_called_once_with(0, False, True)
+        asyncio.run(proc.process_chunk_safe(0))
+        proc.process_chunk.assert_called_once_with(0, True)
 
     def test_process_chunk_safe_returns_path_and_array(self):
         """process_chunk_safe must return (str, np.ndarray) from process_chunk."""
         proc = self._make_processor()
-        path, audio = asyncio.run(proc.process_chunk_safe(0, False))
+        path, audio = asyncio.run(proc.process_chunk_safe(0))
         assert isinstance(path, str)
         assert isinstance(audio, np.ndarray)
 
@@ -389,7 +389,7 @@ class TestProcessChunkSafeEventLoop:
 
         tick_count = 0
 
-        async def slow_process_chunk(index, fast_start):
+        async def slow_process_chunk(index):
             """Simulate process_chunk blocking a thread for SLOW_DELAY seconds."""
             await asyncio.to_thread(time.sleep, SLOW_DELAY)
             return ("/tmp/chunk.wav", np.zeros(441, dtype=np.float32))
@@ -403,7 +403,7 @@ class TestProcessChunkSafeEventLoop:
 
         async def run():
             counter_task = asyncio.create_task(async_counter())
-            await slow_process_chunk(0, False)
+            await slow_process_chunk(0)
             counter_task.cancel()
             try:
                 await counter_task
@@ -436,7 +436,7 @@ class TestProcessChunkSafeEventLoop:
 
         counter = [0]
 
-        def slow_sync_process_chunk(chunk_index, fast_start=False, locked=False):
+        def slow_sync_process_chunk(chunk_index, locked=False):
             """Blocking sleep simulates CPU-bound DSP (must run in thread pool)."""
             time.sleep(SLOW_DELAY)
             return ("/tmp/chunk_0.wav", np.zeros(441, dtype=np.float32))
@@ -487,9 +487,9 @@ class TestProcessChunkSafeEventLoop:
         # locked=False); the locked=False branch does the slow logged work.
         real_process_chunk = ChunkedAudioProcessor.process_chunk.__get__(proc)
 
-        def dispatch(index, fast_start=False, locked=False):
+        def dispatch(index, locked=False):
             if locked:
-                return real_process_chunk(index, fast_start, locked=True)
+                return real_process_chunk(index, locked=True)
             call_log.append(f"start:{index}")
             time.sleep(0.03)
             call_log.append(f"end:{index}")
@@ -499,8 +499,8 @@ class TestProcessChunkSafeEventLoop:
 
         async def run():
             await asyncio.gather(
-                asyncio.to_thread(proc.process_chunk, 0, False, True),
-                asyncio.to_thread(proc.process_chunk, 1, False, True),
+                asyncio.to_thread(proc.process_chunk, 0, True),
+                asyncio.to_thread(proc.process_chunk, 1, True),
             )
 
         asyncio.run(run())

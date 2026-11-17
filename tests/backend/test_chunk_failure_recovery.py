@@ -82,7 +82,7 @@ def _make_processor(fail_at: int = FAIL_AT_CHUNK) -> MagicMock:
 
     good_audio = np.zeros((SAMPLE_RATE * int(CHUNK_DURATION), 2), dtype=np.float32)
 
-    async def process_chunk_safe(chunk_idx: int, fast_start: bool = False):
+    async def process_chunk_safe(chunk_idx: int):
         if chunk_idx >= fail_at:
             raise RuntimeError(f"simulated processing failure at chunk {chunk_idx}")
         return (Path(f"/tmp/chunk_{chunk_idx}.wav"), good_audio.copy())
