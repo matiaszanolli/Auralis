@@ -27,7 +27,7 @@ export const SkeletonBox = styled(Box)({
   background: `linear-gradient(
     90deg,
     ${themeVars.surfaceSecondary} 0%,
-    ${themeVars.surfaceRaised} 50%,
+    ${themeVars.surfaceOverlay} 50%,
     ${themeVars.surfaceSecondary} 100%
   )`,
   backgroundSize: '1000px 100%',
