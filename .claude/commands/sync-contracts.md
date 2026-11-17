@@ -38,7 +38,7 @@ For each message, extract the `type` field value and `data` field structure.
 
 ### WebSocket Messages (Frontend sends)
 
-Two send paths: the raw `manager.send(JSON.stringify(...))` calls in `auralis-web/frontend/src/hooks/websocket/` (`websocketConnectionCore.ts`, `useOutgoingChannel.ts`, and the heartbeat `pong` in `socketFrameParser.ts` — split out of the connection core in #5840), and `wsContext.send({...})` from hooks, chiefly `auralis-web/frontend/src/hooks/enhancement/` (`play_enhanced` / `play_normal` in `useEnhancedPlayCommand.ts`, `seek` in `useEnhancedSeek.ts`, `buffer_full` / `buffer_ready` in `useStreamMessageHandlers.ts`, and the drain-triggered `buffer_ready` in `flowDrainWatch.ts`; the reconnect resume command and queued re-issues are sent from `websocketConnectionCore.ts`): `grep -rn "\.send(" auralis-web/frontend/src --include='*.ts' --include='*.tsx'`. Check each sent `type` against the backend's `dispatch_message` switch and the inbound `WebSocketMessageType` enum. The frontend's message types are in `auralis-web/frontend/src/types/ws/`.
+Two send paths: the raw `manager.send(JSON.stringify(...))` calls in `auralis-web/frontend/src/hooks/websocket/` (`websocketConnectionCore.ts`, `useOutgoingChannel.ts`, and the heartbeat `pong` in `socketFrameParser.ts` — split out of the connection core in #5840), and `wsContext.send({...})` from hooks, chiefly `auralis-web/frontend/src/hooks/enhancement/` (`play_enhanced` / `play_normal` in `useEnhancedPlayCommand.ts`, `seek` in `useEnhancedSeek.ts`, `buffer_full` / `buffer_ready` in `useStreamMessageHandlers.ts`, and the drain-triggered `buffer_ready` in `flowDrainWatch.ts`; the reconnect resume command and queued re-issues are sent from `websocketConnectionCore.ts`): `grep -rn "\.send(" auralis-web/frontend/src --include='*.ts' --include='*.tsx'`. Check each sent `type` against the backend's `dispatch_message` switch and the inbound `WebSocketMessageType` enum (the send signature is an untyped `{type: string; data?: Record<string, unknown>}`, so the compiler does not catch a misspelt command — open #6050). The frontend's message types are in `auralis-web/frontend/src/types/ws/`.
 
 ## Step 2: Extract Frontend Contracts
 
@@ -76,7 +76,7 @@ For each backend endpoint, verify:
 4. **Request body**: All required fields sent by frontend? Extra fields that backend ignores?
 5. **Response shape**: Does the frontend type match the backend Pydantic model?
 6. **Field naming**: The wire is `snake_case`. Conversion to the camelCase domain types is explicit, at ingress: `auralis-web/frontend/src/api/transformers/` (`transformTrack` etc.) and `auralis-web/frontend/src/hooks/player/trackInfoMapper.ts`. Many wire types stay snake_case on purpose (`has_more`, `current_index` — the camelCase fallbacks were removed in #5823). Is a raw payload dispatched into a camelCase slice without a transformer (the #5606 class)?
-7. **Optional fields**: Are fields optional on both sides consistently? Where the backend model is `X | None` the frontend wire type must say `| null`, not just `?:` (#6049 is open: album year/genre, similar-track fields, `TrackInfo.artwork_url`/`format` and `current_file` were fixed in `8dc831b3`; look for the next one). The inverse also counts: a field declared on the wire type that no emitter populates (#5985).
+7. **Optional fields**: Are fields optional on both sides consistently? Where the backend model is `X | None` the frontend wire type must say `| null`, not just `?:` (#6049: album year/genre, similar-track fields, `TrackInfo.artwork_url`/`format` and `current_file` were fixed in `8dc831b3` / `16ac993f`, and the playlist `mastering_profile` site went with the dropped column in `d0a8eb917`; look for the next one). The inverse also counts: a field declared on the wire type that no emitter populates (#5985).
 
 ## Step 4: Cross-Reference Schemas
 
@@ -90,7 +90,7 @@ For each Pydantic model / TypeScript interface pair:
 
 ## Step 5: Cross-Reference WebSocket (if scope includes `websocket` or `all`)
 
-1. **Backend sends -> Frontend handles**: For every message type the backend sends, is there a frontend handler?
+1. **Backend sends -> Frontend handles**: For every message type the backend sends, is there a frontend handler? (`track_loaded`, `metadata_updated`, `metadata_batch_updated` are known to have none — open #5916.)
 2. **Frontend expects -> Backend sends**: For every message type the frontend listens for, does the backend send it?
 3. **Data shape match**: For each message type, do the `data` fields match between sender and receiver?
 4. **Documentation**: Cross-check against `auralis-web/backend/WEBSOCKET_API.md`

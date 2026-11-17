@@ -51,7 +51,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 - [ ] Command injection — FFmpeg invocations in `auralis/io/` — are file paths sanitized?
 - [ ] Path traversal — `unified_loader.py` — can a crafted filename escape the library root?
 - [ ] Template/XSS — does the frontend render user-supplied metadata (track names, album art URLs) unsafely?
-- [ ] Audio metadata — can malicious ID3 tags trigger injection when displayed or processed? Tag text is bounded before storage (genre length and count #6165, artist tag before the featuring regexes #6154, track/disc numbers #5732); a corrupt file answers one fixed 422 on every metadata route with no path in the body (#5993, `routers/errors.py`).
+- [ ] Audio metadata — can malicious ID3 tags trigger injection when displayed or processed? Tag text is bounded before storage (genre length and count #6165, artist tag before the featuring regexes #6154, track/disc numbers, d8ae6c314; #5732 stays open for the multi-valued artist/genre half); a corrupt file answers one fixed 422 on every metadata route with no path in the body (#5993, `routers/errors.py`).
 
 ### A04: Insecure Design
 - [ ] Player state machine — can invalid transitions cause undefined behavior?

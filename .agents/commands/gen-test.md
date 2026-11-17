@@ -65,6 +65,7 @@ assert np.all(output >= -1.0) and np.all(output <= 1.0), "Output exceeds [-1.0, 
 #### DB/Repository Tests MUST cover:
 
 - Repository method returns correct data
+- Fixtures: `session_factory` (and `repository_factory` / `track_repository` built on it) opens a fresh, *versioned* schema via `MigrationManager.initialize_fresh_database()` but does not enforce foreign keys, so a test that depends on FK behaviour or on a `LibraryDatabase` over the same file uses `library_database`. Use a tmp-file DB, never `LibraryDatabase(':memory:')`; give an inserted `Artist` a `normalized_name`, or `TrackRepository.add()` rolls back and returns None
 - Missing record handling (returns None, not crash)
 - Concurrent access safety (if applicable)
 

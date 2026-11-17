@@ -26,15 +26,15 @@ Categorize changed files by risk domain:
 
 | Domain | File Patterns | Maps to Audit |
 |--------|--------------|---------------|
-| Audio Core/DSP | `auralis/core/*`, `auralis/dsp/*` | `/audit-engine` |
+| Audio Core/DSP | `auralis/core/*`, `auralis/dsp/*` (`auralis/core/processing/processing_parameter_readers.py` names the `ProcessingParameters` fields no stage reads, #5576 — a new field needs a reader or an entry there) | `/audit-engine` |
 | Player | `auralis/player/*` | `/audit-engine`, `/audit-concurrency` |
 | Audio I/O | `auralis/io/*` | `/audit-engine` |
 | Chunked Mastering | `auralis/core/mastering_*.py` | `/audit-engine`, `/audit-concurrency` |
 | Optimization (LIVE) | `auralis/optimization/*` | `/audit-engine`, `/audit-concurrency` — live engine code applied by `hybrid_processor.py` at import (#5142); also run `python3 scripts/check_optimization_importers.py` |
 | Caching | `auralis-web/backend/core/chunk_cache*`, `auralis-web/backend/core/chunk_disk_prune.py`, `auralis-web/backend/core/intensity_key.py`, `auralis-web/backend/core/thumbnail_cache.py`, `auralis-web/backend/core/file_signature.py`, `auralis-web/backend/cache/*` | `/audit-backend` (dim 10) |
 | Seek & buffering | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/seekable_source.py`, `auralis-web/backend/core/stream_*_chunks.py`, `auralis-web/backend/core/stream_gates.py`, `auralis-web/backend/core/proactive_buffer.py` | `/audit-backend` (dim 11), `/audit-integration` (flow 8) |
-| Analysis/Fingerprint | `auralis/analysis/*` | `/audit-engine` |
-| Engine services | `auralis/services/*` (fingerprint queue/workers, artwork) | `/audit-engine`, `/audit-concurrency` |
+| Analysis/Fingerprint | `auralis/analysis/*` (incl. `auralis/analysis/loudness_filter_design.py`, `auralis/analysis/fingerprint/body_window.py`, `auralis/analysis/fingerprint/track_audio.py`; `auralis/analysis/fingerprint/analysis_budget.py` is a concurrent gate shared by every analysis worker and the stream-init path) | `/audit-engine`; `analysis_budget.py` also `/audit-concurrency` |
+| Engine services | `auralis/services/*` (fingerprint queue/workers/`fingerprint_claim.py`, artwork) | `/audit-engine`, `/audit-concurrency` |
 | Engine support | `auralis/utils/*`, `auralis/learning/*` (reference-cloud seeder only, #5763), `auralis/cli/*`, `auralis/__version__.py` (`__db_schema_version__` — a bump needs a matching `auralis/library/migrations/` file) | `/audit-engine`; `auralis/utils/artwork_security.py` also `/audit-security`; `auralis/version.py` / `auralis/__version__.py` also `/verify-release` (Gate 1) |
 | Library/Database | `auralis/library/*` | `/audit-engine`, `/audit-concurrency` |
 | Backend Routes | `auralis-web/backend/routers/*` (coordinators + their `*_deps.py` / `*_models.py` / per-concern siblings, #5831/#5832) | `/audit-backend` |

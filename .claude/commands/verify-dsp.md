@@ -41,7 +41,7 @@ Determine scope from arguments:
 - Find every function that takes audio data as input and returns audio data
 - Check that no operation changes the array length: no trimming, padding, resampling, or filtering that alters length
 - Watch for: `np.pad()`, `np.trim_zeros()`, `signal.resample()`, array slicing that changes length, `np.concatenate()` with extra samples
-- Chunked processing: verify `sum(chunk_lengths) == total_length` after reassembly
+- Chunked processing: verify `sum(chunk_lengths) == total_length` after reassembly. On the backend path `total_length` is what the decoder actually yields, not the probed container duration: a lossy file's probe counts encoder priming (2112 samples for iTunes AAC, about a frame for MP3) the decoder strips, so the LAST chunk emits what the source holds and is neither padded with silence up to the probe (`chunk_segment_extraction.py`) nor tail-cut into real audio (`ChunkBoundaryManager.trim_context` keeps the core measured from its start) (#6345, `53701f202`, `tests/backend/test_chunk_short_source_6345.py`)
 - Offline chunk planning folds a final remainder under `max(MIN_FINAL_CHUNK_SAMPLES, crossfade)` into the previous chunk (`next_core_samples` / `count_chunks`, #5736, #6139): the samples are still rendered, so counting chunks as `ceil(total / chunk)` is the stale form
 - `HybridProcessor.process()` input: channels-first, non-floating or >2-D arrays raise `ValueError` rather than returning a silent unprocessed copy (#6118, `tests/auralis/core/test_hybrid_input_contract_6118.py`); a genuinely too-short clip still comes back as an untouched copy
 
@@ -83,7 +83,9 @@ Determine scope from arguments:
 - Check for NaN propagation: does any stage check `np.isnan()` or `np.isinf()` in output?
 - In-stage `validate_audio_finite(..., repair=True)` must pass `repair_max_fraction=MAX_IN_STAGE_REPAIR_FRACTION` (`auralis/utils/audio_validation.py`, #6105): a mostly-non-finite buffer raises `ModuleError` instead of being zeroed into silence. Only the last-boundary writers (`io/saver.py`, `player/realtime/processor.py`) repair unconditionally
 - Epsilon guards use the named `AMPLITUDE_EPS` / `SILENCE_STD_THRESHOLD` in `auralis/dsp/utils/conversion.py` (#6230), not retyped literals
+- Fingerprint analysis is not audio output but feeds every master: `AudioFingerprintAnalyzer` zeroes non-finite INPUT samples, `require_finite` raises `FingerprintUnavailable` for a non-finite dimension, and `rust_fingerprint_to_schema` lets a NaN `bass_mid_ratio` through to that check instead of clamping it to +60 dB (#6144, `fd712e278`)
 - `validate_and_normalize_input` (`auralis/core/hybrid_stage_dispatch.py`) validates finiteness before its short-buffer and silence early returns, so a short non-finite buffer raises like a long one (#5191, `tests/auralis/core/test_short_buffer_nonfinite_5191.py`)
+- Filter corners go through `normalized_corner()` (`auralis/dsp/utils/filters.py`), which clamps only to what `butter` accepts (1e-4 to 0.99 of Nyquist) so no corner is unstable; the old 0.01 floor silently moved corners below 220 Hz at 44.1 kHz (#6300, `tests/auralis/dsp/test_eq_corner_placement_6300.py`)
 - Filtering short buffers: stages call `sosfiltfilt_safe` (`auralis/dsp/utils/filters.py`); a raw `sosfiltfilt(` raises on a buffer shorter than its pad length (#5736)
 
 **Pass criteria**: Every potentially NaN/Inf-producing operation has a guard. No stage can pass NaN/Inf to the next.
@@ -117,6 +119,7 @@ The engine-side parallel processor was deleted in #4565. Two live chunk paths re
 
 **How to verify** — backend processor (`auralis-web/backend/core/chunked_processor.py`, `auralis-web/backend/core/processor_pool.py`):
 - Chunk reassembly: ordering is index-based, not arrival-order
+- Short source: the last chunk emits the samples the source really holds; `extract_chunk_segment` pads a short NON-last chunk but not the last, and the penultimate chunk's end trim is relative to its core, not its buffer tail (#6345)
 - Segment tiling: each chunk is rendered with context and trimmed to a non-overlapping `CHUNK_INTERVAL` segment (`auralis-web/backend/core/chunk_file_loading.py` / `chunk_segment_extraction.py`, `auralis-web/backend/core/chunk_render.py`) — no gap, overlap or repeated samples. *chunk_crossfade.py* was deleted in #5776; a crossfade reappearing anywhere in the emitted path is a regression of #4642 (the old helper's curve was equal-gain sin²/cos², #3878)
 - No shared mutable state between concurrent workers — mastering targets read by workers must be immutable
 - Chunk geometry comes from `auralis-web/backend/core/chunk_boundaries.py`, never a literal

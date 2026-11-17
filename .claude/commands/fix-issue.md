@@ -117,9 +117,10 @@ entry (backend: `scripts/check_pytest_baseline.py`; frontend:
 The backend gate also fails on a *phantom* entry, one naming a test that no longer
 exists (#5811), so a fix that deletes or renames a baselined test, class or file
 drops its entry in the same commit. The frontend gate has a run-size floor
-(#5679): it fails when a run collects under 90% of the specs the baseline was
-generated from, so a fix that deliberately deletes specs must regenerate the
-baseline too (`auralis-web/frontend/scripts/check-test-baseline.mjs`). When in
+(#5679): it fails when a run collects under 90% of the tests the baseline was
+generated from (or vitest exits non-zero with no failing test in the report,
+via `VITEST_EXIT_CODE`), so a fix that deliberately deletes specs must
+regenerate the baseline too (`auralis-web/frontend/scripts/check-test-baseline.mjs`). When in
 doubt, run the same test on an unmodified `git worktree` of `HEAD` (never
 `git stash`) and compare.
 
