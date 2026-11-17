@@ -154,11 +154,16 @@ class SpectrumOperations(WeightingMixin):
 
         Args:
             frequency_bins: Frequency bin centers
-            spectrum: Spectrum magnitude values
+            spectrum: Spectrum magnitude values (linear, or dB when any value is negative)
 
         Returns:
             Spectral centroid in Hz
         """
+        # The analyzer's spectrum is in dB relative to its loudest band (values <= 0), which as weights gave the
+        # LOUDEST band zero weight and the quietest the most: a 200 Hz and an 8 kHz tone read nearly the same
+        # centroid. Convert to linear magnitude first, as calculate_spectral_rolloff does (#6328).
+        if np.any(spectrum < 0):
+            spectrum = 10 ** (spectrum / 20)
         denominator = np.sum(spectrum)
         if denominator == 0:
             return float(frequency_bins[len(frequency_bins) // 2])
