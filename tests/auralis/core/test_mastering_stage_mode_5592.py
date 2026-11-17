@@ -42,6 +42,17 @@ def _load_stage_module():
         raise RuntimeError("cannot load atomic_write")
     atomic_write = importlib.util.module_from_spec(atomic_spec)
     atomic_spec.loader.exec_module(atomic_write)
+    # The loop opens and closes the output sink once up front (#6321); a stand-in that creates the file.
+    fake_soundfile = types.ModuleType("soundfile")
+
+    class _SoundFile:
+        def __init__(self, path, **kwargs):
+            Path(path).touch()
+
+        def close(self):
+            pass
+
+    fake_soundfile.SoundFile = _SoundFile
     stubbed = {
         "auralis.utils": types.ModuleType("auralis.utils"),
         "auralis.utils.atomic_write": atomic_write,
@@ -50,7 +61,7 @@ def _load_stage_module():
         "auralis.core": types.ModuleType("auralis.core"),
         "auralis.core.mastering_process_chunk": fake_peak,
         "numpy": types.ModuleType("numpy"),
-        "soundfile": types.ModuleType("soundfile"),
+        "soundfile": fake_soundfile,
     }
     with mock.patch.dict(sys.modules, stubbed):
         spec = importlib.util.spec_from_file_location(

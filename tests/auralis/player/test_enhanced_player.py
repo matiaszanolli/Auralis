@@ -24,11 +24,9 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 import soundfile as sf
 
-from auralis.player.config import PlayerConfig
 from auralis.player.enhanced_audio_player import (
     AudioPlayer,
     PlaybackState,
-    QueueController,
 )
 
 
@@ -177,18 +175,18 @@ class TestAudioPlayerComprehensive:
             callback_called.append(True)
 
         # Test add_callback
-        enhanced_player.add_callback(test_callback)
+        enhanced_player.integration.add_callback(test_callback)
 
         # Trigger notification
-        enhanced_player._notify_callbacks()
+        enhanced_player.integration._notify_callbacks(enhanced_player.integration.get_playback_info())
         assert len(callback_called) == 1
 
         # Add multiple callbacks
         def test_callback2(info):  # Callbacks receive playback_info as parameter
             callback_called.append(True)
 
-        enhanced_player.add_callback(test_callback2)
-        enhanced_player._notify_callbacks()
+        enhanced_player.integration.add_callback(test_callback2)
+        enhanced_player.integration._notify_callbacks(enhanced_player.integration.get_playback_info())
         assert len(callback_called) == 3  # Should call both callbacks
 
     def test_file_loading(self, enhanced_player, test_audio_files):
@@ -281,18 +279,18 @@ class TestAudioPlayerComprehensive:
     def test_playback_info(self, enhanced_player, test_audio_files):
         """Test playback information retrieval"""
         # Get playback info without track loaded
-        info = enhanced_player.get_playback_info()
+        info = enhanced_player.integration.get_playback_info()['playback']
         assert isinstance(info, dict)
         assert 'state' in info
         assert 'position_seconds' in info
-        assert 'duration_seconds' in info  # Changed from duration to duration_seconds
-        assert 'current_file' in info  # Changed from current_track to current_file
+        assert 'duration_seconds' in info
+        assert 'current_file' in info
 
         # Load track and get updated info
         enhanced_player.load_file(test_audio_files['track1'])
-        loaded_info = enhanced_player.get_playback_info()
-        assert loaded_info['current_file'] is not None  # Changed from current_track to current_file
-        assert loaded_info['duration_seconds'] > 0  # Changed from duration to duration_seconds
+        loaded_info = enhanced_player.integration.get_playback_info()['playback']
+        assert loaded_info['current_file'] is not None
+        assert loaded_info['duration_seconds'] > 0
 
     def test_effects_and_processing(self, enhanced_player):
         """Test effects and processing controls"""
@@ -397,7 +395,7 @@ class TestAudioPlayerComprehensive:
 
         # Test callback with None
         try:
-            enhanced_player.add_callback(None)
+            enhanced_player.integration.add_callback(None)
             # Should handle gracefully
         # narrowed from bare Exception, #5023: add_callback() currently accepts any
         # object, but a validating implementation would reject None with TypeError.
@@ -417,7 +415,7 @@ class TestAudioPlayerComprehensive:
             try:
                 for i in range(3):
                     # Perform various operations
-                    info = enhanced_player.get_playback_info()
+                    info = enhanced_player.integration.get_playback_info()
                     results.append(f"worker_{worker_id}_info_{i}")
 
                     # Small delay to simulate real usage
@@ -457,7 +455,7 @@ class TestAudioPlayerComprehensive:
         enhanced_player.cleanup()
 
         # After cleanup, basic operations should still work or fail gracefully
-        info = enhanced_player.get_playback_info()
+        info = enhanced_player.integration.get_playback_info()
         assert isinstance(info, dict)
 
 

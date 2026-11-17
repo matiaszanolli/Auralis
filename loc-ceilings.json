@@ -140,7 +140,7 @@
     "auralis/player/components/queue_manager.py": 237,
     "auralis/player/components/queue_navigation.py": 163,
     "auralis/player/components/queue_shuffle.py": 92,
-    "auralis/player/enhanced_audio_player.py": 294,
+    "auralis/player/enhanced_audio_player.py": 291,
     "auralis/player/gapless_playback_engine.py": 279,
     "auralis/player/gapless_prebuffer.py": 242,
     "auralis/player/integration_library.py": 133,

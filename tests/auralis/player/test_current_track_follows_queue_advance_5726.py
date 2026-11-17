@@ -37,7 +37,7 @@ def player(tmp_path):
         {"id": 2, "title": "B", "filepath": b},
     ], 0)
     assert player.load_file(a)
-    player.current_track = _Track(1, "A")
+    player.integration.set_current_track(_Track(1, "A"))
     return player
 
 

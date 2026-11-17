@@ -32,7 +32,6 @@ from .integration_manager import IntegrationManager
 from .playback_controller import PlaybackController, PlaybackState
 from .player_callbacks_mixin import PlayerCallbacksMixin
 from .player_file_loading_mixin import PlayerFileLoadingMixin
-from .player_properties_mixin import PlayerPropertiesMixin
 from .player_queue_navigation_mixin import PlayerQueueNavigationMixin
 from .player_streaming_mixin import PlayerStreamingMixin
 from .queue_controller import QueueController
@@ -45,7 +44,6 @@ class AudioPlayer(
     PlayerStreamingMixin,
     PlayerCallbacksMixin,
     PlayerFingerprintLoaderMixin,
-    PlayerPropertiesMixin,
 ):
     """
     Real-time audio player with advanced DSP and library integration.
@@ -55,8 +53,7 @@ class AudioPlayer(
     library integration.
 
     File loading, queue navigation, streaming/auto-advance,
-    callbacks/introspection, fingerprint-scheduling, and the
-    backward-compatible property surface are mixed in (see the imports
+    callbacks/introspection and fingerprint-scheduling are mixed in (see the imports
     above) rather than composed as separate objects, so existing code/tests
     that read or patch attributes like ``player._track_generation`` or
     ``player.position`` directly continue to work unchanged (#4249). This
@@ -223,7 +220,7 @@ class AudioPlayer(
         """Check if currently playing"""
         return self.playback.is_playing()
 
-    # ========== Position (kept on AudioPlayer, not PlayerPropertiesMixin) ==========
+    # ========== Position ==========
     # test_no_direct_attribute_bypass inspects `type(player).__dict__["position"]`
     # directly (no MRO walk), so this property must live on this class itself.
 

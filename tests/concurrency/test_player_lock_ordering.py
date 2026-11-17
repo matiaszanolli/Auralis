@@ -132,7 +132,7 @@ class TestNotifyFiresAfterAudioLockReleased:
         owned_at_notify: list[bool] = []
         # Public API -> IntegrationManager.add_callback (the #4328 path), NOT
         # player.playback.add_callback (the #3781 PlaybackController path).
-        player.add_callback(
+        player.integration.add_callback(
             lambda state_info: owned_at_notify.append(player.file_manager._audio_lock._is_owned())
         )
 
@@ -192,7 +192,7 @@ class TestConcurrentSeekAndGetPlaybackInfo:
             player.seek(positions[counter["i"] % len(positions)])
 
         def info_step():
-            player.get_playback_info()
+            player.integration.get_playback_info()
 
         a_done, b_done, errors = _run_concurrent(seek_step, info_step)
 
@@ -215,7 +215,7 @@ class TestConcurrentNextTrackAndGetPlaybackInfo:
             player.next_track()
 
         def info_step():
-            player.get_playback_info()
+            player.integration.get_playback_info()
 
         a_done, b_done, errors = _run_concurrent(next_step, info_step)
 
@@ -238,7 +238,7 @@ class TestConcurrentLoadFileAndGetPlaybackInfo:
             player.load_file(files[counter["i"] % len(files)])
 
         def info_step():
-            player.get_playback_info()
+            player.integration.get_playback_info()
 
         a_done, b_done, errors = _run_concurrent(load_step, info_step)
 
