@@ -11,19 +11,6 @@ interface AuralisDebugInfo {
   version: string;
 }
 
-interface AuralisPerformanceInfo {
-  selectors: unknown;
-  rendering: unknown;
-  bundle: unknown;
-}
-
-interface AuralisA11yInfo {
-  audit: unknown;
-  focus: unknown;
-  contrast: unknown;
-  liveRegions: unknown;
-}
-
 declare global {
   interface Window {
     // Audio engine singletons
@@ -32,14 +19,6 @@ declare global {
 
     // Debug/diagnostic globals
     __AURALIS_DEBUG__?: AuralisDebugInfo;
-    __AURALIS_PERFORMANCE__?: AuralisPerformanceInfo;
-    __A11Y__?: AuralisA11yInfo;
-
-    // Vendor prefixed APIs
-    // #4623: webkitAudioContext removed — nothing reads it, and declaring it
-    // is what let the dead `window.AudioContext || window.webkitAudioContext`
-    // fallbacks keep compiling.
-    msCrypto?: Crypto;
   }
 }
 
