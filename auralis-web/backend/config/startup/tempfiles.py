@@ -159,7 +159,7 @@ def claim_chunk_cache(chunk_dir: Path, owner_marker: Path) -> bool:
     may_wipe = True
     try:
         if owner_marker.exists():
-            recorded = owner_marker.read_text().strip()
+            recorded = owner_marker.read_text(errors="replace").strip()  # corrupt marker = not a PID (#6432)
             if recorded.isdigit():
                 other_pid = int(recorded)
                 if other_pid != os.getpid() and pid_is_alive(other_pid):

@@ -165,7 +165,10 @@ def create_lifespan(
         # pool that is about to stop being the default.
         _install_thread_pools()
 
-        await _cleanup_temp_directories()
+        try:
+            await _cleanup_temp_directories()
+        except Exception as e:  # noqa: BLE001 - housekeeping must not block the app starting (#6432)
+            logger.warning(f"Temp directory cleanup failed: {type(e).__name__}: {e}")
         await sweep_fingerprint_store()
         await _init_auralis_components(HAS_AURALIS, HAS_SIMILARITY, manager, globals_dict)
         await _init_processing_engine(HAS_PROCESSING, globals_dict)
