@@ -20,7 +20,7 @@
  * counter advances. The subscription is backed by WebSocketContext (#4380).
  */
 
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { ArtworkUpdatedMessage } from '@/types/websocket';
 
@@ -108,8 +108,11 @@ function useGlobalArtworkSubscription(): void {
  */
 export function useArtworkRevision(albumId: number): number {
   useGlobalArtworkSubscription();
+  // Stable per album: a fresh `subscribe` each render makes React unsubscribe and
+  // resubscribe every card in a large grid on every grid re-render (#6428).
+  const subscribe = useCallback((listener: () => void) => subscribeToAlbum(albumId, listener), [albumId]);
   return useSyncExternalStore(
-    (listener) => subscribeToAlbum(albumId, listener),
+    subscribe,
     () => getRevisionSnapshot(albumId),
     () => getRevisionSnapshot(albumId)
   );

@@ -52,6 +52,26 @@ describe('useArtworkRevision', () => {
     expect(subscribe).toHaveBeenCalledTimes(1);
   });
 
+  it('should keep one listener registration across re-renders (#6428)', () => {
+    const { rerender } = renderHook(() => useArtworkRevision(1));
+    // The registry drops an album's Set when its last listener leaves, so a
+    // resubscribe shows up as a different Set instance.
+    const listeners = _internal.albumListeners.get(1);
+    expect(listeners?.size).toBe(1);
+
+    for (let i = 0; i < 10; i += 1) rerender();
+
+    expect(_internal.albumListeners.get(1)).toBe(listeners);
+  });
+
+  it('should resubscribe when the album id changes', () => {
+    const { rerender } = renderHook(({ id }) => useArtworkRevision(id), { initialProps: { id: 1 } });
+    rerender({ id: 2 });
+
+    expect(_internal.albumListeners.has(1)).toBe(false);
+    expect(_internal.albumListeners.get(2)?.size).toBe(1);
+  });
+
   it('should increment revision when matching album message arrives', () => {
     const { result } = renderHook(() => useArtworkRevision(42));
 
