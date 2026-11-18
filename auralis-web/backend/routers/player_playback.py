@@ -15,6 +15,7 @@ from typing import Any
 
 from fastapi import BackgroundTasks, Depends
 
+from player_state import PlayerState
 from services import NavigationService, PlaybackService, RecommendationService
 from websocket.outbound_messages import broadcast_typed
 
@@ -47,12 +48,12 @@ logger = logging.getLogger(__name__)
 @with_error_handling("get player status")
 async def get_player_status(
     service: PlaybackService = Depends(_get_playback_service),
-) -> dict[str, Any]:
+) -> PlayerState:
     """
     Get current player status (single source of truth).
 
     Returns:
-        dict: Player state with track info, playback status, queue
+        PlayerState: Player state with track info, playback status, queue
 
     Raises:
         HTTPException: If player not available or query fails
