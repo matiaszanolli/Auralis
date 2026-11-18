@@ -207,9 +207,9 @@ def reset_rate_limits():
     return _clear_rate_limit_windows
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def _isolated_library_db(tmp_path_factory):
-    """Point the library at a throwaway database for the whole session (#5810).
+    """Point the library at a throwaway database, a fresh one per test (#5810, #6706).
 
     ``client`` boots the real startup path, which opens
     ``auralis.library.constants.DEFAULT_DB_PATH`` -- the developer's own
@@ -218,6 +218,14 @@ def _isolated_library_db(tmp_path_factory):
     whatever that file happened to hold. ``database_engine`` (where the path is
     resolved, since #5837) imported the constant by name, so both bindings are
     patched.
+
+    The database is per test, not per session, because every ``client`` boots a
+    lifespan that restarts the fingerprint workers, and they claim every track
+    still unfingerprinted. With one session-wide database the upload tests left
+    their tracks behind, so each later test's startup and shutdown re-extracted
+    the whole backlog: ``test_main_api.py`` went from ~0.1 s a test to ~5 s and
+    the file took 18 minutes on CI, which is what pushed the job past its cap.
+    A fresh database starts in ~0.06 s.
     """
     import auralis.library.constants as constants
     import auralis.library.database_engine as database_engine

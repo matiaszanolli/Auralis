@@ -131,7 +131,10 @@ jobs:
       # non-empty. The baseline check below is what decides the job.
       - name: Run pytest
         run: |
-          python -m pytest -q -m "not slow" -p no:randomly \
+          # --durations: a run that nears the cap must show which tests ate
+          # it (#6706); without this the only evidence was gaps between log
+          # timestamps.
+          python -m pytest -q -m "not slow" -p no:randomly --durations=25 \
             --junitxml=pytest-results.xml || true
 
       # Fails the job on any failure not present in pytest-baseline.json, and
@@ -147,29 +150,16 @@ jobs:
       - name: Compare against known-failure baseline
         run: python scripts/check_pytest_baseline.py pytest-results.xml --strict-stale
 
-      # Ratchet gate for tests whose only assertions are `X is not None`
-      # (#5154). The script existed and ran correctly standalone but nothing
-      # in CI ever invoked it (#5224) — the same "checker with no caller"
-      # shape #5091 fixed for pytest-baseline.json. Scans the test tree
-      # directly, independent of the junit report above.
-      - name: Check for new weak-assertion tests
-        run: python scripts/check_weak_assertions.py
-
-      # Same ratchet for tests with no assertion at all (#5807): a body that
-      # ends in "this test documents expected behavior" passes against any
-      # defect. The legitimate "does not raise" tests are baselined.
-      - name: Check for new zero-assertion tests
-        run: python scripts/check_weak_assertions.py --zero
-
-      # Split targets that were closed under 300 lines and kept regrowing
-      # (#5830); loc-ceilings.json holds the line count each may not exceed.
-      - name: Check split targets did not regrow
-        run: python scripts/check_loc_ratchet.py
-
-      # 'was removed in #NNNN' history comments regrew after every manual
-      # sweep (#6257); the git log already carries the history.
-      - name: Check for breadcrumb comments
-        run: python scripts/check_breadcrumbs.py
+      # A job-level timeout cancels the pytest step, and every step after it
+      # is then skipped -- the baseline check included -- so the run used to
+      # end as a bare "cancelled" with no verdict (#6706). This step only runs
+      # in that case and puts the cause in an error annotation on the run. The
+      # job's own conclusion may still read "cancelled" -- GitHub decides that.
+      - name: Fail loudly when pytest did not finish
+        if: cancelled()
+        run: |
+          echo "::error title=No pytest verdict::pytest did not finish within the job's timeout-minutes cap, so pytest-results.xml was never written and the known-failure baseline was not checked. Read the 'slowest durations' of a completed run and fix the slow tests; do not just raise the cap (#6706)."
+          exit 1
 
       - name: Upload test results
         if: always()
@@ -178,3 +168,47 @@ jobs:
           name: pytest-results
           path: pytest-results.xml
           retention-days: 7
+          if-no-files-found: warn
+
+  # The four ratchets below read the source tree, not the junit report, and
+  # need only the standard library. They lived as steps of the `pytest` job, so
+  # a pytest run that was cancelled at the cap skipped all of them (#6706).
+  # As their own job they run, and report, whatever pytest does.
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+
+      # Ratchet gate for tests whose only assertions are `X is not None`
+      # (#5154). The script existed and ran correctly standalone but nothing
+      # in CI ever invoked it (#5224) — the same "checker with no caller"
+      # shape #5091 fixed for pytest-baseline.json. Scans the test tree
+      # directly, independent of the junit report.
+      - name: Check for new weak-assertion tests
+        run: python scripts/check_weak_assertions.py
+
+      # Same ratchet for tests with no assertion at all (#5807): a body that
+      # ends in "this test documents expected behavior" passes against any
+      # defect. The legitimate "does not raise" tests are baselined.
+      # `if: !cancelled()` on each step so one failing gate does not hide the
+      # verdict of the ones after it.
+      - name: Check for new zero-assertion tests
+        if: ${{ !cancelled() }}
+        run: python scripts/check_weak_assertions.py --zero
+
+      # Split targets that were closed under 300 lines and kept regrowing
+      # (#5830); loc-ceilings.json holds the line count each may not exceed.
+      - name: Check split targets did not regrow
+        if: ${{ !cancelled() }}
+        run: python scripts/check_loc_ratchet.py
+
+      # 'was removed in #NNNN' history comments regrew after every manual
+      # sweep (#6257); the git log already carries the history.
+      - name: Check for breadcrumb comments
+        if: ${{ !cancelled() }}
+        run: python scripts/check_breadcrumbs.py

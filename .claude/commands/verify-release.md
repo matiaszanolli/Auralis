@@ -58,7 +58,7 @@ python -m pytest -q -m "not slow" -p no:randomly \
   --ignore=tests/concurrency/test_thread_safety.py \
   --junitxml=pytest-results.xml 2>&1 | tail -5
 python scripts/check_pytest_baseline.py pytest-results.xml --strict-stale
-# static ratchets backend-tests.yml runs after the baseline step
+# static ratchets backend-tests.yml runs in its own `gates` job
 python scripts/check_weak_assertions.py && python scripts/check_weak_assertions.py --zero
 python scripts/check_loc_ratchet.py
 python scripts/check_breadcrumbs.py
