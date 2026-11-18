@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useMessageSubscriptions } from '@/hooks/websocket/useWebSocketMessages';
+import { useLatest } from '@/hooks/shared/useLatest';
 import type { StreamingCoreReturn } from './useAudioStreamingCore';
 import type { CurrentTrackInfo } from './useEnhancedStreamStart';
 
@@ -64,6 +65,10 @@ export function useEnhancedSeek({
 }: UseEnhancedSeekParams): UseEnhancedSeekReturn {
   // The seek awaiting seek_started, so a rejection can be matched to it.
   const pendingSeekRef = useRef<PendingSeek | null>(null);
+  // `send` is identity-stable; `isConnected` is only read when a seek runs. The whole context
+  // object changes on every WS status flicker, which re-created seekTo each time (#6426).
+  const { send } = wsContext;
+  const isConnectedRef = useLatest(wsContext.isConnected);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearRetry = useCallback(() => {
@@ -102,14 +107,14 @@ export function useEnhancedSeek({
     // play-time snapshot in currentTrackInfoRef is stale the
     // moment the user moves a slider — sending it here re-mastered the seek
     // stream with the old values and un-did the live change.
-    wsContext.send({
+    send({
       type: 'seek',
       data: {
         track_id: seek.trackId,
         position: seek.position,
       },
     });
-  }, [wsContext, setIsSeeking, core.playbackEngineRef, core.pcmBufferRef, core.streamingMetadataRef, core.pendingChunksRef, core.lastReceivedChunkIndexRef]);
+  }, [send, setIsSeeking, core.playbackEngineRef, core.pcmBufferRef, core.streamingMetadataRef, core.pendingChunksRef, core.lastReceivedChunkIndexRef]);
 
   const seekTo = useCallback((position: number) => {
     if (!currentTrackInfoRef.current) {
@@ -117,7 +122,7 @@ export function useEnhancedSeek({
       return;
     }
 
-    if (!wsContext.isConnected) {
+    if (!isConnectedRef.current) {
       DEBUG && console.warn('[usePlayEnhanced] Cannot seek: WebSocket not connected');
       return;
     }
@@ -125,7 +130,7 @@ export function useEnhancedSeek({
     // A new target supersedes a scheduled retry of an older one.
     clearRetry();
     sendSeek({ trackId: currentTrackInfoRef.current.trackId, position, retried: false });
-  }, [wsContext.isConnected, currentTrackInfoRef, clearRetry, sendSeek]);
+  }, [isConnectedRef, currentTrackInfoRef, clearRetry, sendSeek]);
 
   // seek_started clears isSeeking as soon as the backend acknowledges the seek
   // request (fallback for a lost audio_stream_start #2873). The shared

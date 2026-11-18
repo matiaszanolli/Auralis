@@ -117,8 +117,8 @@ export function useAudioStreamingCore(
   const [isPaused, setIsPaused] = useState(false);
 
   // #3588/#2532: ref indirection so handler identity changes don't force a
-  // resubscribe — the only valid resubscribe trigger is wsContext changing
-  // (i.e. a WS reconnect). handleStreamStartRef is populated by the caller
+  // resubscribe — the only valid resubscribe trigger is `subscribe` changing,
+  // never a connect/disconnect status flicker (#6426). handleStreamStartRef is populated by the caller
   // (`core.handleStreamStartRef.current = handleStreamStart`) since it's
   // defined hook-side, not by this core.
   const handleStreamStartRef = useRef<(message: AudioStreamStartMessage) => void>(() => {});
@@ -147,13 +147,14 @@ export function useAudioStreamingCore(
   // (the server parks on its flow gate after buffer_full and sends nothing).
   // The drain watch polls the fill level from the playback side and emits
   // buffer_ready when it drops below the resume threshold.
+  const { send } = wsContext; // identity-stable; the context object is not (#6426)
   useEffect(() => {
     return startFlowDrainWatch({
       flowPausedRef,
       pcmBufferRef,
-      send: wsContext.send,
+      send,
     });
-  }, [flowPausedRef, pcmBufferRef, wsContext]);
+  }, [flowPausedRef, pcmBufferRef, send]);
 
   // Chunk/end/error handling + the four stream-message subscriptions. Called
   // exactly where these sections used to live — effect order is behavior.

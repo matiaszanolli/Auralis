@@ -5,4 +5,5 @@
 
 export { useDialogAccessibility } from './useDialogAccessibility';
 export { useGroupedArtists } from './useGroupedArtists';
+export { useLatest } from './useLatest';
 export { useConnectionState } from './useConnectionRedux';

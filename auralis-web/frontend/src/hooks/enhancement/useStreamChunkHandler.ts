@@ -38,6 +38,8 @@ export function useStreamChunkHandler({
   startPlaybackWhenBuffered,
   setCurrentTime,
 }: StreamMessageHandlerDeps): (message: AudioChunkMessage) => void {
+  // The identity-stable member, not the context object, which changes on every WS status flicker (#6426).
+  const { send } = wsContext;
   return useCallback((message: AudioChunkMessage) => {
     try {
       const rejection = classifyChunk({
@@ -102,10 +104,10 @@ export function useStreamChunkHandler({
 
       if (result.flowControl === 'pause') {
         flowPausedRef.current = true;
-        wsContext.send({ type: 'buffer_full', data: {} });
+        send({ type: 'buffer_full', data: {} });
       } else if (result.flowControl === 'resume') {
         flowPausedRef.current = false;
-        wsContext.send({ type: 'buffer_ready', data: {} });
+        send({ type: 'buffer_ready', data: {} });
       }
 
       if (
@@ -141,7 +143,7 @@ export function useStreamChunkHandler({
       dispatch(setStreamingError({ streamType, error: errorMsg }));
     }
     }, [
-    dispatch, wsContext, streamType, logPrefix, throttleProgress, detectOutOfSequence,
+    dispatch, send, streamType, logPrefix, throttleProgress, detectOutOfSequence,
     startPlaybackWhenBuffered, acceptsStreamType, setCurrentTime, pcmBufferRef, streamingMetadataRef,
     pendingChunksRef, flowPausedRef, lastReceivedChunkIndexRef, lastDispatchedProgressRef, streamEpochRef,
   ]);

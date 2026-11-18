@@ -31,6 +31,7 @@ import { transformTrack } from '@/api/transformers';
 import type { TrackApiResponse } from '@/api/transformers/types';
 import { get } from '@/utils/apiRequest';
 import { isAbortError } from '@/utils/errorGuards';
+import { useLatest } from '@/hooks/shared/useLatest';
 import type { EnhancementPreset } from '@/types/domain';
 import type { StreamingCoreReturn } from './useAudioStreamingCore';
 import type { CurrentTrackInfo } from './useEnhancedStreamStart';
@@ -102,6 +103,11 @@ export function useEnhancedPlayCommand({
   currentTrackInfoRef,
   resetFingerprint,
 }: UseEnhancedPlayCommandParams): StartPlayback {
+  // `send` is identity-stable; `isConnected` is only read when a play starts. Depending on
+  // the whole context object (new on every connect/disconnect) re-created playEnhanced and
+  // everything keyed on it (#6426).
+  const { send } = wsContext;
+  const isConnectedRef = useLatest(wsContext.isConnected);
   return useCallback(
     async (
       trackId: number,
@@ -128,7 +134,7 @@ export function useEnhancedPlayCommand({
         resetFingerprint(trackId);
 
         // Check WebSocket connection before proceeding
-        if (!wsContext.isConnected) {
+        if (!isConnectedRef.current) {
           throw new Error('WebSocket not connected. Please wait for connection and try again.');
         }
 
@@ -158,7 +164,7 @@ export function useEnhancedPlayCommand({
         // while preserving live preset/intensity for enhanced playback
         // (#4812/#4813).
         if (wireType === 'enhanced') {
-          wsContext.send({
+          send({
             type: 'play_enhanced',
             data: {
               track_id: trackId,
@@ -167,7 +173,7 @@ export function useEnhancedPlayCommand({
             },
           });
         } else {
-          wsContext.send({
+          send({
             type: 'play_normal',
             data: { track_id: trackId },
           });
@@ -207,7 +213,8 @@ export function useEnhancedPlayCommand({
     //
     // Matches the established convention in useEnhancedSeek.ts / useEnhancedStreamStart.ts.
     [
-      wsContext,
+      send,
+      isConnectedRef,
       dispatch,
       currentTrackInfoRef,
       resetFingerprint,

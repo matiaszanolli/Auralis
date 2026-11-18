@@ -76,6 +76,8 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     cleanupStreaming,
   } = deps;
 
+  // The identity-stable member, not the context object, which changes on every WS status flicker (#6426).
+  const { reissueActiveStreamAs } = wsContext;
   const store = useStore<RootState>();
   // True for a stream-level message naming a track other than the one this
   // stream is playing: a late end/error from a superseded track after a rapid
@@ -178,7 +180,7 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
       // (including undefined, since the enhanced/seek paths are this
       // stream's default) re-issues as play_enhanced.
       const reissueType = message.data.stream_type === 'normal' ? 'play_normal' : 'play_enhanced';
-      const reissued = wsContext.reissueActiveStreamAs(reissueType, {}, recoveryPosition);
+      const reissued = reissueActiveStreamAs(reissueType, {}, recoveryPosition);
       if (reissued) {
         DEBUG && console.log(
           `${logPrefix} Auto-resuming from recovery_position=${recoveryPosition}s after chunk failure`
@@ -188,7 +190,7 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     }
     // Terminal: no recovery point, or it was already tried (#5876).
     endActiveStream(trackId);
-  }, [dispatch, streamType, logPrefix, cleanupStreaming, acceptsStreamType, wsContext, lastRecoveryAttemptRef, isSupersededTrack]);
+  }, [dispatch, streamType, logPrefix, cleanupStreaming, acceptsStreamType, reissueActiveStreamAs, lastRecoveryAttemptRef, isSupersededTrack]);
 
   return { handleChunk, handleStreamEnd, handleStreamError };
 }

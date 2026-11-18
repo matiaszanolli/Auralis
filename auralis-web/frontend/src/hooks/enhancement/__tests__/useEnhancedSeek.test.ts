@@ -171,4 +171,35 @@ describe('useEnhancedSeek – rejected seek (#5885)', () => {
     act(() => vi.advanceTimersByTime(SEEK_RETRY_DELAY_MS));
     expect(seekFrames().map((d: any) => d.position)).toEqual([10, 20]);
   });
+
+  it('keeps seekTo stable across connect/disconnect and honours the latest state (#6426)', () => {
+    const subscribe = vi.fn().mockReturnValue(() => {});
+    const send = vi.fn();
+    const ws = (isConnected: boolean) => ({ ...makeWsContext(isConnected, subscribe), send });
+    const currentTrackInfoRef = { current: { trackId: 3 } };
+    const core = makeCore(); // stable ref containers, as the real core's useRefs are
+    const setIsSeeking = vi.fn();
+
+    const { result, rerender } = renderHook(
+      ({ w }) =>
+        useEnhancedSeek({
+          wsContext: w,
+          core,
+          currentTrackInfoRef: currentTrackInfoRef as any,
+          setIsSeeking,
+        }),
+      { initialProps: { w: ws(true) } }
+    );
+    const seekTo = result.current.seekTo;
+
+    rerender({ w: ws(false) });
+    expect(result.current.seekTo).toBe(seekTo);
+    act(() => { seekTo(12); });
+    expect(send).not.toHaveBeenCalled();
+
+    rerender({ w: ws(true) });
+    expect(result.current.seekTo).toBe(seekTo);
+    act(() => { seekTo(12); });
+    expect(send).toHaveBeenCalledWith({ type: 'seek', data: { track_id: 3, position: 12 } });
+  });
 });
