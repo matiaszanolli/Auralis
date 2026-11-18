@@ -26,6 +26,7 @@ import { BatchActionButton } from './BatchActionButton';
 import { BatchActionsMoreMenu } from './BatchActionsMoreMenu';
 import { AddToPlaylistMenu } from './AddToPlaylistMenu';
 import { useBatchActionsMenu } from './useBatchActionsMenu';
+import { assertNever } from '@/utils/assertNever';
 
 interface BatchActionsToolbarProps {
   selectedCount: number;
@@ -43,7 +44,7 @@ interface BatchActionsToolbarProps {
 /**
  * Get context-specific label for remove action
  */
-const getRemoveLabel = (context: string): string => {
+const getRemoveLabel = (context: NonNullable<BatchActionsToolbarProps['context']>): string => {
   switch (context) {
     case 'playlist':
       return 'Remove from Playlist';
@@ -51,8 +52,10 @@ const getRemoveLabel = (context: string): string => {
       return 'Remove from Favorites';
     case 'queue':
       return 'Remove from Queue';
-    default:
+    case 'library':
       return 'Delete';
+    default:
+      return assertNever(context, 'Delete');
   }
 };
 

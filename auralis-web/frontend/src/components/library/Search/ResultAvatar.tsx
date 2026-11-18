@@ -7,6 +7,7 @@ import {
   DefaultSearchAvatar
 } from '@/components/library/Styles/SearchStyles.styles';
 import AlbumArt from '@/components/album/AlbumArt';
+import { assertNever } from '@/utils/assertNever';
 
 interface SearchResult {
   type: 'track' | 'album' | 'artist';
@@ -61,7 +62,7 @@ export const ResultAvatar = ({ result }: ResultAvatarProps) => {
       case 'artist':
         return <PersonIcon />;
       default:
-        return <MusicNoteIcon />;
+        return assertNever(result.type, <MusicNoteIcon />);
     }
   };
 

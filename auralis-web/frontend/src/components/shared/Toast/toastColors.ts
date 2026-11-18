@@ -1,6 +1,7 @@
 import { AlertColor } from '@mui/material';
 import { tokens, withOpacity } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
+import { assertNever } from '@/utils/assertNever';
 
 
 /**
@@ -19,7 +20,7 @@ export const getToastBackgroundColor = (severity: AlertColor): string => {
     case 'info':
       return tokens.colors.opacityScale.accent.veryLight; // #2356
     default:
-      return themeVars.surfacePrimary;
+      return assertNever(severity, themeVars.surfacePrimary);
   }
 };
 
@@ -39,6 +40,6 @@ export const getToastBorderColor = (severity: AlertColor): string => {
     case 'info':
       return tokens.colors.accent.primary; // #2356
     default:
-      return themeVars.textDisabled;
+      return assertNever(severity, themeVars.textDisabled);
   }
 };

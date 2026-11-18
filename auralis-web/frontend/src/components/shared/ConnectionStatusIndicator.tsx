@@ -23,6 +23,7 @@ import { useAPIHealthPoll } from '@/hooks/shared/useAPIHealthPoll';
 import { useAutoHide } from '@/hooks/shared/useAutoHide';
 import { ConnectionDetailsPanel } from './ConnectionDetailsPanel';
 import { themeVars } from '@/theme/semanticTheme';
+import { assertNever } from '@/utils/assertNever';
 
 type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
@@ -57,7 +58,7 @@ function getPositionStyles(position: Position) {
     case 'bottom-right':
       return { ...baseStyles, bottom: 0, right: 0 };
     default:
-      return { ...baseStyles, bottom: 0, right: 0 };
+      return assertNever(position, { ...baseStyles, bottom: 0, right: 0 });
   }
 }
 

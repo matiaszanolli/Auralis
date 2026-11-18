@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { tokens } from '@/design-system';
+import { assertNever } from '@/utils/assertNever';
 import type { ConnectionStatus } from '@/hooks/websocket/websocketConnectionCore';
 
 export type ConnectionStatusType = ConnectionStatus;
@@ -23,7 +24,7 @@ export const useConnectionStatus = (status: ConnectionStatusType) => {
       case 'error':
         return tokens.colors.status.disconnected;
       default:
-        return tokens.colors.status.disconnected;
+        return assertNever(status, tokens.colors.status.disconnected);
     }
   }, [status]);
 
@@ -43,8 +44,10 @@ export const connectionStatusLabel = (status: ConnectionStatusType): string => {
       return 'Connecting';
     case 'error':
       return 'Connection lost';
-    default:
+    case 'disconnected':
       return 'Disconnected';
+    default:
+      return assertNever(status, 'Disconnected');
   }
 };
 
