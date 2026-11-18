@@ -13,7 +13,8 @@ from auralis.utils.artwork_security import (
     open_bounded_image,
     upright_with_profile,
 )
-from core.thumbnail_cache import THUMB_TMP_PREFIX, artwork_cache_dirs, prune_thumbnail_cache, purge_thumbnails, reap_orphan_temp_files, thumb_path_hash
+from core.thumbnail_cache import THUMB_TMP_PREFIX, artwork_cache_dirs, purge_thumbnails, reap_orphan_temp_files, thumb_path_hash
+from core.thumbnail_sweep import thumbnail_sweeper
 from pathlib import Path
 from .errors import NotFoundError
 import os
@@ -206,17 +207,11 @@ def _get_or_create_thumbnail(
                 # Re-check under the lock: whoever held it before us may have
                 # rendered this exact key already.
                 if not dst.exists():
-                    # Sweep dead writers' temp files before adding our own, so
-                    # orphans cannot accumulate indefinitely on an install that
-                    # never deletes artwork (#4532). Cheap: one glob over a
-                    # directory whose size is bounded by live thumbnails, and
-                    # only on an actual cache miss.
-                    reap_orphan_temp_files(thumb_dir)
                     _render_thumbnail(src, dst, bucket, pil_fmt, ext, thumb_dir)
-                    # Never evict the file this request is about to serve. If
-                    # one thumbnail somehow exceeds the whole cap, keep that
-                    # response valid and reclaim it on a later miss instead.
-                    prune_thumbnail_cache(thumb_dir, keep=dst)
+                    # Orphan reaping and the size cap are maintenance, not part of
+                    # a render: each walks the whole directory, so they run once
+                    # per N renders and at startup, never per miss (#6439).
+                    thumbnail_sweeper.note_render(thumb_dir)
 
         return dst, resp_type
     except ArtworkRejectedError:

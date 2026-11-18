@@ -209,15 +209,15 @@ class TestThumbnailCacheBackstop:
         assert files[0].read_bytes() == b"1234"
         assert not files[1].exists() and not files[2].exists()
 
-    def test_render_miss_invokes_the_size_backstop(self, thumb_dir, tmp_path):
+    def test_render_miss_feeds_the_size_backstop(self, thumb_dir, tmp_path):
+        """A miss counts toward the throttled sweep that enforces the cap (#6439)."""
         source = _png(tmp_path / "cover.png")
 
-        with patch("routers.artwork_thumbnails.prune_thumbnail_cache") as prune:
+        with patch("routers.artwork_thumbnails.thumbnail_sweeper") as sweeper:
             result = _get_or_create_thumbnail(source, 256, "image/png", thumb_dir)
 
         assert result is not None
-        cached, _media_type = result
-        assert prune.call_args_list == [((thumb_dir,), {"keep": cached})]
+        assert sweeper.note_render.call_args_list == [((thumb_dir,), {})]
 
     def test_clear_artwork_cache_removes_sources_and_derived_files(self, tmp_path):
         artwork_dir = tmp_path / "artwork"

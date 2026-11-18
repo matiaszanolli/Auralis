@@ -99,9 +99,13 @@ class ChunkDiskPruneMixin:
             )
             return
         try:
-            self.prune_chunk_directory(chunk_dir, self._max_disk_bytes)
+            self._sweep(chunk_dir)
         finally:
             cls._prune_scan_lock.release()
+
+    def _sweep(self, directory: Path) -> None:
+        """What a triggered scan does. The thumbnail cache overrides it (#6439)."""
+        self.prune_chunk_directory(directory, self._max_disk_bytes)
 
     @staticmethod
     def prune_chunk_directory(chunk_dir: Path, max_bytes: int) -> tuple[int, int]:

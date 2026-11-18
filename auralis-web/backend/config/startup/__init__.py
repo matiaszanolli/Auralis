@@ -54,6 +54,7 @@ from .fingerprint import (
 from .rollback import _rollback_partial_startup
 from .shutdown import _shutdown_components
 from .fingerprint_store import sweep_fingerprint_store
+from .thumbnail_store import sweep_thumbnail_store
 from .tempfiles import _cleanup_temp_directories
 from .workers import _init_processing_engine, _init_streamlined_cache
 
@@ -170,6 +171,7 @@ def create_lifespan(
         except Exception as e:  # noqa: BLE001 - housekeeping must not block the app starting (#6432)
             logger.warning(f"Temp directory cleanup failed: {type(e).__name__}: {e}")
         await sweep_fingerprint_store()
+        await sweep_thumbnail_store()
         await _init_auralis_components(HAS_AURALIS, HAS_SIMILARITY, manager, globals_dict)
         await _init_processing_engine(HAS_PROCESSING, globals_dict)
         await _init_streamlined_cache(HAS_STREAMLINED_CACHE, globals_dict)
