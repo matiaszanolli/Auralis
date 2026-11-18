@@ -23,11 +23,13 @@ class _RotatingFactory:
         self.current = object()
 
 
-def test_retry_uses_fresh_processor_after_post_dsp_write_failure(tmp_path: Path):
+def test_retry_uses_fresh_processor_after_post_dsp_failure(tmp_path: Path):
     factory = _RotatingFactory()
     encoder = MagicMock()
     encoder.encode_and_save_from_path.side_effect = [
-        OSError("disk full"),
+        # A storage failure (disk full) no longer reaches here: the cache write is best-effort (#6434).
+        # What still fails a chunk after the DSP is the audio itself being unusable.
+        ValueError("Audio contains non-finite values (NaN/Inf)"),
         tmp_path / "chunk.wav",
     ]
     path_cache = MagicMock()
@@ -64,7 +66,7 @@ def test_retry_uses_fresh_processor_after_post_dsp_write_failure(tmp_path: Path)
 
     processor._process_chunk_core = _process_chunk_core
 
-    with pytest.raises(OSError, match="disk full"):
+    with pytest.raises(ValueError, match="non-finite"):
         process_chunk(processor, 0)
     path, audio = process_chunk(processor, 0)
 

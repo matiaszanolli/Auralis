@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from core.encoding import WAVEncoderError
+
 from .chunk_stream_state import (
     ChunkCancelledError,
     _invalidate_after_post_dsp_failure,
@@ -25,6 +27,37 @@ if TYPE_CHECKING:
     from core.chunked_processor import ChunkedAudioProcessor
 
 logger = logging.getLogger("core.chunked_processor")
+
+
+def _persist_segment(
+    processor: "ChunkedAudioProcessor", chunk_index: int, segment: np.ndarray
+) -> str:
+    """Write the raw segment to the durable chunk cache; "" when the write failed.
+
+    The cache is an optimisation: the rendered array is already in hand and is what the
+    stream sends. A full or read-only temp root must not fail the chunk or discard the
+    stream's leased processor, whose limiter/EQ state the DSP has already advanced (#6434).
+    """
+    assert processor.sample_rate is not None
+    # #4666: targets_hash completes the on-disk identity - the write must land at exactly
+    # the path ChunkPathCache.lookup_cached() will check.
+    try:
+        chunk_path = processor._wav_encoder.encode_and_save_from_path(
+            audio=segment,
+            sample_rate=processor.sample_rate,
+            track_id=processor.track_id,
+            file_signature=processor.file_signature,
+            preset=processor.preset,
+            intensity=processor.intensity,
+            chunk_index=chunk_index,
+            subtype='PCM_16',
+            targets_hash=processor.targets_hash,
+        )
+        processor._path_cache.store(chunk_index, chunk_path)
+    except (OSError, WAVEncoderError) as e:
+        logger.warning(f"Chunk {chunk_index} was not cached ({type(e).__name__}: {e}); streaming it from memory")
+        return ""
+    return str(chunk_path)
 
 
 def render_chunk(
@@ -70,21 +103,7 @@ def render_chunk(
             processor._dsp_state_advanced = False
             return ("", extracted_chunk)
 
-        # Saved for durability/caching; the array avoids an immediate readback.
-        # #4666: targets_hash completes the on-disk identity — the write must
-        # land at exactly the path ChunkPathCache.lookup_cached() will check.
-        chunk_path = processor._wav_encoder.encode_and_save_from_path(
-            audio=extracted_chunk,
-            sample_rate=processor.sample_rate,
-            track_id=processor.track_id,
-            file_signature=processor.file_signature,
-            preset=processor.preset,
-            intensity=processor.intensity,
-            chunk_index=chunk_index,
-            subtype='PCM_16',
-            targets_hash=processor.targets_hash,
-        )
-        processor._path_cache.store(chunk_index, chunk_path)
+        chunk_path = _persist_segment(processor, chunk_index, extracted_chunk)
     except ChunkCancelledError:
         # Not a failed retry (#5274): nothing re-requests this chunk from the
         # cancelled stream, and the seek that cancelled it already breaks
@@ -96,7 +115,8 @@ def render_chunk(
         raise
     processor._dsp_state_advanced = False
 
-    logger.info(f"Chunk {chunk_index} processed and saved to {Path(chunk_path).name}")
+    if chunk_path:
+        logger.info(f"Chunk {chunk_index} processed and saved to {Path(chunk_path).name}")
     # The durable file holds the raw segment, so it is the same whichever chunk
     # this processor rendered before it. What this stream hears is that segment
     # smoothed against the chunk it just heard (#5948) - a separate array.
