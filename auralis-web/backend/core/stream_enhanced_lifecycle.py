@@ -26,6 +26,7 @@ from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
 from .job_error_mapping import _safe_error_message
+from .processor_init_handoff import ProcessorInitHandoff
 from .stream_gates import stream_chunk_cancel_events
 from .stream_track_resolution import resolve_and_validate_track
 
@@ -94,6 +95,7 @@ async def run_enhanced_stream(
     # Registered before track lookup and processor construction so _cancel_prior_task can set() it
     # for this task's whole life, not just once the chunk loop runs (#4815).
     stream = EnhancedStream()
+    init_handoff = ProcessorInitHandoff(stream.chunk_cancel_event)
     stream_chunk_cancel_events[_asc.ws_id(websocket)] = stream.chunk_cancel_event
     error_kwargs: dict[str, Any] = {"error_code": flavour.error_code} if flavour.error_code else {}
 
@@ -110,17 +112,17 @@ async def run_enhanced_stream(
         try:
             stream.processor = await asyncio.wait_for(
                 asyncio.to_thread(
+                    init_handoff.build,
                     controller.chunked_processor_class,
                     track_id=track_id,
                     filepath=validated_filepath,
                     preset=preset,
                     intensity=intensity,
-                    cancel_event=stream.chunk_cancel_event,
                 ),
                 timeout=_asc.PROCESSOR_INIT_TIMEOUT,
             )
         except TimeoutError:
-            stream.chunk_cancel_event.set()  # the abandoned init thread drops its analysis wait (#6336)
+            init_handoff.abandon()  # the init thread drops its analysis wait (#6336) and closes its lease (#6430)
             logger.error(
                 f"Processor instantiation timed out for track {track_id}{flavour.init_timeout_log_suffix} "
                 f"({_asc.PROCESSOR_INIT_TIMEOUT:.0f}s)"
@@ -150,6 +152,8 @@ async def run_enhanced_stream(
         # this stream's leased HybridProcessor to the factory (#6091).
         if stream.processor is not None:
             await asyncio.to_thread(stream.processor.close)
+        else:
+            init_handoff.abandon()  # init cancelled or failed: its thread may still hold a lease (#6430)
         # Remove only OUR registration: a reissued stream on the same ws_id may own the slot now (#4815).
         ws_key = _asc.ws_id(websocket)
         if stream_chunk_cancel_events.get(ws_key) is stream.chunk_cancel_event:

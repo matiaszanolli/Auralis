@@ -266,7 +266,7 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
 
     def close(self) -> None:
         """Return the leased HybridProcessor (#6091); release the temp WAV (#4737)."""
-        self._release_processor()
+        self._close_lease()
         self._source.close()
 
     def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Any | None:

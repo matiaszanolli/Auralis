@@ -55,9 +55,12 @@ async def cached_or_analyzed_recommendation(
             chunk_cache={},
             cancel_event=abandoned,
         )
-        rec = processor.get_mastering_recommendation(confidence_threshold=confidence_threshold)
-        # to_response (not to_dict): carries track_id + is_hybrid (#3840).
-        return cast(dict[str, Any], rec.to_response(track_id)) if rec is not None else None
+        try:
+            rec = processor.get_mastering_recommendation(confidence_threshold=confidence_threshold)
+            # to_response (not to_dict): carries track_id + is_hybrid (#3840).
+            return cast(dict[str, Any], rec.to_response(track_id)) if rec is not None else None
+        finally:
+            processor.close()  # returns the HybridProcessor lease taken at construction (#6430)
 
     try:
         result = await asyncio.wait_for(asyncio.to_thread(_analyze), timeout=_asc.CHUNK_PROCESS_TIMEOUT)

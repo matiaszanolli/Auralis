@@ -12,7 +12,14 @@ chunks into this one in interleaved order.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import threading
 from typing import Any
+
+from .chunk_stream_state import ChunkCancelledError
+
+# Orders hybrid_processor()'s lease against close() across all streams; held only
+# for the flag/pointer swap, never across the factory call.
+_LEASE_LOCK = threading.Lock()
 
 
 class StreamProcessorLeaseMixin:
@@ -25,28 +32,53 @@ class StreamProcessorLeaseMixin:
     processor_config: Any | None
     mastering_targets: dict[str, Any] | None
     _processor_factory: Any
+    _closed: bool = False
 
     def hybrid_processor(self) -> Any | None:
         """The HybridProcessor leased to this stream; None when serving original audio.
 
         Leases a fresh one if the last was discarded after a failure or DSP
         timeout (#5274, #5335), so a retry never runs on an advanced instance.
+        Raises ChunkCancelledError once ``close()`` ran: a render thread that
+        outlived its stream must not lease a processor nothing will return (#6430).
         """
         if self.preset is None:
             return None
+        if self._closed:
+            raise ChunkCancelledError("processor closed; its stream is gone")
         if self.processor is None:
-            self.processor = self._processor_factory.acquire(
+            leased = self._processor_factory.acquire(
                 track_id=self.track_id,
                 preset=self.preset,
                 intensity=self.intensity,
                 config=self.processor_config,
                 mastering_targets=self.mastering_targets,
             )
+            if not self._adopt_lease(leased):  # close() landed while acquiring: hand it straight back
+                self._return_lease(leased)
+                raise ChunkCancelledError("processor closed; its stream is gone")
         return self.processor
+
+    def _adopt_lease(self, leased: Any) -> bool:
+        """Keep ``leased`` as this stream's processor unless ``close()`` already ran."""
+        with _LEASE_LOCK:
+            if self._closed:
+                return False
+            self.processor = leased
+            return True
+
+    def _close_lease(self) -> None:
+        """Refuse further leases, then hand back the current one (``close()``)."""
+        with _LEASE_LOCK:
+            self._closed = True
+        self._release_processor()
 
     def _release_processor(self) -> None:
         """Hand the leased HybridProcessor back to the factory. Idempotent."""
         leased, self.processor = self.processor, None
+        self._return_lease(leased)
+
+    def _return_lease(self, leased: Any | None) -> None:
         if leased is not None and self.preset is not None:
             self._processor_factory.release_lease(
                 leased,
