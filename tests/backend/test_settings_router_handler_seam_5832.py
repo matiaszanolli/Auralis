@@ -59,7 +59,10 @@ class TestHandlersAreCallableWithoutTheFactory:
         from routers.settings_deps import _SettingsDeps
 
         stub = SimpleNamespace(
-            reset_to_defaults=lambda: SimpleNamespace(to_dict=lambda: {"theme": "auto"})
+            reset_to_defaults_with_previous_folders=lambda: (
+                SimpleNamespace(to_dict=lambda: {"theme": "auto"}),
+                [],
+            )
         )
 
         result = await reset_settings(repo=stub, deps=_SettingsDeps())

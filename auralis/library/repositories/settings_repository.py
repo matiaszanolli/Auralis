@@ -147,7 +147,21 @@ class SettingsRepository(BaseRepository):
         Returns:
             UserSettings object with default values
         """
+        return self.reset_to_defaults_with_previous_folders()[0]
+
+    def reset_to_defaults_with_previous_folders(self) -> tuple[UserSettings, list[str]]:
+        """Reset to defaults and return the scan folders stored just before.
+
+        Mirrors ``update_settings_with_previous_folders``: the reset wipes
+        ``scan_folders``, so POST /api/settings/reset needs the old list to
+        revoke trust for and prune each folder's tracks, as the other two
+        scan_folders writers do (#6425). Snapshot and write share one locked
+        transaction.
+        """
         with self._settings_lock, self._session_scope() as session:
+            existing = session.execute(select(UserSettings)).scalars().first()
+            previous_folders = self._scan_folder_list(existing) if existing else []
+
             # Delete existing settings
             session.execute(delete(UserSettings))
 
@@ -157,7 +171,7 @@ class SettingsRepository(BaseRepository):
             session.commit()
             session.refresh(settings)
             session.expunge(settings)
-            return settings
+            return settings, previous_folders
 
     def add_scan_folder(self, folder: str) -> UserSettings:
         """Add a new folder to scan list (atomic read-modify-write, #3339, #4956)."""

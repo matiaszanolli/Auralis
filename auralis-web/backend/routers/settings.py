@@ -63,10 +63,9 @@ logger = logging.getLogger(__name__)
 async def _revoke_folder(deps: _SettingsDeps, folder: str, remaining: Sequence[str] = ()) -> None:
     """Unregister a folder's path trust and prune its Track rows.
 
-    Shared by remove_scan_folder and update_settings' scan_folders diff:
-    the two routes must behave identically for this column, and revoking
-    trust without the prune leaves the folder's rows visible-but-broken
-    (#5467, #5523). ``remaining`` scan folders keep their tracks (#5941).
+    Shared by every scan_folders writer (remove, reset, PUT diff), which must
+    behave identically: trust revoked without the prune leaves visible-but-broken
+    rows (#5467, #5523, #6425). ``remaining`` scan folders keep theirs (#5941).
     """
     unregister_allowed_directory(Path(folder))
     library_database = deps.get_library_database() if deps.get_library_database else None
@@ -201,9 +200,10 @@ async def reset_settings(
     deps: _SettingsDeps = Depends(_get_deps),
 ) -> dict[str, Any]:
     """Reset all settings to their default values."""
-    settings = await asyncio.to_thread(repo.reset_to_defaults)
-    # reset_to_defaults wipes the configured scan_folders list, so no
-    # previously-registered extra directory should remain trusted (#3842).
+    settings, previous_folders = await asyncio.to_thread(repo.reset_to_defaults_with_previous_folders)
+    # Reset empties scan_folders: revoke + prune each folder it held (#6425), then drop runtime-only trust (#3842).
+    for folder in previous_folders:
+        await _revoke_folder(deps, folder)
     clear_extra_allowed_directories()
     await _notify_scanner(deps)
     # #4587: reset_to_defaults() always rewrites every column (unlike the

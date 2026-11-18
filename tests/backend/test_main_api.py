@@ -1086,14 +1086,14 @@ class TestSettingsEndpoints:
     def test_reset_settings_success(self, client):
         """POST /api/settings/reset returns defaults."""
         mock_repo = Mock()
-        mock_repo.reset_to_defaults.return_value = self._mock_settings()
+        mock_repo.reset_to_defaults_with_previous_folders.return_value = (self._mock_settings(), [])
 
         with patch.dict('main.globals_dict', {'settings_repository': mock_repo}):
             response = _with_trusted_origin(client, "post", "/api/settings/reset")
 
         assert response.status_code == 200
         assert "reset to defaults" in response.json()["message"]
-        mock_repo.reset_to_defaults.assert_called_once()
+        mock_repo.reset_to_defaults_with_previous_folders.assert_called_once()
 
     def test_add_scan_folder_success(self, client, tmp_path):
         """POST /api/settings/scan-folders adds folder.
@@ -1170,7 +1170,7 @@ class TestSettingsEndpoints:
         from security.path_allowlist import _extra_allowed_dirs, register_allowed_directory
 
         mock_repo = Mock()
-        mock_repo.reset_to_defaults.return_value = self._mock_settings()
+        mock_repo.reset_to_defaults_with_previous_folders.return_value = (self._mock_settings(), [])
 
         stale_dir = Path("/tmp/stale_scan_folder")
         register_allowed_directory(stale_dir)

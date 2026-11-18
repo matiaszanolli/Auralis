@@ -111,9 +111,10 @@ class _FakeSettingsRepo:
         self._current = {**self._current, **payload}
         return _FakeSettingsRow(dict(self._current)), previous
 
-    def reset_to_defaults(self) -> _FakeSettingsRow:
+    def reset_to_defaults_with_previous_folders(self) -> tuple[_FakeSettingsRow, list[str]]:
+        previous = list(self._current.get('scan_folders') or [])
         self._current = dict(_DEFAULT_SETTINGS)
-        return _FakeSettingsRow(dict(self._current))
+        return _FakeSettingsRow(dict(self._current)), previous
 
 
 @pytest.fixture()
