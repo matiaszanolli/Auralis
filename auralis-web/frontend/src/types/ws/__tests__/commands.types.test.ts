@@ -3,7 +3,7 @@
  * contract, so `tsc` (pnpm run type-check) is what fails when a command shape drifts.
  */
 import { describe, it, expect } from 'vitest';
-import type { OutgoingCommand } from '../commands';
+import type { OutgoingCommand, StreamOverrides } from '../commands';
 
 describe('OutgoingCommand', () => {
   it('accepts every command shape the backend handlers read', () => {
@@ -35,5 +35,19 @@ describe('OutgoingCommand', () => {
       { type: 'play_normal', data: { track_id: 1, preset: 'adaptive' } } satisfies OutgoingCommand,
     ];
     expect(rejected).toHaveLength(5);
+  });
+
+  it('types every preset field as EnhancementPreset, so a removed preset name fails to compile (#6431)', () => {
+    const rejected: unknown[] = [
+      // @ts-expect-error -- 'warm' was removed with the 2026-09-13 preset narrowing
+      { type: 'play_enhanced', data: { track_id: 1, preset: 'warm' } } satisfies OutgoingCommand,
+      // @ts-expect-error -- seek carries the same preset contract
+      { type: 'seek', data: { track_id: 1, position: 2, preset: 'warm' } } satisfies OutgoingCommand,
+      // @ts-expect-error -- and so do the live-change overrides
+      { preset: 'warm' } satisfies StreamOverrides,
+    ];
+    const accepted: StreamOverrides = { preset: 'adaptive' };
+    expect(rejected).toHaveLength(3);
+    expect(accepted.preset).toBe('adaptive');
   });
 });

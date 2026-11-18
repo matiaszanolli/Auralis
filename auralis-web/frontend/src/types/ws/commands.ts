@@ -7,12 +7,14 @@
  * runtime, and `track_id` is a number, not `unknown`.
  */
 
+import type { EnhancementPreset } from '@/types/domain';
+
 /** Start an enhanced stream. `start_position` (seconds) is set by the reconnect/reissue paths. */
 export interface PlayEnhancedCommand {
   type: 'play_enhanced';
   data: {
     track_id: number;
-    preset?: string;
+    preset?: EnhancementPreset;
     intensity?: number;
     force?: boolean;
     start_position?: number;
@@ -31,7 +33,7 @@ export interface PlayNormalCommand {
  */
 export interface SeekCommand {
   type: 'seek';
-  data: { track_id: number; position: number; preset?: string; intensity?: number };
+  data: { track_id: number; position: number; preset?: EnhancementPreset; intensity?: number };
 }
 
 /** Transport and flow-control commands that carry no payload (the server ignores `data`). */
@@ -48,7 +50,7 @@ export type StreamCommand = PlayEnhancedCommand | PlayNormalCommand;
 
 /** What a live enhancement change may override when the active stream is re-issued. */
 export interface StreamOverrides {
-  preset?: string;
+  preset?: EnhancementPreset;
   intensity?: number;
   force?: boolean;
 }

@@ -1,12 +1,12 @@
 
 import type { OnSettingChange } from '@/services/settingsService';
-import { isEnhancementPreset } from '@/types/domain';
+import { isEnhancementPreset, type EnhancementPreset } from '@/types/domain';
 import { SectionContainer, SectionLabel, SectionDescription } from '@/components/library/Styles/Dialog.styles';
 import { Slider } from '@/design-system';
 import { Box, FormControl, InputLabel, Select, MenuItem, Switch, FormControlLabel, Divider } from '@mui/material';
 
 interface EnhancementSettingsPanelProps {
-  defaultPreset: string;
+  defaultPreset: EnhancementPreset;
   autoEnhance: boolean;
   enhancementIntensity: number;
   onSettingChange: OnSettingChange;
