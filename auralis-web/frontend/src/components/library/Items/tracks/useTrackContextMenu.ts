@@ -46,7 +46,7 @@ export const useTrackContextMenu = ({
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
   // Lets a consumer tell "failed to load" from "no playlists" (#5645).
   const [playlistsFailed, setPlaylistsFailed] = useState(false);
-  const { success, info, error } = useToast();
+  const { success, info, warning, error } = useToast();
 
   const fetchPlaylists = useCallback(async () => {
     setIsLoadingPlaylists(true);
@@ -62,28 +62,24 @@ export const useTrackContextMenu = ({
     }
   }, []);
 
+  // The route answers 200 with added_count 0 for an all-duplicate request, so the count - not the
+  // absence of an error - says whether the track went in (#6436).
   const handleAddToPlaylist = useCallback(
     async (playlistId: number, playlistName: string) => {
       try {
-        await playlistService.addTracksToPlaylist(playlistId, [track.id]);
-        success(`Added to "${playlistName}"`);
+        const added = await playlistService.addTracksToPlaylist(playlistId, [track.id]);
+        if (added > 0) success(`Added to "${playlistName}"`);
+        else warning(`Nothing was added to "${playlistName}"`);
       } catch (err) {
         error(failureMessage('Failed to add to playlist', err));
       }
     },
-    [track.id, success, error]
+    [track.id, success, warning, error]
   );
 
   const handleCreatePlaylist = useCallback(
-    async (playlist: playlistService.Playlist) => {
-      try {
-        await playlistService.addTracksToPlaylist(playlist.id, [track.id]);
-        success(`Added to "${playlist.name}"`);
-      } catch (err) {
-        error(failureMessage('Failed to add to playlist', err));
-      }
-    },
-    [track.id, success, error]
+    (playlist: playlistService.Playlist) => handleAddToPlaylist(playlist.id, playlist.name),
+    [handleAddToPlaylist]
   );
 
   // #5612: this used to dispatch to the Redux queue only, so the engine never

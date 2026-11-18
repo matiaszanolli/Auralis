@@ -231,12 +231,13 @@ class PlaylistMembershipMixin(BaseRepository):
 
         Returns:
             Number of new rows inserted (tracks already present are not
-            counted).
+            counted). 0 means a missing playlist or nothing new to add; a
+            database failure propagates instead of reading as 0 (#6436).
         """
         if not track_ids:
             return 0
 
-        with self._guarded(f"Failed to batch-add tracks to playlist {playlist_id}") as session:
+        with self._session_scope() as session:
             # Verify the playlist exists once rather than per track.
             playlist = session.execute(
                 select(Playlist).where(Playlist.id == playlist_id)
@@ -274,4 +275,3 @@ class PlaylistMembershipMixin(BaseRepository):
                 f"Batch-added {added}/{len(track_ids)} tracks to playlist {playlist.name}"
             )
             return added
-        return 0
