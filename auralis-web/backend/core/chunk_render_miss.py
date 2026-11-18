@@ -62,6 +62,14 @@ def render_chunk(
         # has long passed. Never persist a render its stream abandoned.
         _raise_if_cancelled(processor, chunk_index)
 
+        if extracted_chunk.shape[0] == 0:
+            # The decoder ended before this last chunk's new content began (the container's
+            # probed duration exceeds what it decodes by more than the remainder): there is
+            # nothing to encode, cache or smooth, and the stream is not failing (#6427).
+            logger.debug(f"Chunk {chunk_index} holds no decoded audio; nothing to encode")
+            processor._dsp_state_advanced = False
+            return ("", extracted_chunk)
+
         # Saved for durability/caching; the array avoids an immediate readback.
         # #4666: targets_hash completes the on-disk identity — the write must
         # land at exactly the path ChunkPathCache.lookup_cached() will check.

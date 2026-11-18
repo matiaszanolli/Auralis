@@ -125,24 +125,15 @@ def extract_chunk_segment(
     if extracted.ndim == 1:
         extracted = extracted[:, np.newaxis]
 
-    if chunk_index == 0:
-        max_dur = chunk_duration
-        if is_last and total_duration is not None:
-            max_dur = min(chunk_duration, total_duration)
-        expected_for_validation = int(round(max_dur * sample_rate))
-    elif is_last:
-        assert total_duration is not None
-        chunk_start_time = chunk_index * chunk_interval
-        remaining_duration = max(0, total_duration - (chunk_start_time + overlap_duration))
-        expected_for_validation = int(round(remaining_duration * sample_rate))
-    else:
-        expected_for_validation = int(round(chunk_interval * sample_rate))
+    expected_for_validation = expected_samples  # the branch above already derived it
 
-    if current_samples < expected_for_validation and is_last:
-        # Source ended before its probed duration: the container counts encoder priming
-        # the decoder strips (2112 samples for AAC, ~a frame for MP3). Padding up to the
-        # probe put that silence at the end of every such track, breaking gapless (#6345).
-        logger.debug(f"Chunk {chunk_index} (last): source ended "
+    # The penultimate segment ends where the last chunk's new content begins, so it is
+    # short only when the decoder ended inside it and the last chunk is empty (#6427).
+    ends_source = is_last or (total_chunks is not None and chunk_index == total_chunks - 2)
+    if current_samples < expected_for_validation and ends_source:
+        # Source ended before its probed duration (the container counts encoder priming the
+        # decoder strips): padding to the probe put silence at the track end, breaking gapless (#6345).
+        logger.debug(f"Chunk {chunk_index} (final audio): source ended "
                      f"{expected_for_validation - current_samples} samples before its probed duration")
     elif current_samples < expected_for_validation:
         padding_needed = expected_for_validation - current_samples

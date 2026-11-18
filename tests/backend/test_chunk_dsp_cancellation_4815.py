@@ -24,6 +24,7 @@ import asyncio
 import threading
 from unittest.mock import AsyncMock, Mock
 
+import numpy as np
 import pytest
 
 # tests/backend/conftest.py puts auralis-web/backend on sys.path.
@@ -86,7 +87,7 @@ class TestProcessChunkChecksTheCancelEvent:
     def test_proceeds_normally_when_cancel_event_is_not_set(self):
         event = threading.Event()  # not set
         processor = _make_processor(cancel_event=event)
-        processor._process_chunk_core = Mock(return_value=Mock())
+        processor._process_chunk_core = Mock(return_value=np.zeros((10, 2), dtype=np.float32))
         processor.sample_rate = 44100
         processor.total_duration = 15.0
         processor._wav_encoder.encode_and_save_from_path = Mock(return_value="/tmp/chunk_0.wav")
@@ -105,7 +106,7 @@ class TestProcessChunkChecksTheCancelEvent:
     def test_proceeds_normally_when_no_cancel_event_is_wired(self):
         """cancel_event=None (the default, e.g. the prefetch path) must be a no-op."""
         processor = _make_processor(cancel_event=None)
-        processor._process_chunk_core = Mock(return_value=Mock())
+        processor._process_chunk_core = Mock(return_value=np.zeros((10, 2), dtype=np.float32))
         processor.sample_rate = 44100
         processor.total_duration = 15.0
         processor._wav_encoder.encode_and_save_from_path = Mock(return_value="/tmp/chunk_0.wav")
