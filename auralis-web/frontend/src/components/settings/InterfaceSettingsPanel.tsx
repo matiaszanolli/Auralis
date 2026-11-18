@@ -48,7 +48,7 @@ export const InterfaceSettingsPanel = ({
           <Select
             labelId="settings-interface-theme-label"
             value={mode}
-            onChange={(e) => handleThemeChange(e.target.value as ThemeMode)}
+            onChange={(e) => handleThemeChange(e.target.value)}
             label="Theme"
           >
             <MenuItem value="dark">Dark</MenuItem>

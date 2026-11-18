@@ -31,6 +31,12 @@ export interface SliderProps extends Omit<MuiSliderProps, 'size' | 'color'> {
    * Show value label
    */
   showValue?: boolean;
+
+  /**
+   * Single-thumb change callback with the value already narrowed to a number (MUI's `onChange`
+   * reports `number | number[]`, which forced every consumer to cast). Not called for ranges.
+   */
+  onValueChange?: (value: number) => void;
 }
 
 type StyledSliderProps = Omit<MuiSliderProps, 'size' | 'color'> & {
@@ -168,6 +174,8 @@ export const Slider = ({
   variant = 'default',
   size = 'md',
   showValue = false,
+  onValueChange,
+  onChange,
   ...props
 }: SliderProps) => {
   return (
@@ -175,6 +183,10 @@ export const Slider = ({
       variant={variant}
       size={size}
       valueLabelDisplay={showValue ? 'auto' : 'off'}
+      onChange={(event, value, activeThumb) => {
+        onChange?.(event, value, activeThumb);
+        if (typeof value === 'number') onValueChange?.(value);
+      }}
       {...props}
     />
   );

@@ -5,9 +5,9 @@
  * Used for view mode toggles, sort selectors, and similar controls.
  *
  * Usage:
- *   <SegmentedControl
+ *   <SegmentedControl<AlbumSortOption>   // T is inferred from `value` / `options`
  *     value="az"
- *     onChange={(value) => setSortBy(value)}
+ *     onChange={setSortBy}
  *     options={[
  *       { value: 'az', label: 'A-Z' },
  *       { value: 'year', label: 'Year' },
@@ -22,27 +22,27 @@ import { styled } from '@mui/material/styles';
 import { tokens } from '@/design-system/tokens';
 import { themeVars } from '@/theme/semanticTheme';
 
-export interface SegmentedControlOption {
-  value: string;
+export interface SegmentedControlOption<T extends string = string> {
+  value: T;
   label: string;
   icon?: ReactNode;
 }
 
-export interface SegmentedControlProps {
+export interface SegmentedControlProps<T extends string = string> {
   /**
    * Currently selected value
    */
-  value: string;
+  value: T;
 
   /**
    * Callback when selection changes
    */
-  onChange: (value: string) => void;
+  onChange: (value: T) => void;
 
   /**
    * Available options
    */
-  options: SegmentedControlOption[];
+  options: readonly SegmentedControlOption<T>[];
 
   /**
    * Size variant
@@ -139,7 +139,7 @@ const SegmentButton = styled('button')<{
   },
 }));
 
-export const SegmentedControl = ({
+export const SegmentedControl = <T extends string>({
   value,
   onChange,
   options,
@@ -147,7 +147,7 @@ export const SegmentedControl = ({
   disabled = false,
   className,
   'aria-label': ariaLabel,
-}: SegmentedControlProps) => {
+}: SegmentedControlProps<T>) => {
   return (
     <ControlContainer size={size} className={className} role="group" aria-label={ariaLabel}>
       {options.map((option) => (

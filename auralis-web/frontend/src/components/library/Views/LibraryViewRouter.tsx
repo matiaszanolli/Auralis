@@ -27,7 +27,7 @@ import { useAlbumFingerprint } from '@/hooks/fingerprint/useAlbumFingerprint';
 import { useRecentlyTouched } from '@/hooks/library';
 
 /** Sort options for album grid */
-const ALBUM_SORT_OPTIONS = [
+const ALBUM_SORT_OPTIONS: readonly { value: AlbumSortOption; label: string }[] = [
   { value: 'az', label: 'A-Z' },
   { value: 'year', label: 'Year' },
   { value: 'era', label: 'Era' },
@@ -180,7 +180,7 @@ const AlbumsView = ({ onAlbumClick, search }: AlbumsViewProps) => {
       headerActions={
         <SegmentedControl
           value={sortBy}
-          onChange={(value) => setSortBy(value as AlbumSortOption)}
+          onChange={setSortBy}
           options={ALBUM_SORT_OPTIONS}
           size="sm"
           aria-label="Sort albums by"

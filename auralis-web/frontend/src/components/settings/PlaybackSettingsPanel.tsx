@@ -69,7 +69,7 @@ export const PlaybackSettingsPanel = ({
           <SectionLabel>Crossfade Duration: {crossfadeDuration.toFixed(1)}s</SectionLabel>
           <Slider
             value={crossfadeDuration}
-            onChange={(_e, v) => onSettingChange('crossfade_duration', v as number)}
+            onValueChange={(v) => onSettingChange('crossfade_duration', v)}
             min={0}
             max={10}
             step={0.5}
@@ -103,7 +103,7 @@ export const PlaybackSettingsPanel = ({
         <SectionLabel>Default Volume: {Math.round(volume * 100)}%</SectionLabel>
         <Slider
           value={volume}
-          onChange={(_e, v) => onSettingChange('volume', v as number)}
+          onValueChange={(v) => onSettingChange('volume', v)}
           min={0}
           max={1}
           step={0.01}

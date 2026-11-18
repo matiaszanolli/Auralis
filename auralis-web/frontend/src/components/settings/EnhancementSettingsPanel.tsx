@@ -72,7 +72,7 @@ export const EnhancementSettingsPanel = ({
         <SectionLabel>Enhancement Intensity: {Math.round(enhancementIntensity * 100)}%</SectionLabel>
         <Slider
           value={enhancementIntensity}
-          onChange={(_e, v) => onSettingChange('enhancement_intensity', v as number)}
+          onValueChange={(v) => onSettingChange('enhancement_intensity', v)}
           min={0}
           max={1}
           step={0.1}
