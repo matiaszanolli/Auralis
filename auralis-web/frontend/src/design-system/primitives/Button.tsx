@@ -176,8 +176,8 @@ const StyledButton = styled(MuiButton as ComponentType<Omit<MuiButtonProps, 'var
 
   return {
     ...baseStyles,
-    ...sizeStyles[normalizedSize as keyof typeof sizeStyles],
-    ...variantStyles[variant as keyof typeof variantStyles],
+    ...sizeStyles[normalizedSize],
+    ...variantStyles[variant],
   };
 });
 

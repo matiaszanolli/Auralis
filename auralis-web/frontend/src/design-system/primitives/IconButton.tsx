@@ -152,8 +152,8 @@ const StyledIconButton = styled(MuiIconButton as ComponentType<Omit<MuiIconButto
   };
 
   return {
-    ...sizeStyles[normalizedSize as keyof typeof sizeStyles],
-    ...variantStyles[variant as keyof typeof variantStyles],
+    ...sizeStyles[normalizedSize],
+    ...variantStyles[variant],
     borderRadius: tokens.borderRadius.md,
     transition: tokens.transitions.all,
     opacity: disabled ? 0.5 : 1,

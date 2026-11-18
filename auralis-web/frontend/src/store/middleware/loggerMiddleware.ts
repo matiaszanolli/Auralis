@@ -180,22 +180,21 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
       // Log to console
       const groupMethod = finalConfig.collapsed ? 'groupCollapsed' : 'group';
       const titleSuffix = error ? '❌' : '✅';
-      const sanitizedAct = sanitizedAction as UnknownAction;
 
       if (groupMethod === 'groupCollapsed') {
         console.groupCollapsed(
-          `${titleSuffix} ${sanitizedAct.type}`,
+          `${titleSuffix} ${sanitizedAction.type}`,
           finalConfig.timestamps ? `@ ${formatTime(timestamp.getTime())}` : ''
         );
       } else {
         console.group(
-          `${titleSuffix} ${sanitizedAct.type}`,
+          `${titleSuffix} ${sanitizedAction.type}`,
           finalConfig.timestamps ? `@ ${formatTime(timestamp.getTime())}` : ''
         );
       }
 
       // Log action
-      log('Action:', colors.action, sanitizedAct);
+      log('Action:', colors.action, sanitizedAction);
 
       // Log previous state
       if (finalConfig.colors) {

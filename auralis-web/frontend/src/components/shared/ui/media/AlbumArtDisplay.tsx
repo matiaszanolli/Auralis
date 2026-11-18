@@ -113,7 +113,7 @@ export const AlbumArtDisplay = memo<AlbumArtDisplayProps>(({
           loading="lazy"
         />
       ) : (
-        <PlaceholderIcon sx={{ fontSize: iconSize as string | number }} />
+        <PlaceholderIcon sx={{ fontSize: iconSize }} />
       )}
     </StyledAlbumArt>
   );

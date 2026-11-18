@@ -144,8 +144,8 @@ const StyledSlider = styled(MuiSlider as React.ComponentType<Omit<MuiSliderProps
   };
 
   return {
-    ...sizeStyles[size as keyof typeof sizeStyles],
-    ...variantStyles[variant as keyof typeof variantStyles],
+    ...sizeStyles[size],
+    ...variantStyles[variant],
     borderRadius: tokens.borderRadius.full,
 
     '& .MuiSlider-thumb': {

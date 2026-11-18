@@ -175,7 +175,7 @@ export const useSettingsDialog = ({ open, onSettingsChange, onSettingsReset }: U
   const getValue = useCallback(
     <K extends keyof SettingsUpdate>(key: K): SettingsUpdate[K] | null => {
       if (key in pendingChanges) {
-        return pendingChanges[key] as SettingsUpdate[K];
+        return pendingChanges[key];
       }
       return settings ? (settings[key as keyof UserSettings] as SettingsUpdate[K]) : null;
     },

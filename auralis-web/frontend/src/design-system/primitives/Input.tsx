@@ -150,8 +150,8 @@ const StyledTextField = styled(MuiTextField as React.ComponentType<Omit<MuiTextF
   };
 
   return {
-    ...sizeStyles[size as keyof typeof sizeStyles],
-    ...variantStyles[variant as keyof typeof variantStyles],
+    ...sizeStyles[size],
+    ...variantStyles[variant],
 
     '& .MuiFormHelperText-root': {
       marginLeft: tokens.spacing.sm,

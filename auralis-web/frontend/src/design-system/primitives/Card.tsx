@@ -107,8 +107,8 @@ const StyledCard = styled(MuiCard as ComponentType<Omit<MuiCardProps, 'variant'>
     : {};
 
   return {
-    ...variantStyles[variant as keyof typeof variantStyles],
-    ...paddingStyles[padding as keyof typeof paddingStyles],
+    ...variantStyles[variant],
+    ...paddingStyles[padding],
     ...hoverStyles,
     ...selectedStyles,
     borderRadius: tokens.borderRadius.lg,

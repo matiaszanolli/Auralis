@@ -130,8 +130,7 @@ export function handleSocketFrame(
     // It is never dispatched to subscribers (except the synthetic desync
     // audio_stream_error below).
     if (message.type === 'audio_chunk_meta') {
-      const meta = message as AudioChunkMetaMessage;
-      checkSeqForDesync(meta, dispatch);
+      checkSeqForDesync(message, dispatch);
       connState.pendingMeta = message;
       return;
     }

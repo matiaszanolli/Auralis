@@ -74,7 +74,7 @@ const StyledBadge = styled(MuiBadge as React.ComponentType<Omit<MuiBadgeProps, '
   };
 
   return {
-    ...variantStyles[variant as keyof typeof variantStyles],
+    ...variantStyles[variant],
     '& .MuiBadge-badge': {
       fontSize: tokens.typography.fontSize.xs,
       fontWeight: tokens.typography.fontWeight.semibold,
