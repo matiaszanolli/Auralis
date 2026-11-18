@@ -204,37 +204,38 @@ class FingerprintVectorResponse(BaseModel):
     `phase_correlation`→`stereo_correlation`, and the seven `*_pct` frequency
     bands drop the suffix. Both the per-track and the album-median endpoints
     emit this exact key set, so they share one model (#2477 is precisely the
-    bug where they did not).
+    bug where they did not). Every dimension is required: the DB columns are
+    NOT NULL and both emitters fill all 25, so a client may do arithmetic on them (#6438).
     """
     # 7D frequency distribution
-    sub_bass: float | None = Field(default=None, description="Sub-bass energy share")
-    bass: float | None = Field(default=None, description="Bass energy share")
-    low_mid: float | None = Field(default=None, description="Low-mid energy share")
-    mid: float | None = Field(default=None, description="Mid energy share")
-    upper_mid: float | None = Field(default=None, description="Upper-mid energy share")
-    presence: float | None = Field(default=None, description="Presence energy share")
-    air: float | None = Field(default=None, description="Air energy share")
+    sub_bass: float = Field(description="Sub-bass energy share")
+    bass: float = Field(description="Bass energy share")
+    low_mid: float = Field(description="Low-mid energy share")
+    mid: float = Field(description="Mid energy share")
+    upper_mid: float = Field(description="Upper-mid energy share")
+    presence: float = Field(description="Presence energy share")
+    air: float = Field(description="Air energy share")
     # 3D loudness / dynamics
-    lufs: float | None = Field(default=None, description="Integrated loudness (LUFS)")
-    crest_db: float | None = Field(default=None, description="Crest factor (dB)")
-    bass_mid_ratio: float | None = Field(default=None, description="Bass-to-mid energy ratio")
+    lufs: float = Field(description="Integrated loudness (LUFS)")
+    crest_db: float = Field(description="Crest factor (dB)")
+    bass_mid_ratio: float = Field(description="Bass-to-mid energy ratio")
     # 4D temporal
-    tempo_bpm: float | None = Field(default=None, description="Tempo (BPM)")
-    rhythm_stability: float | None = Field(default=None, description="Rhythm stability")
-    transient_density: float | None = Field(default=None, description="Transient density")
-    silence_ratio: float | None = Field(default=None, description="Fraction of near-silence")
+    tempo_bpm: float = Field(description="Tempo (BPM)")
+    rhythm_stability: float = Field(description="Rhythm stability")
+    transient_density: float = Field(description="Transient density")
+    silence_ratio: float = Field(description="Fraction of near-silence")
     # 3D spectral shape
-    spectral_centroid: float | None = Field(default=None, description="Spectral centroid (Hz)")
-    spectral_rolloff: float | None = Field(default=None, description="Spectral rolloff (Hz)")
-    spectral_flatness: float | None = Field(default=None, description="Spectral flatness")
+    spectral_centroid: float = Field(description="Spectral centroid (Hz)")
+    spectral_rolloff: float = Field(description="Spectral rolloff (Hz)")
+    spectral_flatness: float = Field(description="Spectral flatness")
     # 3D harmonic content
-    harmonic_ratio: float | None = Field(default=None, description="Harmonic-to-percussive ratio")
-    pitch_confidence: float | None = Field(default=None, description="Pitch stability (DB: pitch_stability)")
-    chroma_energy_mean: float | None = Field(default=None, description="Mean chroma energy (DB: chroma_energy)")
+    harmonic_ratio: float = Field(description="Harmonic-to-percussive ratio")
+    pitch_confidence: float = Field(description="Pitch stability (DB: pitch_stability)")
+    chroma_energy_mean: float = Field(description="Mean chroma energy (DB: chroma_energy)")
     # 3D dynamics variation
-    dynamic_range_variation: float | None = Field(default=None, description="Dynamic-range variation")
-    loudness_variation_std: float | None = Field(default=None, description="Loudness variation (std dev)")
-    peak_consistency: float | None = Field(default=None, description="Peak consistency")
+    dynamic_range_variation: float = Field(description="Dynamic-range variation")
+    loudness_variation_std: float = Field(description="Loudness variation (std dev)")
+    peak_consistency: float = Field(description="Peak consistency")
     # 2D stereo
-    stereo_width: float | None = Field(default=None, description="Stereo width")
-    stereo_correlation: float | None = Field(default=None, description="Phase correlation (DB: phase_correlation)")
+    stereo_width: float = Field(description="Stereo width")
+    stereo_correlation: float = Field(description="Phase correlation (DB: phase_correlation)")

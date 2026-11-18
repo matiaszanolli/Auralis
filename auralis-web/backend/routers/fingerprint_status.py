@@ -53,7 +53,7 @@ class TrackFingerprintResponse(BaseModel):
     generation), so `fingerprint` is always populated on a 200.
     """
     track_id: int = Field(description="Track database ID")
-    track_title: str | None = Field(default=None, description="Track title")
+    track_title: str = Field(description="Track title (tracks.title is NOT NULL)")
     artist: str = Field(default="Unknown Artist", description="Joined artist names")
     album: str = Field(default="Unknown Album", description="Album title")
     fingerprint: FingerprintVectorResponse = Field(description="The 25 fingerprint dimensions")

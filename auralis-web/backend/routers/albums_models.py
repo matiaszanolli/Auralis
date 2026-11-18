@@ -47,7 +47,6 @@ class AlbumFingerprintResponse(BaseModel):
     track_count: int = Field(description="Total tracks in the album")
     fingerprinted_track_count: int = Field(description="Tracks that actually had a fingerprint")
     fingerprint: FingerprintVectorResponse = Field(
-        default_factory=FingerprintVectorResponse,
         description="Median value per fingerprint dimension (25 entries)",
     )
 
@@ -57,7 +56,6 @@ class AlbumFingerprintEntry(BaseModel):
     album_id: int = Field(description="Album database ID")
     fingerprinted_track_count: int = Field(description="Tracks that actually had a fingerprint")
     fingerprint: FingerprintVectorResponse = Field(
-        default_factory=FingerprintVectorResponse,
         description="Median value per fingerprint dimension (25 entries)",
     )
 

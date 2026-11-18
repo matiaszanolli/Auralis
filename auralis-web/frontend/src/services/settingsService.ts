@@ -27,12 +27,14 @@ export interface UserSettings {
   replay_gain_enabled: boolean;
   volume: number;
   // Audio
-  output_device: string;
+  // theme/language/output_device are nullable columns (SettingsResponse: str | None),
+  // so a legacy row can send null — callers fall back (#6438).
+  output_device: string | null;
   bit_depth: number;
   sample_rate: number;
   // Interface
-  theme: string;
-  language: string;
+  theme: string | null;
+  language: string | null;
   show_visualizations: boolean;
   mini_player_on_close: boolean;
   // Enhancement
