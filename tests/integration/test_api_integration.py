@@ -37,8 +37,12 @@ from auralis.io.saver import save as save_audio
 # ============================================================================
 
 @pytest.fixture
-def client():
-    """Create a FastAPI test client with startup/shutdown events."""
+def client(_isolated_library_db):
+    """Create a FastAPI test client with startup/shutdown events.
+
+    Depends on _isolated_library_db explicitly (#6441): the lifespan opens DEFAULT_DB_PATH, and
+    these tests change settings and clear caches, so it must be a throwaway file, not ~/.auralis.
+    """
     # #5398: OriginCheckMiddleware 403s every state-changing /api request
     # that arrives with an empty Origin from a non-loopback host, and
     # TestClient's host is 'testclient' — so without a default trusted

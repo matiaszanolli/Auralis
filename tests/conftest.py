@@ -8,7 +8,6 @@ import sys
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Any, Callable
 
 import numpy as np
 import pytest
@@ -23,6 +22,9 @@ if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
+
+# #6441: shared by every directory whose tests boot main.app (backend, integration).
+from tests.app_isolation import _isolated_fingerprint_store, _isolated_library_db  # noqa: E402, F401
 
 # #4529: the `_SKIP_BENCHMARK_TESTS` set and its three hooks are gone.
 #
@@ -524,7 +526,6 @@ def _ensure_portaudio():
     """Ensure PortAudio is properly initialized or disabled."""
     try:
         import atexit
-        from functools import wraps
 
         import sounddevice as sd
 
