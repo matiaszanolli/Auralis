@@ -75,9 +75,7 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     startPlaybackWhenBuffered,
     cleanupStreaming,
   } = deps;
-
-  // The identity-stable member, not the context object, which changes on every WS status flicker (#6426).
-  const { reissueActiveStreamAs } = wsContext;
+  const { reissueActiveStreamAs } = wsContext; // stable member; the context object is not (#6426)
   const store = useStore<RootState>();
   // True for a stream-level message naming a track other than the one this
   // stream is playing: a late end/error from a superseded track after a rapid

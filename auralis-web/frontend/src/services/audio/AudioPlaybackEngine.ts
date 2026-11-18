@@ -20,6 +20,7 @@
 import PCMStreamBuffer from './PCMStreamBuffer';
 import { createGlobalAnalyser } from './globalAnalyser';
 import { BufferScheduler } from './BufferScheduler';
+import { StartSingleFlight } from './StartSingleFlight';
 import { PlaybackPositionTracker, type PlaybackState } from './PlaybackPositionTracker';
 
 export type { PlaybackState } from './PlaybackPositionTracker';
@@ -41,11 +42,7 @@ export class AudioPlaybackEngine {
   private bufferScheduler: BufferScheduler;
   private positionTracker: PlaybackPositionTracker;
   private volume: number = 1.0;
-  // startPlayback() awaits a context resume and a worklet load; see startPlayback (#6043).
-  // `starting` remembers which attempt it belongs to: a cancelled one is still pending until its
-  // awaits finish, and must not be handed to a caller wanting a fresh start (#6424).
-  private startAttempt = 0;
-  private starting: { attempt: number; promise: Promise<void> } | null = null;
+  private readonly starts = new StartSingleFlight(); // startPlayback's awaits (#6043, #6424)
 
   // Callbacks
   private onBufferUnderrun: () => void = () => {};
@@ -86,20 +83,12 @@ export class AudioPlaybackEngine {
 
   /**
    * Start playback from buffer (needs minBufferSamples). Async: it awaits an AudioContext resume
-   * and the worklet load. Chunks landing inside that window each ask to start, so they share one
-   * attempt; a stop/dispose/pause inside it cancels the attempt instead of being overtaken by it
-   * (#6043, #6424).
+   * and the worklet load. Chunks landing inside that window share one attempt, which a
+   * stop/dispose/pause cancels (#6043, #6424; see StartSingleFlight).
    */
   startPlayback(): Promise<void> {
     if (this.positionTracker.isPlaying()) return Promise.resolve();
-    const current = this.starting;
-    if (current && current.attempt === this.startAttempt) return current.promise;
-    const attempt = this.startAttempt;
-    const promise: Promise<void> = this.start(attempt).finally(() => {
-      if (this.starting?.promise === promise) this.starting = null;
-    });
-    this.starting = { attempt, promise };
-    return promise;
+    return this.starts.run((attempt) => this.start(attempt));
   }
 
   private async start(attempt: number): Promise<void> {
@@ -125,7 +114,7 @@ export class AudioPlaybackEngine {
         try {
           await this.audioContext.resume();
           console.log('[AudioPlaybackEngine] AudioContext resumed successfully');
-          if (attempt !== this.startAttempt) return;
+          if (this.starts.isStale(attempt)) return;
         } catch (err) {
           console.error('[AudioPlaybackEngine] Failed to resume AudioContext:', err);
           this.positionTracker.setState('error');
@@ -135,7 +124,7 @@ export class AudioPlaybackEngine {
 
       // Try AudioWorklet (off-main-thread), fall back to ScriptProcessorNode
       await this.bufferScheduler.ensureReady();
-      if (attempt !== this.startAttempt) return; // stopped or disposed while the worklet loaded
+      if (this.starts.isStale(attempt)) return; // stopped or disposed while the worklet loaded
       this.bufferScheduler.createProcessor();
 
       // Record timing
@@ -155,9 +144,8 @@ export class AudioPlaybackEngine {
    */
   pausePlayback(): void {
     if (!this.positionTracker.isPlaying()) {
-      // A start awaiting its context resume / worklet load is not playing yet, but would flip to
-      // 'playing' once they finish and override this pause. Cancel it; resume starts again (#6424).
-      if (this.starting) this.startAttempt += 1;
+      // A start still awaiting its resume / worklet load would override this pause (#6424).
+      this.starts.cancelPending();
       return;
     }
 
@@ -211,7 +199,7 @@ export class AudioPlaybackEngine {
 
   /** Stop playback completely */
   stopPlayback(): void {
-    this.startAttempt += 1;
+    this.starts.cancel();
     this.bufferScheduler.disconnectProcessor();
     this.bufferScheduler.resetStreamEnded();
 
@@ -230,7 +218,7 @@ export class AudioPlaybackEngine {
    * Idempotent; safe after the context has closed.
    */
   dispose(): void {
-    this.startAttempt += 1;
+    this.starts.cancel();
     this.bufferScheduler.disconnectProcessor();
     try {
       this.gainNode.disconnect();

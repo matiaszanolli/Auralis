@@ -117,10 +117,9 @@ export function useAudioStreamingCore(
   const [isPaused, setIsPaused] = useState(false);
 
   // #3588/#2532: ref indirection so handler identity changes don't force a
-  // resubscribe — the only valid resubscribe trigger is `subscribe` changing,
-  // never a connect/disconnect status flicker (#6426). handleStreamStartRef is populated by the caller
-  // (`core.handleStreamStartRef.current = handleStreamStart`) since it's
-  // defined hook-side, not by this core.
+  // resubscribe — the only valid resubscribe trigger is `subscribe` changing (#6426).
+  // handleStreamStartRef is populated by the caller (`core.handleStreamStartRef.current =
+  // handleStreamStart`) since it's defined hook-side, not by this core.
   const handleStreamStartRef = useRef<(message: AudioStreamStartMessage) => void>(() => {});
 
   const acceptsStreamType = useCallback(
