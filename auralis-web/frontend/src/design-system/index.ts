@@ -20,17 +20,12 @@ export {
   IconButton,
   Card,
   Slider,
-  Input,
-  Badge,
   Tooltip,
   Chip,
   SegmentedControl,
   CircularProgress,
   List,
   Alert,
-  Box,
-  Container,
-  Text,
 } from './primitives';
 
 export type {
@@ -38,14 +33,10 @@ export type {
   IconButtonProps,
   CardProps,
   SliderProps,
-  InputProps,
-  BadgeProps,
   TooltipProps,
   ChipProps,
   SegmentedControlProps,
   SegmentedControlOption,
   CircularProgressProps,
   ListProps,
-  BoxProps,
-  TextProps,
 } from './primitives';

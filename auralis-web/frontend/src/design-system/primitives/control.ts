@@ -7,13 +7,10 @@
 export { Button } from './Button';
 export type { ButtonProps } from './Button';
 
-export { Checkbox } from './Checkbox';
 
 export { IconButton } from './IconButton';
 export type { IconButtonProps } from './IconButton';
 
-export { Input } from './Input';
-export type { InputProps } from './Input';
 
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentedControlOption } from './SegmentedControl';

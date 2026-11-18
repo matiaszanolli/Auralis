@@ -65,7 +65,6 @@ const ALLOWED_SPACING_LITERALS: Record<string, string> = {
 
   // `margin: '0 auto'` is the horizontal-centering idiom, not a spacing value.
   // There is no token for `auto` and inventing one would obscure the intent.
-  'design-system/primitives/Container.tsx': "margin: '0 auto' centering idiom",
   'components/library/Styles/SearchStyles.styles.ts': "margin: '0 auto' centering idiom",
 
   // Genuinely off-scale, kept literal so the control does not change size.

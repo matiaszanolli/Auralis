@@ -7,8 +7,6 @@
 
 export { Alert } from './Alert';
 
-export { Badge } from './Badge';
-export type { BadgeProps } from './Badge';
 
 export { Card } from './Card';
 export type { CardProps } from './Card';
@@ -19,7 +17,6 @@ export type { ChipProps } from './Chip';
 export { CircularProgress } from './CircularProgress';
 export type { CircularProgressProps } from './CircularProgress';
 
-export { ProgressBar } from './ProgressBar';
 
 export { Tooltip } from './Tooltip';
 export type { TooltipProps } from './Tooltip';

@@ -1,27 +1,23 @@
 /**
  * Auralis Design System - Primitive Components
  *
- * 18 core primitive components that form the foundation of all UI,
- * grouped into four family sub-barrels: layout, typography, surface,
- * control. These are the canonical components for all basic UI patterns.
+ * The primitive components, grouped into three family sub-barrels: layout, surface,
+ * control. Each one has a production consumer; a primitive nothing imports does not
+ * belong here (#6442).
  *
  * @see docs/UI_DESIGN_GUIDELINES.md
  */
 
-export { Box, Container, List } from './layout';
-export type { BoxProps, ListProps } from './layout';
+export { List } from './layout';
+export type { ListProps } from './layout';
 
-export { Text } from './typography';
-export type { TextProps } from './typography';
-
-export { Alert, Badge, Card, Chip, CircularProgress, ProgressBar, Tooltip } from './surface';
+export { Alert, Card, Chip, CircularProgress, Tooltip } from './surface';
 export type {
-  BadgeProps,
   CardProps,
   ChipProps,
   CircularProgressProps,
   TooltipProps,
 } from './surface';
 
-export { Button, Checkbox, IconButton, Input, SegmentedControl, Slider } from './control';
-export type { ButtonProps, IconButtonProps, InputProps, SegmentedControlProps, SegmentedControlOption, SliderProps } from './control';
+export { Button, IconButton, SegmentedControl, Slider } from './control';
+export type { ButtonProps, IconButtonProps, SegmentedControlProps, SegmentedControlOption, SliderProps } from './control';

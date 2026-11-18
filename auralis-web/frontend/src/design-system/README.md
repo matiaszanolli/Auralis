@@ -21,15 +21,19 @@ Single source of truth for all design values:
 - **Component-specific tokens**: Player bar, sidebar, etc.
 
 ### Primitive Components (`primitives/`)
-8 core building blocks for all UI:
+The building blocks for all UI (each has a production consumer; layout and text
+use `@mui/material` `Box` / `Typography` directly):
 
 1. **Button** - Primary, secondary, ghost, danger variants
 2. **IconButton** - Icon-only actions with tooltip support
 3. **Card** - Containers for content sections
 4. **Slider** - Volume, progress, parameter controls
-5. **Input** - Text inputs and search fields
-6. **Badge** - Counts, labels, status indicators
-7. **Tooltip** - Contextual help on hover
+5. **SegmentedControl** - Mutually exclusive option groups
+6. **Chip** - Labels and filters
+7. **CircularProgress** - Busy indicators
+8. **List** - Item lists
+9. **Alert** - Inline status messages
+10. **Tooltip** - Contextual help on hover
 
 ---
 
@@ -39,6 +43,7 @@ Single source of truth for all design values:
 
 ```typescript
 // Import design system elements
+import Box from '@mui/material/Box';
 import { tokens, Button, Card, IconButton } from '@/design-system';
 
 // Use tokens for styling
@@ -87,11 +92,11 @@ const MyComponent = () => (
   showValue
 />
 
-// Input with icons
-<Input
-  variant="search"
-  placeholder="Search music..."
-  startIcon={<SearchIcon />}
+// Segmented control
+<SegmentedControl
+  value={sortBy}
+  onChange={setSortBy}
+  options={[{ value: 'title', label: 'Title' }, { value: 'artist', label: 'Artist' }]}
 />
 ```
 
@@ -255,10 +260,13 @@ src/design-system/
 │   ├── IconButton.tsx
 │   ├── Card.tsx
 │   ├── Slider.tsx
-│   ├── Input.tsx
-│   ├── Badge.tsx
+│   ├── SegmentedControl.tsx
+│   ├── Chip.tsx
+│   ├── CircularProgress.tsx
+│   ├── List.tsx
+│   ├── Alert.tsx
 │   ├── Tooltip.tsx
-│   └── index.ts
+│   └── index.ts                # + layout / surface / control sub-barrels
 ├── index.ts                  # Main export
 └── README.md                 # This file
 ```

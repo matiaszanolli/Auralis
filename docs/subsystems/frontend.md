@@ -151,8 +151,9 @@ provider remounts. `resetWebSocketSingletons()` exists for tests.
 The palette is a deep blue-black aurora theme (`bg.level0 #0B1020`… accents `primary #7366F0`,
 `secondary #47D6FF`); spacing is an 8px grid.
 
-The system ships ~20 primitive components (`design-system/primitives/`: Button, Card, Slider,
-Modal, …) re-exported from `design-system/index.ts`.
+The system ships ten primitive components (`design-system/primitives/`: Button, IconButton, Card,
+Slider, SegmentedControl, Chip, CircularProgress, List, Alert, Tooltip), each with a production
+consumer, re-exported from `design-system/index.ts`. Layout and text use `@mui/material` directly.
 
 Application-level color decisions go through
 [`theme/semanticTheme.ts`](../../auralis-web/frontend/src/theme/semanticTheme.ts). It maps the
