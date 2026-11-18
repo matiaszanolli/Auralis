@@ -178,6 +178,53 @@ describe('AudioPlaybackEngine', () => {
       expect(ctx.createScriptProcessor).not.toHaveBeenCalled();
     });
 
+    it('a pause inside the window leaves the engine paused, not playing (#6424)', async () => {
+      const { ctx, release } = suspendedContext();
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(10));
+      const states: string[] = [];
+      engine.onStateChanged((state) => states.push(state));
+
+      const start = engine.startPlayback();
+      engine.pausePlayback(); // the user pauses while resume()/worklet load are pending
+      release();
+      await start;
+
+      expect(ctx.createScriptProcessor).not.toHaveBeenCalled();
+      expect(engine.isPlaying()).toBe(false);
+      expect(states).not.toContain('playing');
+    });
+
+    it('a start requested right after a pause is a fresh attempt, not the cancelled one (#6424)', async () => {
+      const { ctx, release } = suspendedContext();
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(10));
+      const cancelled = engine.startPlayback();
+      engine.pausePlayback();
+      ctx.state = 'running'; // the context came up in the meantime
+
+      // Resume while the cancelled attempt is still parked on its await.
+      const restarted = engine.startPlayback();
+      await restarted;
+
+      expect(restarted).not.toBe(cancelled);
+      expect(engine.isPlaying()).toBe(true);
+      expect(ctx.createScriptProcessor).toHaveBeenCalledOnce();
+
+      release(); // the cancelled attempt finally finishes: it must change nothing
+      await cancelled;
+      expect(ctx.createScriptProcessor).toHaveBeenCalledOnce();
+      expect(engine.isPlaying()).toBe(true);
+    });
+
+    it('a pause with no start pending still does nothing to a stopped engine', () => {
+      const { ctx } = suspendedContext();
+      const engine = new AudioPlaybackEngine(ctx, makeBuffer(10));
+
+      engine.pausePlayback();
+
+      expect(engine.isPlaying()).toBe(false);
+      expect(engine.getStats().isPlaying).toBe(false);
+    });
+
     it('an engine can start again after a cancelled attempt', async () => {
       const { ctx, release } = suspendedContext();
       const engine = new AudioPlaybackEngine(ctx, makeBuffer(10));
