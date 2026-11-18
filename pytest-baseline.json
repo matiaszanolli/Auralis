@@ -1,22 +1,10 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5175, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, #5295, #5419, and #5225 removed obsolete or newly passing entries by hand, as did #5811 (38 entries: 36 tests that run and pass, and 2 that no longer exist \u2014 --strict-stale cannot see the latter): --strict-stale (#5091) fails the job on a baselined test that passes. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5175, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, #5295, #5419, and #5225 removed obsolete or newly passing entries by hand, as did #5811 (38 entries: 36 tests that run and pass, and 2 that no longer exist \u2014 --strict-stale cannot see the latter): --strict-stale (#5091) fails the job on a baselined test that passes. #6657 removed 15 entries that only failed because CI had no `auralis_dsp` (they pass once the job builds it). Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
     "failedTests": 147
   },
   "failures": [
-    "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_all_values_finite",
-    "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_band_fractions_sum_to_one",
-    "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_normalized_dims_in_unit_range",
-    "tests.auralis.analysis.fingerprint.test_rust_fingerprint_glue::test_output_has_exactly_the_schema_keys",
-    "tests.auralis.analysis.test_fingerprint_band_window_4136::test_band_analysis_is_deterministic",
-    "tests.auralis.analysis.test_fingerprint_band_window_4136::test_band_percentages_sum_to_one",
-    "tests.auralis.analysis.test_fingerprint_band_window_4136::test_high_frequency_tone_lands_in_air_band",
-    "tests.auralis.analysis.test_fingerprint_integration::test_fingerprint_extraction",
-    "tests.auralis.analysis.test_fingerprint_integration::test_real_audio",
-    "tests.auralis.core.test_continuous_mode_target_integration::test_cloud_changes_eq_curve_versus_legacy",
-    "tests.auralis.core.test_continuous_mode_target_integration::test_cloud_loaded_only_once_across_multiple_process_calls",
-    "tests.auralis.core.test_continuous_mode_target_integration::test_non_empty_cloud_invokes_delta_eq_path",
     "tests.auralis.core.test_cross_dimensional_interactions.TestQualityGateExceptionScope::test_import_error_propagates",
     "tests.auralis.core.test_cross_dimensional_interactions.TestQualityGateInterval::test_interval_1_runs_every_call",
     "tests.auralis.core.test_cross_dimensional_interactions.TestQualityGateInterval::test_interval_3_samples_every_third_call",
@@ -54,9 +42,6 @@
     "tests.regression.test_frontend_hook_patterns.TestHandleNextPreviousStaleClosure::test_handlers_use_commands_prop",
     "tests.regression.test_frontend_hook_patterns.TestUsePlaybackQueueNoInfiniteLoop::test_initial_fetch_exists",
     "tests.regression.test_frontend_hook_patterns.TestUseStandardizedAPINoReRefetch::test_primitive_extraction_from_options",
-    "tests.regression.test_mastering_content_awareness_end_to_end::test_bass_heavy_source_can_get_bass_cut",
-    "tests.regression.test_mastering_content_awareness_end_to_end::test_bright_and_dark_sources_produce_different_eq_curves",
-    "tests.regression.test_mastering_content_awareness_end_to_end::test_bright_source_gets_less_hf_boost_than_dark_source",
     "tests.regression.test_no_raw_sql_leaks.TestNoRawSQLLeaks::test_no_raw_sql_outside_repositories",
     "tests.regression.test_version_compatibility.TestBackwardCompatibility::test_audio_output_format_unchanged",
     "tests.regression.test_version_compatibility.TestBackwardCompatibility::test_processing_result_deterministic",

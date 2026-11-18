@@ -1,0 +1,75 @@
+name: Build and install the Rust DSP module
+description: >
+  Builds vendor/auralis-dsp with the pinned toolchain and hash-locked maturin,
+  installs the wheel into the active Python, and fails unless `import auralis_dsp`
+  works on the full CPython 3.14 API. For Linux test jobs (#6657); the release
+  workflow keeps its own per-OS copy of these steps.
+
+# Why this exists (#6657): backend-tests.yml and slow-tests.yml installed only
+# requirements-lock.txt, so `auralis_dsp` was never importable in CI. Every
+# fingerprint test then failed with FingerprintUnavailable (~200 failures that
+# the checked-in baseline mistook for real ones) and every importorskip("auralis_dsp")
+# test skipped silently. The caller must have run actions/setup-python first.
+
+runs:
+  using: composite
+  steps:
+    - name: Read pinned Rust toolchain
+      id: rust-toolchain
+      shell: bash
+      # #4531: dtolnay/rust-toolchain@stable ignores rust-toolchain.toml and floats
+      # on whatever "stable" resolves to that day, so read the pin and hand it over.
+      run: |
+        version=$(grep -m1 '^channel' vendor/auralis-dsp/rust-toolchain.toml | cut -d '"' -f2)
+        test -n "$version" || { echo "::error::no channel in vendor/auralis-dsp/rust-toolchain.toml"; exit 1; }
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master @ 2026-08-14
+      with:
+        toolchain: ${{ steps.rust-toolchain.outputs.version }}
+
+    - name: Build and install the wheel
+      shell: bash
+      # maturin comes from the hash-locked build file (#6151), never an unpinned
+      # `pip install maturin`. A clean release build is about 15 s on a developer
+      # machine, so there is no cargo cache to go stale.
+      run: |
+        pip install --require-hashes -r requirements-build.txt
+        cd vendor/auralis-dsp
+        maturin build --release --locked
+        pip install --no-deps target/wheels/*.whl
+
+    - name: Assert the module is a full-API CPython 3.14 build (#5485)
+      shell: bash
+      # Cargo.toml requests no pyo3 `abi3` feature, and since pyo3 0.29 the build
+      # no longer sets PYO3_USE_ABI3_FORWARD_COMPATIBILITY, which silently forced
+      # a limited-API build (#4911). Match the whole `cargo:rustc-cfg=` line:
+      # pyo3-ffi always prints a `cargo:rustc-check-cfg=cfg(Py_LIMITED_API)`
+      # declaration, so a bare grep for the name matches every build.
+      run: |
+        shopt -s nullglob
+        outs=(vendor/auralis-dsp/target/release/build/pyo3-ffi-*/output)
+        test ${#outs[@]} -gt 0 || { echo "::error::no pyo3-ffi build script output found"; exit 1; }
+        if grep -qx 'cargo:rustc-cfg=Py_LIMITED_API' "${outs[@]}"; then
+          echo "::error::pyo3-ffi was built against Py_LIMITED_API; expected a full-API build"
+          exit 1
+        fi
+        grep -qx 'cargo:rustc-cfg=Py_3_14' "${outs[@]}" || {
+          echo "::error::pyo3-ffi was not configured for CPython 3.14"
+          exit 1
+        }
+        wheels=(vendor/auralis-dsp/target/wheels/auralis_dsp-*-cp314-cp314-*.whl)
+        test ${#wheels[@]} -eq 1 || {
+          echo "::error::expected exactly one cp314-cp314 wheel, found: $(ls vendor/auralis-dsp/target/wheels)"
+          exit 1
+        }
+
+    - name: Assert the module imports
+      shell: bash
+      # The guard against the failure this action was written for: a Rust module
+      # that is installed but not importable would turn every importorskip test
+      # into a silent skip, which no gate counts. `cd /` so the import cannot be
+      # satisfied by the source tree.
+      run: |
+        cd /
+        python -c "import auralis_dsp; print('auralis_dsp from', auralis_dsp.__file__)"

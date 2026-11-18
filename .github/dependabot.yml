@@ -19,7 +19,11 @@
 version: 2
 updates:
   - package-ecosystem: "github-actions"
-    directory: "/"
+    # Dependabot reads composite actions only from the directories it is told
+    # about, so the one under .github/actions/ is listed (#6657).
+    directories:
+      - "/"
+      - "/.github/actions/build-rust-dsp"
     schedule:
       interval: "weekly"
     # One PR per action keeps a compromised-upstream bump reviewable in

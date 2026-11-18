@@ -50,6 +50,11 @@ on:
       - 'pytest.ini'
       - 'pytest-baseline.json'
       - 'scripts/check_pytest_baseline.py'
+      # The Rust module is built in this job (#6657), so a Rust-only change
+      # must run the Python gate that exercises it.
+      - 'vendor/auralis-dsp/**'
+      - 'requirements-build.txt'
+      - '.github/actions/build-rust-dsp/**'
       - '.github/workflows/backend-tests.yml'
   pull_request:
     paths:
@@ -66,6 +71,11 @@ on:
       - 'pytest.ini'
       - 'pytest-baseline.json'
       - 'scripts/check_pytest_baseline.py'
+      # The Rust module is built in this job (#6657), so a Rust-only change
+      # must run the Python gate that exercises it.
+      - 'vendor/auralis-dsp/**'
+      - 'requirements-build.txt'
+      - '.github/actions/build-rust-dsp/**'
       - '.github/workflows/backend-tests.yml'
 
 permissions:
@@ -126,6 +136,13 @@ jobs:
           # is verified on 9.1.1), so bumping is safe — but regenerate
           # pytest-baseline.json from that run's CI artifact in the same change.
           pip install 'pytest==9.0.1' pytest-asyncio pytest-timeout httpx2
+
+      # The 25D fingerprint is the one compiled module on the analysis path, and
+      # CLAUDE.md lists Rust as required. Without it ~200 tests fail with
+      # FingerprintUnavailable and every importorskip("auralis_dsp") test skips,
+      # so the baseline recorded the absence as if it were real failures (#6657).
+      - name: Build the Rust DSP module
+        uses: ./.github/actions/build-rust-dsp
 
       # Always exits 0 — a failing suite is expected while the baseline is
       # non-empty. The baseline check below is what decides the job.

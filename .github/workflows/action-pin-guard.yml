@@ -13,6 +13,9 @@ name: Action Pin Guard
 # comment. This job keeps it that way: adding a step with `uses: foo/bar@v1` is
 # a one-line change nobody flags in review, and it silently reopens the hole.
 #
+# Composite actions under .github/actions/ are scanned too (#6657): a pin there
+# is as exposed as one in a workflow.
+#
 # Pairs with .github/dependabot.yml, which bumps the pins so they do not go
 # stale. Pinning without that trades tag-mutability for missed security fixes.
 
@@ -54,7 +57,7 @@ jobs:
               echo "::error file=$file,line=$line::'$ref' is not pinned to a commit SHA (#4868)"
               bad=1
             fi
-          done < <(grep -rnE '^[[:space:]]*-?[[:space:]]*uses:' .github/workflows/*.yml)
+          done < <(grep -rnE '^[[:space:]]*-?[[:space:]]*uses:' .github/workflows/*.yml .github/actions/*/action.yml)
 
           if [ "$bad" -ne 0 ]; then
             echo
@@ -77,7 +80,7 @@ jobs:
           # d23441a is current or two years stale without a network round-trip,
           # and Dependabot uses the comment to know what it is upgrading from.
           missing=$(grep -rnE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*[^.][^[:space:]]*@[0-9a-f]{40}[[:space:]]*$' \
-            .github/workflows/*.yml || true)
+            .github/workflows/*.yml .github/actions/*/action.yml || true)
 
           if [ -n "$missing" ]; then
             echo "::error::Pinned action(s) missing a trailing '# version' comment (#4868)"

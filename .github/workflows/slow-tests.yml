@@ -35,6 +35,11 @@ jobs:
           pip install --require-hashes -r requirements-lock.txt
           pip install 'pytest==9.0.1' pytest-asyncio pytest-timeout httpx2
 
+      # Same reason as backend-tests.yml: without the Rust module every
+      # fingerprint test fails and every importorskip("auralis_dsp") one skips (#6657).
+      - name: Build the Rust DSP module
+        uses: ./.github/actions/build-rust-dsp
+
       # The two files backend-tests.yml documents as hang-prone when run whole stay out of this run
       # as well as that one (CLAUDE.md); a per-test timeout keeps any other hang from eating the job.
       - name: Run slow-marked tests
