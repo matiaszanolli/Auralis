@@ -12,7 +12,7 @@
  * - Deduplicates entries (same album touched twice = update timestamp only)
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 const STORAGE_KEY = 'auralis-recently-touched-albums';
 const MAX_RECENT = 20;
@@ -67,53 +67,54 @@ export function useRecentlyTouched() {
   const [recentAlbums, setRecentAlbums] = useState<RecentlyTouchedEntry[]>(() =>
     loadRecentlyTouched()
   );
+  // The latest list, so touchAlbum computes its next value and persists it outside a
+  // setState updater, which React may run twice (StrictMode) or defer (#6429). Every
+  // write goes through `commit`, which keeps the ref and the state in step.
+  const recentRef = useRef(recentAlbums);
+  const commit = useCallback((next: RecentlyTouchedEntry[]) => {
+    recentRef.current = next;
+    setRecentAlbums(next);
+  }, []);
 
   // Sync with localStorage changes from other tabs
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) {
-        setRecentAlbums(loadRecentlyTouched());
+        commit(loadRecentlyTouched());
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  }, [commit]);
 
   /**
    * Record an album as recently touched
    * Moves to top if already present, adds if new
    */
   const touchAlbum = useCallback((albumId: number, albumTitle: string, artist: string) => {
-    setRecentAlbums(prev => {
-      // Remove existing entry for this album (if any)
-      const filtered = prev.filter(entry => entry.albumId !== albumId);
+    // Remove existing entry for this album (if any), add the new one at the
+    // beginning, and limit to MAX_RECENT entries.
+    const filtered = recentRef.current.filter(entry => entry.albumId !== albumId);
+    const newEntry: RecentlyTouchedEntry = {
+      albumId,
+      albumTitle,
+      artist,
+      touchedAt: Date.now(),
+    };
+    const updated = [newEntry, ...filtered].slice(0, MAX_RECENT);
 
-      // Add new entry at the beginning
-      const newEntry: RecentlyTouchedEntry = {
-        albumId,
-        albumTitle,
-        artist,
-        touchedAt: Date.now(),
-      };
-
-      // Limit to MAX_RECENT entries
-      const updated = [newEntry, ...filtered].slice(0, MAX_RECENT);
-
-      // Persist to localStorage
-      saveRecentlyTouched(updated);
-
-      return updated;
-    });
-  }, []);
+    commit(updated);
+    saveRecentlyTouched(updated);
+  }, [commit]);
 
   /**
    * Clear all recently touched albums
    */
   const clearRecent = useCallback(() => {
-    setRecentAlbums([]);
+    commit([]);
     localStorage.removeItem(STORAGE_KEY);
-  }, []);
+  }, [commit]);
 
   return {
     recentAlbums,

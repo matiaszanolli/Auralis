@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 interface UseDropZoneReturn {
   isDragging: boolean;
@@ -22,7 +22,9 @@ export const useDropZone = (
   scanning: boolean = false
 ): UseDropZoneReturn => {
   const [isDragging, setIsDragging] = useState(false);
-  const [_dragCounter, setDragCounter] = useState(0);
+  // Nested dragenter/dragleave pairs, never rendered, so a ref: its updates (and the
+  // setIsDragging that follows the last leave) stay out of state updater functions (#6429).
+  const dragCounterRef = useRef(0);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -30,7 +32,7 @@ export const useDropZone = (
 
     if (disabled || scanning) return;
 
-    setDragCounter((prev) => prev + 1);
+    dragCounterRef.current += 1;
 
     // Check if we're dragging files
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
@@ -44,13 +46,12 @@ export const useDropZone = (
 
     if (disabled || scanning) return;
 
-    setDragCounter((prev) => {
-      const newCounter = prev - 1;
-      if (newCounter === 0) {
-        setIsDragging(false);
-      }
-      return newCounter;
-    });
+    // Clamped: an unpaired leave must not leave the counter below 0, which never
+    // reaches 0 again and would pin isDragging on.
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
   }, [disabled, scanning]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -70,7 +71,7 @@ export const useDropZone = (
     e.stopPropagation();
 
     setIsDragging(false);
-    setDragCounter(0);
+    dragCounterRef.current = 0;
 
     if (disabled || scanning) return;
 

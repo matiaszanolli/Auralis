@@ -6,6 +6,7 @@
  * @module hooks/library/__tests__/useRecentlyTouched.test
  */
 
+import { StrictMode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useRecentlyTouched } from '../useRecentlyTouched';
@@ -180,5 +181,62 @@ describe('useRecentlyTouched', () => {
 
     expect(result.current.recentAlbums).toHaveLength(1);
     expect(result.current.recentAlbums[0].albumId).toBe(1);
+  });
+
+  describe('StrictMode (#6429): the updater is pure, so a touch persists exactly once', () => {
+    it('writes localStorage once per touchAlbum', () => {
+      const setItem = vi.spyOn(Storage.prototype, 'setItem');
+      const { result } = renderHook(() => useRecentlyTouched(), { wrapper: StrictMode });
+
+      act(() => {
+        result.current.touchAlbum(1, 'Album A', 'Artist A');
+      });
+      expect(setItem).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        result.current.touchAlbum(2, 'Album B', 'Artist B');
+      });
+      expect(setItem).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).map((e: any) => e.albumId)).toEqual([2, 1]);
+      setItem.mockRestore();
+    });
+
+    it('keeps every album from touches batched into one act', () => {
+      const { result } = renderHook(() => useRecentlyTouched(), { wrapper: StrictMode });
+
+      act(() => {
+        result.current.touchAlbum(1, 'A', 'x');
+        result.current.touchAlbum(2, 'B', 'x');
+        result.current.touchAlbum(1, 'A', 'x');
+      });
+
+      expect(result.current.recentAlbums.map(a => a.albumId)).toEqual([1, 2]);
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).map((e: any) => e.albumId)).toEqual([1, 2]);
+    });
+
+    it('a touch after another tab wrote the list builds on that list', () => {
+      const { result } = renderHook(() => useRecentlyTouched(), { wrapper: StrictMode });
+      const fromOtherTab = [{ albumId: 7, albumTitle: 'Other', artist: 'Tab', touchedAt: 5 }];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(fromOtherTab));
+
+      act(() => {
+        window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+      });
+      act(() => {
+        result.current.touchAlbum(1, 'Mine', 'Me');
+      });
+
+      expect(result.current.recentAlbums.map(a => a.albumId)).toEqual([1, 7]);
+    });
+
+    it('clearRecent empties the list that the next touch builds on', () => {
+      const { result } = renderHook(() => useRecentlyTouched(), { wrapper: StrictMode });
+      act(() => { result.current.touchAlbum(1, 'A', 'x'); });
+
+      act(() => { result.current.clearRecent(); });
+      act(() => { result.current.touchAlbum(2, 'B', 'x'); });
+
+      expect(result.current.recentAlbums.map(a => a.albumId)).toEqual([2]);
+    });
   });
 });

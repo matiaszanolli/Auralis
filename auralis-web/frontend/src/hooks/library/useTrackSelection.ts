@@ -45,7 +45,6 @@ export interface UseTrackSelectionReturn {
  */
 export const useTrackSelection = (tracks: Track[]): UseTrackSelectionReturn => {
   const [selectedTracks, setSelectedTracks] = useState<Set<number>>(new Set());
-  const [lastSelectedId, setLastSelectedId] = useState<number | null>(null);
 
   // toggleTrack reads both through refs so its identity never changes. It is
   // handed to every library row, and a new identity per render defeated the
@@ -54,8 +53,9 @@ export const useTrackSelection = (tracks: Track[]): UseTrackSelectionReturn => {
   // sees the latest list and last-selected id.
   const tracksRef = useRef(tracks);
   tracksRef.current = tracks;
-  const lastSelectedIdRef = useRef(lastSelectedId);
-  lastSelectedIdRef.current = lastSelectedId;
+  // Never rendered, so a ref alone (no state): written beside, not inside, the
+  // setSelectedTracks updater, which React may run twice or defer (#6429).
+  const lastSelectedIdRef = useRef<number | null>(null);
 
   // Drop selected ids that are no longer in the list (a search narrowed it, a
   // track was removed): the toolbar's count and every bulk action read this set,
@@ -116,9 +116,9 @@ export const useTrackSelection = (tracks: Track[]): UseTrackSelectionReturn => {
           }
         }
 
-        setLastSelectedId(trackId);
         return newSelection;
       });
+      lastSelectedIdRef.current = trackId;
     },
     []
   );
@@ -153,7 +153,7 @@ export const useTrackSelection = (tracks: Track[]): UseTrackSelectionReturn => {
   // Clear selection
   const clearSelection = useCallback(() => {
     setSelectedTracks(new Set());
-    setLastSelectedId(null);
+    lastSelectedIdRef.current = null;
   }, []);
 
   // Computed properties

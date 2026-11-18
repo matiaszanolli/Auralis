@@ -7,6 +7,7 @@
  * @license AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
  */
 
+import { StrictMode } from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTrackSelection } from '../useTrackSelection';
@@ -312,6 +313,46 @@ describe('useTrackSelection', () => {
       rerender({ list: tracks });
 
       expect(result.current.selectedCount).toBe(3);
+    });
+  });
+
+  describe('last-selected anchor (#6429: kept outside the setState updater)', () => {
+    it('shift+click ranges from the last click, also under StrictMode', () => {
+      const { result } = renderHook(() => useTrackSelection(tracks), { wrapper: StrictMode });
+      act(() => { result.current.toggleTrack(2, mouseEvent()); });
+
+      act(() => { result.current.toggleTrack(4, mouseEvent({ shiftKey: true })); });
+
+      expect([...result.current.selectedTracks].sort()).toEqual([2, 3, 4]);
+    });
+
+    it('a ctrl+click moves the anchor for the next shift+click', () => {
+      const { result } = renderHook(() => useTrackSelection(tracks), { wrapper: StrictMode });
+      act(() => { result.current.toggleTrack(1, mouseEvent()); });
+      act(() => { result.current.toggleTrack(4, mouseEvent({ ctrlKey: true })); });
+
+      act(() => { result.current.toggleTrack(5, mouseEvent({ shiftKey: true })); });
+
+      expect([...result.current.selectedTracks].sort()).toEqual([1, 4, 5]);
+    });
+
+    it('clearSelection forgets the anchor, so shift+click selects only that track', () => {
+      const { result } = renderHook(() => useTrackSelection(tracks), { wrapper: StrictMode });
+      act(() => { result.current.toggleTrack(1, mouseEvent()); });
+      act(() => { result.current.clearSelection(); });
+
+      act(() => { result.current.toggleTrack(4, mouseEvent({ shiftKey: true })); });
+
+      expect([...result.current.selectedTracks]).toEqual([4]);
+    });
+
+    it('keeps toggleTrack identity stable across selection changes', () => {
+      const { result } = renderHook(() => useTrackSelection(tracks));
+      const first = result.current.toggleTrack;
+
+      act(() => { result.current.toggleTrack(2, mouseEvent()); });
+
+      expect(result.current.toggleTrack).toBe(first);
     });
   });
 });
