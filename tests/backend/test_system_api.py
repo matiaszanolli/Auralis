@@ -105,7 +105,6 @@ class TestVersionEndpoint:
 
         # Check required fields
         assert "version" in data
-        assert "api_version" in data
         assert "db_schema_version" in data
 
     def test_version_structure(self, client):
@@ -141,8 +140,7 @@ class TestVersionEndpoint:
         data = response.json()
 
         assert "build_date" in data
-        assert "api_version" in data
-        assert data["api_version"] == "v1"
+        assert "api_version" not in data
         from auralis.version import DB_SCHEMA_VERSION
 
         assert data["db_schema_version"] == DB_SCHEMA_VERSION

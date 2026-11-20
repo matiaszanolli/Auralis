@@ -41,7 +41,6 @@ class VersionInfoResponse(BaseModel):
     build: str = Field(default="", description="Build metadata (empty if not set)")
     build_date: str = Field(default="", description="Build date (ISO format)")
     git_commit: str = Field(default="", description="Git commit hash (empty if not set)")
-    api_version: str = Field(default="v1", description="API version for compatibility")
     db_schema_version: int = Field(default=0, description="Database schema version")
     display: str = Field(description="User-friendly display version string")
 

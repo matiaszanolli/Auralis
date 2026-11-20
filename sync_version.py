@@ -25,7 +25,7 @@ except ImportError:
     sys.exit(1)
 
 
-def update_package_json(file_path: Path, new_version: str):
+def update_package_json(file_path: Path, new_version: str) -> bool:
     """Update version in package.json file."""
     target = PROJECT_ROOT / file_path
     if not target.exists():
@@ -49,7 +49,7 @@ def update_package_json(file_path: Path, new_version: str):
         return False
 
 
-def update_version_py(new_version: str, build_date: str):
+def update_version_py(new_version: str, build_date: str) -> bool:
     """Update the canonical product version."""
     version_file = PROJECT_ROOT / "auralis/version.py"
     if not version_file.exists():
@@ -111,7 +111,7 @@ def update_version_py(new_version: str, build_date: str):
     return True
 
 
-def update_pyproject(new_version: str):
+def update_pyproject(new_version: str) -> bool:
     """Update the Python package metadata mirror."""
     pyproject_file = PROJECT_ROOT / "pyproject.toml"
     content = pyproject_file.read_text()
@@ -132,38 +132,7 @@ def update_pyproject(new_version: str):
     return True
 
 
-def update_health_fallback(new_version: str, build_date: str):
-    """Update the degraded-build /api/version fallback."""
-    match = re.match(r'^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$', new_version)
-    if not match:
-        raise ValueError(f"Invalid version format: {new_version}")
-
-    major, minor, patch, prerelease = match.groups()
-    prerelease = prerelease or ""
-    health_file = PROJECT_ROOT / "auralis-web/backend/routers/health.py"
-    content = health_file.read_text()
-    updated = content
-    replacements = (
-        (r'(\s+version=)"[^"]*"', rf'\g<1>"{new_version}"'),
-        (r'(\s+major=)\d+', rf'\g<1>{major}'),
-        (r'(\s+minor=)\d+', rf'\g<1>{minor}'),
-        (r'(\s+patch=)\d+', rf'\g<1>{patch}'),
-        (r'(\s+prerelease=)"[^"]*"', rf'\g<1>"{prerelease}"'),
-        (r'(\s+build_date=)"[^"]*"', rf'\g<1>"{build_date}"'),
-        (r'(\s+display=)"[^"]*"', rf'\g<1>"Auralis v{new_version}"'),
-    )
-    for pattern, replacement in replacements:
-        updated = re.sub(pattern, replacement, updated, count=1)
-
-    if content == updated:
-        print("ℹ️  No change needed in backend version fallback")
-        return False
-    health_file.write_text(updated)
-    print("✅ Updated backend version fallback")
-    return True
-
-
-def update_dockerfile(new_version: str):
+def update_dockerfile(new_version: str) -> bool:
     """Update the container image metadata mirror."""
     dockerfile = PROJECT_ROOT / "Dockerfile"
     content = dockerfile.read_text()
@@ -187,7 +156,7 @@ def validate_version_format(version_str: str) -> bool:
     return bool(re.match(pattern, version_str))
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     print("=" * 60)
     print("Auralis Version Sync Tool")
@@ -212,7 +181,6 @@ def main():
         update_version_py(new_version, build_date)
     else:
         new_version = version.__version__
-        build_date = version.__build_date__
         print(f"\n📦 Syncing current version {new_version} across project files\n")
 
     # Update all derived version surfaces.
@@ -227,8 +195,6 @@ def main():
         if update_package_json(file_path, new_version):
             updated_count += 1
     if update_pyproject(new_version):
-        updated_count += 1
-    if update_health_fallback(new_version, build_date):
         updated_count += 1
     if update_dockerfile(new_version):
         updated_count += 1

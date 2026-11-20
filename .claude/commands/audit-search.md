@@ -43,7 +43,7 @@ Categorize changed files by risk domain:
 | Processing engine & executors | `auralis-web/backend/core/processing_engine.py`, `auralis-web/backend/core/job_*`, `auralis-web/backend/core/processor_*` (incl. `processor_lease.py`, #6091), `auralis-web/backend/core/chunk_processor_lease.py`, `auralis-web/backend/core/executors.py`, `auralis-web/backend/core/task_cancellation.py` | `/audit-backend` (dims 4, 8), `/audit-concurrency` (dim 3) |
 | Enhancement presets | `auralis-web/backend/schemas/enhancement.py`, `auralis-web/backend/core/proactive_buffer.py`, `auralis/core/config/preset_profiles.py`, `auralis-web/frontend/src/types/domain.ts`, `auralis-web/frontend/src/hooks/enhancement/*` | `/audit-integration` (flow 3), `/sync-contracts` |
 | Backend Services | `auralis-web/backend/services/*` (scan publishing / fingerprint enqueue shared by manual and auto scans, queue and playback sequencers, `loop_bound_lock.py`: also `/audit-concurrency` dim 3), `auralis-web/backend/core/*`, `auralis-web/backend/analysis/*` | `/audit-backend` |
-| Backend top-level modules | `auralis-web/backend/helpers.py`, `auralis-web/backend/player_state.py`, `auralis-web/backend/version.py` (the only `.py` files beside `main.py`) | `/audit-backend` |
+| Backend top-level modules | `auralis-web/backend/helpers.py`, `auralis-web/backend/player_state.py` (the only `.py` files beside `main.py`) | `/audit-backend` |
 | Frontend Components | `auralis-web/frontend/src/components/*`, `auralis-web/frontend/src/a11y/*` (focus management) | `/audit-frontend` (dim 8 for a11y) |
 | Frontend Hooks | `auralis-web/frontend/src/hooks/*` | `/audit-frontend`, `/audit-integration` |
 | Frontend Store | `auralis-web/frontend/src/store/*` | `/audit-frontend` |

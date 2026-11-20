@@ -86,7 +86,6 @@ When you update the app in the future, users need:
 ```
 auralis/__version__.py          ❌ Missing
 auralis-web/package.json        ❌ Has version but not enforced
-auralis-web/backend/version.py  ❌ Missing
 database schema_version table   ❌ Missing
 ```
 

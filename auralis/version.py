@@ -40,7 +40,6 @@ def get_version_info() -> dict[str, Any]:
         - build: Build metadata (empty if not set)
         - build_date: Build date
         - git_commit: Git commit hash (empty if not set)
-        - api_version: API version string
         - db_schema_version: Database schema version
         - display: User-friendly display string
     """

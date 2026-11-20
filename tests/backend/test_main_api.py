@@ -304,14 +304,11 @@ class TestFileUpload:
 
     def test_upload_single_wav_file(self, client, tmp_path):
         """Test uploading a single WAV file"""
-        import numpy as np
 
         # Create a temporary WAV file
         test_file = tmp_path / "test.wav"
         test_file.write_bytes(b"RIFF" + b"\x00" * 100)  # Minimal WAV header
 
-        # Mock load_audio to return valid test data (avoids actual audio parsing)
-        mock_audio = np.zeros((44100, 2), dtype=np.float32)  # 1 second stereo
         mock_track = Mock()
         mock_track.id = 1
         mock_track.title = "test"
@@ -380,7 +377,6 @@ class TestFileUpload:
 
     def test_upload_mixed_valid_invalid_files(self, client, tmp_path):
         """Test uploading mix of valid and invalid files"""
-        import numpy as np
         import struct
 
         # Create minimal valid WAV file (RIFF header + fmt + data chunks)
@@ -395,8 +391,7 @@ class TestFileUpload:
         txt_file = tmp_path / "bad.txt"
         txt_file.write_text("text")
 
-        # Mock load_audio and library_database for valid files
-        mock_audio = np.zeros((44100, 2), dtype=np.float32)
+        # Mock library_database for valid files
         mock_track = Mock()
         mock_track.id = 1
         mock_track.title = "good"
@@ -430,7 +425,6 @@ class TestFileUpload:
         """Test uploading all supported audio formats"""
         import struct
 
-        import numpy as np
 
         # Magic bytes that pass the upload endpoint's content validation
         magic_bytes = {
@@ -450,8 +444,7 @@ class TestFileUpload:
             test_file.write_bytes(magic_bytes[fmt])
             files.append(("files", (f"test{fmt}", open(test_file, "rb"), "audio/*")))
 
-        # Mock load_audio and library_database for all files
-        mock_audio = np.zeros((44100, 2), dtype=np.float32)
+        # Mock library_database for all files
 
         # Create mock tracks for each format
         def create_mock_track(info):
@@ -1284,22 +1277,7 @@ class TestVersionEndpoint:
 
         assert response.status_code == 200
         data = response.json()
-        assert "api_version" in data
         assert "db_schema_version" in data
-
-    def test_get_version_import_error_fallback_uses_live_db_schema_version(self, client):
-        """#5072 (regression of #4053): the degraded-build fallback (hit when
-        `auralis.version` fails to import) must source db_schema_version from
-        auralis.__version__ rather than a hardcoded literal, so it can't drift
-        from the live schema version again."""
-        from auralis.__version__ import __db_schema_version__
-
-        with patch.dict(sys.modules, {"auralis.version": None}):
-            response = client.get("/api/version")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["db_schema_version"] == __db_schema_version__
 
 
 class TestPlaylistEndpoints:

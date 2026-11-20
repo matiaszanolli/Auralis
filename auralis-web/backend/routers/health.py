@@ -14,19 +14,17 @@ Endpoints:
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import logging
 import os
 from collections.abc import Callable
 from typing import Any
 
 from auralis.analysis.fingerprint.rust_fingerprint import fingerprint_engine_error
+from auralis.version import get_version_info
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from schemas import HealthResponse, VersionInfoResponse
 
 from .dependencies import RouterDeps
-
-logger = logging.getLogger(__name__)
 
 
 class _HealthDeps:
@@ -87,33 +85,9 @@ async def get_version() -> VersionInfoResponse:
     """Get version information.
 
     Returns detailed version info including semantic version components,
-    build date, API version, and database schema version.
+    build date and database schema version.
     """
-    try:
-        from auralis.version import get_version_info
-        return VersionInfoResponse(**get_version_info())
-    except ImportError:
-        logger.warning("auralis.version not available, using fallback")
-        # Derived fallback for degraded builds that cannot import the core.
-        # sync_version.py keeps this aligned with auralis/version.py.
-        # db_schema_version is sourced directly from auralis/__version__.py
-        # (which has no heavy transitive deps) rather than hardcoded, so this
-        # can never drift from the live value again (#4053, #5072).
-        from auralis.__version__ import __db_schema_version__
-
-        return VersionInfoResponse(
-            version="1.5.1",
-            major=1,
-            minor=5,
-            patch=1,
-            prerelease="",
-            build="",
-            build_date="2026-07-24",
-            git_commit="",
-            api_version="v1",
-            db_schema_version=__db_schema_version__,
-            display="Auralis v1.5.1",
-        )
+    return VersionInfoResponse(**get_version_info())
 
 
 def create_health_router(

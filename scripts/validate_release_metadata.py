@@ -57,25 +57,6 @@ def _literal_assignments(relative_path: Path) -> dict[str, Any]:
     return assignments
 
 
-def _require_match(
-    errors: list[str],
-    relative_path: Path,
-    pattern: str,
-    expected: str,
-    label: str,
-    *,
-    flags: int = 0,
-) -> None:
-    source = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
-    match = re.search(pattern, source, flags)
-    if match is None:
-        errors.append(f"{relative_path}: could not find {label}")
-    elif match.group(1) != expected:
-        errors.append(
-            f"{relative_path}: {label} is {match.group(1)!r}, expected {expected!r}"
-        )
-
-
 def validate_release_metadata(expected: str | None = None) -> list[str]:
     """Return validation errors; an empty list means the metadata is coherent."""
     errors: list[str] = []
@@ -145,27 +126,9 @@ def validate_release_metadata(expected: str | None = None) -> list[str]:
             f"expected {version!r}"
         )
 
-    build_date = canonical.get("__build_date__")
-    if not isinstance(build_date, str):
+    if not isinstance(canonical.get("__build_date__"), str):
         errors.append("auralis/version.py: __build_date__ is missing or invalid")
-        build_date = ""
 
-    _require_match(
-        errors,
-        Path("auralis-web/backend/routers/health.py"),
-        r'VersionInfoResponse\(\s*version="([^"]+)"',
-        version,
-        "degraded version fallback",
-        flags=re.DOTALL,
-    )
-    _require_match(
-        errors,
-        Path("auralis-web/backend/routers/health.py"),
-        r'VersionInfoResponse\(.*?build_date="([^"]+)"',
-        build_date,
-        "degraded build-date fallback",
-        flags=re.DOTALL,
-    )
     return errors
 
 

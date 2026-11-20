@@ -46,24 +46,6 @@ def test_all_release_metadata_matches_product_version() -> None:
     pyproject = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
     assert pyproject["project"]["version"] == expected
 
-    health_source = (
-        PROJECT_ROOT / "auralis-web/backend/routers/health.py"
-    ).read_text()
-    fallback = re.search(
-        r"VersionInfoResponse\(\s*version=\"([^\"]+)\"",
-        health_source,
-        re.DOTALL,
-    )
-    assert fallback is not None
-    assert fallback.group(1) == expected
-
-    fallback_build_date = re.search(
-        r'VersionInfoResponse\(.*?build_date="([^"]+)"',
-        health_source,
-        re.DOTALL,
-    )
-    assert fallback_build_date is not None
-    assert fallback_build_date.group(1) == product_version.__build_date__
 
 def test_version_components_match_semantic_version() -> None:
     match = re.fullmatch(

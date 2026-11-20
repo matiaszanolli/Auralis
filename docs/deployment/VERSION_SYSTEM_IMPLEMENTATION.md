@@ -37,14 +37,9 @@ __db_schema_version__ = 1
 
 **Purpose:** Central version tracking for the entire Auralis package
 
-#### `auralis-web/backend/version.py`
-```python
-API_VERSION = "1.0.0"
-MIN_CLIENT_VERSION = "1.0.0"
-DB_SCHEMA_VERSION = 1
-```
-
-**Purpose:** Backend API version information with client compatibility checking
+The backend has no version module of its own: `GET /api/version` serves
+`auralis.version.get_version_info()`. Auralis is a single-client desktop app, so
+there is no API version or minimum-client-version contract (#6686).
 
 ### 2. Database Schema Versioning
 
@@ -138,14 +133,16 @@ migration_v002_to_v003_add_user_preferences.sql    # Planned
 **Response:**
 ```json
 {
-  "api_version": "1.0.0",
-  "api_version_info": {
-    "major": 1,
-    "minor": 0,
-    "patch": 0
-  },
+  "version": "1.5.1",
+  "major": 1,
+  "minor": 5,
+  "patch": 1,
+  "prerelease": "",
+  "build": "",
+  "build_date": "2026-07-24",
+  "git_commit": "",
   "db_schema_version": 1,
-  "min_client_version": "1.0.0"
+  "display": "Auralis v1.5.1"
 }
 ```
 
@@ -243,7 +240,6 @@ migration_v002_to_v003_add_user_preferences.sql    # Planned
 | Component | File Path | Lines |
 |-----------|-----------|-------|
 | Version Info | `auralis/__version__.py` | 7 |
-| Backend Version | `auralis-web/backend/version.py` | 35 |
 | Schema Version Model | `auralis/library/models.py` | 19 |
 | Migration Manager | `auralis/library/migration_manager.py` | 331 |
 | Library Manager Integration | `auralis/library/manager.py` | 4 |
