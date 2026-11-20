@@ -42,19 +42,14 @@ export class ApiErrorHandler {
       // between the app's two HTTP transports that meant this method quietly
       // fell through to the 500 default for every APIRequestError, regardless
       // of the real status, until this branch checked for it explicitly.
-      // Fall back to scraping the legacy generic message for any thrower that
-      // uses neither, so callers keep seeing the actual code rather than
-      // always 500 (#2361).
+      // The message text is never parsed for a status: every HTTP thrower
+      // (`utils/httpError.ts`, APIRequestError) attaches one (#6689).
       const attached = (error as { status?: unknown; statusCode?: unknown }).status
         ?? (error as { statusCode?: unknown }).statusCode;
       if (typeof attached === 'number') {
         return { status: attached, message: error.message };
       }
-      const httpMatch = error.message.match(/^HTTP (\d{3}):/);
-      return {
-        status: httpMatch ? parseInt(httpMatch[1], 10) : 500,
-        message: error.message,
-      };
+      return { status: 500, message: error.message };
     }
 
     if (isApiError(error)) {

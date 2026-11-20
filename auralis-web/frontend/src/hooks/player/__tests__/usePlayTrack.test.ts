@@ -59,7 +59,7 @@ describe('usePlayTrack', () => {
   });
 
   it('does NOT start and shows an error toast when the queue POST fails (ghost-stream guard)', async () => {
-    mockPost.mockRejectedValue(new Error('HTTP 500: Internal Server Error'));
+    mockPost.mockRejectedValue(Object.assign(new Error('HTTP 500: Internal Server Error'), { status: 500 }));
 
     const { result } = renderHook(() => usePlayTrack());
     await act(async () => {

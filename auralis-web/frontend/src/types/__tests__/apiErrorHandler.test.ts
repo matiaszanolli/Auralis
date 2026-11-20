@@ -45,12 +45,12 @@ describe('ApiErrorHandler.parse', () => {
     expect(ApiErrorHandler.isNetworkError(notFound)).toBe(false);
   });
 
-  it('falls back to scraping a legacy "HTTP nnn:" message when neither property is present', () => {
+  it('does not scrape a status out of an "HTTP nnn:" message (#6689)', () => {
     const err = new Error('HTTP 503: Service Unavailable');
 
     const parsed = ApiErrorHandler.parse(err);
 
-    expect(parsed).toEqual({ status: 503, message: 'HTTP 503: Service Unavailable' });
+    expect(parsed).toEqual({ status: 500, message: 'HTTP 503: Service Unavailable' });
   });
 
   it('defaults to 500 for a plain Error with no status information at all', () => {

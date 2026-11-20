@@ -106,7 +106,7 @@ describe('reorderTrack route (#4854)', () => {
   });
 
   it('rolls the row back when the request fails (the observed 422 symptom)', async () => {
-    const { result } = setup(() => Promise.reject(new Error('HTTP 422: Unprocessable Entity')));
+    const { result } = setup(() => Promise.reject(Object.assign(new Error('HTTP 422: Unprocessable Entity'), { status: 422 })));
 
     await act(async () => {
       await expect(result.current.reorderTrack(0, 2)).rejects.toBeDefined();

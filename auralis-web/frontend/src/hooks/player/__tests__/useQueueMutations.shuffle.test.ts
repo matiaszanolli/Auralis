@@ -98,7 +98,7 @@ describe('useQueueMutations.toggleShuffle request shape (#4859)', () => {
   });
 
   it('rolls back and rethrows when the request fails', async () => {
-    const { result } = setup(() => Promise.reject(new Error('HTTP 422: Unprocessable Entity')));
+    const { result } = setup(() => Promise.reject(Object.assign(new Error('HTTP 422: Unprocessable Entity'), { status: 422 })));
 
     await act(async () => {
       await expect(result.current.toggleShuffle()).rejects.toBeDefined();
