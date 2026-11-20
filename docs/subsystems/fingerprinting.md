@@ -94,7 +94,7 @@ There are **two distinct `.25d` mechanisms**. Know which one you're touching.
 
 | System | Class | Location | Validation |
 |--------|-------|----------|------------|
-| **Centralized cache** | `FingerprintStorage` ([`fingerprint_storage.py`](../../auralis/analysis/fingerprint/fingerprint_storage.py)) | `~/.auralis/fingerprints/<md5>.25d` | key = MD5 of `abs_path:mtime:size:strategy` (#3679, #4127) |
+| **Centralized cache** | `FingerprintStorage` ([`fingerprint_storage.py`](../../auralis/analysis/fingerprint/fingerprint_storage.py)) | `~/.auralis/fingerprints/<md5>.25d` | key = MD5 of `abs_path:mtime:size:strategy` (#3679, #4127); orphan sweep, per-entry delete and clear-all live in [`fingerprint_store_maintenance.py`](../../auralis/analysis/fingerprint/fingerprint_store_maintenance.py) |
 | **Per-file sidecar** | `SidecarManager` ([`library/sidecar_manager.py`](../../auralis/library/sidecar_manager.py)) | `<audio>.25d` next to the file | size + mtime (not checksum) |
 
 Both write **flat** JSON fingerprint dicts. `FingerprintExtractor` reads/writes the

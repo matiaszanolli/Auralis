@@ -88,6 +88,8 @@
     "auralis/analysis/adaptive_mastering_engine.py": 278,
     "auralis/analysis/dynamic_range.py": 252,
     "auralis/analysis/dynamic_range_dynamics.py": 188,
+    "auralis/analysis/fingerprint/fingerprint_storage.py": 242,
+    "auralis/analysis/fingerprint/fingerprint_store_maintenance.py": 116,
     "auralis/analysis/fingerprint/normalizer.py": 217,
     "auralis/analysis/fingerprint/normalizer_stats.py": 119,
     "auralis/analysis/fingerprint/windowed_compute.py": 149,

@@ -18,6 +18,7 @@ binaries = []
 
 hiddenimports = [
     'auralis.analysis.fingerprint.fingerprint_storage',
+    'auralis.analysis.fingerprint.fingerprint_store_maintenance',
     'auralis.analysis.fingerprint',
     # Rust DSP module (CRITICAL - required for audio processing!)
     'auralis_dsp',

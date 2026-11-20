@@ -7,7 +7,7 @@ from typing import Protocol
 
 from config.limits import chunk_cache_dir
 
-from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
+from auralis.analysis.fingerprint.fingerprint_store_maintenance import clear_all_entries, sweep_orphans
 
 from core.encoding.wav_encoder import delete_chunk_files
 from core.mastering_target_service import (
@@ -94,7 +94,7 @@ async def clear_all_caches(
     cleanup_root = artwork_dir if clear_source_artwork else artwork_dir / "thumbnails"
     files_removed, bytes_reclaimed = await asyncio.to_thread(clear_artwork_cache, cleanup_root)
     fingerprint_files_removed = await asyncio.to_thread(
-        FingerprintStorage.clear_all if clear_fingerprint_store else FingerprintStorage.sweep_orphans
+        clear_all_entries if clear_fingerprint_store else sweep_orphans
     )
     return CacheClearResult(
         artwork_files_removed=files_removed,

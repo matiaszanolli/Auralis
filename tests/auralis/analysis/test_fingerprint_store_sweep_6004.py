@@ -10,10 +10,10 @@ import json
 import os
 import time
 
-import numpy as np
 import pytest
 
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
+from auralis.analysis.fingerprint.fingerprint_store_maintenance import sweep_orphans
 from auralis.analysis.fingerprint.schema import DIMENSION_SCHEMA
 
 
@@ -47,7 +47,7 @@ def test_a_live_entry_survives(tmp_path):
     entry = _save(_track(tmp_path))
     _age(entry)
 
-    assert FingerprintStorage.sweep_orphans() == 0
+    assert sweep_orphans() == 0
     assert entry.exists()
 
 
@@ -57,7 +57,7 @@ def test_an_entry_for_a_deleted_track_is_removed(tmp_path):
     _age(entry)
     track.unlink()
 
-    assert FingerprintStorage.sweep_orphans() == 1
+    assert sweep_orphans() == 1
     assert not entry.exists()
 
 
@@ -70,7 +70,7 @@ def test_a_retouched_track_strands_its_old_entry_but_not_its_new_one(tmp_path):
     _age(new)
 
     assert old != new
-    assert FingerprintStorage.sweep_orphans() == 1
+    assert sweep_orphans() == 1
     assert not old.exists() and new.exists()
     assert FingerprintStorage.load(track) is not None
 
@@ -87,7 +87,7 @@ def test_old_format_torn_and_foreign_entries_are_removed(tmp_path, isolated_stor
     for entry in (legacy, torn, foreign):
         _age(entry)
 
-    assert FingerprintStorage.sweep_orphans() == 3
+    assert sweep_orphans() == 3
     assert list(isolated_store.glob("*.25d")) == []
 
 
@@ -96,7 +96,7 @@ def test_a_just_written_entry_is_never_swept_even_if_it_looks_dead(tmp_path):
     entry = _save(track)
     track.unlink()  # dead, but written moments ago: a concurrent save must not lose its file
 
-    assert FingerprintStorage.sweep_orphans(min_age_s=60) == 0
+    assert sweep_orphans(min_age_s=60) == 0
     assert entry.exists()
 
 
@@ -107,7 +107,7 @@ def test_the_full_track_strategy_key_is_recognised_as_live(tmp_path):
     )
     _age(entry)
 
-    assert FingerprintStorage.sweep_orphans() == 0
+    assert sweep_orphans() == 0
     assert entry.exists()
 
 
