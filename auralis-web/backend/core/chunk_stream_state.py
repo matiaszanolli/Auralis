@@ -43,14 +43,27 @@ def _raise_if_cancelled(processor: "ChunkedAudioProcessor", chunk_index: int) ->
         )
 
 
+class DspFallbackError(RuntimeError):
+    """The chunk could only be produced by a DSP fallback (unprocessed input, or silence for a
+    chunk trimmed to nothing), so there is no durable mastered file to hand out a path to (#6444)."""
+
+
+def _raise_if_dsp_fallback(processor: "ChunkedAudioProcessor", chunk_index: int) -> None:
+    """Refuse to publish a fallback render as the chunk's durable cache entry (#6444)."""
+    if processor._dsp_fallback is not None:
+        raise DspFallbackError(f"Chunk {chunk_index} is a DSP fallback ({processor._dsp_fallback})")
+
+
 def _invalidate_after_post_dsp_failure(
-    processor: "ChunkedAudioProcessor", chunk_index: int
+    processor: "ChunkedAudioProcessor",
+    chunk_index: int,
+    reason: str = "failed after DSP state advanced",
 ) -> None:
     """Ensure a retry cannot reuse a stateful processor advanced by this chunk."""
     if not getattr(processor, "_dsp_state_advanced", False):
         return
     processor._dsp_state_advanced = False
-    invalidate_pooled_processor(processor, chunk_index, "failed after DSP state advanced")
+    invalidate_pooled_processor(processor, chunk_index, reason)
 
 
 def invalidate_pooled_processor(

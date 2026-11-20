@@ -15,6 +15,7 @@ eliminating ~400 lines of duplicate validation and processing logic.
 """
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -90,7 +91,8 @@ class AudioProcessingPipeline:
         audio: np.ndarray,
         processor: Any | None,
         intensity: float = 1.0,
-        chunk_index: int | None = None
+        chunk_index: int | None = None,
+        on_fallback: Callable[[str], None] | None = None,
     ) -> np.ndarray:
         """
         Apply enhancement processing to audio.
@@ -111,6 +113,10 @@ class AudioProcessingPipeline:
             processor: HybridProcessor instance or None
             intensity: Processing intensity (0.0-1.0)
             chunk_index: Chunk index, for log messages
+            on_fallback: Called with a reason when the processor's output was
+                unusable (None or non-finite) and the unprocessed input is
+                returned instead. A caller that persists the result must not
+                store such a chunk as if it were a mastered render (#6444).
 
         Returns:
             Processed audio array
@@ -125,9 +131,14 @@ class AudioProcessingPipeline:
         # Validate processed output
         if processed is None:
             logger.error("Processor returned None, using original audio")
+            if on_fallback is not None:
+                on_fallback("processor returned None")
             return audio
 
-        processed = finite_or_fallback(processed, audio, chunk_index)
+        guarded = finite_or_fallback(processed, audio, chunk_index)
+        if guarded is not processed and on_fallback is not None:
+            on_fallback("processor output was not finite")
+        processed = guarded
         if processed is audio:
             return audio
 
@@ -170,6 +181,7 @@ class AudioProcessingPipeline:
         allow_empty: bool = False,
         config: Any | None = None,
         processor: Any | None = None,
+        on_fallback: Callable[[str], None] | None = None,
     ) -> np.ndarray:
         """
         Main unified processing entry point.
@@ -193,6 +205,7 @@ class AudioProcessingPipeline:
                 rate (#5306) — forwarded to select_processor
             processor: A processor the caller already holds (a stream's lease,
                 #6091). When given, nothing is selected from the factory.
+            on_fallback: Forwarded to ``apply_enhancement`` (#6444).
 
         Returns:
             Processed audio array
@@ -237,7 +250,8 @@ class AudioProcessingPipeline:
             audio=audio,
             processor=processor,
             intensity=intensity,
-            chunk_index=chunk_index
+            chunk_index=chunk_index,
+            on_fallback=on_fallback,
         )
 
         # Step 4: Return processed audio

@@ -102,9 +102,8 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
         self.channels: int | None = None
         self._load_metadata()
 
-        # #5056: `self.chunk_interval` is deliberately not exposed — no production
-        # reader; position math goes through chunk_boundaries.emitted_chunk_start(),
-        # and the chunk loaders default `chunk_interval` from CHUNK_INTERVAL.
+        # #5056: `self.chunk_interval` is deliberately not exposed — no production reader
+        # (position math: chunk_boundaries.emitted_chunk_start(); loaders default it from CHUNK_INTERVAL).
 
         self.chunk_dir = chunk_cache_dir()
         create_secure_temp_dir(self.chunk_dir)
@@ -167,6 +166,7 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
         # Set right after the stateful DSP call; chunk_streaming clears it on
         # durable success or invalidates the pooled processor (#5274).
         self._dsp_state_advanced = False
+        self._dsp_fallback: str | None = None  # why the last render is a DSP fallback, not a mastered chunk (#6444)
         # Serialises get_wav_chunk_path()'s check→process→cache cycle per chunk.
         self._sync_cache_lock = threading.Lock()
 

@@ -33,6 +33,7 @@ from .chunk_stream_state import (
     ChunkCancelledError,
     _invalidate_after_post_dsp_failure,
     _raise_if_cancelled,
+    _raise_if_dsp_fallback,
 )
 
 if TYPE_CHECKING:
@@ -165,10 +166,8 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
     # two concurrent thread-pool calls for the same chunk cannot both miss the
     # cache, both process the chunk, and produce conflicting results.
     with processor._sync_cache_lock:
-        # Check cache — in-memory, then on-disk WAV (#4792: shared with
-        # process_chunk() via _lookup_cached_chunk, since both write the
-        # exact same on-disk file under what used to be two different
-        # cache keys — a hit recorded by one was invisible to the other).
+        # Check cache — in-memory, then on-disk WAV (#4792: shared with process_chunk()
+        # via _lookup_cached_chunk, as both write the exact same on-disk file).
         cached_path = processor._lookup_cached_chunk(chunk_index)
         if cached_path is not None:
             logger.info(f"Serving cached WAV chunk {chunk_index}")
@@ -196,6 +195,7 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
 
                 # #5328: never persist a render its stream abandoned mid-DSP.
                 _raise_if_cancelled(processor, chunk_index)
+                _raise_if_dsp_fallback(processor, chunk_index)  # #6444: no durable file for a fallback
 
                 try:
                     processor._wav_encoder.encode_and_save(

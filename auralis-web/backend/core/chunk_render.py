@@ -135,6 +135,7 @@ def process_chunk_core(
     """
     processor._validate_chunk_index(chunk_index)
     assert processor.sample_rate is not None
+    processor._dsp_fallback = None
     # Load chunk with context
     audio_chunk, chunk_start, chunk_end = processor.load_chunk(chunk_index, with_context=True)
 
@@ -151,7 +152,9 @@ def process_chunk_core(
         processor=processor.hybrid_processor(),
         targets=processor.mastering_targets,
         chunk_index=chunk_index,
-        allow_empty=False  # Don't allow empty chunks
+        allow_empty=False,  # Don't allow empty chunks
+        # A degraded render is served but never stored as the chunk's mastered entry (#6444).
+        on_fallback=lambda reason: setattr(processor, "_dsp_fallback", reason),
     )
     # The shared HybridProcessor has now advanced. If any validation or write
     # below this point fails, chunk_streaming must invalidate that cached
@@ -164,6 +167,7 @@ def process_chunk_core(
     # Validate chunk is not empty before smooth transitions
     if len(processed_chunk) == 0:
         logger.error(f"Chunk {chunk_index} is empty after context trimming. Returning silence.")
+        processor._dsp_fallback = "empty after context trimming"
         num_channels = audio_chunk.shape[1] if audio_chunk.ndim > 1 else 2
         # Preserve the input dtype rather than hardcoding float32 (#3831
         # sibling) so the fallback matches a float64 pipeline if present.

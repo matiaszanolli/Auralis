@@ -95,6 +95,15 @@ def render_chunk(
         # has long passed. Never persist a render its stream abandoned.
         _raise_if_cancelled(processor, chunk_index)
 
+        # #6444: the DSP returned None / non-finite audio, or trimming left nothing, and a
+        # stand-in was substituted. Serve it, but never store it under the key a mastered
+        # render uses (every replay would get the degraded chunk), and drop the processor the
+        # bad output came from so the next request re-renders on a fresh one.
+        fallback = processor._dsp_fallback
+        if fallback is not None:
+            logger.warning(f"Chunk {chunk_index} is a DSP fallback ({fallback}); serving it uncached")
+            _invalidate_after_post_dsp_failure(processor, chunk_index, f"rendered a DSP fallback ({fallback})")
+
         if extracted_chunk.shape[0] == 0:
             # The decoder ended before this last chunk's new content began (the container's
             # probed duration exceeds what it decodes by more than the remainder): there is
@@ -103,7 +112,7 @@ def render_chunk(
             processor._dsp_state_advanced = False
             return ("", extracted_chunk)
 
-        chunk_path = _persist_segment(processor, chunk_index, extracted_chunk)
+        chunk_path = "" if fallback is not None else _persist_segment(processor, chunk_index, extracted_chunk)
     except ChunkCancelledError:
         # Not a failed retry (#5274): nothing re-requests this chunk from the
         # cancelled stream, and the seek that cancelled it already breaks
