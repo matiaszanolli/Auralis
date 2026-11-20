@@ -12,6 +12,7 @@ import numpy as np
 from scipy.signal.windows import hann
 
 from ..constants import DEFAULT_FFT_SIZE
+from .audio_info import to_mono
 
 # The time-anchored analysis window/hop shared by onset analysis, the ML
 # feature extractor and phase-correlation analysis (#6228): 1024/512
@@ -65,8 +66,7 @@ def spectral_centroid(audio: np.ndarray, sample_rate: int) -> float:
     Returns:
         Spectral centroid in Hz
     """
-    if audio.ndim == 2:
-        audio = np.mean(audio, axis=1)
+    audio = to_mono(audio)
 
     # Use a window to focus on the middle part of the signal
     if len(audio) > DEFAULT_FFT_SIZE:
@@ -118,8 +118,7 @@ def spectral_rolloff(audio: np.ndarray,
     Returns:
         Rolloff frequency in Hz
     """
-    if audio.ndim == 2:
-        audio = np.mean(audio, axis=1)
+    audio = to_mono(audio)
 
     # Compute magnitude spectrum
     fft = np.fft.rfft(audio)
@@ -153,8 +152,7 @@ def zero_crossing_rate(audio: np.ndarray) -> float:
     Returns:
         Zero crossing rate (0-1)
     """
-    if audio.ndim == 2:
-        audio = np.mean(audio, axis=1)
+    audio = to_mono(audio)
 
     # Count zero crossings
     zero_crossings = np.sum(np.diff(np.sign(audio)) != 0)
@@ -240,8 +238,7 @@ def _tempo_estimate_python(audio: np.ndarray, sample_rate: int) -> float:
     This is the original pure-Python implementation, used when Rust module
     is unavailable.
     """
-    if audio.ndim == 2:
-        audio = np.mean(audio, axis=1)
+    audio = to_mono(audio)
 
     # Simple onset detection using spectral flux. Window/hop are anchored in
     # time, not bare sample counts, so resolution doesn't silently drift with
