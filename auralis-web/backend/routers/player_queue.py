@@ -14,6 +14,7 @@ from typing import Annotated, Any
 from fastapi import Depends, Path
 
 from services import QueueService, ServiceUnavailable
+from services.errors import ServiceError
 from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import with_error_handling
@@ -39,7 +40,7 @@ async def get_queue(service: QueueService = Depends(_get_queue_service)) -> dict
     """Get current playback queue."""
     try:
         return await service.get_queue_info()
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "get queue")
 
 
@@ -51,7 +52,7 @@ async def set_queue(
     """Set the playback queue (updates single source of truth)."""
     try:
         return await service.set_queue(request.tracks, request.start_index)
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "set queue")
 
 
@@ -63,7 +64,7 @@ async def remove_from_queue(
     """Remove track from queue at specified index."""
     try:
         return await service.remove_track_from_queue(index)
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "remove from queue")
 
 
@@ -75,7 +76,7 @@ async def reorder_queue(
     """Reorder the playback queue."""
     try:
         return await service.reorder_queue(request.new_order)
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "reorder queue")
 
 
@@ -84,7 +85,7 @@ async def clear_queue(service: QueueService = Depends(_get_queue_service)) -> di
     """Clear the entire playback queue."""
     try:
         return await service.clear_queue()
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "clear queue")
 
 
@@ -96,7 +97,7 @@ async def add_track_to_queue(
     """Add a track to queue at specific position (for drag-and-drop)."""
     try:
         return await service.add_track_to_queue(request.track_id, request.position)
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "add track to queue")
 
 
@@ -112,7 +113,7 @@ async def add_tracks_to_queue(
     """
     try:
         return await service.add_tracks_to_queue(request.track_ids)
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "add tracks to queue")
 
 
@@ -124,7 +125,7 @@ async def move_queue_track(
     """Move a track within the queue (for drag-and-drop)."""
     try:
         return await service.move_track_in_queue(request.from_index, request.to_index)
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "move track")
 
 
@@ -139,7 +140,7 @@ async def shuffle_queue(
             return await service.shuffle_queue()
         else:
             return await service.unshuffle_queue()
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "shuffle queue")
 
 
@@ -166,5 +167,5 @@ async def set_repeat_mode(
         )
 
         return {"message": f"Repeat mode set to {request.mode}"}
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "set repeat mode")

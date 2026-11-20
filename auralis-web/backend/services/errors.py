@@ -6,8 +6,9 @@ an HTTP status by *type* rather than by sniffing substrings out of the message
 (#4700). Substring matching silently mis-classified every service-outage
 condition as 400 Bad Request and broke the moment a message was reworded.
 
-All of these subclass ``ValueError`` so pre-existing ``except ValueError``
-handlers and tests keep working while call sites migrate.
+Routers catch ``ServiceError`` (not ``ValueError``), so an unrelated
+``ValueError`` from the engine or a library is not mistaken for a bad
+request: it reaches ``with_error_handling`` and becomes a 500 (#6690).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -16,7 +17,7 @@ handlers and tests keep working while call sites migrate.
 from typing import Any
 
 
-class ServiceError(ValueError):
+class ServiceError(Exception):
     """Base class for service-layer failures with a known HTTP classification."""
 
 

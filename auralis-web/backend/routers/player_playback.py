@@ -17,6 +17,7 @@ from fastapi import BackgroundTasks, Depends
 
 from player_state import PlayerState
 from services import NavigationService, PlaybackService, RecommendationService
+from services.errors import ServiceError
 from websocket.outbound_messages import broadcast_typed
 
 from .dependencies import with_error_handling
@@ -60,7 +61,7 @@ async def get_player_status(
     """
     try:
         return await service.get_status()
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "get player status")
 
 
@@ -173,7 +174,7 @@ async def seek_position(
     try:
         result = await service.seek(position)
         return result
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "seek")
 
 
@@ -205,17 +206,10 @@ async def set_volume(
         # body.volume disagree with the broadcast by up to 0.5 (#5050).
         # result["volume"] is already on the right scale; nothing to convert.
         return result
-    except ValueError as e:
-        # #5268: set_volume() used to raise a plain ValueError for BOTH "audio
-        # player not available" (a transient server-state condition, should be
-        # 503 like the seek route's analogous case above) and "volume out of
-        # range" (a genuine bad-request, 400) — this route couldn't tell them
-        # apart. It now raises ServiceUnavailable for the former, which
-        # raise_for_service_error maps to 503; any other ValueError still
-        # defaults to 400, preserving today's behavior for the range check
-        # (unreachable via this route in practice, since SetVolumeRequest
-        # clamps rather than rejects, but the service validates it
-        # defensively for any future caller that doesn't).
+    except ServiceError as e:
+        # #5268/#5338: ServiceUnavailable (no audio player) maps to 503 and
+        # InvalidRequest (volume out of range — unreachable via this route,
+        # since SetVolumeRequest clamps, but validated for other callers) to 400.
         raise_for_service_error(e, "set volume")
 
 
@@ -228,7 +222,7 @@ async def next_track(service: NavigationService = Depends(_get_navigation_servic
     """Skip to next track."""
     try:
         return await service.next_track()
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "skip to next track")
 
 
@@ -237,5 +231,5 @@ async def previous_track(service: NavigationService = Depends(_get_navigation_se
     """Skip to previous track."""
     try:
         return await service.previous_track()
-    except ValueError as e:
+    except ServiceError as e:
         raise_for_service_error(e, "skip to previous track")

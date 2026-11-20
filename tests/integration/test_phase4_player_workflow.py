@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from routers import player_deps
 from routers.player import create_player_router
 from routers.tracks import create_tracks_router
+from services.errors import InvalidRequest, ResourceNotFound
 from ws_handlers.context import StreamState
 from ws_handlers.playback_control import (
     handle_pause,
@@ -261,7 +262,7 @@ class InProcessQueueService:
             track_id for track_id in track_ids if self.tracks.get_by_id(track_id)
         ]
         if not valid_ids:
-            raise ValueError("No valid tracks found")
+            raise InvalidRequest("No valid tracks found")
         self.player.queue_ids = valid_ids
         self.player.current_index = min(start_index, len(valid_ids) - 1)
         infos = self._track_infos()
@@ -282,7 +283,7 @@ class InProcessQueueService:
         self, track_id: int, position: int | None = None
     ) -> dict[str, Any]:
         if self.tracks.get_by_id(track_id) is None:
-            raise ValueError(f"Track {track_id} not found")
+            raise ResourceNotFound(f"Track {track_id} not found")
         if position is None:
             self.player.queue_ids.append(track_id)
         else:

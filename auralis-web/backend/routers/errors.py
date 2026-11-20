@@ -9,9 +9,12 @@ the backend, reducing boilerplate and improving consistency.
 """
 
 import logging
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from fastapi import HTTPException
+
+if TYPE_CHECKING:
+    from services.errors import ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +76,7 @@ class AudioPlayerUnavailableError(ServiceUnavailableError):
         super().__init__("Audio player not available")
 
 
-def raise_for_service_error(error: ValueError, operation: str) -> NoReturn:
+def raise_for_service_error(error: "ServiceError", operation: str) -> NoReturn:
     """
     Map a service-layer failure to its HTTP status by exception TYPE (#4700).
 
@@ -85,16 +88,14 @@ def raise_for_service_error(error: ValueError, operation: str) -> NoReturn:
     Args:
         operation: Description of the failed operation, used for the 500 detail
             (e.g. "set queue")
-        error: The service-layer exception, normally a ``ServiceError`` subclass
+        error: The service-layer exception (a ``ServiceError`` subclass)
 
     Raises:
         HTTPException: 503 unavailable, 404 not found, 400 invalid request,
-            500 operation failure. A plain ``ValueError`` from a not-yet-typed
-            raiser keeps the historical 400 default.
+            500 operation failure or an unclassified ``ServiceError``.
     """
     from services.errors import (
         InvalidRequest,
-        OperationFailed,
         ResourceNotFound,
         ServiceUnavailable,
     )
@@ -105,11 +106,8 @@ def raise_for_service_error(error: ValueError, operation: str) -> NoReturn:
         raise NotFoundError("Resource", detail=str(error))
     if isinstance(error, InvalidRequest):
         raise BadRequestError(str(error))
-    if isinstance(error, OperationFailed):
-        raise InternalServerError(operation, error)
 
-    # Untyped ValueError — historical behaviour was 400 with the raw message.
-    raise BadRequestError(str(error))
+    raise InternalServerError(operation, error)
 
 
 def handle_query_error(operation: str, error: Exception) -> NoReturn:

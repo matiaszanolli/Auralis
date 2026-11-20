@@ -49,9 +49,9 @@ def mock_queue_manager():
 
 
 class TestServiceErrorTypes:
-    """The typed exceptions themselves stay ValueError-compatible."""
+    """The typed exceptions share ServiceError, which is not a ValueError."""
 
-    def test_service_errors_subclass_value_error(self):
+    def test_service_errors_are_not_value_errors(self):
         from services.errors import (
             InvalidRequest,
             OperationFailed,
@@ -62,8 +62,9 @@ class TestServiceErrorTypes:
 
         for cls in (ServiceUnavailable, InvalidRequest, ResourceNotFound, OperationFailed):
             assert issubclass(cls, ServiceError)
-            # Pre-existing `except ValueError` call sites must keep working.
-            assert issubclass(cls, ValueError)
+            # #6690: routers catch ServiceError, so an unrelated engine
+            # ValueError is never classified as a service failure.
+            assert not issubclass(cls, ValueError)
 
     @pytest.mark.parametrize("message", [
         "Audio player not available",

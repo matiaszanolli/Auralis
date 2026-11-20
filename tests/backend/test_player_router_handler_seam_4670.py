@@ -75,17 +75,30 @@ async def test_set_volume_maps_service_unavailable_to_503():
     assert exc_info.value.status_code == 503
 
 
-async def test_set_volume_maps_plain_value_error_to_400():
-    """Companion to the above: a genuinely bad request (an untyped
-    ValueError from the service) must still map to 400, unaffected by the
-    503 carve-out for ServiceUnavailable."""
+async def test_set_volume_maps_invalid_request_to_400():
+    """Companion to the above: a genuinely bad request (InvalidRequest from
+    the service) maps to 400, unaffected by the 503 carve-out for
+    ServiceUnavailable."""
     stub_service = MagicMock()
-    stub_service.set_volume = AsyncMock(side_effect=ValueError("Volume must be between 0.0 and 1.0"))
+    stub_service.set_volume = AsyncMock(side_effect=InvalidRequest("Volume must be between 0.0 and 1.0"))
 
     with pytest.raises(HTTPException) as exc_info:
         await set_volume(SetVolumeRequest(volume=50), service=stub_service)
 
     assert exc_info.value.status_code == 400
+
+
+async def test_set_volume_maps_untyped_value_error_to_500():
+    """#6690: a bare ValueError is not a service classification (it can come
+    from the engine or any library), so it is no longer reported as the
+    caller's fault: it reaches with_error_handling and becomes a 500."""
+    stub_service = MagicMock()
+    stub_service.set_volume = AsyncMock(side_effect=ValueError("engine internals"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await set_volume(SetVolumeRequest(volume=50), service=stub_service)
+
+    assert exc_info.value.status_code == 500
 
 
 async def test_next_track_callable_with_a_bare_stub_service():

@@ -248,9 +248,7 @@ class PlaybackService(PlaybackServiceBase):
         Raises:
             ServiceUnavailable: If the audio player is not available (#5268 —
                 a distinct type from InvalidRequest below so the router can
-                map it to 503 instead of 400; both subclass ValueError so
-                this doesn't break a caller still doing a bare
-                `except ValueError`)
+                map it to 503 instead of 400)
             InvalidRequest: If volume out of range (#5338)
             Exception: If setting volume fails
         """

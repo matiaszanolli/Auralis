@@ -32,6 +32,7 @@ _BACKEND = Path(__file__).resolve().parents[2] / "auralis-web" / "backend"
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
+from services.errors import InvalidRequest  # noqa: E402
 from services.queue_service import QueueService  # noqa: E402
 
 
@@ -130,11 +131,11 @@ async def test_set_queue_preserves_caller_order_dropping_missing_ids():
 @pytest.mark.regression
 @pytest.mark.asyncio
 async def test_set_queue_raises_when_no_tracks_resolve():
-    """Empty dict from get_by_ids should surface as a ValueError, not
+    """Empty dict from get_by_ids should surface as InvalidRequest, not
     a silently-empty queue."""
     service = _build_service(repo_returns={})
 
-    with pytest.raises(ValueError, match="No valid tracks found"):
+    with pytest.raises(InvalidRequest, match="No valid tracks found"):
         await service.set_queue([1, 2, 3], start_index=0)
 
 

@@ -25,7 +25,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from services.errors import ServiceUnavailable
+from services.errors import InvalidRequest, ServiceUnavailable
 from services.playback_service import PlaybackService
 
 
@@ -109,7 +109,7 @@ class TestSetVolumeValidation:
     async def test_out_of_range_volume_raises_and_does_not_broadcast(self, volume):
         service, _player, connections = _make_service()
 
-        with pytest.raises(ValueError, match="between 0.0 and 1.0"):
+        with pytest.raises(InvalidRequest, match="between 0.0 and 1.0"):
             await service.set_volume(volume)
 
         connections.broadcast.assert_not_awaited()
@@ -119,10 +119,8 @@ class TestSetVolumeValidation:
         service, _player, connections = _make_service()
         service.audio_player = None
 
-        # #5268: specifically ServiceUnavailable (a ValueError subclass), not
-        # a bare ValueError — the router maps the two to different status
-        # codes (503 vs 400), so a regression back to plain ValueError here
-        # would silently turn "player unavailable" back into a 400.
+        # #5268: specifically ServiceUnavailable, not InvalidRequest — the
+        # router maps the two to different status codes (503 vs 400).
         with pytest.raises(ServiceUnavailable, match="Audio player not available"):
             await service.set_volume(0.5)
 

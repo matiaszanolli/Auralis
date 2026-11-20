@@ -8,7 +8,7 @@ dedicated tests before this file.
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -103,7 +103,7 @@ class TestNextTrack:
     async def test_next_track_raises_if_player_missing(self):
         service, _, _, _ = _make_service()
         service.audio_player = None  # type: ignore[assignment]
-        with pytest.raises(ValueError, match="player"):
+        with pytest.raises(ServiceUnavailable, match="player"):
             await service.next_track()
 
 

@@ -7,10 +7,9 @@ get_status/play/pause/stop/seek used to raise a plain ValueError for both
 to 503) and "the caller supplied bad input" (should map to 400) alike --
 indistinguishable by type, so routers/player.py hard-coded one status per
 call site regardless of which one actually happened (set_volume was fixed
-for this same bug class in #5268; this closes the remaining sites). Both
-ServiceUnavailable and InvalidRequest subclass ValueError, so any
-pre-existing `except ValueError`/`pytest.raises(ValueError, ...)` caller
-keeps working unchanged.
+for this same bug class in #5268; this closes the remaining sites). Since
+#6690 ServiceError no longer subclasses ValueError, and routers catch
+ServiceError.
 """
 
 import sys
