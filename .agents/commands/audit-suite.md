@@ -72,7 +72,7 @@ See `.claude/commands/_audit-common.md` for project layout, methodology, and con
 2. /audit-integration --flows 1,5,8  — Playback + WebSocket lifecycle + Seek & Rebuffer
 3. /audit-concurrency --focus 3      — Backend streaming races
 ```
-**When**: After changes to the stream_* modules, the chunk or thumbnail caches, `seekable_source.py`, or the look-ahead/buffer path. These four surfaces share state and their bugs present identically to the user (wrong or missing audio), so auditing one without the others usually misattributes the cause.
+**When**: After changes to the stream_* modules, the chunk or thumbnail caches, `seekable_source.py` / `seekable_probe.py` / `converted_wav_registry.py`, or the look-ahead/buffer path. These four surfaces share state and their bugs present identically to the user (wrong or missing audio), so auditing one without the others usually misattributes the cause.
 
 ## Execution
 
