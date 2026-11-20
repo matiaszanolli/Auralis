@@ -67,6 +67,20 @@ def _track_eager_options(
     return options
 
 
+def nested_track_options(parent_rel: Any) -> tuple[_AbstractLoad, ...]:
+    """``_track_eager_options`` for the Tracks reached through ``parent_rel`` (#6623).
+
+    Album, artist and playlist detail reads hand a collection of Tracks to
+    ``Track.to_dict()``, so each needs every relationship that method reads.
+    They used to spell ``selectinload(X.tracks).selectinload(Track.<rel>)`` out
+    by hand, so a relationship added to ``_track_eager_options`` still had to be
+    remembered in three more places. Composing this keeps it in one.
+    """
+    return (
+        selectinload(parent_rel).options(*_track_eager_options(collections_via_selectin=True)),
+    )
+
+
 # Track columns a *metadata* code path is allowed to write (#4555).
 #
 # The metadata routes forward tag dictionaries that originate in a request body

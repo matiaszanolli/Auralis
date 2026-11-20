@@ -19,6 +19,7 @@ from ..models import Album, Artist, Genre, Track, track_artist, track_genre
 from .artist_page import ArtistPageMixin
 from .base import correlated_count, sort_terms
 from .text_search import contains_text
+from .track_repository import nested_track_options
 
 
 def _artist_order_by(order_by: str, order: str | None = None) -> tuple[ColumnElement[Any], ...]:
@@ -94,8 +95,7 @@ def _attach_genre_names(session: Session, artists: Sequence[Artist]) -> None:
 # Single-artist detail reads: get_by_id/get_by_name hand the artist straight
 # to to_dict(), which walks tracks->genres, tracks->album, and albums->tracks.
 _ARTIST_DETAIL_OPTIONS = (
-    selectinload(Artist.tracks).selectinload(Track.genres),
-    selectinload(Artist.tracks).selectinload(Track.album),
+    *nested_track_options(Artist.tracks),
     selectinload(Artist.albums).selectinload(Album.tracks),
 )
 
