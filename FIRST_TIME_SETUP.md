@@ -145,43 +145,31 @@ cd auralis-web/frontend && pnpm list react react-dom 2>/dev/null | head -5
 
 ## 🎯 Run Your First Development Session
 
-The all-in-one root launcher (`launch-auralis-web.py`) is currently blocked by
-[REC-01](docs/audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher),
-so run the backend and frontend separately.
+From the repository root, prepare the desktop dependencies once and launch
+Electron with the project Python environment active.
 
-### Option A: Backend + Frontend (Recommended)
-
-**Terminal 1 — backend:**
 ```bash
 source .venv/bin/activate
-cd auralis-web/backend
-python main.py --dev
-```
-
-**Terminal 2 — frontend:**
-```bash
-cd auralis-web/frontend
+pnpm --dir desktop install --frozen-lockfile
 pnpm run dev
 ```
 
-Then visit:
-- **Backend**: http://localhost:8765/api/docs (Swagger docs)
-- **Frontend**: http://localhost:3000 (Vite dev server)
-- **Health check**: `curl http://localhost:8765/api/health`
+The launcher supervises one backend and one Vite server. It opens the desktop
+window after the backend is ready. Press Ctrl+C to stop the processes it started.
+The default ports are 8765 for the backend and 3000 for Vite. Pass `--port` to
+override the backend port.
 
-### Option B: Backend Only
+For a source-run browser preview, run either command from the repository root.
+
 ```bash
-cd auralis-web/backend
-python main.py --dev
-# Visit http://localhost:8765/api/docs
+python launch-auralis-web.py --dev              # Vite preview
+pnpm --dir auralis-web/frontend run build
+python launch-auralis-web.py                    # Built frontend
 ```
 
-### Option C: Frontend Only
-```bash
-cd auralis-web/frontend
-pnpm run dev
-# Visit http://localhost:3000
-```
+Add `--no-browser` for a headless launch. `/api/health` reports backend liveness.
+`/api/ready` checks the initialized database and engine. Installed Electron
+launches from the OS application menu and owns its bundled backend.
 
 ---
 

@@ -28,8 +28,8 @@ function isSafeExternalUrl(url) {
 // The port the packaged backend serves on. backend-env.js pins AURALIS_PORT to it, so an exported
 // AURALIS_PORT cannot move the backend away from the origin Electron loads and trusts (#6170).
 const APP_PORT = 8765;
-const APP_ORIGIN = `http://localhost:${APP_PORT}`;
-const DEV_ORIGIN = 'http://localhost:3000';
+const APP_ORIGIN = `http://127.0.0.1:${APP_PORT}`;
+const DEV_ORIGIN = 'http://127.0.0.1:3000';
 
 // Passed to the renderer via webPreferences.additionalArguments only when
 // unpackaged, so the sandboxed preload (which cannot require this module or

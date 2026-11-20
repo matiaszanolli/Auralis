@@ -39,15 +39,16 @@ cd vendor/auralis-dsp && maturin develop && cd ../..
 cd auralis-web/frontend && pnpm install && cd ../..
 ```
 
-Run the backend and frontend in two terminals. The all-in-one root launcher
-(`launch-auralis-web.py`) is currently blocked by
-[REC-01](audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher).
+From the repository root with the Python environment active:
 
 ```bash
-cd auralis-web/backend && python main.py --dev    # terminal 1 — backend :8765
-cd auralis-web/frontend && pnpm run dev           # terminal 2 — frontend :3000
-cd desktop && pnpm install && pnpm run dev        # optional — Electron shell
+pnpm --dir desktop install --frozen-lockfile
+pnpm run dev
 ```
+
+For a browser preview, run `python launch-auralis-web.py --dev`. The
+[setup guide](../FIRST_TIME_SETUP.md#-run-your-first-development-session)
+lists the source entry points and ports.
 
 > If startup raises `RuntimeError: ... auralis_dsp`, you skipped step 2. The Rust module is not
 > optional — see [subsystems/dsp-engine.md §5](subsystems/dsp-engine.md#5-rust-dsp-module-vendorauralis-dsp).

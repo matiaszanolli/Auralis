@@ -784,21 +784,11 @@ pnpm run build
 
 ### Make Both Run Together
 
-The all-in-one root launcher (`launch-auralis-web.py`) is currently blocked by
-[REC-01](../audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher),
-so run the two halves separately, from the repo root:
+From the repository root, start the backend and Vite together:
 
-**Terminal 1 - Backend:**
 ```bash
 source .venv/bin/activate
-cd auralis-web/backend
-python main.py --dev
-```
-
-**Terminal 2 - Frontend:**
-```bash
-cd auralis-web/frontend
-pnpm run dev
+python launch-auralis-web.py --dev --no-browser
 ```
 
 **Terminal 3 - Tests:**

@@ -15,6 +15,7 @@ function getCommitId(): string {
 }
 
 export default defineConfig(({ mode }) => {
+  const backendPort = process.env.AURALIS_PORT ?? '8765'
   // Get commit at config time for build mode
   const commitIdAtBuildTime = getCommitId()
 
@@ -109,11 +110,11 @@ export default defineConfig(({ mode }) => {
       open: false,
       proxy: {
         '/api': {
-          target: 'http://localhost:8765',
+          target: `http://127.0.0.1:${backendPort}`,
           changeOrigin: true,
         },
         '/ws': {
-          target: 'ws://localhost:8765',
+          target: `ws://127.0.0.1:${backendPort}`,
           ws: true,
           changeOrigin: true,
         },

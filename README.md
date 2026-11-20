@@ -145,45 +145,19 @@ the *"last binary release"* note above (currently v1.2.0-beta.2). These
 blocks are intentionally not tied to a specific version string so they
 stay correct across releases without a per-release edit.
 
-### Option 2: Run the verified components from source
+### Option 2: Run from source
 
-The root launcher and Electron development orchestration are currently blocked by
-[REC-01](docs/audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher).
-For recovery work, run the backend and Vite separately:
-
-**One-time setup:**
+Prepare the Python environment, build the Rust DSP module, and install the
+frontend and desktop dependencies using the [setup guide](FIRST_TIME_SETUP.md#-run-your-first-development-session).
+From the repository root with the Python environment active, run:
 
 ```bash
-# --python-preference only-managed: without it uv can silently pick a
-# stale pyenv shim instead of the interpreter .python-version pins.
-uv venv --python-preference only-managed
-source .venv/bin/activate
-uv pip install -r requirements.txt
-cd vendor/auralis-dsp
-maturin develop
-cd ../..
-cd auralis-web/frontend
-pnpm install --frozen-lockfile
-```
-
-**Terminal 1 — backend:**
-
-```bash
-source .venv/bin/activate
-cd auralis-web/backend
-python main.py --dev
-```
-
-**Terminal 2 — frontend:**
-
-```bash
-cd auralis-web/frontend
 pnpm run dev
 ```
 
-Open <http://localhost:3000> only as an **unsupported browser preview** for renderer
-development. It is not an official Auralis platform and does not clear the desktop release
-gate. Electron remains the supported product surface and embeds this same React bundle.
+The launcher opens Electron once the backend and Vite are ready. For renderer
+development in a browser, run `python launch-auralis-web.py --dev`. Electron
+remains the supported product surface.
 
 ---
 
@@ -474,14 +448,13 @@ See **[MASTER_ROADMAP.md §5](docs/MASTER_ROADMAP.md#5-open-backlog-real-tracked
 
 **Release blockers**
 
-- The root and Electron launch paths do not yet have a safe single backend owner.
+- The installed Electron launch and shutdown checks remain part of release validation.
 - Fresh databases silently fail their first fingerprint inserts.
 - Adaptive enhancement crashes on two-dimensional mono input.
 - Rapid track selection can allow an older request to play after the newer request.
 
 See the [recovery audit](docs/audits/AUDIT_RECOVERY_2026-07-24.md) for evidence and required
-fixes. The separate backend + Vite workflow above is the supported recovery-development path,
-not a production workaround.
+fixes. The [release checklist](docs/releases/RELEASE_CHECKLIST_1_5_1.md) records current validation.
 
 ### ✅ Already verified on `master`
 

@@ -15,7 +15,9 @@ function fakeChild({ exitsOn = null } = {}) {
   child.kill = (signal) => {
     child.killed = true; // Node sets this as soon as a signal is sent, not when the process exits
     child.signals.push(signal);
-    if (signal === exitsOn) setImmediate(() => child.emit('exit', null, signal));
+    if (signal === exitsOn || signal === 'SIGKILL') {
+      setImmediate(() => child.emit('exit', null, signal));
+    }
     return true;
   };
   return child;

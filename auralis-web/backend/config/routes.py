@@ -90,6 +90,7 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     health_router: APIRouter = create_health_router(
         HAS_AURALIS=deps.get('HAS_AURALIS', False),
         get_library_database=get_component('library_database'),
+        get_player_state_manager=get_component('player_state_manager'),
     )
     app.include_router(health_router)
     logger.debug("✅ Health router registered")

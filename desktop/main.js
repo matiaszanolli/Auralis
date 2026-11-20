@@ -1,22 +1,17 @@
 const { app, BrowserWindow, dialog, ipcMain, session, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log/main');
-const { spawn, exec } = require('node:child_process');
+const { spawn } = require('node:child_process');
+const { randomUUID } = require('node:crypto');
+const { setTimeout: delay } = require('node:timers/promises');
 const path = require('node:path');
 const fs = require('node:fs');
-const { isSafeExternalUrl, isAllowedAppNavigation, isTrustedIpcSender, escapeControlChars, DEV_ORIGIN_FLAG, APP_PORT, APP_ORIGIN } = require('./url-safety');
+const { isSafeExternalUrl, isAllowedAppNavigation, isTrustedIpcSender, escapeControlChars, DEV_ORIGIN_FLAG, APP_PORT, APP_ORIGIN, DEV_ORIGIN } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
 const { terminateBackend } = require('./backend-shutdown');
-const { findListeners, stopProcess } = require('./port-cleanup');
-
-// Grace period between SIGTERM and SIGKILL for the Python backend. The
-// backend's own teardown steps are budgeted in
-// auralis-web/backend/config/limits.py (OBSERVER_JOIN_TIMEOUT_S +
-// 3 x SHUTDOWN_STEP_TIMEOUT_S = 35 s worst case); this grace only decides
-// how long the wrapper is willing to wait before forcing the issue — the
-// two numbers must be read against each other, and the WAL checkpoint the
-// lifespan reworked for (#4569, #4801) only happens if teardown beats this.
-const BACKEND_KILL_GRACE_MS = 2000;
+const STARTUP_TIMEOUT_MS = 45000;
+// Allow the backend's bounded lifespan shutdown to flush its SQLite WAL and stop workers.
+const BACKEND_KILL_GRACE_MS = 40000;
 
 // Configure logging for auto-updater
 log.transports.file.level = 'info';
@@ -56,245 +51,85 @@ class AuralisApp {
   constructor() {
     this.pythonProcess = null;
     this.mainWindow = null;
-    this.backendReady = false;
     this.isQuitting = false;
     this.isDevelopment = !app.isPackaged;
-    this.backendPort = APP_PORT;
+    this.backendPort = this.isDevelopment ? Number(process.env.AURALIS_PORT) : APP_PORT;
+    this.launchId = this.isDevelopment ? process.env.AURALIS_LAUNCH_ID : randomUUID();
+    this.initializing = false;
+    this.initialized = false;
   }
 
-  /**
-   * Free the backend port if a stale Auralis backend is still listening on it.
-   *
-   * Only a process LISTENING on the port whose command line is the Auralis
-   * backend is stopped (SIGTERM, then SIGKILL after a grace period). Clients
-   * of the port -- a browser tab, the Vite proxy, curl -- and unrelated
-   * listeners are left alone (#6157). A second launch never gets this far: the
-   * single-instance lock below quits it first.
-   */
-  async cleanupPort() {
-    const options = { exec, platform: process.platform, port: this.backendPort };
-    console.log(`Checking if port ${this.backendPort} is available...`);
-
-    const { backend, foreign } = await findListeners(options);
-    if (foreign.length > 0) {
-      log.warn(`⚠️ Port ${this.backendPort} is held by a non-Auralis process (${escapeControlChars(foreign.join(', '))}); not touching it`);
+  startPythonBackend() {
+    if (!fs.existsSync(path.join(process.resourcesPath, 'frontend', 'index.html'))) {
+      throw new Error('The installed frontend is missing. Reinstall Auralis.');
     }
-    if (backend.length === 0) {
-      console.log(`✓ No stale Auralis backend on port ${this.backendPort}`);
-      return;
-    }
+    let pythonCmd, pythonArgs;
+    const isWindows = process.platform === 'win32';
+    const cwd = path.join(process.resourcesPath, 'backend');
+    const backendPath = path.join(cwd, 'auralis-backend');
+    const backendExe = isWindows ? `${backendPath}.exe` : backendPath;
+    const pythonScript = path.join(cwd, 'main.py');
 
-    console.log(`⚠️ Stopping stale Auralis backend (${backend.join(', ')}) on port ${this.backendPort}`);
-    for (const pid of backend) {
-      const exited = await stopProcess(pid);
-      console[exited ? 'log' : 'error'](exited ? `✓ Stopped process ${pid}` : `Failed to stop process ${pid}`);
-    }
-  }
-
-  async startPythonBackend() {
-    console.log('Starting Python backend...');
-    console.log('Development mode:', this.isDevelopment);
-
-    // First, ensure port is free
-    await this.cleanupPort();
-
-    let pythonCmd, pythonArgs, cwd;
-
-    if (this.isDevelopment) {
-      // Development: Run Python script directly
-      pythonCmd = 'python';
-      pythonArgs = [path.join(__dirname, '..', 'auralis-web', 'backend', 'main.py')];
-      cwd = path.join(__dirname, '..');
+    if (fs.existsSync(backendExe)) {
+      // Use compiled binary if available
+      pythonCmd = backendExe;
+      pythonArgs = [];
+    } else if (!isWindows && fs.existsSync(pythonScript)) {
+      // macOS/Linux: Fallback to Python script from resources
+      console.log('Binary not found, using Python script from resources');
+      pythonCmd = 'python3';
+      pythonArgs = [pythonScript];
     } else {
-      // Production: Run Python backend from resources
-      // Platform-specific backend selection
-      const isWindows = process.platform === 'win32';
-      const backendPath = path.join(process.resourcesPath, 'backend', 'auralis-backend');
-      const backendExe = isWindows ? `${backendPath}.exe` : backendPath;
-      const pythonScript = path.join(process.resourcesPath, 'backend', 'main.py');
-
-      if (fs.existsSync(backendExe)) {
-        // Use compiled binary if available
-        pythonCmd = backendExe;
-        pythonArgs = [];
-        cwd = path.join(process.resourcesPath, 'backend');
-      } else if (!isWindows && fs.existsSync(pythonScript)) {
-        // macOS/Linux: Fallback to Python script from resources
-        console.log('Binary not found, using Python script from resources');
-        pythonCmd = 'python3';
-        pythonArgs = [pythonScript];
-        cwd = path.join(process.resourcesPath, 'backend');
-      } else {
-        // Error: Backend not available
-        const errorMessage = isWindows
-          ? `Auralis backend not found.\n\nPlease reinstall Auralis.\n\nAlternatively, install Python 3.13+:\nhttps://python.org`
-          : `Backend not found. Tried:\n  Binary: ${backendExe}\n  Script: ${pythonScript}`;
-
-        log.error(escapeControlChars(errorMessage));
-
-        if (isWindows) {
-          // Show user-friendly dialog for Windows
-          dialog.showErrorBox('Backend Not Found', errorMessage);
-        }
-
-        throw new Error('Backend executable or script not found');
-      }
+      throw new Error('The installed backend is missing. Reinstall Auralis.');
     }
-
-    console.log(`Executing: ${pythonCmd} ${pythonArgs.join(' ')}`);
-    console.log(`Working directory: ${cwd}`);
-
-    // Set up Python path to include auralis package
-    const pythonPath = this.isDevelopment
-      ? path.join(__dirname, '..')
-      : process.resourcesPath;
-
-    const fullPythonPath = pythonPath + (process.env.PYTHONPATH ? path.delimiter + process.env.PYTHONPATH : '');
-    console.log(`Python path for auralis: ${pythonPath}`);
-    console.log(`Full PYTHONPATH: ${fullPythonPath}`);
-    console.log(`Is development mode: ${this.isDevelopment}`);
-
     this.pythonProcess = spawn(pythonCmd, pythonArgs, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      cwd: cwd,
-      detached: true,  // Create new process group for easy cleanup
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
       env: {
-        // buildBackendEnv() clears AURALIS_DEV_MODE on the production path
-        // so an ambient value from the parent shell can't silently reopen
-        // the dev-mode CORS/WS origin allowlist in a packaged build (#4898).
-        ...buildBackendEnv(process.env, this.isDevelopment),
+        ...buildBackendEnv(process.env, false),
+        AURALIS_LAUNCH_ID: this.launchId,
         PYTHONUNBUFFERED: '1',
-        // Tell backend it's running in Electron
         ELECTRON_MODE: '1',
-        // Add auralis package to Python path
-        PYTHONPATH: fullPythonPath
-      }
+        PYTHONPATH: process.resourcesPath,
+      },
     });
 
-    return new Promise((resolve, reject) => {
-      // Only the startup-timeout log reads this, so it stops at readiness and keeps the
-      // tail of what came before: it used to hold every backend line for the app's life (#6188).
-      let startupOutput = '';
-      let resolved = false;
-      const rememberStartupOutput = (output) => {
-        if (!resolved) startupOutput = (startupOutput + output).slice(-65536);
-      };
-
-      const markReady = (source) => {
-        if (!resolved) {
-          resolved = true;
-          this.backendReady = true;
-          console.log(`✓ Backend is ready! (detected from ${source})`);
-          resolve();
-        }
-      };
-
-      const checkReadiness = (output, source) => {
-        // "Uvicorn running on" is printed AFTER successful socket bind — most reliable signal
-        if (output.includes('Uvicorn running') ||
-            output.includes('Application startup complete')) {
-          markReady(source);
-        }
-      };
-
-      // Watch stdout for readiness
-      this.pythonProcess.stdout.on('data', (data) => {
-        const output = data.toString();
-        rememberStartupOutput(output);
-        // #4920: route through electron-log (not console.log) so backend
-        // output — including security-relevant lines like rejected
-        // path-traversal attempts and WS origin rejections — lands in the
-        // same rotated on-disk log file already used by the auto-updater,
-        // instead of vanishing when there's no attached terminal in a
-        // packaged build. electron-log's default transports still echo to
-        // the console too, so dev-mode visibility is unchanged.
-        log.info('[Backend]', output.trim());
-        checkReadiness(output, 'stdout');
-      });
-
-      // Watch stderr too — uvicorn logs go to stderr via Python logging
-      this.pythonProcess.stderr.on('data', (data) => {
-        const output = data.toString();
-        rememberStartupOutput(output);
-        log.error('[Backend Error]', output.trim());
-        checkReadiness(output, 'stderr');
-
-        // Detect fatal bind errors
-        if (output.includes('address already in use')) {
-          if (!resolved) {
-            resolved = true;
-            reject(new Error(`Port ${APP_PORT} is already in use — backend cannot start`));
-          }
-        }
-      });
-
-      this.pythonProcess.on('exit', (code, signal) => {
-        console.log(`Backend process exited with code ${code}, signal ${signal}`);
-        if (code !== 0 && !this.isQuitting) {
-          reject(new Error(`Backend exited with code ${code}`));
-        }
-      });
-
-      this.pythonProcess.on('error', (error) => {
-        log.error('Failed to start backend process:', error);
-        reject(error);
-      });
-
-      // Timeout after 30 seconds
-      setTimeout(() => {
-        if (!this.backendReady) {
-          log.error('Backend startup timeout. Output so far:', escapeControlChars(startupOutput));
-          reject(new Error('Backend startup timeout'));
-        }
-      }, 30000);
+    this.pythonProcess.stdout.on('data', (output) => log.info('[Backend]', output.toString().trim()));
+    this.pythonProcess.stderr.on('data', (output) => log.error('[Backend Error]', output.toString().trim()));
+    this.pythonProcess.on('error', (error) => {
+      this.backendSpawnError = error;
+      log.error('Failed to start backend:', error);
+    });
+    this.pythonProcess.on('exit', (code, signal) => {
+      if (this.initialized && !this.isQuitting) {
+        this.failStartup(new Error(`Backend stopped (${code ?? signal}).`));
+      }
     });
   }
 
-  async waitForBackendHealth() {
-    // Give backend a moment to start serving
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Try to ping the health endpoint
-    try {
-      const http = require('node:http');
-      const options = {
-        hostname: 'localhost',
-        port: APP_PORT,
-        path: '/api/health',
-        method: 'GET',
-        timeout: 5000
-      };
-
-      await new Promise((resolve, reject) => {
-        const req = http.request(options, (res) => {
-          console.log(`Health check status: ${res.statusCode}`);
-          if (res.statusCode === 200) {
-            resolve();
-          } else {
-            reject(new Error(`Health check failed with status ${res.statusCode}`));
-          }
-        });
-
-        req.on('error', (error) => {
-          log.warn('Health check request failed:', escapeControlChars(error.message));
-          // Don't fail completely, just warn
-          resolve();
-        });
-
-        req.on('timeout', () => {
-          log.warn('Health check timed out');
-          req.destroy();
-          resolve();
-        });
-
-        req.end();
-      });
-
-      console.log('✓ Backend health check passed');
-    } catch (error) {
-      log.warn('Backend health check warning:', escapeControlChars(error.message));
-      // Continue anyway - the backend might be ready but not responding to HTTP yet
+  async waitForBackend() {
+    const deadline = Date.now() + STARTUP_TIMEOUT_MS;
+    while (!this.isQuitting && Date.now() < deadline) {
+      if (this.backendSpawnError) throw this.backendSpawnError;
+      const child = this.pythonProcess;
+      if (child && (child.exitCode !== null || child.signalCode !== null)) {
+        throw new Error(`Backend exited (${child.exitCode ?? child.signalCode}) on port ${this.backendPort}.`);
+      }
+      const response = await fetch(`http://127.0.0.1:${this.backendPort}/api/ready`, {
+        redirect: 'error',
+        signal: AbortSignal.timeout(1000),
+      }).catch(() => null);
+      if (response) {
+        await response.body?.cancel();
+        if (response.headers.get('X-Auralis-Launch-Id') === this.launchId) {
+          if (response.ok) return;
+          if (response.status === 503) throw new Error('The backend could not initialize.');
+        }
+      }
+      await delay(100);
     }
+    throw new Error(`Backend did not become ready on port ${this.backendPort}.`);
   }
 
   async createWindow() {
@@ -321,117 +156,51 @@ class AuralisApp {
       }
     });
 
-    // Load the React app
-    let startUrl;
-
-    if (this.isDevelopment) {
-      // Development: Load from Vite dev server (if running) or backend
-      startUrl = 'http://localhost:3000'; // Try React dev server first
-    } else {
-      // Production: Backend serves the built React app
-      startUrl = APP_ORIGIN;
-    }
-
-    console.log(`Loading URL: ${startUrl}`);
-
-    // Handle navigation
-    this.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const window = this.mainWindow;
+    window.on('closed', () => { this.mainWindow = null; });
+    window.webContents.setWindowOpenHandler(({ url }) => {
       openExternalSafely(url);
       return { action: 'deny' };
     });
 
-    try {
-      await this.mainWindow.loadURL(startUrl);
-      console.log('✓ URL loaded successfully');
-
-      // Show window when ready (with timeout fallback for Linux)
-      let windowShown = false;
-
-      this.mainWindow.once('ready-to-show', () => {
-        if (!windowShown) {
-          windowShown = true;
-          this.mainWindow.show();
-          console.log('✓ Window shown (ready-to-show event)');
-        }
-      });
-
-      // Fallback: Force show after 2 seconds if event doesn't fire
-      // This fixes display issues on some Linux window managers
-      setTimeout(() => {
-        if (!windowShown) {
-          windowShown = true;
-          this.mainWindow.show();
-          console.log('✓ Window shown (fallback timeout)');
-        }
-      }, 2000);
-
-      // Open DevTools in development
-      if (this.isDevelopment) {
-        this.mainWindow.webContents.openDevTools();
-      }
-
-    } catch (error) {
-      log.error('Failed to load URL:', error);
-
-      // Try alternative URL if development failed
-      if (this.isDevelopment) {
-        console.log('Trying backend URL instead...');
-        try {
-          await this.mainWindow.loadURL(APP_ORIGIN);
-          this.mainWindow.show();
-        } catch (backendError) {
-          // Show error page
-          this.mainWindow.loadFile(path.join(__dirname, 'error.html'));
-          this.mainWindow.show();
-        }
-      } else {
-        // Show error page in production
-        this.mainWindow.loadFile(path.join(__dirname, 'error.html'));
-        this.mainWindow.show();
-      }
-    }
-
-    // Handle window closed
-    this.mainWindow.on('closed', () => {
-      this.mainWindow = null;
-    });
+    // loadURL rejects on renderer load failure. Keep the window hidden until
+    // it has loaded the frontend selected by this launch mode.
+    await window.loadURL(this.isDevelopment ? DEV_ORIGIN : APP_ORIGIN);
+    window.show();
+    if (this.isDevelopment) window.webContents.openDevTools();
   }
 
   async initialize() {
+    if (this.initializing || this.isQuitting) return;
+    this.initializing = true;
     try {
-      console.log('🚀 Initializing Auralis desktop app...');
-      console.log(`Mode: ${this.isDevelopment ? 'Development' : 'Production'}`);
-      console.log(`Platform: ${process.platform}`);
-      console.log('');
-
-      // Start Python backend first
-      console.log('[1/3] Starting backend...');
-      await this.startPythonBackend();
-      console.log('✓ Backend started');
-      console.log('');
-
-      // Wait for backend to be healthy
-      console.log('[2/3] Checking backend health...');
-      await this.waitForBackendHealth();
-      console.log('✓ Backend healthy');
-      console.log('');
-
-      // Then create the UI window
-      console.log('[3/3] Creating UI window...');
+      if (!this.initialized) {
+        if (this.isDevelopment) {
+          if (!this.launchId || !Number.isInteger(this.backendPort) ||
+              this.backendPort < 1 || this.backendPort > 65535) {
+            throw new Error('Start Electron development with pnpm run dev from the repository root.');
+          }
+        } else {
+          this.startPythonBackend();
+        }
+        await this.waitForBackend();
+      }
+      if (this.isQuitting) return;
       await this.createWindow();
-      console.log('✓ UI ready');
-      console.log('');
-
-      console.log('✅ Auralis is ready!');
-
+      this.initialized = true;
+      console.log('Auralis is ready');
     } catch (error) {
-      log.error('❌ Failed to initialize app:', error);
-
-      dialog.showErrorBox('Startup Error',
-        `Failed to start Auralis:\n\n${error.message}\n\nPlease check that Python is installed and try again.`);
-
-      this.cleanup().then(() => app.quit());
+      if (!this.isQuitting) await this.failStartup(error);
+    } finally {
+      this.initializing = false;
     }
+  }
+
+  async failStartup(error) {
+    log.error('Auralis startup failed:', error);
+    if (!this.isDevelopment) dialog.showErrorBox('Auralis startup failed', error.message);
+    await this.cleanup().catch((cleanupError) => log.error('Backend cleanup failed:', cleanupError));
+    app.exit(1);
   }
 
   /**
@@ -439,19 +208,14 @@ class AuralisApp {
    * Callers that are about to quit must wait for it: the escalation timer dies with the app (#5992).
    */
   cleanup() {
-    console.log('Cleaning up...');
+    if (this.cleanupPromise) return this.cleanupPromise;
     this.isQuitting = true;
-
-    // Local reference: this.pythonProcess is cleared right away, so a timer reading the field
-    // saw null and the SIGKILL never ran.
-    const backend = this.pythonProcess;
-    this.pythonProcess = null;
-    if (backend) console.log('Terminating Python backend...');
-    return terminateBackend(backend, {
+    this.cleanupPromise = terminateBackend(this.pythonProcess, {
       graceMs: BACKEND_KILL_GRACE_MS,
       killGroup: (pid) => process.kill(-pid, 'SIGKILL'),
       log: (message) => console.log(message),
     });
+    return this.cleanupPromise;
   }
 }
 
@@ -600,7 +364,8 @@ handleTrusted('check-for-updates', async () => {
 // bring the first window forward.
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
-  app.quit();
+  if (app.isPackaged) app.quit();
+  else app.exit(1);
 } else {
   app.on('second-instance', () => {
     const win = auralisApp.mainWindow;
@@ -639,8 +404,6 @@ app.on('window-all-closed', () => {
   console.log('All windows closed');
   if (process.platform !== 'darwin') {
     app.quit(); // before-quit stops the backend and waits for it
-  } else {
-    auralisApp.cleanup();
   }
 });
 
@@ -653,10 +416,15 @@ app.on('activate', () => {
 
 app.on('before-quit', (event) => {
   console.log('App before quit');
-  if (!auralisApp.isQuitting) {
-    event.preventDefault();
-    auralisApp.cleanup().then(() => app.quit());
-  }
+  if (auralisApp.canQuit) return;
+  event.preventDefault();
+  auralisApp.cleanup().then(() => {
+    auralisApp.canQuit = true;
+    app.quit();
+  }).catch((error) => {
+    log.error('Backend cleanup failed:', error);
+    app.exit(1);
+  });
 });
 
 // Security: Prevent new window creation (Electron 12+ API)
