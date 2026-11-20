@@ -164,7 +164,7 @@ vendor/auralis-dsp/               Rust DSP via PyO3 (25D fingerprint only, #5764
 desktop/                          Electron wrapper
 tests/                            ~8,400 test functions (996 files) across 16 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)
-docs/                             18 topic dirs (development, features, frontend...)
+docs/                             19 topic dirs (development, features, frontend, prd...)
 ```
 
 Structural counts above (analysis file count, router count, test file/function
@@ -274,6 +274,7 @@ staleness. Commit each logical unit as soon as its scoped tests pass.
 
 ## Reference Docs
 
+- [Product requirements](docs/prd/README.md) — PRD index and template for milestone and workflow changes.
 - [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)
 - [WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md)
 - [FIRST_TIME_SETUP.md](FIRST_TIME_SETUP.md)

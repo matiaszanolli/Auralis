@@ -13,6 +13,7 @@ in [`archive/`](archive/) and is **not** current reference.
 
 | If you want to… | Read |
 |-----------------|------|
+| Find ongoing milestone requirements or draft a PRD | [Product requirements](prd/README.md) |
 | Understand current recovery status | [audits/AUDIT_RECOVERY_2026-07-24.md](audits/AUDIT_RECOVERY_2026-07-24.md) |
 | Continue the desktop UI migration | [audits/UI_THEME_UNIFICATION_2026-07-25.md](audits/UI_THEME_UNIFICATION_2026-07-25.md) |
 | Prepare or assess v1.5.1 | [releases/RELEASE_NOTES_1_5_1.md](releases/RELEASE_NOTES_1_5_1.md) · [release checklist](releases/RELEASE_CHECKLIST_1_5_1.md) |

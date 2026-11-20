@@ -20,6 +20,11 @@
 
 ## Working-state blockers
 
+The [application startup](../prd/application-startup.md) and
+[library and playback recovery](../prd/library-playback-recovery.md) PRDs link the current
+component evidence and define how to verify the complete workflows. Check each gate when its
+release validation passes.
+
 - [ ] **REC-01:** one documented launcher owns each required child, installs nothing at runtime,
   reports real readiness, propagates one port, and shuts down only its own processes.
 - [ ] **REC-02:** fresh and migrated databases both persist and reload fingerprints.

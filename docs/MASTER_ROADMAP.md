@@ -77,16 +77,16 @@ the roadmap should stop implying otherwise:
 
 ## 4. Active / near-term
 
-The active target is **v1.5.1: working, not finished**. The
-[2026-07-24 recovery audit](audits/AUDIT_RECOVERY_2026-07-24.md) is the execution plan, and
-the [release checklist](releases/RELEASE_CHECKLIST_1_5_1.md) is the tag gate.
+The active target is **v1.5.1 recovery**. The
+[2026-07-24 recovery audit](audits/AUDIT_RECOVERY_2026-07-24.md) records the original findings,
+and the [release checklist](releases/RELEASE_CHECKLIST_1_5_1.md) is the tag gate.
 
-The first two recovery slices are:
+The [PRD index](prd/README.md) records the proposed acceptance criteria for the two recovery slices.
 
-1. Make startup truthful and single-owner: one port, one backend owner, real readiness,
-   owned-child shutdown, and an isolated collected smoke test.
-2. Repair the smallest complete product slice: fresh fingerprint persistence,
-   two-dimensional mono enhancement, and last-intent-wins rapid track selection.
+1. [Application startup](prd/application-startup.md) establishes process ownership, readiness,
+   and an isolated launch smoke test.
+2. [Library and playback recovery](prd/library-playback-recovery.md) uses that launch path to
+   verify the complete scan-to-playback workflow, including the fixes that followed the audit.
 
 Broad lint cleanup, full-suite archaeology, unfinished cache/similarity surfaces, and visual
 polish are explicitly outside the initial “working” milestone unless they block that slice.
