@@ -41,6 +41,7 @@ BACKEND_PORT = get_int_env("AURALIS_PORT", 8765)
 # Vite dev-server ports. Legitimate only in development — a packaged build never
 # serves the frontend from them (#4350).
 DEV_PORTS: tuple[int, ...] = tuple(range(3000, 3007))
+FRONTEND_PORT = get_int_env("AURALIS_FRONTEND_PORT", 3000)
 
 
 def allowed_origin_ports() -> list[int]:
@@ -51,7 +52,9 @@ def allowed_origin_ports() -> list[int]:
     time deliberately (see globals.py).
     """
     from .app import is_dev_mode
-    return (list(DEV_PORTS) if is_dev_mode() else []) + [BACKEND_PORT]
+    if not is_dev_mode():
+        return [BACKEND_PORT]
+    return list(dict.fromkeys((*DEV_PORTS, FRONTEND_PORT, BACKEND_PORT)))
 
 
 def origin_matrix(schemes: tuple[str, ...]) -> list[str]:

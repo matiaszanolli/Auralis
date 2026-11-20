@@ -1104,7 +1104,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Start backend
-        # Root launcher is blocked (REC-01); start the backend directly.
+        # Start only the backend for these tests.
         run: (cd auralis-web/backend && python main.py) &
 
       - name: Run E2E tests

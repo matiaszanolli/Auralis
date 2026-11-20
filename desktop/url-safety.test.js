@@ -37,15 +37,15 @@ test('rejects unparseable input', () => {
 const { isAllowedAppNavigation } = require('./url-safety');
 
 test('allows the production app origin', () => {
-  assert.equal(isAllowedAppNavigation('http://localhost:8765'), true);
-  assert.equal(isAllowedAppNavigation('http://localhost:8765/library'), true);
+  assert.equal(isAllowedAppNavigation('http://127.0.0.1:8765'), true);
+  assert.equal(isAllowedAppNavigation('http://127.0.0.1:8765/library'), true);
 });
 
 test('allows the Vite dev origin only in development', () => {
-  assert.equal(isAllowedAppNavigation('http://localhost:3000', { isDevelopment: true }), true);
-  assert.equal(isAllowedAppNavigation('http://localhost:3000', { isDevelopment: false }), false);
+  assert.equal(isAllowedAppNavigation('http://127.0.0.1:3000', { isDevelopment: true }), true);
+  assert.equal(isAllowedAppNavigation('http://127.0.0.1:3000', { isDevelopment: false }), false);
   // Default is production-safe.
-  assert.equal(isAllowedAppNavigation('http://localhost:3000'), false);
+  assert.equal(isAllowedAppNavigation('http://127.0.0.1:3000'), false);
 });
 
 test('rejects arbitrary remote origins', () => {
@@ -57,9 +57,10 @@ test('rejects arbitrary remote origins', () => {
 
 test('rejects other ports and hosts that merely look local', () => {
   assert.equal(isAllowedAppNavigation('http://localhost:9999'), false);
-  assert.equal(isAllowedAppNavigation('http://127.0.0.1:8765'), false);
+  assert.equal(isAllowedAppNavigation('http://localhost:8765'), false);
+  assert.equal(isAllowedAppNavigation('http://[::1]:8765'), false);
   // Host-prefix confusion: the origin must match exactly, not by prefix.
-  assert.equal(isAllowedAppNavigation('http://localhost:8765.evil.com'), false);
+  assert.equal(isAllowedAppNavigation('http://127.0.0.1.evil.com:8765'), false);
   assert.equal(isAllowedAppNavigation('http://localhost.evil.com:8765'), false);
 });
 
@@ -70,7 +71,7 @@ test('rejects a scheme downgrade/upgrade on the app host', () => {
 });
 
 test('rejects credential-embedding and userinfo tricks', () => {
-  assert.equal(isAllowedAppNavigation('http://localhost:8765@evil.com'), false);
+  assert.equal(isAllowedAppNavigation('http://127.0.0.1:8765@evil.com'), false);
   assert.equal(isAllowedAppNavigation('http://user:pass@evil.com/localhost:8765'), false);
 });
 
@@ -127,11 +128,11 @@ const { isTrustedIpcSender } = require('./url-safety');
 const frame = (url, parent = null) => ({ senderFrame: { url, parent } });
 
 test('isTrustedIpcSender accepts the top-level app document only', () => {
-  assert.equal(isTrustedIpcSender(frame('http://localhost:8765/library')), true);
-  assert.equal(isTrustedIpcSender(frame('http://localhost:8765/', {})), false, 'a subframe, even on the app origin');
+  assert.equal(isTrustedIpcSender(frame('http://127.0.0.1:8765/library')), true);
+  assert.equal(isTrustedIpcSender(frame('http://127.0.0.1:8765/', {})), false, 'a subframe, even on the app origin');
   assert.equal(isTrustedIpcSender(frame('http://localhost:9999/')), false);
   assert.equal(isTrustedIpcSender(frame('https://evil.example/')), false);
-  assert.equal(isTrustedIpcSender(frame('http://localhost:8765@evil.com/')), false);
+  assert.equal(isTrustedIpcSender(frame('http://127.0.0.1:8765@evil.com/')), false);
 });
 
 test('isTrustedIpcSender fails closed on a missing or malformed sender', () => {
@@ -143,6 +144,6 @@ test('isTrustedIpcSender fails closed on a missing or malformed sender', () => {
 });
 
 test('isTrustedIpcSender admits the Vite dev origin only in development', () => {
-  assert.equal(isTrustedIpcSender(frame('http://localhost:3000/'), { isDevelopment: true }), true);
-  assert.equal(isTrustedIpcSender(frame('http://localhost:3000/')), false);
+  assert.equal(isTrustedIpcSender(frame('http://127.0.0.1:3000/'), { isDevelopment: true }), true);
+  assert.equal(isTrustedIpcSender(frame('http://127.0.0.1:3000/')), false);
 });

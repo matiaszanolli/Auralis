@@ -2,18 +2,8 @@
 launch-auralis-web.py port threading and pnpm usage (issue #4805)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-start_backend() accepted a `port` argument but never used it -- the backend
-always started on main.py's hardcoded 8765, so `--port 9000` silently
-no-op'd. Separately, start_frontend_dev() shelled out to `npm install`/
-`npm start` in a pnpm-only repo (package.json declares
-"packageManager": "pnpm@10.20.0"; #4357).
-
-Fix: the port is threaded through via AURALIS_PORT, the same environment-
-variable mechanism AURALIS_DEV_MODE already used two lines below (sys.argv
-doesn't propagate reliably through subprocess.Popen); main.py reads it via
-core.env_config.get_int_env(), the same helper every other env-configurable
-constant in the backend uses. start_frontend_dev() now calls `pnpm install`/
-`pnpm run dev`.
+The launcher sets AURALIS_PORT for both the backend and the Vite proxy. It
+executes the installed tools directly to avoid package-manager side effects.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -107,37 +97,15 @@ class TestDevModeIsClearedForNonDevLaunches:
         assert "AURALIS_DEV_MODE" in desktop_js and "'0'" in desktop_js
 
 
-class TestFrontendUsesPnpmNotNpm:
-    def test_missing_node_modules_triggers_pnpm_install(self, launch_module):
-        def _exists(path_self):
-            # frontend_dir itself must exist (else start_frontend_dev bails
-            # early); only node_modules is "missing".
-            return path_self.name != "node_modules"
+class TestFrontendDevelopment:
+    def test_dev_server_uses_installed_vite_and_the_requested_backend_port(self, launch_module):
+        with patch("subprocess.Popen") as mock_popen:
+            launch_module.start_frontend_dev(9000, 3100)
 
-        with (
-            patch("subprocess.check_call") as mock_check_call,
-            patch("subprocess.Popen") as mock_popen,
-            patch.object(Path, "exists", _exists, autospec=False),
-        ):
-            mock_popen.return_value = MagicMock(pid=54321)
-            launch_module.start_frontend_dev()
-
-        mock_check_call.assert_called_once()
-        args, kwargs = mock_check_call.call_args
-        assert args[0] == ["pnpm", "install"]
-        assert kwargs["cwd"] == Path(launch_module.__file__).parent / "auralis-web" / "frontend"
-
-    def test_dev_server_started_with_pnpm_run_dev(self, launch_module):
-        with (
-            patch("subprocess.check_call"),
-            patch("subprocess.Popen") as mock_popen,
-            patch.object(Path, "exists", return_value=True),  # node_modules "present"
-        ):
-            mock_popen.return_value = MagicMock(pid=54321)
-            launch_module.start_frontend_dev()
-
-        args, _ = mock_popen.call_args
-        assert args[0] == ["pnpm", "run", "dev"]
+        args, kwargs = mock_popen.call_args
+        assert args[0] == ["node", str(launch_module.VITE), "--host", "127.0.0.1", "--port", "3100", "--strictPort"]
+        assert kwargs["env"]["AURALIS_PORT"] == "9000"
+        assert kwargs["env"]["VITE_WS_URL"] == "ws://127.0.0.1:9000"
 
     def test_no_npm_anywhere_in_the_source(self):
         """Regression guard: `npm` must not reappear as a subprocess call."""
@@ -159,7 +127,7 @@ class TestMissingDependenciesAreNotAutoInstalled:
 
         assert exit_info.value.code == 1
         check_call.assert_not_called()
-        assert "uv pip install -r requirements.txt" in capsys.readouterr().out
+        assert "uv pip install -r requirements.txt" in capsys.readouterr().err
 
     def test_the_launcher_has_no_pip_install_left(self):
         assert '"pip", "install"' not in LAUNCH_SCRIPT.read_text()

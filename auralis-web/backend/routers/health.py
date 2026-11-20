@@ -7,6 +7,7 @@ to keep infrastructure routes separate from real-time communication.
 
 Endpoints:
 - GET /api/health   - Liveness check
+- GET /api/ready    - Engine and library readiness
 - GET /api/version  - Detailed version information
 
 :copyright: (C) 2024 Auralis Team
@@ -14,11 +15,13 @@ Endpoints:
 """
 
 import logging
+import os
 from collections.abc import Callable
 from typing import Any
 
 from auralis.analysis.fingerprint.rust_fingerprint import fingerprint_engine_error
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from schemas import HealthResponse, VersionInfoResponse
 
 from .dependencies import RouterDeps
@@ -31,9 +34,16 @@ class _HealthDeps:
         self,
         has_auralis: bool = False,
         get_library_database: Callable[[], Any] | None = None,
+        get_player_state_manager: Callable[[], Any] | None = None,
     ) -> None:
         self.has_auralis = has_auralis
         self.get_library_database = get_library_database
+        self.get_player_state_manager = get_player_state_manager
+
+    def library_available(self) -> bool:
+        return self.has_auralis and (
+            self.get_library_database is not None and self.get_library_database() is not None
+        )
 
 
 _deps = RouterDeps("health", _HealthDeps())
@@ -52,16 +62,25 @@ async def health_check(deps: _HealthDeps = Depends(_get_deps)) -> HealthResponse
     itself available while every data route returned 503. It now also
     requires the live library database to exist.
 
-    ``status`` stays "healthy" with HTTP 200 on purpose: this remains the
-    liveness probe. desktop/main.js waits on a 200 from here before showing
-    the window, so turning a failed init into a non-200 would hang the
-    launcher instead of surfacing the degraded state.
+    ``status`` stays "healthy" with HTTP 200 for existing liveness callers.
     """
-    engine_ready = deps.has_auralis and (
-        deps.get_library_database is not None and deps.get_library_database() is not None
-    )
-    return HealthResponse(status="healthy", auralis_available=engine_ready,
+    return HealthResponse(status="healthy", auralis_available=deps.library_available(),
                           fingerprint_engine_available=fingerprint_engine_error() is None)
+
+
+async def readiness_check(deps: _HealthDeps = Depends(_get_deps)) -> JSONResponse:
+    ready = (
+        deps.library_available()
+        and deps.get_player_state_manager is not None
+        and deps.get_player_state_manager() is not None
+        and fingerprint_engine_error() is None
+    )
+    headers = {"Cache-Control": "no-store"}
+    # Supervisors check this against the value given to their child. A server
+    # that wins a port-bind race cannot accidentally satisfy their probe.
+    if launch_id := os.environ.get("AURALIS_LAUNCH_ID"):
+        headers["X-Auralis-Launch-Id"] = launch_id
+    return JSONResponse({"ready": ready}, status_code=200 if ready else 503, headers=headers)
 
 
 async def get_version() -> VersionInfoResponse:
@@ -100,10 +119,12 @@ async def get_version() -> VersionInfoResponse:
 def create_health_router(
     HAS_AURALIS: bool,
     get_library_database: Callable[[], Any] | None = None,
+    get_player_state_manager: Callable[[], Any] | None = None,
 ) -> APIRouter:
-    """Factory: health and version routes."""
-    deps = _HealthDeps(HAS_AURALIS, get_library_database)
+    """Factory: liveness, readiness, and version routes."""
+    deps = _HealthDeps(HAS_AURALIS, get_library_database, get_player_state_manager)
     router = APIRouter(tags=["system"], dependencies=[Depends(_deps.bind(deps))])
     router.add_api_route("/api/health", health_check, methods=["GET"], response_model=HealthResponse)
+    router.add_api_route("/api/ready", readiness_check, methods=["GET"])
     router.add_api_route("/api/version", get_version, methods=["GET"], response_model=VersionInfoResponse)
     return router

@@ -11,6 +11,7 @@ import logging
 import sys
 from pathlib import Path
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -71,3 +72,29 @@ def test_demo_mode_branch_is_reachable(caplog):
 
     assert any("demo mode" in r.message for r in caplog.records)
     assert globals_dict == {}  # nothing initialised
+
+
+@pytest.mark.parametrize(
+    ("database", "player", "fingerprint_error", "expected"),
+    [
+        (True, True, None, 200),
+        (False, True, None, 503),
+        (True, False, None, 503),
+        (True, True, "Native DSP unavailable", 503),
+    ],
+)
+def test_readiness_requires_initialized_components(monkeypatch, database, player, fingerprint_error, expected):
+    import routers.health as health
+
+    monkeypatch.setenv("AURALIS_LAUNCH_ID", "test-launch")
+    monkeypatch.setattr(health, "fingerprint_engine_error", lambda: fingerprint_error)
+    client = _client(
+        HAS_AURALIS=True,
+        get_library_database=lambda: object() if database else None,
+        get_player_state_manager=lambda: object() if player else None,
+    )
+    assert client.get("/api/health").status_code == 200
+    response = client.get("/api/ready")
+    assert response.status_code == expected
+    assert response.json() == {"ready": expected == 200}
+    assert response.headers["X-Auralis-Launch-Id"] == "test-launch"

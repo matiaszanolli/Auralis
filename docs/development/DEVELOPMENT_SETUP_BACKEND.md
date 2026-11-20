@@ -24,10 +24,9 @@ cd auralis-web/backend && python main.py --dev
 # Visit: http://localhost:8765/api/docs
 ```
 
-> The all-in-one root launcher (`launch-auralis-web.py`) is currently blocked by
-> [REC-01](../audits/AUDIT_RECOVERY_2026-07-24.md#rec-01-there-is-no-usable-single-owner-application-launcher);
-> every command in this guide runs the backend directly from `auralis-web/backend`.
-> `python main.py --dev` does **not** hot-reload — see [Step 6](#step-6-start-the-backend-server) for a reloading command.
+> The commands in this guide run the backend directly from
+> `auralis-web/backend`. For a supervised launch, see the [setup guide](../../FIRST_TIME_SETUP.md#-run-your-first-development-session).
+> See [Step 6](#step-6-start-the-backend-server) for a reloading command.
 
 ---
 

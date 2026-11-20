@@ -1,5 +1,7 @@
 'use strict';
 
+const { execFile } = require('node:child_process');
+
 /**
  * Stop the spawned backend: SIGTERM, then SIGKILL (child and its process group) once the grace
  * period passes without an exit. Resolves when the child has exited or been killed, so a quitting
@@ -14,26 +16,47 @@
  * @returns {Promise<void>}
  */
 function terminateBackend(child, { graceMs, killGroup, log = () => {} }) {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
-  return new Promise((resolve) => {
-    let timer;
-    child.once('exit', () => {
-      clearTimeout(timer);
-      resolve();
+  if (!child?.pid) return Promise.resolve();
+  const finishGroup = () => {
+    try {
+      killGroup?.(child.pid);
+    } catch (error) {
+      if (error.code !== 'ESRCH') log(`Could not stop backend process group: ${error.message}`);
+    }
+  };
+  if (child.exitCode !== null || child.signalCode !== null) {
+    finishGroup();
+    return Promise.resolve();
+  }
+  if (process.platform === 'win32') {
+    // The packaged executable may be a PyInstaller parent. Terminate its
+    // tree before the parent PID disappears.
+    return new Promise((resolve, reject) => {
+      execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { timeout: graceMs }, (error) => {
+        if (error && child.exitCode === null && child.signalCode === null) reject(error);
+        else resolve();
+      });
     });
+  }
+  return new Promise((resolve, reject) => {
+    let timer;
+    let escalated = false;
+    const onExit = () => {
+      clearTimeout(timer);
+      if (!escalated) finishGroup();
+      resolve();
+    };
+    child.once('exit', onExit);
     child.kill('SIGTERM');
     timer = setTimeout(() => {
+      escalated = true;
       log('Backend still running after SIGTERM, sending SIGKILL...');
       child.kill('SIGKILL');
-      if (killGroup && child.pid) {
-        try {
-          killGroup(child.pid);
-          log('Killed process tree');
-        } catch {
-          // The group may already be gone.
-        }
-      }
-      resolve();
+      finishGroup();
+      timer = setTimeout(() => {
+        child.removeListener('exit', onExit);
+        reject(new Error(`Backend process ${child.pid} did not exit`));
+      }, 5000);
     }, graceMs);
   });
 }

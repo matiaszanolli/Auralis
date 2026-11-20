@@ -112,7 +112,7 @@ an `APIRouter(prefix=...)`.
 | **Library browse** | `library.py`, `tracks.py`, `albums.py`, `artists.py`, `playlists.py`, `library_scan.py`, `fingerprint_status.py` |
 | **Metadata / artwork** | `metadata.py`, `artwork.py` |
 | **Streaming / processing** | `processing_api.py` (registers `/api/processing/*` from itself plus `processing_upload.py`, `processing_jobs.py` and `processing_parameters.py`, with `processing_models.py` / `processing_deps.py`; #5472), `cache_streamlined.py`. (The REST chunk-delivery router was removed; chunk delivery is WebSocket-only — see below.) |
-| **System / infra** | `system.py` (**WebSocket `/ws` only**, no HTTP), `health.py` (`/api/health`, `/api/version`), `similarity.py`, `files.py`, `settings.py` |
+| **System / infra** | `system.py` (**WebSocket `/ws` only**, no HTTP), `health.py` (`/api/health`, `/api/ready`, `/api/version`), `similarity.py`, `files.py`, `settings.py` |
 
 Shared router infra (not routers): `dependencies.py`, `errors.py`, `pagination.py`,
 `serializers.py`. The `player_*.py` and `processing_*.py` siblings are not

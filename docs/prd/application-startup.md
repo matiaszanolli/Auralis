@@ -1,6 +1,6 @@
 # Application startup — Product Requirements
 
-**Status**: PROPOSED (2026-11-19). First draft from the v1.5.1 recovery scope.
+**Status**: PROPOSED (2026-11-20). Source implementation and web startup smoke are in place. Installed release candidates still need validation.
 
 **Scope**: Startup, readiness, failure reporting, and shutdown for source-run web, Electron development, and packaged Electron. This is the first v1.5.1 recovery slice, covering REC-01 and REC-05.
 
@@ -30,14 +30,14 @@ Developers need a command that launches a usable application and gives a clear f
 
 A launch starts in **starting**, moves to **ready** after the backend readiness check, or reaches **failed** if a required child fails. On **stopping**, the owner shuts down its children.
 
-The snapshot below describes behavior at HEAD on 2026-11-19.
+The snapshot below describes behavior at HEAD on 2026-11-20.
 
 | Mechanism | Today |
 |---|---|
-| Desktop backend port | Electron passes its own port to the backend it spawns. [Backend environment](../../desktop/backend-env.js) |
-| Backend liveness | `/api/health` responds with a liveness status and a separate engine availability field. [Health contract regression](../../tests/backend/test_health_readiness_4684.py) |
-| Electron startup probe | Electron checks the liveness response status and continues after request failures. [Desktop launcher](../../desktop/main.js) |
-| Integration isolation | In-process integration tests isolate the library database and fingerprint store. The release checklist still calls for an isolated subprocess smoke. [Isolation regression](../../tests/integration/test_app_isolation_6441.py) · [Release checklist](../releases/RELEASE_CHECKLIST_1_5_1.md#working-state-blockers) |
+| Source web and Electron development | The root launcher starts the backend and Vite. Electron development opens the supervised Vite frontend. [Source launcher](../../launch-auralis-web.py) · [Desktop launcher](../../desktop/main.js) |
+| Packaged Electron | Electron starts the bundled backend on its configured port and loads the bundled frontend. [Desktop launcher](../../desktop/main.js) |
+| Backend readiness | `/api/ready` returns 503 when the library, player state manager, or fingerprint engine is unavailable. Supervisors check the launch ID to associate the response with their own backend. [Health contract regression](../../tests/backend/test_health_readiness_4684.py) |
+| Integration isolation | A collected smoke test uses a temporary home and database and ephemeral backend and frontend ports. [Subprocess smoke](../../tests/integration/test_application_startup.py) |
 
 ## 4. Goals and non-goals
 
@@ -132,3 +132,4 @@ No decisions required. The recovery plan supplies the ownership and readiness co
 | Rev | Date | Change | Review |
 |---|---|---|---|
 | 1 | 2026-11-19 | Drafted from the recovery scope and checked the startup baseline against the current tree. | — |
+| 2 | 2026-11-20 | Added the source supervisor, backend readiness route, packaged Electron supervision, and isolated source smoke. | — |

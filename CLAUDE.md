@@ -13,12 +13,14 @@ is a thin stub that points here rather than an independent copy (#5027).
 ## Commands
 
 ```bash
-# Run verified recovery components (the root/Electron launcher is a known blocker)
+# Set up and launch from the repository root
 # `--python-preference only-managed` or uv silently picks a stale pyenv shim
 uv venv --python-preference only-managed && source .venv/bin/activate
 uv pip install -r requirements.txt
-cd auralis-web/backend && python main.py --dev             # Backend :8765
-cd auralis-web/frontend && pnpm install && pnpm run dev   # pnpm is the only supported JS package manager (#4357)
+pnpm --dir auralis-web/frontend install --frozen-lockfile
+pnpm --dir desktop install --frozen-lockfile
+pnpm run dev                                             # Electron, backend :8765, Vite :3000
+python launch-auralis-web.py --dev --no-browser           # Browser preview, same ports
 
 # Test — scope first, widen once. `-q` keeps passes as dots; `-v` dumps every
 # test name into context for thousands of tests.

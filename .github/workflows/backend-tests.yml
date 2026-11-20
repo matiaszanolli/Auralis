@@ -44,6 +44,9 @@ on:
       # backend's emitted literals against it (#4680). Without this entry the
       # drift check would not run for the one change most likely to break it.
       - 'auralis-web/frontend/src/types/ws/**'
+      - 'auralis-web/frontend/vite.config.mts'
+      - 'auralis-web/frontend/pnpm-lock.yaml'
+      - 'launch-auralis-web.py'
       - 'tests/**'
       - 'requirements.txt'
       - 'requirements-lock.txt'
@@ -65,6 +68,9 @@ on:
       # backend's emitted literals against it (#4680). Without this entry the
       # drift check would not run for the one change most likely to break it.
       - 'auralis-web/frontend/src/types/ws/**'
+      - 'auralis-web/frontend/vite.config.mts'
+      - 'auralis-web/frontend/pnpm-lock.yaml'
+      - 'launch-auralis-web.py'
       - 'tests/**'
       - 'requirements.txt'
       - 'requirements-lock.txt'
@@ -143,6 +149,18 @@ jobs:
       # so the baseline recorded the absence as if it were real failures (#6657).
       - name: Build the Rust DSP module
         uses: ./.github/actions/build-rust-dsp
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          cache-dependency-path: auralis-web/frontend/pnpm-lock.yaml
+
+      - name: Install the frontend for the isolated startup smoke
+        working-directory: auralis-web/frontend
+        run: pnpm install --frozen-lockfile
 
       # Always exits 0 — a failing suite is expected while the baseline is
       # non-empty. The baseline check below is what decides the job.

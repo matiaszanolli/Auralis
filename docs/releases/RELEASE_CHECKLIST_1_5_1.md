@@ -31,9 +31,15 @@ release validation passes.
 - [ ] **REC-03:** one-dimensional and `(samples, 1)` mono fixtures play in normal and enhanced
   modes without changing sample count or producing non-finite PCM.
 - [ ] **REC-04 / #4426:** two rapid selections deterministically leave the second track active.
-- [ ] `/api/ready` represents initialized engine/database state rather than process liveness.
-- [ ] The full-stack smoke test is collected, isolated, uses an ephemeral port and temporary
-  home/database, and fails when any required child fails.
+- [x] `/api/ready` reports initialized engine and database state.
+- [x] The collected [source startup smoke](../../tests/integration/test_application_startup.py)
+  exercises real backend and Vite processes with ephemeral ports and a temporary
+  home/database. It verifies initialization failure, child exit, cleanup, and port collision.
+
+Linux source smoke passed on 2026-11-19. An Xvfb Electron development run loaded
+the Vite window and reaped the launcher's three child processes with a test-only
+Chromium sandbox override. Validate the default Electron configuration and the
+installed artifacts on their target systems.
 
 ## Required validation
 

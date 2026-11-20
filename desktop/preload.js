@@ -17,8 +17,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 // A sandboxed preload can only require('electron'), so these repeat
 // url-safety.js's APP_ORIGIN, DEV_ORIGIN and DEV_ORIGIN_FLAG; preload.test.js
 // pins the copies together. main.js passes the flag only when unpackaged.
-const APP_ORIGIN = 'http://localhost:8765';
-const DEV_ORIGIN = 'http://localhost:3000';
+const APP_ORIGIN = 'http://127.0.0.1:8765';
+const DEV_ORIGIN = 'http://127.0.0.1:3000';
 const DEV_ORIGIN_FLAG = '--auralis-allow-dev-origin';
 const allowDevOrigin = Array.isArray(process.argv) && process.argv.includes(DEV_ORIGIN_FLAG);
 const pageOrigin = window.location.origin;
