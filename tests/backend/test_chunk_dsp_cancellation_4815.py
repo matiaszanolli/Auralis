@@ -60,6 +60,9 @@ def _make_processor(cancel_event: threading.Event | None = None) -> Mock:
     processor._lookup_cached_chunk = Mock(return_value=None)
     processor._validate_chunk_index = Mock()
     processor._processor_lock = threading.RLock()
+    # A real render resets this to None unless it fell back (#6444); the tests
+    # mock _process_chunk_core, so start from the "mastered" state.
+    processor._dsp_fallback = None
     return processor
 
 
