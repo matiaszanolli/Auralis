@@ -26,19 +26,8 @@ def fingerprint_block_is_valid(fingerprint: Any) -> bool:
         warning("Sidecar missing fingerprint data")
         return False
 
-    fingerprint_values: dict[str, Any] = {}
-    if 'frequency' in fingerprint:
-        for category in (
-            'frequency', 'dynamics', 'temporal', 'spectral',
-            'harmonic', 'variation', 'stereo',
-        ):
-            category_data = fingerprint.get(category)
-            if isinstance(category_data, dict):
-                fingerprint_values.update(category_data)
-    else:
-        fingerprint_values.update(fingerprint)
 
-    missing_dimensions = set(DIMENSION_SCHEMA) - fingerprint_values.keys()
+    missing_dimensions = set(DIMENSION_SCHEMA) - fingerprint.keys()
     if missing_dimensions:
         warning(
             "Sidecar fingerprint is incomplete; missing "
@@ -53,7 +42,7 @@ def fingerprint_block_is_valid(fingerprint: Any) -> bool:
     # downstream range-checks these 25 values before they drive
     # content-aware processing decisions.
     for dimension in DIMENSION_SCHEMA:
-        value = fingerprint_values[dimension]
+        value = fingerprint[dimension]
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             warning(
                 f"Sidecar dimension '{dimension}' is non-numeric: {value!r}"

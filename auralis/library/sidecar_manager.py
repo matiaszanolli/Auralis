@@ -225,13 +225,6 @@ class SidecarManager:
         if not data:
             return None
 
-        fingerprint = data.get('fingerprint', {})
-
-        # Flatten nested structure if needed
-        if isinstance(fingerprint, dict) and 'frequency' in fingerprint:  # nested format
-            flat: dict[str, float] = {}
-            for category in ['frequency', 'dynamics', 'temporal', 'spectral', 'harmonic', 'variation', 'stereo']:
-                if category in fingerprint:
-                    flat.update(fingerprint[category])
-            return flat
-        return cast(dict[str, float], fingerprint)  # already flat
+        # The only writer (FingerprintExtractor) stores the flat 25-key dict,
+        # and validate() rejects any other format_version (#6687).
+        return cast(dict[str, float], data.get('fingerprint', {}))

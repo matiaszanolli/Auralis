@@ -177,7 +177,7 @@ class MasteringTargetService:
         logger.debug(f"No fingerprint found for track {track_id}")
         return None
 
-    def generate_targets_from_fingerprint(self, fingerprint: Any) -> dict[str, Any]:
+    def generate_targets_from_fingerprint(self, fingerprint: dict[str, float]) -> dict[str, Any]:
         """Derive mastering targets from a 25D fingerprint.
 
         See :func:`mastering_target_generation.generate_targets_from_fingerprint`.

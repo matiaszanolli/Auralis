@@ -232,18 +232,3 @@ class FingerprintExtractor:
                 'extracted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
             },
         })
-
-    def get_fingerprint(self, track_id: int) -> dict[str, Any] | None:
-        """
-        Get fingerprint for a track
-
-        Args:
-            track_id: ID of the track
-
-        Returns:
-            Fingerprint dictionary or None if not found
-        """
-        fingerprint = self.fingerprint_repo.get_by_track_id(track_id)
-        if fingerprint:
-            return fingerprint.to_dict()  # type: ignore[no-any-return]
-        return None

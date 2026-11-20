@@ -132,7 +132,11 @@ class TrackFingerprint(Base, TimestampMixin):
     )
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert fingerprint to dictionary"""
+        """Grouped (nested) view of the row for display.
+
+        Not the interchange format: sidecars, the fingerprint cache and
+        mastering-target generation all use the flat 25-key dict (#6687).
+        """
         return {
             'id': self.id,
             'track_id': self.track_id,

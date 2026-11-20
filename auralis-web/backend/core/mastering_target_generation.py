@@ -32,7 +32,7 @@ _MAX_CHANNEL_PEAK_OFFSET_DB = 6.02
 CREST_BUDGET_DB = 0.5
 
 
-def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
+def generate_targets_from_fingerprint(fingerprint: dict[str, float]) -> dict[str, Any]:
     """
     Generate mastering targets from 25D fingerprint.
 
@@ -42,36 +42,25 @@ def generate_targets_from_fingerprint(fingerprint: Any) -> dict[str, Any]:
     Targets remain fixed for the entire track, enabling fast processing.
 
     Args:
-        fingerprint: MasteringFingerprint instance or dict
+        fingerprint: the flat 25-key fingerprint dict that every tier of
+            fingerprint_loading returns (#5938, #6687)
 
     Returns:
         Dictionary of mastering targets
     """
-    # Handle both dict and MasteringFingerprint objects
-    if hasattr(fingerprint, '__dict__'):
-        fp_dict = fingerprint.__dict__
-    else:
-        fp_dict = fingerprint
-
-    # Get frequency and dynamics data
-    freq = fp_dict.get('frequency', {})
-    dynamics = fp_dict.get('dynamics', {})
-
     # Target loudness: nudge toward streaming standard (-14 LUFS) while
     # preserving the track's original loudness character (fixes #2726).
-    current_lufs = fp_dict.get('lufs', dynamics.get('lufs', DEFAULT_TARGET_LUFS))
-    current_crest = fp_dict.get(
-        'crest_db', dynamics.get('crest_db', fingerprint_default('crest_db'))
-    )
+    current_lufs = fingerprint.get('lufs', DEFAULT_TARGET_LUFS)
+    current_crest = fingerprint.get('crest_db', fingerprint_default('crest_db'))
     target_lufs, target_crest = plan_level(
-        current_lufs, current_crest, fp_dict.get('phase_correlation', 1.0)
+        current_lufs, current_crest, fingerprint.get('phase_correlation', 1.0)
     )
 
     # One EQ law for both render paths: what a track's band balance needs, as the
     # per-chunk path computes it. A band missing from the fingerprint falls back
     # to its own corpus center (no correction).
     shares = {
-        f'{band}_pct': fp_dict.get(f'{band}_pct', freq.get(f'{band}_pct', center))
+        f'{band}_pct': fingerprint.get(f'{band}_pct', center)
         for band, center in CORPUS_BAND_CENTERS.items()
     }
 
