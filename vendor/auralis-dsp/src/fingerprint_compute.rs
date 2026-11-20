@@ -54,54 +54,6 @@ pub struct AudioFingerprint {
     pub phase_correlation: f32,    // Phase relationship of channels
 }
 
-impl AudioFingerprint {
-    /// Convert to dictionary format for Python/JSON serialization
-    pub fn to_dict(&self) -> std::collections::HashMap<String, f32> {
-        let mut dict = std::collections::HashMap::new();
-
-        // Frequency (7D)
-        dict.insert("sub_bass".to_string(), self.sub_bass);
-        dict.insert("bass".to_string(), self.bass);
-        dict.insert("low_mid".to_string(), self.low_mid);
-        dict.insert("mid".to_string(), self.mid);
-        dict.insert("upper_mid".to_string(), self.upper_mid);
-        dict.insert("presence".to_string(), self.presence);
-        dict.insert("air".to_string(), self.air);
-
-        // Dynamics (3D)
-        dict.insert("lufs".to_string(), self.lufs);
-        dict.insert("crest_db".to_string(), self.crest_db);
-        dict.insert("bass_mid_ratio".to_string(), self.bass_mid_ratio);
-
-        // Temporal (4D)
-        dict.insert("tempo_bpm".to_string(), self.tempo_bpm);
-        dict.insert("rhythm_stability".to_string(), self.rhythm_stability);
-        dict.insert("transient_density".to_string(), self.transient_density);
-        dict.insert("silence_ratio".to_string(), self.silence_ratio);
-
-        // Spectral (3D)
-        dict.insert("spectral_centroid".to_string(), self.spectral_centroid);
-        dict.insert("spectral_rolloff".to_string(), self.spectral_rolloff);
-        dict.insert("spectral_flatness".to_string(), self.spectral_flatness);
-
-        // Harmonic (3D)
-        dict.insert("harmonic_ratio".to_string(), self.harmonic_ratio);
-        dict.insert("pitch_stability".to_string(), self.pitch_stability);
-        dict.insert("chroma_energy".to_string(), self.chroma_energy);
-
-        // Variation (3D)
-        dict.insert("dynamic_range_variation".to_string(), self.dynamic_range_variation);
-        dict.insert("loudness_variation".to_string(), self.loudness_variation);
-        dict.insert("peak_consistency".to_string(), self.peak_consistency);
-
-        // Stereo (2D)
-        dict.insert("stereo_width".to_string(), self.stereo_width);
-        dict.insert("phase_correlation".to_string(), self.phase_correlation);
-
-        dict
-    }
-}
-
 /// Estimate peak-to-RMS ratio (crest factor)
 fn compute_crest_factor(signal: &[f32]) -> f32 {
     if signal.is_empty() {
@@ -835,43 +787,6 @@ mod tests {
 
         assert!(fp.stereo_width > 0.0); // Should be stereo
         assert!(fp.phase_correlation < 1.0); // Not perfect correlation
-    }
-
-    #[test]
-    fn test_to_dict() {
-        let fp = AudioFingerprint {
-            sub_bass: 0.1,
-            bass: 0.15,
-            low_mid: 0.15,
-            mid: 0.25,
-            upper_mid: 0.2,
-            presence: 0.1,
-            air: 0.05,
-            lufs: -20.0,
-            crest_db: 12.0,
-            bass_mid_ratio: 0.5,
-            tempo_bpm: 120.0,
-            rhythm_stability: 0.8,
-            transient_density: 0.3,
-            silence_ratio: 0.05,
-            spectral_centroid: 2000.0,
-            spectral_rolloff: 8000.0,
-            spectral_flatness: 0.5,
-            harmonic_ratio: 0.7,
-            pitch_stability: 0.8,
-            chroma_energy: 0.6,
-            dynamic_range_variation: 2.0,
-            loudness_variation: 1.5,
-            peak_consistency: 0.8,
-            stereo_width: 0.5,
-            phase_correlation: 0.95,
-        };
-
-        let dict = fp.to_dict();
-        assert_eq!(dict.len(), 25);
-        assert_eq!(dict.get("sub_bass"), Some(&0.1));
-        assert_eq!(dict.get("lufs"), Some(&-20.0));
-        assert_eq!(dict.get("stereo_width"), Some(&0.5));
     }
 
     /// #3690: chroma_energy must be decorrelated from loudness — the same
