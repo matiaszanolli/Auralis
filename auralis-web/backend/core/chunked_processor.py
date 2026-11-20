@@ -195,7 +195,7 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
 
     @property
     def duration(self) -> float | None:
-        """Get total duration (alias for total_duration for AudioStreamController compatibility)"""
+        """Total duration in seconds; the stream entry points read it under this name."""
         return self.total_duration
 
     @property
@@ -229,10 +229,6 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
     def _get_chunk_path(self, chunk_index: int) -> Path:
         """Chunk's on-disk WAV path. Delegates to ChunkPathCache (#4245)."""
         return self._path_cache.get_chunk_path(chunk_index)
-
-    def _get_wav_chunk_path(self, chunk_index: int) -> Path:
-        """Alias of _get_chunk_path (unified architecture's primary output format)."""
-        return self._get_chunk_path(chunk_index)
 
     def _lookup_cached_chunk(self, chunk_index: int) -> Path | None:
         """In-memory, then on-disk WAV cache lookup. Delegates to ChunkPathCache (#4245, #4792)."""

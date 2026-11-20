@@ -6,7 +6,7 @@ Chunk Path Resolution + Cache Lookup
 
 Resolves a chunk's on-disk WAV path and checks the in-memory / on-disk cache
 tiers for it. Extracted from ``ChunkedAudioProcessor`` (#4245): the
-``_get_chunk_path`` / ``_get_wav_chunk_path`` / ``_lookup_cached_chunk``
+``_get_chunk_path`` / ``_lookup_cached_chunk``
 trio, plus the cache-key-then-store pattern duplicated at each of
 ``process_chunk`` / ``get_wav_chunk_path``'s cache-write sites.
 

@@ -3,7 +3,7 @@ Direct unit tests for core.chunk_path_cache.ChunkPathCache (#4245 extraction)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``ChunkPathCache`` was extracted from ``ChunkedAudioProcessor``'s
-``_get_chunk_path`` / ``_get_wav_chunk_path`` / ``_lookup_cached_chunk`` trio
+``_get_chunk_path`` / ``_lookup_cached_chunk`` pair
 plus the cache-key-then-store pattern duplicated at each of its callers'
 cache-write sites. These tests exercise it directly, with fake/mocked
 collaborators, no ``ChunkedAudioProcessor`` involved.

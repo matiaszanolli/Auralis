@@ -174,7 +174,7 @@ def get_wav_chunk_path(processor: "ChunkedAudioProcessor", chunk_index: int) -> 
             return str(cached_path)
 
         # Get WAV output path
-        wav_chunk_path = processor._get_wav_chunk_path(chunk_index)
+        wav_chunk_path = processor._get_chunk_path(chunk_index)
 
         # #5328 SIBLING: same cancel polling as process_chunk.
         _raise_if_cancelled(processor, chunk_index)

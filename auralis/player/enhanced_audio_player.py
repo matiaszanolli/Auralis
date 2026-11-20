@@ -11,7 +11,7 @@ Refactored from monolithic design into 5 focused components:
 - GaplessPlaybackEngine: Prebuffering and seamless transitions
 - IntegrationManager: Library, callbacks, statistics
 
-Uses Facade pattern to maintain backward-compatible API.
+EnhancedAudioPlayer is the facade the backend drives; it owns these components.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

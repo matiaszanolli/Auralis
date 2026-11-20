@@ -76,7 +76,7 @@ class TestGetWavChunkPathRejectsNonFiniteAudio:
             with pytest.raises(ValueError, match="non-finite"):
                 processor.get_wav_chunk_path(0)
 
-        wav_chunk_path = processor._get_wav_chunk_path(0)
+        wav_chunk_path = processor._get_chunk_path(0)
         assert not wav_chunk_path.exists(), (
             "a NaN-poisoned WAV was written to the on-disk cache instead of "
             "raising before the write"
@@ -93,7 +93,7 @@ class TestGetWavChunkPathRejectsNonFiniteAudio:
             with pytest.raises(ValueError, match="non-finite"):
                 processor.get_wav_chunk_path(0)
 
-        wav_chunk_path = processor._get_wav_chunk_path(0)
+        wav_chunk_path = processor._get_chunk_path(0)
         assert not wav_chunk_path.exists()
 
     def test_process_chunk_has_the_same_guard(self, processor):

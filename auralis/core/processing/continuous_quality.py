@@ -38,7 +38,7 @@ class ContinuousQualityMixin:
         Purely observational — these never select a processing path,
         reject output, or change what the pipeline returns.
         """
-        # Sampling still uses the legacy config names for compatibility.
+        # The quality_gate_* config names predate this step becoming advisory-only.
         if self.config.quality_gate_enabled:
             interval = self.config.quality_gate_interval
             should_gate = (

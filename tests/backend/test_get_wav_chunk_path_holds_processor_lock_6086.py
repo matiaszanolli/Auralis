@@ -56,7 +56,7 @@ def _processor(spy: _SpyLock, sync_events: list[str]) -> Mock:
     sync = _SpyLock()
     sync.events = sync_events
     processor._sync_cache_lock = sync
-    processor._get_wav_chunk_path = Mock(return_value=Path("/tmp/v4_track_1_chunk_1.wav"))
+    processor._get_chunk_path = Mock(return_value=Path("/tmp/v4_track_1_chunk_1.wav"))
     processor._wav_encoder.encode_and_save = Mock()
     processor._path_cache.store = Mock()
     processor._processor_factory.discard_lease = Mock()

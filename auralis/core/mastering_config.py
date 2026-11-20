@@ -10,8 +10,7 @@ The specialized correction-stage tuning tables (resonance notcher, transient
 shaper, clarity boost, vocal unmasking, sub-bass control, continuous
 loudness/crest response, progress reporting) live in ``mastering_presets.py``
 (#4511) and are pulled in via inheritance below, so ``SimpleMasteringConfig``
-still exposes every field as a single flat, backward-compatible attribute
-namespace.
+exposes every field as one flat attribute namespace.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

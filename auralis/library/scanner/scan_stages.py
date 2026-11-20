@@ -272,7 +272,7 @@ def preview_folder(
             file_info: Any = audio_analyzer.extract_audio_info(filepath)
 
             if file_info:
-                # Convert AudioFileInfo to dict for backward compatibility
+                # This function returns plain dicts, one per discovered file
                 file_dict: dict[str, Any] = {
                     'filepath': filepath,
                     'duration': file_info.duration,

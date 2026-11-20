@@ -75,7 +75,7 @@ class AudioFingerprintAnalyzer:
         pass
 
     def close(self) -> None:
-        """No-op. The Rust engine holds no Python-side executor; kept for API compat."""
+        """No-op: the Rust engine holds no Python-side executor to release."""
 
     def analyze(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """

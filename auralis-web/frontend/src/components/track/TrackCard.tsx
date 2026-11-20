@@ -26,8 +26,7 @@ interface TrackCardProps {
 /**
  * TrackCard - Track display component
  *
- * Wrapper around MediaCard with track-specific props.
- * Provides backwards compatibility for existing track grid views.
+ * Wrapper around MediaCard with track-specific props, used by the track grid views.
  */
 export const TrackCard = memo(function TrackCard({
   id,

@@ -30,7 +30,6 @@ Uses the reference data from three world-class masters:
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
@@ -136,7 +135,7 @@ class RecordingTypeDetector(RecordingTypeParameterTables):
         - Iron Maiden Wasted: 7,754 Hz centroid, +0.65 dB bass-to-mid, 0.11 stereo, 18.89 CF
         - Both indicate "HD Bright Transparent" mastering style (very bright, narrow, excellent transients)
 
-        Legacy reference data (from Phase 4 - kept for compatibility):
+        Earlier reference data (Phase 4; profile 2 below still matches the studio case):
         - Studio: 664 Hz, +1.15 dB bass-to-mid, 0.39 stereo, 6.53 CF
         - Bootleg: 374-571 Hz, +13-17 dB bass-to-mid, 0.17-0.23 stereo, 4-6 CF
         - Metal: 1344 Hz, +9.58 dB bass-to-mid, 0.418 stereo, 3.54 CF
@@ -263,7 +262,7 @@ class RecordingTypeDetector(RecordingTypeParameterTables):
             if crest_db is not None and 10 <= crest_db <= 20:
                 score += 0.10  # Confirms excellent transients
 
-        # Profile 2: Legacy warm/balanced studio (for compatibility)
+        # Profile 2: warm/balanced studio (the Phase 4 studio reference)
         # Broader boundaries for flexibility
         elif 600 < spectral_hz < 800:
             score += 0.35  # Strong legacy studio indicator

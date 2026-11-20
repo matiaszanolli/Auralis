@@ -48,8 +48,7 @@ export interface AlbumCardProps {
 /**
  * AlbumCard - Album display component
  *
- * Wrapper around MediaCard with album-specific props.
- * Provides backwards compatibility for existing album grid views.
+ * Wrapper around MediaCard with album-specific props, used by the album grid views.
  */
 export const AlbumCard = memo(function AlbumCard({
   albumId,

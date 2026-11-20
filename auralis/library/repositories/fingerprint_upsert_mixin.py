@@ -164,7 +164,7 @@ class FingerprintUpsertMixin(BaseRepository):
         """
         Store fingerprint with automatic quantization (Phase 3A).
 
-        Stores both the quantized blob (25 bytes) and the float values for backward compatibility.
+        Stores both the quantized blob (25 bytes) and the 25 float columns.
 
         Args:
             track_id: Track ID

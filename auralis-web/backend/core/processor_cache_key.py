@@ -19,9 +19,9 @@ class ProcessorCacheKey(NamedTuple):
 
     Documenting the key shape as a NamedTuple lets introspection use
     named-attribute access (`key.track_id`, `key.preset`) instead of
-    positional indexing (`key[0]`). Adding a new field in the future
-    (sample_rate, etc.) stays backward-compatible for callers that
-    already use the named fields; positional access would silently shift.
+    positional indexing (`key[0]`). A field added later (sample_rate, etc.)
+    leaves named-field reads unchanged, where positional access would
+    silently shift.
 
     #4707: `intensity` is deliberately NOT a field. It was keyed on without
     ever reaching the constructed processor — `get_or_create` applies only the
