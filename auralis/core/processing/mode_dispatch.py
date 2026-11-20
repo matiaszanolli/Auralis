@@ -16,11 +16,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from ...utils.audio_validation import validate_audio_finite
-
 if TYPE_CHECKING:
     from auralis.core.hybrid_processor import HybridProcessor
 
+from ..hybrid_stage_dispatch import (
+    finish_mode_output,
+)
 from ..hybrid_stage_dispatch import (
     process_reference_mode as _reference_stage_dispatch,
 )
@@ -63,22 +64,7 @@ def process_adaptive_mode(
         'parameters': processor.continuous_mode.last_parameters,
     }
 
-    # Apply brick-wall limiter for final peak control
-    # Ensures output never clips and stays within safe range
-    processed = processor.brick_wall_limiter.process(processed)
-    # Sample-count invariant: limiter must preserve length (fixes #2519).
-    # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
-    if processed.shape != target_audio.shape:
-        raise RuntimeError(
-            f"Sample count mismatch after limiter (adaptive): "
-            f"expected {target_audio.shape}, got {processed.shape}"
-        )
-
-    # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
-    # silently masking them with zero-replacement (fixes #2520).
-    processed = validate_audio_finite(processed, context="adaptive mode output", repair=False)
-
-    return processed
+    return finish_mode_output(processor, processed, target_audio, "adaptive")
 
 def process_hybrid_mode(
     processor: "HybridProcessor", target_audio: np.ndarray, reference: np.ndarray | None
@@ -92,19 +78,4 @@ def process_hybrid_mode(
     # Delegate to hybrid mode processor
     processed = processor.hybrid_mode.process(target_audio, reference_audio, processor.eq_processor)
 
-    # Apply brick-wall limiter for final peak control
-    # Ensures output never clips and stays within safe range
-    processed = processor.brick_wall_limiter.process(processed)
-    # Sample-count invariant: limiter must preserve length (fixes #2519).
-    # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
-    if processed.shape != target_audio.shape:
-        raise RuntimeError(
-            f"Sample count mismatch after limiter (hybrid): "
-            f"expected {target_audio.shape}, got {processed.shape}"
-        )
-
-    # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
-    # silently masking them with zero-replacement (fixes #2520).
-    processed = validate_audio_finite(processed, context="hybrid mode output", repair=False)
-
-    return processed
+    return finish_mode_output(processor, processed, target_audio, "hybrid")
