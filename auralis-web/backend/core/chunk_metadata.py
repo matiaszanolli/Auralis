@@ -22,7 +22,7 @@ import logging
 from dataclasses import dataclass
 
 from core.chunk_boundaries import content_chunk_count
-from core.seekable_source import can_seek_natively
+from core.seekable_probe import can_seek_natively
 from auralis.io import loader as _io_loader
 from auralis.io.audio_probe import get_audio_info
 from auralis.io.processing import decoded_channel_count

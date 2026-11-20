@@ -45,7 +45,7 @@ PROCESSING_TEMP_DIRNAME: str = "auralis_processing"
 # the producer and the sweeper must agree on it (#3877).
 STREAM_TEMP_PREFIX: str = "auralis_stream_"
 
-# Prefix for the per-track temp WAV directories SeekableSource.convert_to_temp_wav
+# Prefix for the per-track temp WAV directories converted_wav_registry.convert_to_temp_wav
 # creates for non-natively-seekable formats (m4a/aac/wma, #4737). Unlike
 # STREAM_TEMP_PREFIX these carry no PID tag, so the startup sweep's ownership
 # check always falls back to its age heuristic for them — same as any other

@@ -60,7 +60,7 @@ def reclaim_leftover_stream_temps(temp_root: Path, max_age_hours: float = 1.0) -
 
     stream_normal_audio writes a temp WAV under ``auralis_stream_<pid>_*`` and
     cleans it in its finally block, but a crash or a locked file (Windows AV /
-    cloud-sync) can leave one behind (#3877). SeekableSource.convert_to_temp_wav
+    cloud-sync) can leave one behind (#3877). converted_wav_registry.convert_to_temp_wav
     writes an ``auralis_seekable_*`` one for any non-natively-seekable format
     (m4a/aac/wma, #4737) with the same failure mode — plus, until #5253, the
     seek/enhanced streaming entry points never called ``.close()`` at all, so

@@ -19,8 +19,9 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core import seekable_source  # noqa: E402
-from core.seekable_source import SeekableSource, can_seek_natively  # noqa: E402
+from core import converted_wav_registry, seekable_probe  # noqa: E402
+from core.seekable_probe import can_seek_natively  # noqa: E402
+from core.seekable_source import SeekableSource  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
     shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
@@ -32,9 +33,9 @@ SECONDS = 6
 
 @pytest.fixture(autouse=True)
 def _fresh_state():
-    seekable_source._ffprobe_duration.cache_clear()
+    seekable_probe._ffprobe_duration.cache_clear()
     yield
-    seekable_source.converted_wavs.release_idle()
+    converted_wav_registry.converted_wavs.release_idle()
 
 
 def _encode_mp3(path: Path) -> None:
@@ -90,19 +91,19 @@ def test_a_wav_never_asks_ffprobe(tmp_path):
     """libsndfile is the reference decoder for native formats: no probe, no cost."""
     wav = tmp_path / "tone.wav"
     sf.write(str(wav), [[0.0, 0.0]] * 4410, 44100)
-    with patch.object(seekable_source, "get_audio_info", side_effect=AssertionError("probed")):
+    with patch.object(seekable_probe, "get_audio_info", side_effect=AssertionError("probed")):
         assert can_seek_natively(str(wav)) is True
 
 
 def test_an_ffprobe_failure_keeps_the_in_place_read(healthy_mp3):
     """With nothing to compare against, behaviour is what it was before the check."""
-    with patch.object(seekable_source, "get_audio_info", return_value={"error": "boom"}):
+    with patch.object(seekable_probe, "get_audio_info", return_value={"error": "boom"}):
         assert can_seek_natively(healthy_mp3) is True
 
 
 def test_the_probe_runs_once_per_file_content(joined_mp3):
     with patch.object(
-        seekable_source, "get_audio_info", return_value={"duration_seconds": SECONDS * 2.0}
+        seekable_probe, "get_audio_info", return_value={"duration_seconds": SECONDS * 2.0}
     ) as probe:
         for _ in range(3):
             can_seek_natively(joined_mp3)
@@ -110,7 +111,7 @@ def test_the_probe_runs_once_per_file_content(joined_mp3):
 
 
 def test_a_failed_probe_is_retried_not_cached(healthy_mp3):
-    with patch.object(seekable_source, "get_audio_info", return_value={"error": "transient"}) as probe:
+    with patch.object(seekable_probe, "get_audio_info", return_value={"error": "transient"}) as probe:
         can_seek_natively(healthy_mp3)
         can_seek_natively(healthy_mp3)
     assert probe.call_count == 2

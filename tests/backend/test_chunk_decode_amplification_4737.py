@@ -34,13 +34,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.seekable_source import (  # noqa: E402
+from core.converted_wav_registry import (  # noqa: E402
     ConvertedWavRegistry,
-    SeekableSource,
-    can_seek_natively,
     convert_to_temp_wav,
     converted_wavs,
 )
+from core.seekable_probe import can_seek_natively  # noqa: E402
+from core.seekable_source import SeekableSource  # noqa: E402
 
 
 @contextmanager

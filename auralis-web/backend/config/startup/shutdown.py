@@ -154,7 +154,7 @@ async def _stop_components(globals_dict: dict[str, Any]) -> None:
         # Delete the idle converted temp WAVs kept for the next stream of the
         # same track (#5402); a stream released after this deletes its own.
         try:
-            from core.seekable_source import converted_wavs
+            from core.converted_wav_registry import converted_wavs
             await asyncio.to_thread(converted_wavs.shutdown)
         except Exception as temp_err:
             logger.warning(f"⚠️  Seekable temp WAV cleanup error: {temp_err}")

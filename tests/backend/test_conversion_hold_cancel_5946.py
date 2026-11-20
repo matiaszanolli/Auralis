@@ -23,11 +23,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from core import seekable_source, stream_normal
 from core.audio_stream_controller import AudioStreamController
-from core.seekable_source import (
-    SeekableSource,
-    SeekableSourceClosed,
-    acquire_conversion,
-)
+from core.converted_wav_registry import acquire_conversion
+from core.seekable_source import SeekableSource, SeekableSourceClosed
 
 
 class _SlowRegistry:

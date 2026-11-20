@@ -83,7 +83,7 @@ async def test_temp_wav_release_offloaded_via_to_thread():
     """
     import tempfile as _tempfile
 
-    from core.seekable_source import converted_wavs
+    from core.converted_wav_registry import converted_wavs
 
     controller = AudioStreamController()
     controller._get_repository_factory = lambda: _make_factory()
@@ -94,7 +94,7 @@ async def test_temp_wav_release_offloaded_via_to_thread():
     with (
         patch("pathlib.Path.exists", return_value=True),
         patch(
-            "core.seekable_source.convert_to_temp_wav",
+            "core.converted_wav_registry.convert_to_temp_wav",
             return_value=(fake_temp_dir, fake_wav_path),
         ),
         patch("asyncio.to_thread", wraps=asyncio.to_thread) as mock_to_thread,

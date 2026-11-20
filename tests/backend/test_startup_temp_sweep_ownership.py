@@ -94,7 +94,7 @@ class TestStreamTempNaming:
 
 
 class TestSeekableTempPrefixWiring:
-    """WIRING (#5253): if seekable_source.py stops using the shared
+    """WIRING (#5253): if converted_wav_registry.py stops using the shared
     SEEKABLE_TEMP_PREFIX constant, the sweep can never recognise its temp
     dirs as belonging to it — the producer and the sweeper must agree,
     exactly like TestStreamTempNaming.test_producer_uses_the_shared_prefix
@@ -102,14 +102,14 @@ class TestSeekableTempPrefixWiring:
 
     def test_producer_uses_the_shared_prefix(self):
         backend = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
-        source = (backend / "core" / "seekable_source.py").read_text()
+        source = (backend / "core" / "converted_wav_registry.py").read_text()
 
         assert "SEEKABLE_TEMP_PREFIX" in source
         assert 'prefix: str = "auralis_seekable_"' not in source
 
 
 class TestSeekableTempSweep:
-    """#5253: auralis_seekable_* directories (SeekableSource.convert_to_temp_wav,
+    """#5253: auralis_seekable_* directories (converted_wav_registry.convert_to_temp_wav,
     #4737) leaked unconditionally — not just on a crash — because neither
     stream_seek.py nor stream_enhanced.py ever called processor.close(), and
     the startup sweep never globbed this prefix at all. Both halves of the

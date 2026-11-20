@@ -26,9 +26,9 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
+from .converted_wav_registry import ConversionKey, acquire_conversion, converted_wavs
 from .job_error_mapping import _safe_error_message
 from .stream_normal_chunks import pump_normal_chunks
-from .seekable_source import ConversionKey, acquire_conversion, converted_wavs
 from .stream_track_resolution import resolve_and_validate_track
 from security.path_security import validate_file_path
 
@@ -215,7 +215,7 @@ async def stream_normal_audio(
             total_duration=duration,
             **seek_kwargs,
         ):
-            logger.info(f"WebSocket disconnected, cannot start stream")
+            logger.info("WebSocket disconnected, cannot start stream")
             return
 
         # The read/send loop lives in stream_normal_chunks (#5032); what stays
@@ -254,7 +254,7 @@ async def stream_normal_audio(
 
     except WebSocketDisconnect:
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).
-        logger.info(f"Normal audio streaming stopped: client disconnected")
+        logger.info("Normal audio streaming stopped: client disconnected")
     except Exception as e:
         logger.error(f"Normal audio streaming failed: {e}", exc_info=True)
         # Only try to send error if WebSocket is still connected

@@ -21,8 +21,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core import seekable_source  # noqa: E402
-from core.seekable_source import ConvertedWavRegistry, SeekableSource  # noqa: E402
+from core import converted_wav_registry  # noqa: E402
+from core.converted_wav_registry import ConvertedWavRegistry  # noqa: E402
+from core.seekable_source import SeekableSource  # noqa: E402
 
 FAKE_AUDIO = np.zeros((4410, 2), dtype=np.float32)
 
@@ -63,7 +64,7 @@ def decodes():
 @pytest.fixture(autouse=True)
 def _no_leftover_conversions():
     yield
-    seekable_source.converted_wavs.release_idle()
+    converted_wav_registry.converted_wavs.release_idle()
 
 
 class TestSequentialStreamsOfOneTrack:
@@ -257,19 +258,19 @@ class TestConversionIsBoundedByFreeSpace:
 
         # and the libsndfile branch's guard shares it
         info = {"duration_seconds": 3600.0, "sample_rate": 96000, "channels": 2}
-        with patch.object(seekable_source, "get_audio_info", return_value=info), \
+        with patch.object(converted_wav_registry, "get_audio_info", return_value=info), \
              patch.object(ffmpeg_space.shutil, "disk_usage", return_value=free), \
              pytest.raises(OSError, match="Not enough free space"):
-            seekable_source._require_free_space(track, str(tmp_path))
+            converted_wav_registry._require_free_space(track, str(tmp_path))
         assert decodes == [], "the decode ran although the file could not fit"
 
     def test_a_file_that_fits_is_converted_without_reading_it_into_memory(self, tmp_path, decodes):
         track = _unopenable(tmp_path)
         info = {"duration_seconds": 1.0, "sample_rate": 44100, "channels": 2}
 
-        with patch.object(seekable_source, "get_audio_info", return_value=info), \
+        with patch.object(converted_wav_registry, "get_audio_info", return_value=info), \
              patch("auralis.io.unified_loader.load_audio", side_effect=AssertionError("read the decode into memory")):
-            temp_dir, wav_path = seekable_source.convert_to_temp_wav(track)
+            temp_dir, wav_path = converted_wav_registry.convert_to_temp_wav(track)
 
         try:
             assert Path(wav_path).name == "seekable.wav" and Path(wav_path).exists()
@@ -297,7 +298,7 @@ def test_a_real_mp3_converts_to_the_same_samples_load_audio_would_produce(tmp_pa
     mp3 = tmp_path / "song.mp3"
     subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src_wav), str(mp3)], check=True)
 
-    temp_dir, wav_path = seekable_source.convert_to_temp_wav(str(mp3))
+    temp_dir, wav_path = converted_wav_registry.convert_to_temp_wav(str(mp3))
     try:
         converted, rate = sf.read(wav_path, dtype="float32")
         expected, expected_rate = load_audio(str(mp3))

@@ -19,9 +19,9 @@ def _restore_converted_wav_retention():
     """Lifespan shutdown calls converted_wavs.shutdown(), which sets the process-wide registry's
     retention to 0 for good; every later test then decoded a track once per stream instead of
     sharing one conversion (test_seekable_conversion_sharing_5402 failed after any such test)."""
-    from core import seekable_source
+    from core import converted_wav_registry
 
-    seekable_source.converted_wavs._max_idle = seekable_source.IDLE_CONVERSIONS_RETAINED
+    converted_wav_registry.converted_wavs._max_idle = converted_wav_registry.IDLE_CONVERSIONS_RETAINED
     yield
 
 

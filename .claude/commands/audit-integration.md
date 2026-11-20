@@ -134,7 +134,7 @@ See `.claude/commands/_audit-common.md` for project layout, severity framework, 
 | Seek command | Frontend → Backend | `auralis-web/frontend/src/hooks/enhancement/useEnhancedSeek.ts` sends WS `seek` with `track_id` + `position` only; preset/intensity are resolved server-side from the connection's active stream settings (#5604) → `auralis-web/backend/ws_handlers/seek_command.py` (`handle_seek`) |
 | Seek stream path | Backend | `auralis-web/backend/core/stream_seek.py`, `auralis-web/backend/core/stream_chunk_ops.py` |
 | Chunk index math | Backend | `auralis-web/backend/core/chunk_boundaries.py` (`content_chunk_count()`, overlap-aware) |
-| Source seek | Backend | `auralis-web/backend/core/seekable_source.py` (converts non-seekable sources once, #4737) |
+| Source seek | Backend | `auralis-web/backend/core/seekable_source.py` (+ `seekable_probe.py`, `converted_wav_registry.py`; converts non-seekable sources once, #4737) |
 | Cache lookup | Backend | `auralis-web/backend/core/chunk_path_cache.py` + `chunk_cache_manager.py` + `file_signature.py` |
 | Chunk pump / look-ahead | Backend | `auralis-web/backend/core/stream_enhanced_chunks.py` (the one pump shared by the enhanced and seek streams since #5761, plus the look-ahead task), `auralis-web/backend/core/proactive_buffer.py` |
 | Level continuity | Backend | `auralis-web/backend/core/level_manager.py` |
