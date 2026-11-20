@@ -24,7 +24,6 @@ export const spacing = {
     // Macro spacing (between sections)
     xxl: '40px',     // Major section breaks (reduced from 48px)
     xxxl: '56px',    // Page-level spacing (reduced from 64px)
-    xxxxl: '80px',   // Maximum breathing room (new)
 
     // Organic spacing (variable gaps)
     cluster: '8px',  // Items in natural clusters (library items, playlist tracks); also MUI's spacing unit (#5384)
@@ -38,13 +37,10 @@ export const spacing = {
    * Minimum 8px for any interactive element.
    */
 export const borderRadius = {
-    none: '0',
     sm: '8px',       // Minimum for any rounded element (increased from 4px)
     md: '12px',      // Standard cards, buttons (increased from 8px)
     lg: '16px',      // Large cards, panels (increased from 12px)
     xl: '20px',      // Hero cards, modals (increased from 16px)
-    '2xl': '24px',   // Maximum curve for rectangles (new)
-    '3xl': '32px',   // Ultra-round for special elements (new)
     full: '9999px',  // Pill shape, circular buttons
 } as const;
 
@@ -52,18 +48,12 @@ export const borderRadius = {
    * Z-Index Scale
    */
 export const zIndex = {
-    base: 0,
     content: 1,
     elevated: 10,
     dropdown: 1000,
     sticky: 1020,
     fixed: 1030,
-    modalBackdrop: 1040,
-    modal: 1050,
-    popover: 1060,
-    tooltip: 1070,
     toast: 1300,
-    debug: 10000,
 } as const;
 
   /**

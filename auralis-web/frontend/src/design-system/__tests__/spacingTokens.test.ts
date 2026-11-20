@@ -160,7 +160,7 @@ describe('no doubled px after a px-valued token (#5644)', () => {
  *  - 1.1 / 1.4 / 1.6 line-heights: between the 1.2 / 1.5 / 1.75 steps by design
  *    (a tight heading, dense row text, long-form description).
  *  - spin / rotate / shimmer / breathe / playbackShimmer durations: no animation
- *    token exists for them (only pulse, fadeIn, slideUp do).
+ *    token exists for them (only pulse does).
  *  - numeric `borderRadius: n` inside MUI `sx`: that is a THEME-SPACING MULTIPLE,
  *    not pixels, so it is not interchangeable with `tokens.borderRadius.*`.
  */

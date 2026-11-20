@@ -7,15 +7,13 @@
 
   /**
    * Shadow System (Ambient opacity - no harsh black)
-   * Elevation levels + audio-reactive glows + glassmorphism depth
+   * Elevation levels + audio-reactive glows
    */
 export const shadows = {
     none: 'none',
 
     // Elevation shadows (ambient opacity for depth)
-    xs: '0 1px 2px rgba(0, 0, 0, 0.05)',
     sm: '0 2px 4px rgba(0, 0, 0, 0.08)',
-    base: '0 2px 4px rgba(0, 0, 0, 0.10)',
     md: '0 4px 12px rgba(0, 0, 0, 0.16)',         // Card shadow (elevation 1)
     lg: '0 8px 24px rgba(0, 0, 0, 0.20)',        // Raised panel (elevation 2)
     xl: '0 12px 32px rgba(0, 0, 0, 0.28)',       // Modal (elevation 3)
@@ -24,15 +22,6 @@ export const shadows = {
     // Glow shadows (audio-reactive elements)
     glowSoft: '0 0 16px rgba(115, 102, 240, 0.20)',      // Soft violet glow
     glowMd: '0 0 24px rgba(115, 102, 240, 0.32)',        // Violet glow (medium)
-    glowStrong: '0 0 32px rgba(115, 102, 240, 0.48)',    // Strong violet glow
-    glowAqua: '0 0 20px rgba(71, 214, 255, 0.24)',       // Electric Aqua glow
-    glowAquaIntense: '0 0 32px rgba(71, 214, 255, 0.40)', // Aqua glow (processing)
-    glowAquaUltra: '0 0 48px rgba(71, 214, 255, 0.56)',  // Ultra aqua (active states)
-
-    // Glass depth shadows (for glassmorphism layering)
-    glassSubtle: '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.05)', // Glass surface
-    glassMd: '0 8px 32px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.08)',     // Elevated glass
-    glassStrong: '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Prominent glass
 } as const;
 
   /**
@@ -64,12 +53,10 @@ export const transitions = {
     // backwards-compat shims (#4402).
     fast: '150ms',
     base: '450ms',
-    verySlow: '600ms',
 
     // Easing functions (slow, heavy, analog - NO BOUNCE)
     easeOut: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',    // Fluid deceleration
     easeInOut: 'cubic-bezier(0.4, 0, 0.6, 1)',          // Natural, weighted
-    easeSmooth: 'cubic-bezier(0.25, 0.1, 0.25, 1)',     // Slow, heavy, analog
 
     // Combined (duration + easing) - Motion feels inevitable
     hover_out: '150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -78,9 +65,7 @@ export const transitions = {
 
     // Semantic combined aliases — actively used (e.g. ThemeToggle, ContextMenu,
     // EmptyState). Internal convenience names, not backwards-compat shims (#4402).
-    fast_out: '150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
     base_inOut: '450ms cubic-bezier(0.4, 0, 0.6, 1)',
-    verySlow_inOut: '600ms cubic-bezier(0.25, 0.1, 0.25, 1)',
 
     // Property-specific
     color: '450ms color cubic-bezier(0.4, 0, 0.6, 1)',
@@ -95,36 +80,8 @@ export const transitions = {
    */
 export const animations = {
     pulse: {
-      keyframes: `
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `,
       duration: '2s',
       timing: 'ease-in-out',
       iteration: 'infinite',
-    },
-
-    fadeIn: {
-      keyframes: `
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-      `,
-      duration: '200ms',
-      timing: 'ease',
-    },
-
-    slideUp: {
-      keyframes: `
-        @keyframes slideUp {
-          from { transform: translateY(10px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-      `,
-      duration: '300ms',
-      timing: 'ease-out',
     },
 } as const;
