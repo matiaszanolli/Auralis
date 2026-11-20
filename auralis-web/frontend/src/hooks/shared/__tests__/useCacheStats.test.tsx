@@ -26,7 +26,7 @@ import { AllProviders } from '@/test/test-utils';
 import {
   useCacheStats,
   CACHE_STATS_REFRESH_INTERVAL_MS,
-} from '../useStandardizedAPI';
+} from '../useCacheStats';
 import { mockCacheStats } from '@/components/shared/__tests__/test-utils';
 
 const mockCacheHealth = {

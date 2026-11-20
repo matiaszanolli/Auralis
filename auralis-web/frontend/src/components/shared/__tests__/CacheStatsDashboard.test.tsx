@@ -14,12 +14,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { CacheStatsDashboard } from '../CacheStatsDashboard';
-import * as hooks from '@/hooks/shared/useStandardizedAPI';
+import * as hooks from '@/hooks/shared/useCacheStats';
 import { mockCacheStats } from './test-utils';
 import { TRACK_CACHE_ROW_HEIGHT } from '../CacheStatsDashboard/TrackCacheList';
 
-vi.mock('@/hooks/shared/useStandardizedAPI', async () => {
-  const actual = await vi.importActual<typeof hooks>('@/hooks/shared/useStandardizedAPI');
+vi.mock('@/hooks/shared/useCacheStats', async () => {
+  const actual = await vi.importActual<typeof hooks>('@/hooks/shared/useCacheStats');
   return {
     ...actual,
     useCacheStats: vi.fn(),

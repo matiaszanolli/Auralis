@@ -4,7 +4,7 @@
  *
  * These guards outlived `StandardizedAPIClient`, which #4693 retired. They are
  * now passed to `apiRequest`'s `validate` option by
- * `hooks/shared/useStandardizedAPI.ts` instead of being called from the
+ * `hooks/shared/useCacheStats.ts` instead of being called from the
  * client's `unwrapCachePayload`, so the contract they enforce is unchanged and
  * still needs direct coverage.
  *

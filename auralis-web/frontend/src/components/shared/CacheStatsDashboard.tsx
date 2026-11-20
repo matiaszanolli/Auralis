@@ -15,7 +15,7 @@
 
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
-import { CACHE_STATS_REFRESH_INTERVAL_MS, useCacheStats } from '@/hooks/shared/useStandardizedAPI';
+import { CACHE_STATS_REFRESH_INTERVAL_MS, useCacheStats } from '@/hooks/shared/useCacheStats';
 import { PercentageDisplay, FileSizeDisplay, TierCard } from './CacheStatsDashboard/StatCards';
 import { TrackCacheList } from './CacheStatsDashboard/TrackCacheList';
 

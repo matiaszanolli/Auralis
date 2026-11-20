@@ -3,7 +3,7 @@
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * The cache-telemetry types and shape guards of the retired third HTTP
- * layer (#4693): `hooks/shared/useStandardizedAPI.ts` calls
+ * layer (#4693): `hooks/shared/useCacheStats.ts` calls
  * `utils/apiRequest.ts` directly and passes the two guards below as its
  * `validate` step.
  *
