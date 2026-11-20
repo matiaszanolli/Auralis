@@ -15,7 +15,6 @@ export const typography = {
       primary: '"Asap Variable", Asap, "Segoe UI", sans-serif',                                  // Primary UI font for all text
       header: '"Asap Variable", Asap, Arial, sans-serif',                                         // Headers, titles (same family, heavier weights)
       mono: "'JetBrains Mono Variable', 'JetBrains Mono', 'Courier New', monospace",                       // Technical readouts (dB, Hz, LUFS)
-      system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
     },
 
     fontSize: {
@@ -28,22 +27,18 @@ export const typography = {
       '2xl': '28px',   // Page headers, artist names
       '3xl': '36px',   // Large headers, hero text
       '4xl': '56px',   // Display, hero text
-      '5xl': '72px',   // Ultra-large display
       // #3639: named display sizes for prominent typography that doesn't fit
       // the body-text scale (artwork glyphs, empty-state icons, hero numbers).
-      // Kept distinct from xs-5xl so the body scale stays linear.
+      // Kept distinct from xs-4xl so the body scale stays linear.
       display: '48px',  // Track-info artwork glyph
-      hero: '60px',     // Hero-size display
       huge: '80px',     // Empty-state placeholder glyphs
     },
 
     fontWeight: {
-      light: 300,      // Added for delicate text
       normal: 400,
       medium: 500,
       semibold: 600,
       bold: 700,
-      extrabold: 800,  // Added for maximum impact headers
     },
 
     lineHeight: {
@@ -53,8 +48,6 @@ export const typography = {
     },
 
     letterSpacing: {
-      normal: '0',
-      tight: '-0.01em',
       loose: '0.02em',
     },
 } as const;

@@ -11,24 +11,16 @@
 export const gradients = {
     // Brand gradients (solid)
     aurora: 'linear-gradient(135deg, #6F62EC 0%, #5A5CC4 100%)',              // Aurora (Soft Violet → darker); light stop 4.53:1 with white label (#5675)
-    aqua: 'linear-gradient(135deg, #47D6FF 0%, #00BCC4 100%)',                // Aqua (audio-reactive)
     darkSubtle: 'linear-gradient(180deg, #1B232E 0%, #131A24 100%)',          // Dark subtle (background transitions)
 
     // Glass gradients (translucent overlays)
     glassShimmer: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(255, 255, 255, 0.08) 100%)', // Glass shimmer
     shimmerSweep: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%)', // Card hover shimmer sweep (#4199) — single source for track/album cards
 
-
-    // Border gradients (for glass edges)
-    borderSubtle: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.12) 100%)',
-
     // Decorative gradients (for album art placeholders, mood visualization)
     // Style Guide §1.4: Gradients must feel alive, not graphic-design perfect
     decorative: {
-      neonSunset: 'linear-gradient(135deg, #ff6b9d 0%, #ffa502 100%)',
-      deepOcean: 'linear-gradient(135deg, #4b7bec 0%, #26de81 100%)',
       electricPurple: 'linear-gradient(135deg, #c44569 0%, #7366F0 100%)',
-      cosmicBlue: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
       gradientPink: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
       gradientBlue: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
       gradientGreen: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
@@ -57,12 +49,8 @@ export const glass = {
     // five hand-picked blue-black tuples (21,29,47 / 16,23,41 / 11,16,32 /
     // 27,35,46) that were scattered across components.
     starfield: {
-      faint: 'rgba(21, 29, 47, 0.25)',
-      subtle: 'rgba(21, 29, 47, 0.40)',
-      soft: 'rgba(21, 29, 47, 0.45)',
       medium: 'rgba(21, 29, 47, 0.50)',
       strong: 'rgba(21, 29, 47, 0.55)',
-      solid: 'rgba(21, 29, 47, 0.65)',
       sharp: 'rgba(21, 29, 47, 0.70)',
     },
 
@@ -78,16 +66,12 @@ export const glass = {
 
     // Medium glass (panels, surfaces)
     medium: {
-      background: 'rgba(21, 29, 47, 0.40)',
       // #5641: 0.9 (was 0.6) — this fill carries muted text over arbitrary
       // artwork in light mode and needs >= 4.5:1 against it.
       // (#5646: the dark-mode twin `backgroundDark` is gone with the unused
       // glassEffects helper it existed for.)
       backgroundLight: 'rgba(255, 255, 255, 0.9)',
       backdropFilter: 'blur(8px) saturate(1.08)',
-      border: 'none',
-      // Bevel: outer shadow + top highlight + bottom shadow
-      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.18)',
     },
 
     // Strong glass (modals, prominent surfaces, player bar)

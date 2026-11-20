@@ -7,7 +7,6 @@
  * of cross-category references.
  */
 import { colors } from './colors';
-import { spacing } from './layout';
 import { withOpacity } from './with-opacity';
 
 
@@ -23,77 +22,22 @@ import { withOpacity } from './with-opacity';
 export const components = {
     playerBar: {
       height: '96px',
-      zIndex: 1030,
       background: withOpacity(colors.bg.level0, 0.85), // Deep blue-black (translucent)
-      backdropFilter: 'blur(24px) saturate(1.2)',
-      borderTop: 'none',                           // Top edge blends with content
-      shadow: '0 -8px 32px rgba(0, 0, 0, 0.28)',   // Depth via shadow
     },
 
     sidebar: {
       width: '256px',
-      collapsedWidth: '72px',
-      background: withOpacity(colors.bg.level1, 0.2),
-      backdropFilter: 'blur(6px) saturate(0.95)',
-      borderRight: 'none',  // No hard border - use bevel shadow instead
-      // Glass bevel: outer shadow + right edge highlight
-      shadow: '2px 0 8px rgba(0, 0, 0, 0.08), inset -1px 0 0 rgba(255, 255, 255, 0.05)',
     },
 
     rightPanel: {
       width: '360px',
-      minWidth: '300px',
-      // Match sidebar's subtle transparency (muscle memory UI)
-      background: withOpacity(colors.bg.level1, 0.2),
-      backdropFilter: 'blur(6px) saturate(0.95)',
-      borderLeft: 'none',
-      // Glass bevel: mirrored from sidebar (left edge highlight)
-      shadow: '-2px 0 8px rgba(0, 0, 0, 0.08), inset 1px 0 0 rgba(255, 255, 255, 0.05)',
     },
 
     albumCard: {
-      size: '200px',               // Increased from 160px
-      borderRadius: '12px',        // lg (12px minimum for cards)
       hoverScale: 1.04,            // Increased from 1.05 for subtlety
-      hoverShadow: '0 8px 24px rgba(0, 0, 0, 0.24)',
-    },
-
-    albumCover: {
-      borderRadius: '16px',        // xl (large panels)
-      shadow: '0 12px 32px rgba(0, 0, 0, 0.28)',
-      hoverShadow: '0 16px 40px rgba(0, 0, 0, 0.32)',
-    },
-
-    button: {
-      primary: {
-        // #4663: 24px is genuinely off the spacing scale (lg=20, xl=28). Kept
-        // literal rather than snapped to a neighbouring step, so this control's
-        // width does not shift; the vertical 12px is spacing.md exactly.
-        padding: `${spacing.md} 24px`,
-        borderRadius: '8px',
-        fontSize: '14px',
-        fontWeight: 500,
-      },
-      icon: {
-        size: '56px',
-        borderRadius: '9999px',  // full circle
-      },
     },
 
     searchBar: {
       height: '48px',
-      borderRadius: '24px',  // Pill shape
-      background: withOpacity(colors.bg.level4, 0.6),
-      padding: `0 ${spacing.group}`,
-    },
-
-    // Input surface backgrounds at rest / hover / focus (#3981 — was raw rgba
-    // in design-system/primitives/Input.tsx). Composed from bg.level4 (#1F2940)
-    // via withOpacity so it tracks palette updates (#4203). This snaps the
-    // former off-palette #1F2936 base onto the canonical bg.level4.
-    inputSurface: {
-      base: withOpacity(colors.bg.level4, 0.6),
-      hover: withOpacity(colors.bg.level4, 0.8),
-      focus: withOpacity(colors.bg.level4, 0.95),
     },
 } as const;

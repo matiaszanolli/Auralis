@@ -64,23 +64,12 @@ export const colors = {
     audioSemantic: {
       // Indigo/Violet - Identity, focus, playback (primary brand)
       identity: '#7366F0',
-      identityGlow: 'rgba(115, 102, 240, 0.4)',
 
       // Cyan/Teal - Spatial width, clarity, stereo field
       spatial: '#47D6FF',
-      spatialGlow: 'rgba(71, 214, 255, 0.4)',
-
-      // Green - Energy stability, balance, dynamics
-      stability: '#10B981',
-      stabilityGlow: 'rgba(16, 185, 129, 0.4)',
-
-      // Amber/Warm - Transients, intensity, peaks
-      transient: '#F59E0B',
-      transientGlow: 'rgba(245, 158, 11, 0.4)',
 
       // Magenta/Pink - Harmonic richness, vibrancy
       harmonic: '#EC4899',
-      harmonicGlow: 'rgba(236, 72, 153, 0.4)',
     },
 
     /**
@@ -144,13 +133,10 @@ export const colors = {
         micro: 'rgba(255, 255, 255, 0.04)',        // #3981
         faint: 'rgba(255, 255, 255, 0.06)',        // #3981
         subtle: 'rgba(255, 255, 255, 0.08)',       // #3981
-        veryLight: 'rgba(255, 255, 255, 0.05)',
         light: 'rgba(255, 255, 255, 0.10)',
         lighter: 'rgba(255, 255, 255, 0.15)',
-        standard: 'rgba(255, 255, 255, 0.20)',
         strong: 'rgba(255, 255, 255, 0.30)',
         veryStrong: 'rgba(255, 255, 255, 0.50)',
-        nearOpaque: 'rgba(255, 255, 255, 0.70)',
       },
 
       // Deep blue-black with opacity (Style Guide: NO pure black)
@@ -182,17 +168,8 @@ export const colors = {
      * Ready-to-use color combinations for typical UI states.
      */
     utility: {
-      disabledBg: 'rgba(115, 102, 240, 0.05)',
-
       // Destructive actions
-      error: '#EF4444',
-      errorHover: '#DC2626',
       errorBg: 'rgba(239, 68, 68, 0.10)',
-      errorBgMedium: 'rgba(239, 68, 68, 0.15)',   // stronger error tint (#3980)
-      errorBorder: 'rgba(239, 68, 68, 0.30)',     // error banner border (#3980)
-      errorGlow: 'rgba(239, 68, 68, 0.20)',       // error banner box-shadow tint (#3980)
-
-      // Success backgrounds
     },
 
     // #5646: the `export` palettes (#3596 — resolved colors for hypothetical
