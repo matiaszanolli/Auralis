@@ -11,7 +11,8 @@ from unittest.mock import MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.streamlined_processor_cache import close_dropped_processor, leased, remember_processor  # noqa: E402
+from core.streamlined_processor_cache import remember_processor  # noqa: E402
+from core.streamlined_processor_disposal import close_dropped_processor, leased  # noqa: E402
 
 
 def _key(n: int):

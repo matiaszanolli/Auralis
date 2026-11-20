@@ -26,6 +26,8 @@
     "auralis-web/backend/core/stream_normal.py": 279,
     "auralis-web/backend/core/stream_notifications.py": 86,
     "auralis-web/backend/core/stream_seek.py": 172,
+    "auralis-web/backend/core/streamlined_processor_cache.py": 223,
+    "auralis-web/backend/core/streamlined_processor_disposal.py": 115,
     "auralis-web/backend/core/streamlined_worker.py": 243,
     "auralis-web/backend/main.py": 129,
     "auralis-web/backend/routers/albums.py": 218,

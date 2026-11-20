@@ -10,9 +10,10 @@ Simple background worker that builds two-tier caches:
 Replaces complex multi-tier worker (373 lines) with simple predictive logic (~150 lines).
 
 This module is the public facade (#5037): it owns the worker lifecycle and the
-per-chunk processing entry point, and composes two siblings —
-``core/streamlined_processor_cache.py`` (LRU processor cache + build-lock
-bookkeeping) and ``core/streamlined_tiers.py`` (tier-priority scheduling).
+per-chunk processing entry point, and composes three siblings: the processor
+cache (``core/streamlined_processor_cache.py``), its render leases and close
+path (``core/streamlined_processor_disposal.py``) and tier-priority scheduling
+(``core/streamlined_tiers.py``).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -29,13 +30,12 @@ from core.file_signature import FileSignatureService
 from core.streamlined_processor_cache import (
     _PROCESSOR_CACHE_MAX,
     ProcessorCacheKey,
-    discard_timed_out_processor,
     get_or_build_processor,
-    leased,
     remember_processor,
 )
 from core.streamlined_lifecycle import WorkerLifecycleMixin
 from core.streamlined_processor_cache import intensity_key as _intensity_key
+from core.streamlined_processor_disposal import discard_timed_out_processor, leased
 
 
 logger = logging.getLogger(__name__)
