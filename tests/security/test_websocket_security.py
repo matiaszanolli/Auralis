@@ -17,7 +17,6 @@ SECURITY CONTROLS TESTED:
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import json
 import sys
 from pathlib import Path
@@ -30,12 +29,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backen
 
 from core.audio_stream_controller import ws_id as _stable_ws_id
 from config.limits import WS_MAX_MESSAGE_SIZE as MAX_MESSAGE_SIZE
-from config.limits import WS_MAX_MESSAGES_PER_SECOND as MAX_MESSAGES_PER_SECOND
-from websocket.websocket_security import (
-    WebSocketRateLimiter,
-    send_error_response,
-    validate_and_parse_message,
-)
+from websocket.message_validation import send_error_response, validate_and_parse_message
+from websocket.rate_limiter import WebSocketRateLimiter
 
 
 @pytest.mark.security

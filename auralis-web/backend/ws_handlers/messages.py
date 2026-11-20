@@ -20,7 +20,7 @@ from fastapi import WebSocket
 
 from core.stream_protocol import safe_send_text
 from websocket.websocket_protocol import HeartbeatManager
-from websocket.websocket_security import send_error_response
+from websocket.message_validation import send_error_response
 
 logger = logging.getLogger(__name__)
 

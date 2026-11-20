@@ -23,7 +23,7 @@ from core.stream_protocol import is_websocket_connected, safe_send_text
 from helpers import spawn_background_task
 from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET
 from websocket.websocket_protocol import HeartbeatManager
-from websocket.websocket_security import WebSocketRateLimiter
+from websocket.rate_limiter import WebSocketRateLimiter
 
 from . import messages as msg_handlers
 from . import playback_commands, playback_control, seek_command

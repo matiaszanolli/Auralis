@@ -17,12 +17,12 @@ from config.log_throttle import warn_throttled
 from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_gates import stream_chunk_cancel_events, stream_flow_events, stream_pause_events
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from websocket.websocket_security import (
-    WebSocketRateLimiter,
+from websocket.message_validation import (
     receive_text_frame,
     send_error_response,
     validate_and_parse_message,
 )
+from websocket.rate_limiter import WebSocketRateLimiter
 from ws_handlers import connection as ws_connection
 from ws_handlers.context import StreamState, WSDeps
 

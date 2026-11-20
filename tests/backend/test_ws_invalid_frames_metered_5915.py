@@ -25,11 +25,11 @@ sys.path.insert(0, str(_BACKEND))
 
 from config.limits import WS_MAX_MESSAGE_SIZE, WS_MAX_MESSAGES_PER_SECOND  # noqa: E402
 from routers import system  # noqa: E402
-from websocket.websocket_security import (  # noqa: E402
-    WebSocketRateLimiter,
+from websocket.message_validation import (  # noqa: E402
     receive_text_frame,
     validate_and_parse_message,
 )
+from websocket.rate_limiter import WebSocketRateLimiter  # noqa: E402
 
 
 def _ws():

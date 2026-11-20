@@ -23,7 +23,7 @@ from schemas import (  # single source of truth (#4424, #4600)
     DEFAULT_PRESET,
     VALID_PRESETS,
 )
-from websocket.websocket_security import send_error_response
+from websocket.message_validation import send_error_response
 
 from .context import StreamState, WSDeps
 from .stream_cancel import detach_stream, signal_cancel

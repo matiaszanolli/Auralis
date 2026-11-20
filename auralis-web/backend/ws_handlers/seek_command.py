@@ -18,7 +18,7 @@ from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_protocol import safe_send_text
 from fastapi import WebSocket
 from schemas import DEFAULT_PRESET  # single source of truth (#4424, #4600)
-from websocket.websocket_security import send_error_response
+from websocket.message_validation import send_error_response
 
 from .context import StreamState, WSDeps
 from .enhancement_params import DEFAULT_INTENSITY, resolve_enhancement_params

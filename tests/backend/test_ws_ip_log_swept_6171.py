@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend"))
 
-from websocket.websocket_security import IP_LOG_SWEEP_INTERVAL, WebSocketRateLimiter  # noqa: E402
+from websocket.rate_limiter import IP_LOG_SWEEP_INTERVAL, WebSocketRateLimiter  # noqa: E402
 
 
 def _socket(ip: str):

@@ -8,7 +8,7 @@ multiple files with no enforcement that they stayed in sync.
 
 Also collects the HTTP rate-limit and WebSocket-message-limit constants
 (#3902) that used to live as bare, undocumented magic numbers directly in
-``config/middleware/rate_limit.py`` / ``websocket/websocket_security.py``.
+``config/middleware/rate_limit.py`` / ``websocket/rate_limiter.py``.
 """
 
 import os
@@ -246,7 +246,7 @@ RATE_LIMIT_MAX_WINDOW_ENTRIES: int = 10_000
 
 
 # ============================================================================
-# WebSocket message limits (websocket/websocket_security.py) (#2156, #3902)
+# WebSocket message limits (websocket/rate_limiter.py, message_validation.py) (#2156, #3902)
 # ============================================================================
 
 # Maximum accepted size of a single WebSocket message, in bytes. Rejecting

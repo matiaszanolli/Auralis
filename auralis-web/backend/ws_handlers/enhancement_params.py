@@ -20,7 +20,7 @@ from schemas import (  # single source of truth (#4424, #4600)
     VALID_PRESETS,
     is_valid_intensity,
 )
-from websocket.websocket_security import send_error_response
+from websocket.message_validation import send_error_response
 
 
 logger = logging.getLogger(__name__)

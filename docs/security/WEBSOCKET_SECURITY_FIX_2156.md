@@ -32,11 +32,11 @@ Fixed HIGH severity security vulnerability in WebSocket handler that allowed unv
 
 ### New Files
 
-#### 1. `auralis-web/backend/websocket/websocket_security.py` (originally auralis-web/backend/websocket_security.py; module since moved into websocket/)
-Security utilities for WebSocket validation and rate limiting:
-- `WebSocketRateLimiter` - Per-connection rate limiter with sliding window
-- `validate_and_parse_message()` - Message size, JSON, and schema validation
-- `send_error_response()` - Standardized error responses
+#### 1. `auralis-web/backend/websocket/rate_limiter.py` and `auralis-web/backend/websocket/message_validation.py`
+Security utilities for WebSocket validation and rate limiting (originally one module at the backend root, since split into the websocket/ package):
+- `rate_limiter.py`: `WebSocketRateLimiter` - Per-connection rate limiter with sliding window
+- `message_validation.py`: `validate_and_parse_message()` - Message size, JSON, and schema validation
+- `message_validation.py`: `send_error_response()` - Standardized error responses
 
 **Security Limits**:
 ```python
@@ -195,7 +195,7 @@ All acceptance criteria from issue #2156 met:
 - Error responses follow standardized format
 
 **Configuration**:
-- Limits can be adjusted in `websocket/websocket_security.py`:
+- Limits can be adjusted in `config/limits.py`:
   ```python
   MAX_MESSAGE_SIZE = 64 * 1024  # Increase if needed
   MAX_MESSAGES_PER_SECOND = 10  # Adjust for use case
