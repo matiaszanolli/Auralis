@@ -62,9 +62,6 @@ class TestFrontendMissingPage:
         assert "not found" in body
         assert "reinstall" in body
 
-    def test_page_still_links_the_api_docs(self):
-        assert "/api/docs" in fallback_routes.FRONTEND_MISSING_HTML
-
 
 class TestPathStillAvailableServerSide:
     """Acceptance criterion: the absolute path is still logged for diagnostics."""

@@ -206,10 +206,12 @@ def session_factory(temp_test_db):
 
     from auralis.library.migration_manager import MigrationManager
 
-    # A versioned fresh schema, so a LibraryDatabase opened on the same file by a test that
-    # also asks for `library_database` finds a current library rather than a pre-versioning one.
+    # A versioned schema, so a LibraryDatabase opened on the same file by a test that also asks
+    # for `library_database` finds a current library rather than a pre-versioning one. Migrate,
+    # not initialize: when `library_database` was set up first the file is already current, and
+    # initialize_fresh_database() refuses any file that has tables.
     with MigrationManager(db_path) as manager:
-        manager.initialize_fresh_database()
+        assert manager.migrate_to_latest(), f"could not bring {db_path} to the current schema"
 
     engine = create_engine(f'sqlite:///{db_path}', connect_args={'check_same_thread': False})
 

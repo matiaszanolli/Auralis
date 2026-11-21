@@ -11,6 +11,7 @@ frontend (useServerRestartNotice) warns when it changes.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -37,9 +38,14 @@ def test_id_is_stable_within_one_process():
 
 def test_a_new_process_gets_a_new_id():
     code = "import player_state; print(player_state.SERVER_INSTANCE_ID)"
-    other = subprocess.run(
-        [sys.executable, "-c", code], cwd=BACKEND, capture_output=True, text=True, check=True
-    ).stdout.strip()
+    # player_state imports `auralis`, which CI does not install into site-packages,
+    # so the child needs the repo root on its path as well as the backend.
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(BACKEND), str(BACKEND.parent.parent)])}
+    result = subprocess.run(
+        [sys.executable, "-c", code], cwd=BACKEND, env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    other = result.stdout.strip()
     assert other and other != SERVER_INSTANCE_ID
 
 

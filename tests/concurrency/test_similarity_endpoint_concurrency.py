@@ -152,9 +152,11 @@ class TestFitInterleavedWithRead:
         fit_latency = 0.4
         fit_started = threading.Event()
 
-        def slow_fit():
+        # fit(min_samples) since #5889, and its True/False result is honoured.
+        def slow_fit(min_samples=10):
             fit_started.set()
             time.sleep(fit_latency)
+            return True
 
         similarity = Mock()
         similarity.is_fitted = Mock(return_value=False)

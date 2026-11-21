@@ -36,6 +36,12 @@ def test_a_directory_event_always_counts_except_inside_the_apps_own_space():
 
 
 def test_the_apps_own_temp_files_never_count_even_with_an_audio_suffix(tmp_path, monkeypatch):
+    from auralis.library import data_dir
+
+    # The env override only applies while no non-default database is
+    # registered; any earlier test that opened a LibraryDatabase on a tmp file
+    # left one registered process-wide, which made this order-dependent.
+    monkeypatch.setattr(data_dir, "_database_data_dir", None)
     monkeypatch.setenv("AURALIS_DATA_DIR", str(tmp_path / "data"))
     assert not is_relevant_event(_event("/tmp/auralis_stream_42_chunk.wav"))
     assert not is_relevant_event(_event("/tmp/auralis_seekable_x.wav"))

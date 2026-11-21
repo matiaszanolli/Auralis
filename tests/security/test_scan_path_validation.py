@@ -44,18 +44,28 @@ from security.path_security import (
 class TestAllowedDirectories:
     """Test allowed directory configuration."""
 
-    def test_default_allowed_directories(self):
-        """Default allowed directories should include home and Music."""
+    def test_default_allowed_directories(self, tmp_path, monkeypatch):
+        """The defaults are ~/Music and ~/Documents, kept only when they exist.
+
+        Measured against a fake home: the CI runner has neither folder, so the
+        old "the list contains something under home" check failed there.
+        """
+        import security.path_allowlist as allowlist
+
+        assert [d.relative_to(Path.home()) for d in allowlist.DEFAULT_ALLOWED_DIRS] == [
+            Path("Music"), Path("Documents"),
+        ]
+
+        music = tmp_path / "Music"
+        music.mkdir()
+        monkeypatch.setattr(allowlist, "DEFAULT_ALLOWED_DIRS", [music, tmp_path / "Documents"])
+        monkeypatch.setattr(allowlist, "_extra_allowed_dirs", [])
+        monkeypatch.delenv("XDG_MUSIC_DIR", raising=False)
+
         allowed = get_allowed_directories()
 
-        # Should include at least home directory
-        assert any(str(Path.home()) in str(d) for d in allowed)
-
-        # All paths should be absolute
+        assert allowed == [music.resolve()]  # the missing Documents folder is dropped
         assert all(d.is_absolute() for d in allowed)
-
-        # All paths should exist
-        assert all(d.exists() for d in allowed)
 
     def test_xdg_music_dir_support(self):
         """XDG_MUSIC_DIR environment variable should be respected."""

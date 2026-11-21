@@ -80,11 +80,16 @@ def test_generators_and_classify_agree_on_hz(detector, generator, monkeypatch):
     Captures the Hz value each generator actually computes and asserts it
     equals what _classify() derives from the same fingerprint.
     """
+    import sys
+
     fingerprint = _fp(700.0)
     seen: list[float] = []
 
-    import auralis.core.recording_type_detector as mod
-
+    # Spy in the module that DEFINES the generator: since the #6272 split that
+    # is recording_type_parameters, which binds _centroid_hz by name, so a spy
+    # on recording_type_detector never saw these calls.
+    method = getattr(detector, generator)
+    mod = sys.modules[method.__func__.__module__]
     real = mod._centroid_hz
 
     def spy(fp, default_normalized=None):
@@ -94,7 +99,7 @@ def test_generators_and_classify_agree_on_hz(detector, generator, monkeypatch):
         return value
 
     monkeypatch.setattr(mod, "_centroid_hz", spy)
-    getattr(detector, generator)(fingerprint, 0.9)
+    method(fingerprint, 0.9)
 
     assert seen, f"{generator} did not go through the shared derivation"
     assert all(v == pytest.approx(700.0) for v in seen)

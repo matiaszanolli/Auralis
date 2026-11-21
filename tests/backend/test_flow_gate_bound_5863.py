@@ -24,8 +24,10 @@ from core import stream_gates  # noqa: E402
 
 def _websocket_with_key(key: str) -> MagicMock:
     ws = MagicMock()
-    # ws_id(websocket) resolves through the controller; patch it to the key.
-    stream_gates._asc.ws_id = lambda w: key
+    # ws_id() returns the id already stamped on the socket. Reassigning
+    # _asc.ws_id instead leaked a constant-key lambda into every later test,
+    # which broke test_proactive_buffer_cancellation_5378's registry lookup.
+    ws._auralis_id = key
     return ws
 
 
