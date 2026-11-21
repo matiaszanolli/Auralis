@@ -4,7 +4,9 @@ Terminal library-scan WebSocket frames for the manual scan route
 
 What ``scan_library`` used to inline (split from library_scan.py, #5831). The
 progress bridge, fingerprint enqueue and ``scan_complete`` payload it shares
-with the auto-scanner live in ``services/scan_events.py`` (#5912). The frame
+with the auto-scanner live in ``services/scan_events.py`` (#5912), and the terminal
+``scan_complete`` / ``library_updated`` pair in ``services/scan_complete_broadcast.py``
+(#6574). The frame
 payload policy (#4651: redact only what the user did not supply) is unchanged.
 
 :copyright: (C) 2024 Auralis Team
@@ -15,7 +17,7 @@ import logging
 from typing import Any
 
 from services.missing_tracks import prune_missing_tracks
-from services.scan_events import scan_complete_payload
+from services.scan_complete_broadcast import broadcast_scan_complete
 from services.scan_fingerprint_enqueue import enqueue_scanned_for_fingerprinting
 from websocket.outbound_messages import broadcast_typed
 
@@ -43,30 +45,6 @@ async def publish_scan_result(connection_manager: Any, library_database: Any, re
     else:
         logger.warning("Scan could not read every folder; skipping missing-track pruning")
     await broadcast_scan_complete(connection_manager, result, removed)
-
-
-async def broadcast_scan_complete(
-    connection_manager: Any, result: Any, removed: Any
-) -> None:
-    """Broadcast ``scan_complete`` and, if anything changed, ``library_updated``."""
-    if not connection_manager:
-        return
-    await broadcast_typed(
-        connection_manager,
-        "scan_complete",
-        scan_complete_payload(result),
-    )
-    if result.files_added or result.files_updated or removed:
-        await broadcast_typed(
-            connection_manager,
-            "library_updated",
-            # Fields here must match LibraryUpdatedMessage in
-            # frontend/src/types/ws/library.ts.
-            {
-                "action": "scan",
-                "track_count": result.files_added,
-            },
-        )
 
 
 async def broadcast_scan_error(connection_manager: Any, message: str) -> None:

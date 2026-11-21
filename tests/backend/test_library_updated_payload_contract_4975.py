@@ -25,9 +25,9 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _TS_CONTRACT = _REPO_ROOT / "auralis-web/frontend/src/types/ws/library.ts"
+# The manual route and the auto-scanner both publish through this one helper (#6574).
 _EMITTERS = {
-    "routers/library_scan_events.py": _REPO_ROOT / "auralis-web/backend/routers/library_scan_events.py",
-    "services/library_auto_scanner.py": _REPO_ROOT / "auralis-web/backend/services/library_auto_scanner.py",
+    "services/scan_complete_broadcast.py": _REPO_ROOT / "auralis-web/backend/services/scan_complete_broadcast.py",
 }
 
 

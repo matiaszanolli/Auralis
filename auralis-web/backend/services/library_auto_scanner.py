@@ -26,7 +26,8 @@ from helpers import spawn_background_task
 from websocket.outbound_messages import broadcast_typed
 
 from .missing_tracks import prune_missing_tracks
-from .scan_events import make_progress_callback, scan_complete_payload
+from .scan_complete_broadcast import broadcast_scan_complete
+from .scan_events import make_progress_callback
 from .scan_fingerprint_enqueue import enqueue_scanned_for_fingerprinting
 from .scanner_stop import stop_scanner
 from .scanner_watchdog import HAS_WATCHDOG, WatchdogMixin
@@ -219,8 +220,9 @@ class LibraryAutoScanner(WatchdogMixin):
             logger.debug("Auto-scan cycle rejected (scan slot held elsewhere); skipping this cycle")
             return
 
-        files_added = scan_result.files_added if scan_result else 0
-        logger.info(f"✅ Auto-scan complete: {files_added} files added")
+        logger.info(
+            f"✅ Auto-scan complete: {scan_result.files_added} added, {scan_result.files_updated} updated"
+        )
 
         if self._fingerprint_queue and scan_result:  # only when handed a queue
             await enqueue_scanned_for_fingerprinting(scan_result)
@@ -232,25 +234,8 @@ class LibraryAutoScanner(WatchdogMixin):
         if scan_result.walk_complete:
             removed = await prune_missing_tracks(self._library_database, self._connection_manager)
 
-        await broadcast_typed(
-            self._connection_manager,
-            "scan_complete",
-            scan_complete_payload(scan_result),
-            suppress_errors=True,
-        )
-
-        # Fields here must match LibraryUpdatedMessage in
-        # frontend/src/types/ws/library.ts.
-        if files_added or removed:
-            await broadcast_typed(
-                self._connection_manager,
-                "library_updated",
-                {
-                    "action": "scan",
-                    "track_count": files_added,
-                },
-                suppress_errors=True,
-            )
+        # Shared with the manual route, so an update-only rescan refreshes the views too (#6574).
+        await broadcast_scan_complete(self._connection_manager, scan_result, removed, suppress_errors=True)
 
     async def _interruptible_sleep(self, seconds: int) -> None:
         """
