@@ -8,7 +8,6 @@ Modular configuration system for audio processing
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from .genre_profiles import create_default_genre_profiles, get_default_genre_profile
 from .preset_profiles import (
     PresetProfile,
     create_preset_profiles,
@@ -21,8 +20,6 @@ from .unified_config import UnifiedConfig
 __all__ = [
     'AdaptiveConfig',
     'GenreProfile',
-    'create_default_genre_profiles',
-    'get_default_genre_profile',
     'PresetProfile',
     'get_preset_profile',
     'get_available_presets',

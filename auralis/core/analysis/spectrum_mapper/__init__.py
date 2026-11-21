@@ -10,15 +10,8 @@ Maps content analysis to processing parameters using spectrum-based approach
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from .content_modifiers import apply_content_modifiers
-from .data_classes import SpectrumParameters, SpectrumPosition
-from .preset_anchors import get_preset_anchors
 from .spectrum_mapper import SpectrumMapper
 
 __all__ = [
     'SpectrumMapper',
-    'SpectrumPosition',
-    'SpectrumParameters',
-    'get_preset_anchors',
-    'apply_content_modifiers',
 ]

@@ -31,19 +31,9 @@ Usage:
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
-from auralis.analysis.fingerprint.metrics import (
-    AggregationUtils,
-    AudioMetrics,
-    FingerprintConstants,
-    MetricUtils,
-    SafeOperations,
-)
-from auralis.analysis.fingerprint.dimension_weights import DimensionWeights
-from auralis.analysis.fingerprint.distance import FingerprintDistance
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
-from auralis.analysis.fingerprint.knn_graph import GraphStats, KNNGraphBuilder
+from auralis.analysis.fingerprint.knn_graph import KNNGraphBuilder
 from auralis.analysis.fingerprint.normalizer import FingerprintNormalizer
-from auralis.analysis.fingerprint.normalizer_stats import DimensionStats
 from auralis.analysis.fingerprint.preloaded_fingerprint import fingerprint_preloaded
 from auralis.analysis.fingerprint.similarity import (
     FingerprintSimilarity,
@@ -53,18 +43,9 @@ from auralis.analysis.fingerprint.similarity import (
 __all__ = [
     'AudioFingerprintAnalyzer',
     'FingerprintNormalizer',
-    'DimensionStats',
-    'FingerprintDistance',
-    'DimensionWeights',
     'FingerprintSimilarity',
     'SimilarityResult',
     'KNNGraphBuilder',
-    'GraphStats',
     'FingerprintStorage',
     'fingerprint_preloaded',
-    'FingerprintConstants',
-    'SafeOperations',
-    'MetricUtils',
-    'AudioMetrics',
-    'AggregationUtils',
 ]
