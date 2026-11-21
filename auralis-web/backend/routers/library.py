@@ -13,13 +13,8 @@ Endpoints:
 - GET  /api/library/stats                - Library statistics
 - POST /api/library/reset                - Destructive full library reset
 
-Artist and album browse/detail endpoints live in the dedicated routers/artists.py
-and routers/albums.py (fixes #3824 / BE-RH-7 — /api/library/artists,
-/api/library/artists/{id}, and /api/library/albums/{id} were dead-end
-duplicates of /api/artists, /api/artists/{id}, and /api/albums/{id} with a
-different, undocumented response shape; the frontend never called them, per
-useLibraryQuery.ts's own comment and its test asserting the library.py URLs
-are never used).
+Artist and album browse/detail endpoints live in routers/artists.py and
+routers/albums.py; the /api/library/* duplicates were removed (#3824).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -59,12 +54,8 @@ async def refresh_reference_cloud(
     """
     from auralis.learning.reference_seeder import refresh_cloud
     factory = require_repository_factory(deps.get_repository_factory)
-    cleared, selected = await asyncio.to_thread(
-        refresh_cloud, factory.fingerprints
-    )
-    logger.info(
-        f"🎯 Reference cloud refresh (manual): cleared {cleared}, selected {selected}"
-    )
+    cleared, selected = await asyncio.to_thread(refresh_cloud, factory.fingerprints)
+    logger.info(f"🎯 Reference cloud refresh (manual): cleared {cleared}, selected {selected}")
     return {"cleared": cleared, "selected": selected}
 
 
@@ -151,6 +142,11 @@ async def reset_library(
             deps.get_artwork_cache_dir(),
             clear_source_artwork=True, clear_fingerprint_store=True,
         )
+
+        # The similarity model describes the deleted library: unfit it so the restarted auto-fit
+        # worker fits the new one on its own statistics (#6584). resolve() reads the globals.
+        if (similarity_system := resolve("similarity_system")) is not None:
+            await asyncio.to_thread(similarity_system.reset)
 
         # No query cache to drop: every read goes straight to SQLite.
         logger.info(

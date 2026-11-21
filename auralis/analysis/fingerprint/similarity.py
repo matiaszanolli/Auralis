@@ -30,14 +30,7 @@ class SimilarityResult:
     """Result of similarity search"""
 
     def __init__(self, track_id: int, distance: float, similarity_score: float):
-        """
-        Initialize similarity result
-
-        Args:
-            track_id: ID of the similar track
-            distance: Fingerprint distance (lower = more similar)
-            similarity_score: Similarity score 0-1 (higher = more similar)
-        """
+        """A similar track: its fingerprint distance (lower = closer) and 0-1 score (higher = closer)."""
         self.track_id = track_id
         self.distance = distance
         self.similarity_score = similarity_score
@@ -161,6 +154,21 @@ class FingerprintSimilarity:
                 error("Failed to fit similarity system")
 
             return success
+
+    def reset(self) -> None:
+        """Forget the fitted model: the library it was fitted on is gone (#6584).
+
+        After a library reset ``needs_refit()`` compares a near-empty library with the old sample
+        and stays False, so ``fit()`` kept the deleted library's ranges and calibration until the new
+        one outgrew the old one 1.5x. Unfitted, the routes answer their "initialising" 503 and the
+        auto-fit worker fits the new library on its own statistics.
+        """
+        with self._fit_lock:
+            self.fitted = False
+            self.fitted_model = ({}, DEFAULT_REFERENCE_DISTANCE)
+            # In place: the K-NN graph builder shares this normalizer.
+            self.normalizer.stats = {}
+            self.normalizer.fitted = False
 
     def find_similar(
         self,

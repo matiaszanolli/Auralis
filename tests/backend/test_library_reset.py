@@ -246,6 +246,33 @@ class TestLibraryReset:
         worker.stop.assert_awaited_once()
         worker.start.assert_awaited_once()
 
+    def test_reset_unfits_the_similarity_system_before_workers_restart(self):
+        """The deleted library's similarity model must not outlive it (#6584)."""
+        _factory_box[0] = _mock_repos()
+        order = MagicMock()
+        similarity = Mock(reset=order.similarity_reset)
+        autofit = MagicMock(stop=AsyncMock(), start=AsyncMock(side_effect=order.autofit_start))
+        _workers_box["similarity_system"] = similarity
+        _workers_box["similarity_autofit"] = autofit
+
+        response = _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
+
+        assert response.status_code == 200
+        assert [c[0] for c in order.mock_calls] == ["similarity_reset", "autofit_start"]
+
+    def test_a_failed_reset_keeps_the_similarity_model(self):
+        """Nothing was deleted, so the fitted model still describes the library (#6584)."""
+        repos = _mock_repos()
+        repos.reset_library.side_effect = RuntimeError("disk full")
+        _factory_box[0] = repos
+        similarity = Mock()
+        _workers_box["similarity_system"] = similarity
+
+        response = _client.post("/api/library/reset", headers=CONFIRM_HEADERS)
+
+        assert response.status_code == 500
+        similarity.reset.assert_not_called()
+
     def test_reset_succeeds_with_no_workers_registered(self):
         """Reset works even when no background workers are present."""
         _factory_box[0] = _mock_repos()

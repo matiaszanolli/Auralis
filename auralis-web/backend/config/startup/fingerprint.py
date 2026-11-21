@@ -137,8 +137,9 @@ async def _init_similarity_system(HAS_SIMILARITY: bool, globals_dict: dict[str, 
         # #4139: auto-fit in the background so an existing
         # library gets working recommendations without a manual
         # /api/similarity/fit call. fit() is a no-op (returns
-        # False) below min_samples (fresh install / library
-        # reset), leaving the system unfitted — the similarity
+        # False) below min_samples (fresh install, or a library
+        # reset, which unfits the system first — #6584), leaving
+        # the system unfitted — the similarity
         # router then surfaces a clear 503 rather than silently
         # empty results. Runs off the startup path because
         # normalizer.fit() streams every fingerprint in batches.
