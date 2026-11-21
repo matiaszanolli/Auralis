@@ -35,9 +35,9 @@ class _Repo:
 def _similarity(count: int, boxed: list[int]) -> FingerprintSimilarity:
     system = FingerprintSimilarity(_Repo(count))
     system.fitted = True
-    system.normalizer.normalize = lambda vector: vector  # type: ignore[method-assign]
+    system.normalizer.normalize = lambda vector, stats=None: vector  # type: ignore[method-assign]
     # The box holds only `boxed`, far from the target in this fake geometry.
-    system._get_prefiltered_candidates = lambda target_fp, max_candidates: [  # type: ignore[method-assign]
+    system._get_prefiltered_candidates = lambda target_fp, max_candidates, stats=None: [  # type: ignore[method-assign]
         (track_id, system.fingerprint_repo.fingerprints[track_id].to_vector() + 5.0) for track_id in boxed
     ]
     return system

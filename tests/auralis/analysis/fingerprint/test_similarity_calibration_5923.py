@@ -76,7 +76,7 @@ def test_scores_spread_across_ranks_instead_of_clustering():
 def test_fit_stores_the_reference_and_find_similar_scores_with_it():
     vectors = _library(60)
     system = FingerprintSimilarity(_Repo(vectors))
-    system.normalizer.normalize = lambda v: v  # type: ignore[method-assign]
+    system.normalizer.normalize = lambda v, stats=None: v  # type: ignore[method-assign]
     system.normalizer.fit = lambda *a, **k: True  # type: ignore[method-assign]
 
     assert system.reference_distance == DEFAULT_REFERENCE_DISTANCE

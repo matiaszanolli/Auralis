@@ -50,14 +50,15 @@ def get_similarity_explanation(
     if not fp1 or not fp2:
         return None
 
-    # Normalize
-    vec1 = similarity.normalizer.normalize(fp1.to_vector())
-    vec2 = similarity.normalizer.normalize(fp2.to_vector())
+    # Normalize both against one model, and scale with that model's reference (#6573)
+    stats, reference_distance = similarity.fitted_model
+    vec1 = similarity.normalizer.normalize(fp1.to_vector(), stats)
+    vec2 = similarity.normalizer.normalize(fp2.to_vector(), stats)
 
     # Calculate overall similarity
     distance = similarity.distance_calc.calculate(vec1, vec2)
     similarity_score = similarity.distance_calc.calculate_similarity_score(
-        distance, similarity.reference_distance
+        distance, reference_distance
     )
 
     # Get dimension contributions
@@ -99,7 +100,8 @@ def get_similarity_explanation(
 def get_prefiltered_candidates(
     similarity: "FingerprintSimilarity",
     target_fp: Any,
-    max_candidates: int = 100
+    max_candidates: int = 100,
+    stats: Any = None,
 ) -> list[tuple[int, np.ndarray]]:
     """
     Pre-filter candidates using dimension ranges
@@ -131,7 +133,7 @@ def get_prefiltered_candidates(
 
     # Normalize and convert to (track_id, vector) tuples
     candidates = [
-        (fp.track_id, similarity.normalizer.normalize(fp.to_vector()))
+        (fp.track_id, similarity.normalizer.normalize(fp.to_vector(), stats))  # the caller's pinned model
         for fp in candidates_fps
         if fp.track_id != target_fp.track_id  # Exclude target itself
     ]

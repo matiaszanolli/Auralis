@@ -172,12 +172,14 @@ class FingerprintNormalizer(NormalizerPersistenceMixin):
         info("Normalization statistics calculated successfully")
         return True
 
-    def normalize(self, vector: list[float]) -> np.ndarray:
+    def normalize(self, vector: list[float], stats: dict[str, DimensionStats] | None = None) -> np.ndarray:
         """
         Normalize a fingerprint vector to [0, 1] scale
 
         Args:
             vector: 25-element fingerprint vector
+            stats: The fitted model to use, pinned by a caller that normalises several vectors and
+                must use one model for all of them; defaults to a snapshot of the live one (#6573).
 
         Returns:
             Normalized vector (numpy array)
@@ -192,23 +194,20 @@ class FingerprintNormalizer(NormalizerPersistenceMixin):
             raise ValueError(f"Expected 25-element vector, got {len(vector)}")
 
         normalized = np.zeros(25, dtype=np.float32)
+        # One read: a refit publishes a whole new dict, so every dimension comes from one model.
+        model = self.stats if stats is None else stats
 
         for i, dim_name in enumerate(self.DIMENSION_NAMES):
-            stats = self.stats[dim_name]
-            value = vector[i]
-
-            # Min-max normalization to [0, 1]
-            range_val = stats.max_val - stats.min_val
+            dim = model[dim_name]
+            range_val = dim.max_val - dim.min_val  # min-max normalization to [0, 1]
 
             if range_val > 1e-6:  # Avoid division by zero
-                normalized[i] = (value - stats.min_val) / range_val
+                normalized[i] = (vector[i] - dim.min_val) / range_val
             else:
                 # Zero variance - set to 0.5 (middle of range)
                 normalized[i] = 0.5
                 debug(f"Zero variance for {dim_name}, using 0.5")
-
-            # Clamp to [0, 1] (handles values outside observed range)
-            normalized[i] = np.clip(normalized[i], 0.0, 1.0)
+            normalized[i] = np.clip(normalized[i], 0.0, 1.0)  # values outside the observed range
 
         return normalized
 

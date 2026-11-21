@@ -18,6 +18,7 @@ from .dimension_weights import DimensionWeights
 from .distance import FingerprintDistance
 from .similarity_explanation import get_prefiltered_candidates, get_similarity_explanation
 from .normalizer import FingerprintNormalizer
+from .normalizer_stats import DimensionStats
 from .similarity_calibration import DEFAULT_REFERENCE_DISTANCE, calibrate_reference_distance
 
 # A fitted system refits once the current-version fingerprint count reaches
@@ -87,8 +88,17 @@ class FingerprintSimilarity:
         self.normalizer = FingerprintNormalizer(use_robust=use_robust_normalization)
         self.distance_calc = FingerprintDistance(weights=weights)
         self.fitted = False
-        self.reference_distance = DEFAULT_REFERENCE_DISTANCE  # scale of the 0-1 score, set by fit() (#5923)
+        # What a score is computed with, published as ONE object after calibration: the stats every
+        # vector of a call is normalised against, and the reference distance that scales the score
+        # (#5923). normalizer.fit() makes its new stats live before calibration runs, so a reader
+        # of the two separately could mix the old scale with the new ranges (#6573).
+        self.fitted_model: tuple[dict[str, DimensionStats], float] = ({}, DEFAULT_REFERENCE_DISTANCE)
         self._fit_lock = threading.Lock()
+
+    @property
+    def reference_distance(self) -> float:
+        """Scale of the 0-1 similarity score, set by fit() (#5923)."""
+        return self.fitted_model[1]
 
     def needs_refit(self) -> bool:
         """
@@ -141,9 +151,10 @@ class FingerprintSimilarity:
             )
 
             if success:
-                self.reference_distance = calibrate_reference_distance(
+                reference = calibrate_reference_distance(
                     self.fingerprint_repo, self.normalizer, self.distance_calc
                 )
+                self.fitted_model = (self.normalizer.stats, reference)
                 self.fitted = True
                 info("Similarity system ready")
             else:
@@ -180,14 +191,16 @@ class FingerprintSimilarity:
             warning(f"No fingerprint found for track {track_id}")
             return []
 
-        # Normalize target
-        target_vector = self.normalizer.normalize(target_fp.to_vector())
+        # One model for the target, every candidate and the score scale, even if a refit lands now.
+        stats, reference_distance = self.fitted_model
+        target_vector = self.normalizer.normalize(target_fp.to_vector(), stats)
 
         # Get candidates
         if use_prefilter:
             candidates = self._get_prefiltered_candidates(
                 target_fp,
-                max_candidates=n * prefilter_factor
+                max_candidates=n * prefilter_factor,
+                stats=stats,
             )
             # Fall back to the non-prefiltered search when the box holds fewer than
             # the n requested: a box with 1..n-1 rows returned exactly those, however
@@ -205,12 +218,12 @@ class FingerprintSimilarity:
                     "falling back to full search"
                 )
                 all_fps = self.fingerprint_repo.get_all(limit=5000)
-                candidates = [(fp.track_id, self.normalizer.normalize(fp.to_vector()))
+                candidates = [(fp.track_id, self.normalizer.normalize(fp.to_vector(), stats))
                              for fp in all_fps if fp.track_id != track_id]
         else:
             # Get all fingerprints (bounded — see fallback comment above)
             all_fps = self.fingerprint_repo.get_all(limit=5000)
-            candidates = [(fp.track_id, self.normalizer.normalize(fp.to_vector()))
+            candidates = [(fp.track_id, self.normalizer.normalize(fp.to_vector(), stats))
                          for fp in all_fps if fp.track_id != track_id]
 
         if not candidates:
@@ -225,7 +238,7 @@ class FingerprintSimilarity:
         # Convert to SimilarityResult objects
         results = []
         for track_id, distance in closest:
-            similarity_score = self.distance_calc.calculate_similarity_score(distance, self.reference_distance)
+            similarity_score = self.distance_calc.calculate_similarity_score(distance, reference_distance)
             results.append(SimilarityResult(track_id, distance, similarity_score))
 
         info(f"Found {len(results)} similar tracks for track {track_id}")
@@ -254,13 +267,14 @@ class FingerprintSimilarity:
             warning(f"Fingerprint(s) not found for tracks {track_id1}, {track_id2}")
             return None
 
-        # Normalize
-        vec1 = self.normalizer.normalize(fp1.to_vector())
-        vec2 = self.normalizer.normalize(fp2.to_vector())
+        # Normalize both against one model, and scale with that model's reference (#6573)
+        stats, reference_distance = self.fitted_model
+        vec1 = self.normalizer.normalize(fp1.to_vector(), stats)
+        vec2 = self.normalizer.normalize(fp2.to_vector(), stats)
 
         # Calculate distance
         distance = self.distance_calc.calculate(vec1, vec2)
-        similarity_score = self.distance_calc.calculate_similarity_score(distance, self.reference_distance)
+        similarity_score = self.distance_calc.calculate_similarity_score(distance, reference_distance)
 
         return SimilarityResult(track_id2, distance, similarity_score)
 
