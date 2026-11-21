@@ -76,7 +76,7 @@ def test_album_pages_end_in_id(album_repository, monkeypatch):
         lambda: (
             album_repository.get_all(),
             album_repository.search("x"),
-            album_repository.get_recent(),
+            album_repository.get_all(order_by='created_at', order='desc')[0],
         ),
     )
     assert len(statements) == 3
@@ -90,7 +90,7 @@ def test_track_pages_end_in_id(track_repository, monkeypatch):
         lambda: (
             track_repository.get_all(order_by="play_count"),
             track_repository.get_favorites(),
-            track_repository.get_recent(),
+            track_repository.get_all(order_by='created_at', order='desc'),
         ),
     )
     assert len(statements) == 3

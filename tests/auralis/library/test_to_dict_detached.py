@@ -47,7 +47,8 @@ def seeded_genre(track_repository, genre_repository):
         })
         assert track is not None
 
-    genre = genre_repository.get_by_name('DetachGenre')
+    genres, _total = genre_repository.search('DetachGenre')
+    genre = next((g for g in genres if g.name == 'DetachGenre'), None)
     assert genre is not None, "seed genre was not created"
     return genre
 
@@ -74,12 +75,6 @@ def _to_dict_without_backstop(instance, caplog):
 
 def test_get_by_id_track_count(genre_repository, seeded_genre, caplog):
     genre = genre_repository.get_by_id(seeded_genre.id)
-    assert genre is not None
-    assert _to_dict_without_backstop(genre, caplog)['track_count'] == 2
-
-
-def test_get_by_name_track_count(genre_repository, seeded_genre, caplog):
-    genre = genre_repository.get_by_name('DetachGenre')
     assert genre is not None
     assert _to_dict_without_backstop(genre, caplog)['track_count'] == 2
 
@@ -147,7 +142,7 @@ def test_get_all_track_count_and_duration_without_loading_tracks(
 def test_get_recent_track_count_and_duration_without_loading_tracks(
     album_repository, seeded_album, caplog
 ):
-    albums = album_repository.get_recent(limit=50)
+    albums = album_repository.get_all(limit=50, order_by='created_at', order='desc')[0]
     album = next(a for a in albums if a.id == seeded_album.id)
     result = _to_dict_without_backstop(album, caplog)
     assert result['track_count'] == 3

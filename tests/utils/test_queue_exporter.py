@@ -295,34 +295,6 @@ class TestQueueExporterHighLevel:
         with pytest.raises(ValueError, match='Unsupported format'):
             QueueExporter.export(SAMPLE_TRACKS, format='invalid')
 
-    def test_export_to_file(self):
-        """Should export queue to file"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            filepath = f'{tmpdir}/queue.m3u'
-            success, msg = QueueExporter.export_to_file(SAMPLE_TRACKS, filepath)
-
-            assert success is True
-            assert Path(filepath).exists()
-            with open(filepath) as f:
-                content = f.read()
-                assert '#EXTM3U' in content
-
-    def test_export_to_file_auto_format(self):
-        """Should auto-detect format from filename"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Test M3U
-            m3u_path = f'{tmpdir}/queue.m3u'
-            success, _ = QueueExporter.export_to_file(SAMPLE_TRACKS, m3u_path)
-            assert success is True
-
-            # Test XSPF
-            xspf_path = f'{tmpdir}/queue.xspf'
-            success, _ = QueueExporter.export_to_file(SAMPLE_TRACKS, xspf_path)
-            assert success is True
-
-            with open(xspf_path) as f:
-                assert '<?xml' in f.read()
-
     def test_import_from_string_auto_detect(self):
         """Should auto-detect format from content"""
         m3u_content = '#EXTM3U\n/music/song.mp3'

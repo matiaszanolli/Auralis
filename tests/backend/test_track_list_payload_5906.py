@@ -67,9 +67,8 @@ def test_list_reads_do_not_select_the_text_columns(track_repository):
     try:
         track_repository.get_all()
         track_repository.search('Lyric')
-        track_repository.get_recent()
+        track_repository.get_all(order_by='created_at', order='desc')
         track_repository.get_favorites()
-        track_repository.get_by_artist('Lyric Artist')
     finally:
         event.remove(engine, "before_cursor_execute", record)
 

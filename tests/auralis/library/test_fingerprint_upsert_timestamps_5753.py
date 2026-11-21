@@ -44,14 +44,6 @@ def test_upsert_stamps_both_timestamps(library_database, track_ids):
     assert all(created and updated for created, updated in stamps.values())
 
 
-def test_store_fingerprint_stamps_both_timestamps(library_database, track_ids):
-    library_database.fingerprints.store_fingerprint(track_ids[0], **_fingerprint())
-
-    created, updated = _timestamps(library_database)[track_ids[0]]
-
-    assert created and updated
-
-
 def test_a_re_upsert_keeps_created_at_and_refreshes_updated_at(library_database, track_ids):
     track_id = track_ids[0]
     library_database.fingerprints.upsert(track_id, _fingerprint())

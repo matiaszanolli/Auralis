@@ -368,7 +368,7 @@ def test_mixed_operation_workflow(large_library):
         db.tracks.get_favorites(limit=10)
 
         # Get recent (if implemented)
-        # db.tracks.get_recent(limit=5)
+        # db.tracks.get_all(limit=5, order_by='created_at', order='desc')
 
     # Final state should be consistent
     tracks, total = db.tracks.get_all(limit=10)

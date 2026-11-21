@@ -7,8 +7,8 @@ Data access layer for track fingerprint operations.
 Public facade (#4511) composing four per-concern mixins:
 
 - ``FingerprintCrudMixin`` — add/update/delete (ORM)
-- ``FingerprintUpsertMixin`` — upsert/store_fingerprint (raw-SQL, single
-  round-trip writes used by the extraction pipeline)
+- ``FingerprintUpsertMixin`` — upsert (raw-SQL, single round-trip write used
+  by the extraction pipeline)
 - ``FingerprintQueryMixin`` — single/bulk lookups, listing, counting, exists
 - ``FingerprintSimilarityMixin`` — reference-cloud flags/weights and
   dimension-range pre-filtering for similarity search

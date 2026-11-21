@@ -3,8 +3,8 @@ Fingerprint Upsert Mixin
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Raw-SQL ``INSERT ... ON CONFLICT DO UPDATE`` write paths for
-``FingerprintRepository`` — ``upsert()`` and ``store_fingerprint()``, used by
-the extraction pipeline for single-round-trip writes. Extracted from
+``FingerprintRepository`` — ``upsert()``, used by the extraction pipeline for
+single-round-trip writes. Extracted from
 fingerprint_repository.py (#4511); split out from the sibling
 ``FingerprintCrudMixin`` (ORM add/update/delete) to keep both modules under
 the project's per-file line budget.
@@ -30,7 +30,6 @@ from sqlalchemy.engine import CursorResult
 
 from ...utils.logging import info, warning
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
-from ..fingerprint_quantizer import FingerprintQuantizer
 from ..models import TrackFingerprint
 from .base import BaseRepository
 from .fingerprint_shared import _validate_fingerprint_columns
@@ -84,7 +83,7 @@ class FingerprintUpsertMixin(BaseRepository):
         # REPLACE deletes the existing row and inserts a new one, which:
         #   - resets the `id` PK to a fresh auto-increment value
         #   - wipes `created_at` and any column not listed (e.g. the
-        #     quantized `fingerprint_blob` set by store_fingerprint)
+        #     reference flags, or the legacy quantized `fingerprint_blob`)
         #   - causes a race window between the implicit DELETE and INSERT
         # ON CONFLICT updates only the listed columns in-place and is also
         # atomic, which closes the concurrent-insert race (#3467, #3459).
@@ -149,86 +148,3 @@ class FingerprintUpsertMixin(BaseRepository):
             return fingerprint
         return None
 
-    def store_fingerprint(
-        self,
-        track_id: int,
-        sub_bass_pct: float, bass_pct: float, low_mid_pct: float, mid_pct: float,
-        upper_mid_pct: float, presence_pct: float, air_pct: float,
-        lufs: float, crest_db: float, bass_mid_ratio: float,
-        tempo_bpm: float, rhythm_stability: float, transient_density: float, silence_ratio: float,
-        spectral_centroid: float, spectral_rolloff: float, spectral_flatness: float,
-        harmonic_ratio: float, pitch_stability: float, chroma_energy: float,
-        dynamic_range_variation: float, loudness_variation_std: float, peak_consistency: float,
-        stereo_width: float, phase_correlation: float,
-    ) -> TrackFingerprint | None:
-        """
-        Store fingerprint with automatic quantization (Phase 3A).
-
-        Stores both the quantized blob (25 bytes) and the 25 float columns.
-
-        Args:
-            track_id: Track ID
-            (25 float parameters for each fingerprint dimension)
-
-        Returns:
-            TrackFingerprint object if successful, None if failed
-        """
-        # Build fingerprint dict from explicit named parameters (keys are always
-        # known here, but validate anyway for defense-in-depth — #2286).
-        fingerprint_dict = {
-            'sub_bass_pct': sub_bass_pct, 'bass_pct': bass_pct, 'low_mid_pct': low_mid_pct,
-            'mid_pct': mid_pct, 'upper_mid_pct': upper_mid_pct, 'presence_pct': presence_pct,
-            'air_pct': air_pct, 'lufs': lufs, 'crest_db': crest_db, 'bass_mid_ratio': bass_mid_ratio,
-            'tempo_bpm': tempo_bpm, 'rhythm_stability': rhythm_stability, 'transient_density': transient_density,
-            'silence_ratio': silence_ratio, 'spectral_centroid': spectral_centroid,
-            'spectral_rolloff': spectral_rolloff, 'spectral_flatness': spectral_flatness,
-            'harmonic_ratio': harmonic_ratio, 'pitch_stability': pitch_stability, 'chroma_energy': chroma_energy,
-            'dynamic_range_variation': dynamic_range_variation, 'loudness_variation_std': loudness_variation_std,
-            'peak_consistency': peak_consistency, 'stereo_width': stereo_width, 'phase_correlation': phase_correlation,
-        }
-
-        # Validate before acquiring a session so ValueError reaches the caller (#2286).
-        cols = list(fingerprint_dict.keys())
-        _validate_fingerprint_columns(cols)
-        cols_str = ', '.join(cols)
-        named_placeholders = ', '.join([f':{col}' for col in cols])
-
-        # ON CONFLICT DO UPDATE keeps the `id` PK stable and the existing
-        # `created_at` intact (cf. #3467 sibling); only the listed columns
-        # are written. fingerprint_blob and fingerprint_version are listed
-        # here, so they're always refreshed on update. is_reference /
-        # reference_weight are INSERT-only (#5530): a store must not clobber
-        # reference-cloud membership set by the seeder.
-        all_cols = cols + ['fingerprint_blob', 'fingerprint_version']
-        update_clause = ', '.join(f"{col} = excluded.{col}" for col in all_cols) + ', updated_at = CURRENT_TIMESTAMP'
-
-        with self._guarded(f"Failed to store fingerprint for track {track_id}") as session:
-            # Quantize fingerprint
-            quantized_blob = FingerprintQuantizer.quantize(fingerprint_dict)
-
-            params: dict[str, Any] = {
-                'track_id': track_id,
-                'fingerprint_blob': quantized_blob,
-                'fp_version': FINGERPRINT_ALGORITHM_VERSION,
-                'is_reference': 0,
-                'reference_weight': 0.0,
-                **fingerprint_dict,
-            }
-
-            session.execute(
-                text(f"""
-                    INSERT INTO track_fingerprints
-                    (track_id, {cols_str}, fingerprint_blob, fingerprint_version, is_reference, reference_weight,
-                     created_at, updated_at)
-                    VALUES (:track_id, {named_placeholders}, :fingerprint_blob, :fp_version, :is_reference, :reference_weight,
-                            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                    ON CONFLICT (track_id) DO UPDATE SET {update_clause}
-                """),
-                params,
-            )
-            session.commit()
-
-            fingerprint = _persisted_row(session, track_id)
-            info(f"Stored fingerprint for track {track_id} (quantized blob: 25 bytes)")
-            return fingerprint
-        return None

@@ -187,7 +187,7 @@ def test_add_track_and_retrieve_by_artist(temp_library, sample_audio_file):
     added_track = manager.repositories.tracks.add(track_info)
 
     # Query by artist
-    artist_tracks = manager.repositories.tracks.get_by_artist('Unique Artist Name', limit=10)
+    artist_tracks = manager.repositories.tracks.search('Unique Artist Name', limit=10)[0]
 
     assert len(artist_tracks) == 1, "Should find track by artist"
     assert artist_tracks[0].id == added_track.id
@@ -669,7 +669,7 @@ def test_pagination_with_filtering(temp_library):
         manager.repositories.tracks.add(track_info)
 
     # Filter by Artist A and paginate
-    artist_a_tracks = manager.repositories.tracks.get_by_artist('Artist A', limit=100)
+    artist_a_tracks = manager.repositories.tracks.search('Artist A', limit=100)[0]
 
     # Should have 15 tracks (half of 30)
     assert len(artist_a_tracks) == 15, \

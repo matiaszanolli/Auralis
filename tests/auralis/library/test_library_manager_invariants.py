@@ -43,7 +43,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from auralis.io.saver import save as save_audio
 from auralis.library.database import LibraryDatabase
-from auralis.library.models import Album, Artist, Track
 
 # ============================================================================
 # Fixtures
@@ -477,7 +476,7 @@ def test_play_count_is_non_negative(populated_db):
 @pytest.mark.integration
 def test_recent_tracks_ordered_by_last_played(populated_db):
     """
-    INVARIANT: get_recent() must return tracks ordered by last_played DESC.
+    INVARIANT: the recently-played listing returns tracks ordered by last_played DESC.
     """
     db, _ = populated_db
 
@@ -489,7 +488,7 @@ def test_recent_tracks_ordered_by_last_played(populated_db):
         time.sleep(0.01)  # Ensure different timestamps
 
     # Get recent tracks
-    recent, _ = db.tracks.get_recent(limit=100)
+    recent, _ = db.tracks.get_all(limit=100, order_by='last_played', order='desc')
 
     # Filter out tracks without last_played timestamps (shouldn't happen, but be safe)
     recent_with_timestamps = [t for t in recent if t.last_played is not None]
@@ -600,14 +599,14 @@ def test_deleting_track_removes_from_recent(populated_db):
     db.tracks.record_play(track_id)
 
     # Verify it's in recent
-    recent, _ = db.tracks.get_recent(limit=1000)
+    recent, _ = db.tracks.get_all(limit=1000, order_by='created_at', order='desc')
     assert any(t.id == track_id for t in recent), "Track not in recent after play"
 
     # Delete the track
     db.tracks.delete(track_id)
 
     # Verify it's removed from recent
-    recent_after, _ = db.tracks.get_recent(limit=1000)
+    recent_after, _ = db.tracks.get_all(limit=1000, order_by='created_at', order='desc')
     assert not any(t.id == track_id for t in recent_after), (
         "Deleted track still appears in recent tracks"
     )
@@ -633,7 +632,7 @@ def test_operations_on_empty_library(test_db):
     assert len(favorites) == 0
     assert fav_count == 0
 
-    recent, recent_count = db.tracks.get_recent(limit=10)
+    recent, recent_count = db.tracks.get_all(limit=10, order_by='created_at', order='desc')
     assert len(recent) == 0
     assert recent_count == 0
 

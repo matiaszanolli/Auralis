@@ -119,19 +119,6 @@ class AlbumRepository(AlbumArtworkMixin):
             )
             return albums, total
 
-    def get_recent(self, limit: int = 50, offset: int = 0) -> list[Album]:
-        """Get recently added albums with pagination"""
-        with self._session_scope() as session:
-            albums = self._all_detached(
-                session,
-                select(Album)
-                .options(*_ALBUM_LIST_OPTIONS)
-                .order_by(Album.created_at.desc(), Album.id.desc())
-                .limit(limit)
-                .offset(offset),
-            )
-            return albums
-
     def search(
         self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title', order: str | None = None
     ) -> tuple[list[Album], int]:

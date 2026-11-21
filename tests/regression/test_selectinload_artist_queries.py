@@ -108,7 +108,3 @@ class TestSelectinloadArtistQueries:
         assert '_ARTIST_LIST_OPTIONS' in src, "search() should use the shared list options constant"
         assert not self._has_joinedload_call(src), "search() should not inline its own joinedload"
 
-    def test_get_by_name_uses_selectinload(self):
-        src = self._get_source('get_by_name')
-        assert '_ARTIST_DETAIL_OPTIONS' in src, "get_by_name() should use the shared detail options constant"
-        assert not self._has_joinedload_call(src), "get_by_name() should not inline its own joinedload"

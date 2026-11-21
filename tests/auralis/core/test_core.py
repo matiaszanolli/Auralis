@@ -125,7 +125,7 @@ class TestLibraryDatabaseAdvanced:
         db.tracks.add(track_info)
 
         # Test artist queries
-        artist_tracks = db.tracks.get_by_artist('Metal Band')
+        artist_tracks = db.tracks.search('Metal Band')[0]
         assert len(artist_tracks) >= 1
 
     def test_playlist_operations_comprehensive(self, db):
@@ -209,7 +209,7 @@ class TestLibraryDatabaseAdvanced:
         db.tracks.record_play(track.id)
 
         # Test recent tracks
-        recent, recent_count = db.tracks.get_recent(limit=10)
+        recent, recent_count = db.tracks.get_all(limit=10, order_by='created_at', order='desc')
         assert isinstance(recent, list)
         assert isinstance(recent_count, int)
 

@@ -4,8 +4,8 @@ Fingerprint CRUD Mixin
 
 Basic write-path operations for ``FingerprintRepository`` — add / update /
 delete a single fingerprint via the ORM. Extracted from
-fingerprint_repository.py (#4511). The raw-SQL ``upsert()`` /
-``store_fingerprint()`` paths used by the extraction pipeline live in the
+fingerprint_repository.py (#4511). The raw-SQL ``upsert()`` path used by
+the extraction pipeline lives in the
 sibling ``FingerprintUpsertMixin`` — split out separately to keep both
 modules under the project's per-file line budget.
 

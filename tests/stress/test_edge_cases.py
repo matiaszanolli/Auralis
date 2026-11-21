@@ -615,7 +615,7 @@ class TestErrorRecovery:
         def query_loop():
             while not stop_flag.is_set():
                 try:
-                    db.tracks.get_recent(limit=10)
+                    db.tracks.get_all(limit=10, order_by='created_at', order='desc')
                     time.sleep(0.01)
                 except Exception:
                     break
@@ -646,7 +646,7 @@ class TestErrorRecovery:
         # never None). Exercise an actual write+read round trip to confirm
         # the db genuinely still works, not just that a call didn't
         # raise.
-        tracks, _ = db.tracks.get_recent(limit=10)
+        tracks, _ = db.tracks.get_all(limit=10, order_by='created_at', order='desc')
         assert isinstance(tracks, list)
 
         audio = np.random.randn(44100, 2).astype(np.float32) * 0.1

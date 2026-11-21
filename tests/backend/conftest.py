@@ -439,9 +439,7 @@ def mock_repository_factory():
     factory.genres.create = Mock(return_value=Mock(id=1))
 
     # Mock query operations
-    factory.tracks.get_by_artist = Mock(return_value=[])
     factory.tracks.get_by_album = Mock(return_value=[])
-    factory.albums.get_by_artist = Mock(return_value=[])
 
     # Mock stats/fingerprint operations
     factory.fingerprint_stats.get_fingerprint_stats = Mock(

@@ -35,29 +35,6 @@ _WITH_TRACK = (selectinload(TrackFingerprint.track),)
 class FingerprintQueryMixin(BaseRepository):
     """Read/lookup operations for fingerprint rows."""
 
-    def get_by_track_ids(self, track_ids: list[int]) -> list[TrackFingerprint]:
-        """
-        Get fingerprints for multiple tracks in a single query.
-
-        Args:
-            track_ids: List of track IDs
-
-        Returns:
-            List of TrackFingerprint objects (only for tracks that have fingerprints)
-        """
-        if not track_ids:
-            return []
-        with self._session_scope() as session:
-            fingerprints = session.execute(
-                select(TrackFingerprint).where(
-                    TrackFingerprint.track_id.in_(track_ids),
-                    _current_fingerprint_clause(),
-                )
-            ).scalars().all()
-            for fp in fingerprints:
-                session.expunge(fp)
-            return list(fingerprints)
-
     def get_by_album_ids(self, album_ids: list[int]) -> dict[int, list[TrackFingerprint]]:
         """Current fingerprints of each album's tracks, from one join (#5873).
 

@@ -5,13 +5,13 @@ Tests for FingerprintRepository SQLAlchemy-only DB access (issue #2298)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Previously these tests verified that raw sqlite3 writes respected a custom
-db_path.  After the fix (#2431 / #2298) the write methods (upsert,
-store_fingerprint) use the SQLAlchemy session exclusively.
+db_path.  After the fix (#2431 / #2298) the write method (upsert) uses the
+SQLAlchemy session exclusively.
 
 Key invariants verified:
 - No db_path parameter accepted (would raise TypeError)
 - No _db_path attribute on the repository instance
-- upsert and store_fingerprint call session.execute() + commit()
+- upsert calls session.execute() + commit()
 - No hardcoded ~/.auralis path can be reached by any method
 
 :copyright: (C) 2024 Auralis Team
@@ -20,7 +20,6 @@ Key invariants verified:
 
 import pytest
 
-from auralis.library.models import TrackFingerprint
 from unittest.mock import MagicMock
 
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
@@ -100,56 +99,6 @@ class TestUpsertUsesSession:
         session.execute.side_effect = RuntimeError("db error")
         result = r.upsert(track_id=1, fingerprint_data=_SAMPLE_FINGERPRINT)
         assert result is None
-        session.rollback.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# store_fingerprint — uses SQLAlchemy session
-# ---------------------------------------------------------------------------
-
-class TestStoreFingerprintUsesSession:
-    def _call(self, repo):
-        fp = _SAMPLE_FINGERPRINT
-        return repo.store_fingerprint(
-            track_id=2,
-            sub_bass_pct=fp['sub_bass_pct'], bass_pct=fp['bass_pct'],
-            low_mid_pct=fp['low_mid_pct'], mid_pct=fp['mid_pct'],
-            upper_mid_pct=fp['upper_mid_pct'], presence_pct=fp['presence_pct'],
-            air_pct=fp['air_pct'], lufs=fp['lufs'], crest_db=fp['crest_db'],
-            bass_mid_ratio=fp['bass_mid_ratio'], tempo_bpm=fp['tempo_bpm'],
-            rhythm_stability=fp['rhythm_stability'], transient_density=fp['transient_density'],
-            silence_ratio=fp['silence_ratio'], spectral_centroid=fp['spectral_centroid'],
-            spectral_rolloff=fp['spectral_rolloff'], spectral_flatness=fp['spectral_flatness'],
-            harmonic_ratio=fp['harmonic_ratio'], pitch_stability=fp['pitch_stability'],
-            chroma_energy=fp['chroma_energy'],
-            dynamic_range_variation=fp['dynamic_range_variation'],
-            loudness_variation_std=fp['loudness_variation_std'],
-            peak_consistency=fp['peak_consistency'],
-            stereo_width=fp['stereo_width'], phase_correlation=fp['phase_correlation'],
-        )
-
-    def test_calls_session_execute(self, repo):
-        r, session = repo
-        self._call(r)
-        session.execute.assert_called_once()
-
-    def test_calls_session_commit(self, repo):
-        r, session = repo
-        self._call(r)
-        session.commit.assert_called_once()
-
-    def test_returns_fingerprint_on_success(self, repo):
-        r, session = repo
-        # The row is read back after the commit (#5539); the mocked session returns it.
-        session.scalars.return_value.one_or_none.return_value = TrackFingerprint(track_id=2)
-        fingerprint = self._call(r)
-        assert fingerprint is not None
-        assert fingerprint.track_id == 2
-
-    def test_rollback_on_failure(self, repo):
-        r, session = repo
-        session.execute.side_effect = RuntimeError("db error")
-        self._call(r)
         session.rollback.assert_called_once()
 
 

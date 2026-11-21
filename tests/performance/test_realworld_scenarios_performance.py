@@ -376,11 +376,11 @@ class TestTypicalUserOperations:
             })
 
         # Warm up
-        track_repo.get_recent(limit=20, offset=0)
+        track_repo.get_all(limit=20, offset=0, order_by='created_at', order='desc')
 
         # Measure
         with timer() as t:
-            recent, total = track_repo.get_recent(limit=20, offset=0)
+            recent, total = track_repo.get_all(limit=20, offset=0, order_by='created_at', order='desc')
 
         latency_ms = t.elapsed_ms
 

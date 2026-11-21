@@ -262,16 +262,6 @@ class TestGenreRepository:
         deleted = genres_repo.get_by_id(genre.id)
         assert deleted is None
 
-    def test_get_by_name(self, repository_factory):
-        """Test genre lookup by name."""
-        genres_repo = repository_factory.genres
-        genres_repo.create(name="Rock")
-
-        retrieved = genres_repo.get_by_name("Rock")
-
-        assert retrieved is not None
-        assert retrieved.name == "Rock"
-
     def test_get_all_returns_paginated_list(self, repository_factory):
         """Verify genres list is paginated."""
         genres_repo = repository_factory.genres

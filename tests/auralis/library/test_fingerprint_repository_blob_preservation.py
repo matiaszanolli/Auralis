@@ -34,13 +34,22 @@ _SAMPLE_FP: dict = {
 }
 
 
-def _store(fp_repo, track_id: int, fp: dict = _SAMPLE_FP) -> None:
-    """Call store_fingerprint with the 25 dims unpacked as kwargs."""
-    stored = fp_repo.store_fingerprint(track_id=track_id, **fp)
-    assert stored is not None, (
-        "store_fingerprint must return the stored TrackFingerprint on success (#5509)"
-    )
-    assert stored.track_id == track_id
+_BLOB = bytes(range(25))  # stands in for any value in a column upsert() does not list
+
+
+def _store_with_blob(fp_repo, session_factory, track_id: int) -> None:
+    """A fingerprint row whose fingerprint_blob is set.
+
+    Nothing in the app writes the blob, but the column remains, and it is the column #3467
+    lost: seed it directly.
+    """
+    assert fp_repo.upsert(track_id=track_id, fingerprint_data=_SAMPLE_FP) is not None
+    with session_factory() as s:
+        s.execute(
+            text("UPDATE track_fingerprints SET fingerprint_blob = :b WHERE track_id = :tid"),
+            {"b": _BLOB, "tid": track_id},
+        )
+        s.commit()
 
 
 def _track_row(session_factory, track_id: int) -> dict:
@@ -74,13 +83,11 @@ def track_id(session_factory) -> int:
 def test_upsert_preserves_fingerprint_blob_after_store(
     fingerprint_repository, session_factory, track_id
 ):
-    """The exact #3467 scenario: store_fingerprint then upsert — the blob
-    must NOT be wiped."""
-    # Step 1: store_fingerprint populates fingerprint_blob (25-byte quantized).
-    _store(fingerprint_repository, track_id)
+    """The #3467 scenario: a row with a blob, then upsert — the blob (a column
+    upsert does not list) must NOT be wiped."""
+    _store_with_blob(fingerprint_repository, session_factory, track_id)
     initial = _track_row(session_factory, track_id)
-    assert initial["blob"] is not None, "store_fingerprint should have written a blob"
-    assert len(initial["blob"]) == 25
+    assert bytes(initial["blob"]) == _BLOB
     blob_before = bytes(initial["blob"])
     id_before = initial["id"]
 
@@ -101,28 +108,9 @@ def test_upsert_preserves_fingerprint_blob_after_store(
 def test_upsert_creates_row_when_track_not_present(
     fingerprint_repository, session_factory, track_id
 ):
-    """First-time upsert (no prior store_fingerprint) still inserts cleanly.
-    Blob stays NULL until store_fingerprint runs — that's expected."""
+    """First-time upsert still inserts cleanly; upsert never writes the blob."""
     fingerprint_repository.upsert(track_id=track_id, fingerprint_data=_SAMPLE_FP)
     row = _track_row(session_factory, track_id)
     assert row["track_id"] == track_id
     assert row["lufs"] == pytest.approx(_SAMPLE_FP["lufs"])
-    # No store_fingerprint ran, so blob is NULL (this is the documented contract).
     assert row["blob"] is None
-
-
-def test_store_fingerprint_keeps_id_stable_on_update(
-    fingerprint_repository, session_factory, track_id
-):
-    """store_fingerprint twice on the same track must preserve the id PK
-    (ON CONFLICT updates in place; INSERT OR REPLACE would re-insert)."""
-    _store(fingerprint_repository, track_id)
-    id_first = _track_row(session_factory, track_id)["id"]
-
-    fp2 = {**_SAMPLE_FP, "lufs": -10.0}
-    _store(fingerprint_repository, track_id, fp2)
-    after = _track_row(session_factory, track_id)
-
-    assert after["id"] == id_first, "store_fingerprint must update in place"
-    assert after["lufs"] == pytest.approx(-10.0)
-    assert after["blob"] is not None  # blob refreshed by store_fingerprint

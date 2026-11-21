@@ -64,7 +64,8 @@ def test_album_detail_tracks(seeded, track_repository, album_repository, caplog)
 
 
 def test_artist_detail_tracks(seeded, artist_repository, caplog):
-    artist = artist_repository.get_by_name('Nested One')
+    found, _total = artist_repository.search('Nested One')  # list, then detail: the live flow
+    artist = artist_repository.get_by_id(next(a.id for a in found if a.name == 'Nested One'))
     _assert_every_relationship_arrived(_nested_track_dicts(artist.tracks, caplog))
 
 

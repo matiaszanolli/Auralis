@@ -1,8 +1,7 @@
-"""upsert() and store_fingerprint() return the row as stored (#5539).
+"""upsert() returns the row as stored (#5539).
 
-Both wrote through raw SQL and then returned a transient `TrackFingerprint(track_id=..., **dims)`,
-so the object had no id, no timestamps and, for store_fingerprint, no fingerprint_blob, while the
-row in the database held all of them.
+It wrote through raw SQL and then returned a transient `TrackFingerprint(track_id=..., **dims)`, so
+the object had no id and no timestamps, while the row in the database held all of them.
 """
 
 from __future__ import annotations
@@ -51,16 +50,6 @@ def test_upsert_returns_the_stored_row_with_its_id_and_version(fingerprint_repos
     assert result.id == stored.id
     assert result.fingerprint_version == FINGERPRINT_ALGORITHM_VERSION
     assert result.lufs == -14.0
-
-
-def test_store_fingerprint_returns_the_quantized_blob_it_wrote(fingerprint_repository, session_factory, track_id):
-    result = fingerprint_repository.store_fingerprint(track_id=track_id, **_DIMS)
-
-    stored = _stored(session_factory, track_id)
-    assert result is not None
-    assert result.fingerprint_blob == stored.fingerprint_blob
-    assert len(result.fingerprint_blob) == 25
-    assert result.fingerprint_version == stored.fingerprint_version == FINGERPRINT_ALGORITHM_VERSION
 
 
 def test_a_second_upsert_returns_the_same_row_not_a_new_one(fingerprint_repository, track_id):

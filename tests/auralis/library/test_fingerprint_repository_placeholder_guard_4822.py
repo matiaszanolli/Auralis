@@ -8,7 +8,7 @@ the moment a track is claimed for processing; claim_next_outdated_fingerprint()
 marks re-fingerprinting claims with a fingerprint_version below the current
 algorithm version. Before the fix, only FingerprintService's mastering-path
 cache lookup filtered these out — every FingerprintRepository read method
-(exists, get_by_track_id, get_all, get_by_track_ids,
+(exists, get_by_track_id, get_all,
 get_by_multi_dimension_range) served them as if they were valid, feeding
 all-zero vectors into similarity search, the K-NN graph builder, and the
 normalizer's percentile fit.
@@ -20,11 +20,9 @@ normalizer's percentile fit.
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
 
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.library.models import Track
-from auralis.library.repositories.fingerprint_shared import is_current_fingerprint
 
 _DIMS: dict = {
     'sub_bass_pct': 0.1, 'bass_pct': 0.2, 'low_mid_pct': 0.15,
@@ -85,31 +83,6 @@ def stale_version_track_id(session_factory) -> int:
     return tid
 
 
-class TestIsCurrentFingerprint:
-    """Unit tests for the shared Python-level predicate."""
-
-    def test_none_is_not_current(self):
-        assert is_current_fingerprint(None) is False
-
-    def test_placeholder_sentinel_is_not_current(self, session_factory, placeholder_track_id):
-        with session_factory() as s:
-            from auralis.library.models import TrackFingerprint
-            fp = s.execute(select(TrackFingerprint).filter_by(track_id=placeholder_track_id)).scalars().one()
-            assert is_current_fingerprint(fp) is False
-
-    def test_stale_version_is_not_current(self, session_factory, stale_version_track_id):
-        with session_factory() as s:
-            from auralis.library.models import TrackFingerprint
-            fp = s.execute(select(TrackFingerprint).filter_by(track_id=stale_version_track_id)).scalars().one()
-            assert is_current_fingerprint(fp) is False
-
-    def test_valid_row_is_current(self, session_factory, valid_track_id):
-        with session_factory() as s:
-            from auralis.library.models import TrackFingerprint
-            fp = s.execute(select(TrackFingerprint).filter_by(track_id=valid_track_id)).scalars().one()
-            assert is_current_fingerprint(fp) is True
-
-
 class TestExistsExcludesPlaceholderAndStale:
     def test_placeholder_reports_not_exists(self, fingerprint_repository, placeholder_track_id):
         assert fingerprint_repository.exists(placeholder_track_id) is False
@@ -132,17 +105,6 @@ class TestGetByTrackIdExcludesPlaceholderAndStale:
         fp = fingerprint_repository.get_by_track_id(valid_track_id)
         assert fp is not None
         assert fp.track_id == valid_track_id
-
-
-class TestGetByTrackIdsExcludesPlaceholderAndStale:
-    def test_mixed_batch_only_returns_valid(
-        self, fingerprint_repository, valid_track_id, placeholder_track_id, stale_version_track_id
-    ):
-        results = fingerprint_repository.get_by_track_ids(
-            [valid_track_id, placeholder_track_id, stale_version_track_id]
-        )
-        returned_ids = {fp.track_id for fp in results}
-        assert returned_ids == {valid_track_id}
 
 
 class TestGetAllExcludesPlaceholderAndStale:

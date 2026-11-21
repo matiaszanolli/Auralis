@@ -14,7 +14,7 @@ Supported Formats:
 
 import logging
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from .m3u_handler import M3UHandler
 from .xspf_handler import XSPFHandler
@@ -69,52 +69,6 @@ class QueueExporter:
             return XSPFHandler.export(tracks, title=title)
         else:
             raise ValueError(f'Unsupported format: {format_lower}')
-
-    @staticmethod
-    def export_to_file(tracks: list[dict[str, Any]], filepath: str,
-                       format: str | None = None, **kwargs: Any) -> tuple[bool, str]:
-        """
-        Export queue to file
-
-        Args:
-            tracks: List of track dictionaries
-            filepath: Path where to save playlist file
-            format: Export format (auto-detect from extension if None)
-            **kwargs: Format-specific options
-
-        Returns:
-            Tuple of (success, message)
-
-        Example:
-            >>> success, msg = QueueExporter.export_to_file(
-            ...     tracks, '/tmp/my_queue.m3u'
-            ... )
-        """
-        try:
-            file_path = Path(filepath)
-
-            # Auto-detect format from extension if not specified
-            format_lower = format
-            if format_lower is None:
-                detected = QueueExporter.detect_format(str(file_path))
-                format_lower = QueueExporter.DEFAULT_FORMAT if detected == 'unknown' else detected
-
-            # Create parent directories if needed
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Generate content
-            content = QueueExporter.export(tracks, format=cast(Literal['m3u', 'xspf'], format_lower), **kwargs)
-
-            # Write to file
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-
-            return True, f'Exported {len(tracks)} tracks to {filepath}'
-
-        except Exception as e:
-            error_msg = f'Failed to export queue: {str(e)}'
-            logger.error(error_msg)
-            return False, error_msg
 
     @staticmethod
     def import_from_string(content: str, format: str | None = None) -> tuple[list[str], list[str]]:

@@ -169,7 +169,7 @@ def test_empty_library_get_recent_returns_empty(empty_library):
     """
     db, _ = empty_library
 
-    recent, total = db.tracks.get_recent(limit=10)
+    recent, total = db.tracks.get_all(limit=10, order_by='created_at', order='desc')
 
     assert recent is not None, "Should return list, not None"
     assert len(recent) == 0, "Should return empty list"

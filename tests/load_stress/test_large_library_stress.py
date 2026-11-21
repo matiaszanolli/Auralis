@@ -188,7 +188,7 @@ class TestLargeLibraryQueries:
 
         start = time.time()
 
-        result = track_repo.get_recent(limit=50, offset=0)
+        result = track_repo.get_all(limit=50, offset=0, order_by='created_at', order='desc')
 
         if isinstance(result, tuple):
             recent_tracks, total = result

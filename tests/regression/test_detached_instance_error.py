@@ -15,7 +15,6 @@ import pytest
 
 from sqlalchemy.orm.exc import DetachedInstanceError
 
-from auralis.library.models import Album, Artist, Genre, Track
 
 
 class TestTrackRepositoryDetachedAccess:
@@ -62,9 +61,7 @@ class TestTrackRepositoryDetachedAccess:
     def test_get_by_path_relationships_accessible(self, track_repository, session_factory):
         """get_by_path() result must have accessible relationships"""
         filepath = '/tmp/test_by_path.wav'
-        track = self._add_test_track(
-            track_repository, session_factory, filepath=filepath
-        )
+        self._add_test_track(track_repository, session_factory, filepath=filepath)
 
         result = track_repository.get_by_path(filepath)
         assert result is not None
@@ -95,19 +92,6 @@ class TestTrackRepositoryDetachedAccess:
         )
 
         tracks, total = track_repository.get_all(limit=10)
-        assert total >= 1
-        for track in tracks:
-            _ = track.artists
-            _ = track.album
-
-    def test_get_recent_relationships_accessible(self, track_repository, session_factory):
-        """get_recent() results must have accessible relationships"""
-        self._add_test_track(
-            track_repository, session_factory,
-            filepath='/tmp/recent_test.wav'
-        )
-
-        tracks, total = track_repository.get_recent(limit=10)
         assert total >= 1
         for track in tracks:
             _ = track.artists
@@ -191,7 +175,7 @@ class TestAlbumRepositoryDetachedAccess:
         assert len(album.tracks) >= 1
 
     # #4777 narrowed the eager-load contract of the three *paginated*/*list*
-    # methods below (get_all/get_recent/search): they no longer selectinload
+    # methods below (get_all/search): they no longer selectinload
     # Album.tracks, since the serializer only ever reduced that collection to
     # a count and a sum — instead they attach track_count_expr/
     # total_duration_expr (correlated SQL aggregates, #4554's pattern applied
@@ -211,20 +195,6 @@ class TestAlbumRepositoryDetachedAccess:
 
         albums, total = album_repository.get_all(limit=10)
         assert total >= 1
-        for album in albums:
-            _ = album.artist  # must not raise DetachedInstanceError
-            assert album.track_count_expr >= 0
-            assert album.total_duration_expr >= 0
-
-    def test_get_recent_relationships_accessible(
-        self, album_repository, track_repository, session_factory
-    ):
-        """get_recent() must return albums whose list-path relationships are
-        accessible after the session closes (#4236, narrowed by #4777)."""
-        self._setup_album(track_repository, session_factory)
-
-        albums = album_repository.get_recent(limit=10)
-        assert len(albums) >= 1
         for album in albums:
             _ = album.artist  # must not raise DetachedInstanceError
             assert album.track_count_expr >= 0
@@ -282,31 +252,12 @@ class TestArtistRepositoryDetachedAccess:
         # #5154: `_ = artist.tracks` proves only that access does not raise.
         # A relationship that silently degrades to [] — the exact failure mode
         # _safe_collection() produces on a missing eager-load — also does not
-        # raise, so assert the collections are actually populated, matching
-        # what the get_by_name sibling below already does.
+        # raise, so assert the collections are actually populated.
         assert len(artist.tracks) >= 1, "artist.tracks came back empty"
         assert len(artist.albums) >= 1, "artist.albums came back empty"
-
-    def test_get_by_name_relationships_accessible(
-        self, artist_repository, track_repository, session_factory
-    ):
-        """get_by_name() must return artist with accessible relationships,
-        including the NESTED artist.albums[i].tracks (fixes #4236 — sibling
-        of get_by_id's nested selectinload(Artist.albums).selectinload(
-        Album.tracks); get_by_name previously eager-loaded only the flat
-        Artist.albums relationship, so .albums[i].tracks raised
-        DetachedInstanceError)."""
-        self._setup_artist(track_repository, session_factory)
-
-        artist = artist_repository.get_by_name('Detached Test Artist')
-        assert artist is not None
-        _ = artist.tracks
-        assert len(artist.albums) >= 1
+        # And the NESTED album.tracks the artist-detail route reads (#4236).
         for album in artist.albums:
-            # Must not raise DetachedInstanceError, and the eager-loaded
-            # collection is real: the setup seeds tracks under the album
-            # (>= 0 passed for an empty list too, #6237).
-            assert len(album.tracks) >= 1
+            assert len(album.tracks) >= 1, "artist.albums[i].tracks came back empty"
 
     # #4553, then #5084, narrowed the eager-load contract of the two
     # *paginated* methods.
@@ -323,9 +274,8 @@ class TestArtistRepositoryDetachedAccess:
     # What the list path guarantees is therefore now: artist.track_count_expr,
     # artist.album_count_expr and artist.genre_names are detached-safe;
     # artist.tracks and artist.albums are NOT. The single-row lookups keep the
-    # full guarantee (see test_get_by_id_relationships_accessible /
-    # test_get_by_name_...), because the artist-detail route genuinely reads
-    # album.tracks.
+    # full guarantee (see test_get_by_id_relationships_accessible), because the
+    # artist-detail route genuinely reads album.tracks.
 
     def test_get_all_list_aggregates_accessible(
         self, artist_repository, track_repository, session_factory

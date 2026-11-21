@@ -1,10 +1,10 @@
 """#5786 — every list of the 25 fingerprint dimension names derives from the schema.
 
-The names were hand-copied in the normalizer, the quantizer, metrics/constants and
+The names were hand-copied in the normalizer, metrics/constants and
 FingerprintService, next to DIMENSION_SCHEMA's "single source of truth" docstring,
-and the tests only pinned ``len(...) == 25``. The vector order matters (quantizer,
-normalizer, TrackFingerprint.to_vector()), so adding or reordering a dimension
-meant five hand edits with no failing test.
+and the tests only pinned ``len(...) == 25``. The vector order matters (normalizer,
+TrackFingerprint.to_vector()), so adding or reordering a dimension meant hand edits
+with no failing test.
 """
 
 import pytest
@@ -20,7 +20,6 @@ from auralis.analysis.fingerprint.schema import (
 )
 from auralis.core.processing.target_derivation import TARGET_FEATURES
 from auralis.learning.reference_seeder import BAND_FIELDS
-from auralis.library.fingerprint_quantizer import FingerprintQuantizer
 
 
 def test_schema_names_are_the_schema_keys_in_order() -> None:
@@ -38,7 +37,6 @@ def test_band_keys_are_the_seven_pct_dimensions() -> None:
     "copy",
     [
         pytest.param(list(FingerprintNormalizer.DIMENSION_NAMES), id="normalizer"),
-        pytest.param(list(FingerprintQuantizer.DIMENSION_NAMES), id="quantizer"),
         pytest.param(list(fingerprint_service._FP_KEYS), id="fingerprint_service"),
     ],
 )
@@ -51,10 +49,6 @@ def test_unordered_and_subset_copies_agree_with_the_schema() -> None:
     assert BAND_FIELDS == BAND_PCT_KEYS
     assert TARGET_FEATURES[:7] == BAND_PCT_KEYS
     assert set(TARGET_FEATURES) <= set(DIMENSION_NAMES)
-
-
-def test_quantizer_has_bounds_for_every_dimension() -> None:
-    assert set(FingerprintQuantizer.DIMENSION_BOUNDS) == set(DIMENSION_NAMES)
 
 
 class TestBandPctValid:

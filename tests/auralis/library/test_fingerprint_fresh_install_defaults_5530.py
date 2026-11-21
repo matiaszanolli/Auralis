@@ -7,8 +7,8 @@ Root cause: ``TrackFingerprint.is_reference`` / ``.reference_weight`` (and
 as DDL. Migrated databases got real SQL defaults from the ALTER TABLE steps
 (v014->v015, v016->v017), but a fresh install is built purely by
 ``Base.metadata.create_all`` — so its ``track_fingerprints`` had NOT NULL
-columns with no DEFAULT, and the raw ``INSERT`` in ``upsert()`` /
-``store_fingerprint()`` (which omitted those columns) always raised
+columns with no DEFAULT, and the raw ``INSERT`` in ``upsert()`` (which
+omitted those columns) always raised
 ``IntegrityError``, was swallowed, and returned ``None``: no fingerprint was
 ever persisted on a fresh install.
 
@@ -74,15 +74,6 @@ def test_upsert_on_fresh_install_succeeds(fingerprint_repository, session_factor
     assert row["is_reference"] in (0, False)
     assert row["reference_weight"] == 0.0
     assert row["version"] >= 1
-
-
-def test_store_fingerprint_on_fresh_install_succeeds(fingerprint_repository, session_factory, track_id):
-    result = fingerprint_repository.store_fingerprint(track_id=track_id, **_SAMPLE_FP)
-
-    assert result is not None, "store_fingerprint() must succeed on a create_all() schema"
-    row = _fp_row(session_factory, track_id)
-    assert row["is_reference"] in (0, False)
-    assert row["reference_weight"] == 0.0
 
 
 def test_upsert_does_not_clobber_reference_membership(

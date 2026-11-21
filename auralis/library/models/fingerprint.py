@@ -95,9 +95,9 @@ class TrackFingerprint(Base, TimestampMixin):
     # non-references and any reference not yet reweighted by a seeder run.
     reference_weight: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, server_default=text("0.0"))
 
-    # Phase 3A: 8-bit quantized fingerprint storage (25 bytes, 8x compression)
-    # Stores quantized uint8 values for space efficiency
-    # Auto-dequantized on retrieval to restore float values (~1% accuracy loss)
+    # Phase 3A's 8-bit quantized copy of the 25 dimensions (25 bytes). Nothing writes or reads it
+    # any more (the float columns are the fingerprint); kept so existing databases need no
+    # migration, and upsert() leaves it untouched (#3467).
     fingerprint_blob: Mapped[bytes | None] = mapped_column(LargeBinary(25), nullable=True)
 
     # Relationship

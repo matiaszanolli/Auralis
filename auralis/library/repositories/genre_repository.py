@@ -53,23 +53,6 @@ class GenreRepository(BaseRepository):
             )
             return genre
 
-    def get_by_name(self, name: str) -> Genre | None:
-        """
-        Get genre by name.
-
-        Args:
-            name: Genre name
-
-        Returns:
-            Genre or None if not found
-        """
-        with self._session_scope() as session:
-            genre = self._first_detached(
-                session,
-                select(Genre).where(Genre.name == name).options(*_GENRE_LOAD_OPTIONS),
-            )
-            return genre
-
     def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[list[Genre], int]:
         """
         Get all genres with pagination.

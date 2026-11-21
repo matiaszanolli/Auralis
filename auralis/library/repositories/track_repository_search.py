@@ -86,53 +86,6 @@ class TrackRepositorySearchMixin(BaseRepository):
                 session.expunge(track)
             return list(results), total
 
-    def get_by_artist(self, artist_name: str, limit: int = 100) -> list[Track]:
-        """Get tracks by artist"""
-        with self._session_scope() as session:
-            # Use eager loading to load relationships before session closes
-            tracks = session.execute(
-                select(Track).join(Track.artists).where(
-                    Artist.name == artist_name
-                ).options(
-                    *_track_eager_options(list_read=True)  # includes selectinload(genres) — #2523/#4500
-                ).limit(limit)
-            ).scalars().unique().all()
-
-            # Expunge from session to make objects persistent across session close
-            for track in tracks:
-                session.expunge(track)
-
-            return list(tracks)
-
-    def get_recent(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
-        """Get recently added tracks with relationships loaded
-
-        Args:
-            limit: Maximum number of tracks to return
-            offset: Number of tracks to skip (for pagination)
-
-        Returns:
-            Tuple of (track list, total count)
-        """
-        with self._session_scope() as session:
-            # Get total count
-            total = session.execute(
-                select(func.count()).select_from(Track)
-            ).scalar_one()
-
-            # Get paginated results
-            results = session.execute(
-                select(Track)
-                .options(*_track_eager_options(list_read=True))
-                .order_by(Track.created_at.desc(), Track.id.desc())
-                .limit(limit)
-                .offset(offset)
-            ).scalars().unique().all()
-
-            for track in results:
-                session.expunge(track)
-            return list(results), total
-
     def get_favorites(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get favorite tracks with relationships loaded
 

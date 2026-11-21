@@ -132,17 +132,6 @@ class ArtistRepository(ArtistPageMixin):
             )
             return artist
 
-    def get_by_name(self, name: str) -> Artist | None:
-        """Get artist by name with relationships loaded"""
-        with self._session_scope() as session:
-            artist = self._first_detached(
-                session,
-                select(Artist)
-                .options(*_ARTIST_DETAIL_OPTIONS)
-                .where(Artist.name == name),
-            )
-            return artist
-
     def get_all(
         self, limit: int = 50, offset: int = 0, order_by: str = 'name', order: str | None = None
     ) -> tuple[list[Artist], int]:

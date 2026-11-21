@@ -499,11 +499,11 @@ class TestDatabaseQueryPerformance:
             })
 
         # Warm up
-        track_repo.get_recent(limit=50, offset=0)
+        track_repo.get_all(limit=50, offset=0, order_by='created_at', order='desc')
 
         # Measure
         start = time.perf_counter()
-        recent, total = track_repo.get_recent(limit=50, offset=0)
+        recent, total = track_repo.get_all(limit=50, offset=0, order_by='created_at', order='desc')
         elapsed_ms = (time.perf_counter() - start) * 1000
 
         # BENCHMARK: Should be < 30ms

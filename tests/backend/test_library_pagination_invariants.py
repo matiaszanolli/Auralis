@@ -644,7 +644,7 @@ def test_recent_tracks_pagination_completeness(populated_db):
             track_repo.record_play(tracks[0].id)
 
     # Get total recent count
-    _, total = track_repo.get_recent(limit=1, offset=0)
+    _, total = track_repo.get_all(limit=1, offset=0, order_by='created_at', order='desc')
 
     if total == 0:
         assert len(recent) > 0, "fixture must seed recent tracks"
@@ -655,7 +655,7 @@ def test_recent_tracks_pagination_completeness(populated_db):
     offset = 0
 
     while offset < total:
-        recent, _ = track_repo.get_recent(limit=page_size, offset=offset)
+        recent, _ = track_repo.get_all(limit=page_size, offset=offset, order_by='created_at', order='desc')
 
         recent_ids_this_page = {t.id for t in recent}
         duplicates = all_recent_ids & recent_ids_this_page
