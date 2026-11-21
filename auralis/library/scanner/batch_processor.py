@@ -64,6 +64,7 @@ class BatchProcessor:
             ScanResult with processing statistics and added track records
         """
         result = ScanResult()
+        known = self._existing_tracks(file_paths)
 
         for file_path in file_paths:
             if self.should_stop.is_set():
@@ -71,7 +72,7 @@ class BatchProcessor:
 
             try:
                 file_result, track_record, reason = self.process_single_file(
-                    file_path, skip_existing, check_modifications
+                    file_path, skip_existing, check_modifications, known=known
                 )
 
                 result.files_processed += 1
@@ -94,6 +95,20 @@ class BatchProcessor:
                 result.record_failure(file_path, str(e) or e.__class__.__name__)
 
         return result
+
+    def _existing_tracks(self, file_paths: list[str]) -> dict[str, Any] | None:
+        """The batch's library rows in one query, keyed by requested path (#6577); None on failure.
+
+        A rescan mostly answers "already imported, unchanged", and resolving each path with its
+        own get_by_path cost a session and a full Track load per file - for the whole library on
+        every auto-scan cycle. get_by_paths keys by the requested spelling (#6149). A failed
+        prefetch falls back to the per-file lookup rather than failing the batch.
+        """
+        try:
+            return dict(self.library_database.tracks.get_by_paths(file_paths))
+        except Exception as e:
+            warning(f"Batch track lookup failed, looking files up one at a time: {e}")
+            return None
 
     @staticmethod
     def _skip_existing_track(
@@ -128,7 +143,8 @@ class BatchProcessor:
 
     def process_single_file(self, file_path: str,
                            skip_existing: bool,
-                           check_modifications: bool) -> tuple[str, Any, str | None]:
+                           check_modifications: bool,
+                           known: dict[str, Any] | None = None) -> tuple[str, Any, str | None]:
         """
         Process a single audio file
 
@@ -136,6 +152,8 @@ class BatchProcessor:
             file_path: Path to audio file
             skip_existing: Skip if already in library
             check_modifications: Check if file was modified
+            known: The batch's prefetched library rows by path (absent = not in the library);
+                None looks this path up on its own (#6577)
 
         Returns:
             Tuple of (status, track_record, reason) where status is 'added',
@@ -159,7 +177,7 @@ class BatchProcessor:
             tracks_repo = self.library_database.tracks
             # Looked up even when skip_existing is False: a re-scan then UPDATES the row instead of
             # failing to insert a duplicate filepath and reporting it as added/failed (#6146).
-            existing_track = tracks_repo.get_by_path(file_path)
+            existing_track = known.get(file_path) if known is not None else tracks_repo.get_by_path(file_path)
             if existing_track and skip_existing and self._skip_existing_track(
                 existing_track, file_path, check_modifications
             ):

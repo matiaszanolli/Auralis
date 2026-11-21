@@ -72,7 +72,7 @@ def test_batch_processor_stops_between_files():
     batch = BatchProcessor(MagicMock(), MagicMock(), MagicMock())
     processed: list[str] = []
 
-    def fake_single(path, skip_existing, check_modifications):
+    def fake_single(path, skip_existing, check_modifications, known=None):
         processed.append(path)
         batch.stop()
         return "skipped", None, None
