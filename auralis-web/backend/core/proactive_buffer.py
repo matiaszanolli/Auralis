@@ -81,7 +81,7 @@ async def _buffer_one_preset(
         # Create the processor on a worker thread -- the constructor does a sync
         # SoundFile open + fingerprint load + HybridProcessor init (~200-500 ms).
         # Constructing it directly here would stall the event loop (#3853).
-        # Mirrors the streaming path at audio_stream_controller.py:597.
+        # Mirrors the streaming path (stream_enhanced_lifecycle.run_enhanced_stream).
         processor = await asyncio.to_thread(
             ChunkedAudioProcessor,
             track_id=track_id,

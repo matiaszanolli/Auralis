@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Fail on new 'was removed/deleted in #NNNN' breadcrumb comments (#6257).
+"""Fail on 'was removed/deleted in #NNNN' breadcrumbs and file:LINE anchors.
 
 History-narrating comments that cite the deleting issue ("X was removed in
 #1234") regrew six times after manual sweeps (#4088, #4293, #4649, #5034,
 #5820, and the 2026-10-22 audit) because nothing gated them. The git log
 already carries this history; a comment may only carry a present-tense
 constraint ("Do not re-add X: reason"), which this pattern does not match.
+
+It also rejects ``file.py:123`` line anchors in source (#6675): they rot as
+soon as the cited file changes. Cite a symbol (``module.function``) instead,
+the rule #6248 already applies to the docs.
 
 Checked roots: auralis/, auralis-web/backend/, auralis-web/frontend/src/,
 vendor/auralis-dsp/src/.
@@ -42,6 +46,10 @@ BREADCRUMB = re.compile(
     re.IGNORECASE,
 )
 
+# A source-file reference pinned to a line number, e.g. `stream.py:597` or
+# `enhancement.ts:71-78` (#6675).
+LINE_ANCHOR = re.compile(r"\b[\w./-]+\.(?:py|rs|tsx?|jsx?):\d+")
+
 # Files whose matches are accepted pending cleanup; shrink, never grow.
 BASELINE: set[tuple[str, int]] = set()
 
@@ -68,11 +76,15 @@ def main() -> int:
                 continue
             relpath = str(path.relative_to(root))
             for lineno, line in enumerate(lines, start=1):
-                if BREADCRUMB.search(line) and (relpath, lineno) not in BASELINE:
+                hit = BREADCRUMB.search(line) or LINE_ANCHOR.search(line)
+                if hit and (relpath, lineno) not in BASELINE:
                     offenders.append((relpath, lineno, line.strip()))
 
     if offenders:
-        print("Breadcrumb comments found (delete them; the git log has the history):")
+        print(
+            "Breadcrumbs or file:LINE anchors found (delete history the git log "
+            "already has; cite a symbol, not a line):"
+        )
         for relpath, lineno, line in offenders:
             print(f"  {relpath}:{lineno}: {line[:100]}")
         return 1

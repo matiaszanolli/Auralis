@@ -86,7 +86,7 @@ vi.mock('../QueuePanel', countingMock('QueuePanel'));
 vi.mock('@/hooks/enhancement/usePlayEnhanced', async () => {
   const react = await import('react');
   // Hoisted out of the returned object on purpose. In production these are all
-  // `useCallback`-stable (useAudioStreamingCore.ts:460-480), so creating fresh
+  // `useCallback`-stable (the handlers useAudioStreamingCore returns), so creating fresh
   // `vi.fn()`s per call would inject identity churn the real hook does not have
   // — the transport handlers would destabilise and this test would report a
   // memoization failure that exists only in its own mock.

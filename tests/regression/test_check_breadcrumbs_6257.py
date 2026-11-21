@@ -65,3 +65,22 @@ def test_behavioral_docstring_passes(tmp_path: Path) -> None:
         )
         == 0
     )
+
+
+def test_file_line_anchor_fails_the_gate(tmp_path: Path) -> None:
+    """#6675: `file.py:597`-style anchors rot when the cited file changes."""
+    for body in (
+        "# Mirrors the streaming path at audio_stream_controller.py:597.\n",
+        "# matches the contract (types/ws/enhancement.ts:71-78, #4676)\n",
+        "// see useAudioStreamingCore.tsx:460\n",
+    ):
+        assert _run_with_file(tmp_path, body) == 1, body
+
+
+def test_symbol_anchor_and_ratio_pass(tmp_path: Path) -> None:
+    """Symbol citations and non-file `x:N` text are not line anchors."""
+    body = (
+        "# Mirrors stream_enhanced_lifecycle.run_enhanced_stream (#6675).\n"
+        "RATIO = '4:1'  # compression ratio, not a file reference\n"
+    )
+    assert _run_with_file(tmp_path, body) == 0

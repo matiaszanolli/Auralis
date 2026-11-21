@@ -34,7 +34,7 @@ async def _broadcast_artwork_updated(
 ) -> None:
     """Broadcast `artwork_updated` from the one place all three emit sites
     share, so the payload cannot drift out of sync with the frontend's
-    ``ArtworkUpdatedMessage`` contract (types/ws/enhancement.ts:71-78, #4676).
+    ``ArtworkUpdatedMessage`` contract (types/ws/enhancement.ts, #4676).
     ``artwork_url`` is omitted for 'deleted', matching that contract's
     `artwork_url?: string; // absent for 'deleted'`.
     """

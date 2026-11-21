@@ -267,7 +267,7 @@ describe('AlbumDetailView', () => {
 
       await waitFor(() => {
         // TrackPlayIndicator renders `{trackNumber || index + 1}`
-        // (TrackPlayIndicator.tsx:39), so all three mock tracks are numbered.
+        // (TrackPlayIndicator), so all three mock tracks are numbered.
         // Was `>= 0 // Track numbers may be hidden`, true by construction and
         // documenting nothing (#5136).
         const trackNumbers = screen.queryAllByText(/^[123]$/);
