@@ -92,7 +92,6 @@ logger = logging.getLogger(__name__)
 def create_enhancement_router(
     get_enhancement_settings: Callable[[], dict[str, Any]],
     connection_manager: Any,
-    get_streamlined_cache: Callable[[], Any] | None = None,
     get_player_state_manager: Callable[[], Any] | None = None,
     get_repository_factory: Callable[[], Any] | None = None,
 ) -> APIRouter:
@@ -111,7 +110,6 @@ def create_enhancement_router(
     deps = _EnhancementDeps(
         get_enhancement_settings=get_enhancement_settings,
         connection_manager=connection_manager,
-        get_streamlined_cache=get_streamlined_cache,
         get_player_state_manager=get_player_state_manager,
         get_repository_factory=get_repository_factory,
     )

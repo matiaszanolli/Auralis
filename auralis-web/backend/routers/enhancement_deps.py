@@ -16,13 +16,11 @@ class _EnhancementDeps:
         self,
         get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
         connection_manager: Any = None,
-        get_streamlined_cache: Callable[[], Any] | None = None,
         get_player_state_manager: Callable[[], Any] | None = None,
         get_repository_factory: Callable[[], Any] | None = None,
     ) -> None:
         self.get_enhancement_settings = get_enhancement_settings
         self.connection_manager = connection_manager
-        self.get_streamlined_cache = get_streamlined_cache
         self.get_player_state_manager = get_player_state_manager
         self.get_repository_factory = get_repository_factory
 
@@ -45,11 +43,6 @@ _get_connection_manager = provide_connection_manager(_deps)
 def _get_player_state_manager() -> Any:
     """Optional dependency: None when the factory got no callable for it."""
     return resolve_optional(_deps.current().get_player_state_manager)
-
-
-def _get_streamlined_cache() -> Any:
-    """Optional dependency: None when the factory got no callable for it."""
-    return resolve_optional(_deps.current().get_streamlined_cache)
 
 
 def _get_repository_factory() -> Any:
