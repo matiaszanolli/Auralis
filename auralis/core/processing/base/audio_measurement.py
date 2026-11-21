@@ -12,8 +12,7 @@ Provides AudioMeasurement and MeasurementUtilities classes.
 
 import numpy as np
 
-from ....dsp.basic import rms
-from ....dsp.utils.conversion import amplitude_to_db
+from ....dsp.utils.conversion import amplitude_to_db, crest_db, level_stats
 from ....utils.logging import debug
 
 
@@ -34,7 +33,7 @@ class AudioMeasurement:
         self.rms: float = rms_val
         self.peak_db: float = peak_db if peak_db is not None else amplitude_to_db(peak)
         self.rms_db: float = rms_db if rms_db is not None else amplitude_to_db(rms_val)
-        self.crest: float = self.peak_db - self.rms_db
+        self.crest: float = crest_db(self.peak_db, self.rms_db)  # 0.0 for silence, not NaN (#6597)
 
     def to_dict(self) -> dict[str, float]:
         """Convert to dictionary"""
@@ -66,9 +65,8 @@ class MeasurementUtilities:
         Returns:
             AudioMeasurement object with peak, RMS, crest factor
         """
-        peak = np.max(np.abs(audio))
-        rms_val = rms(audio)
-        measurement = AudioMeasurement(peak, rms_val)
+        stats = level_stats(audio)
+        measurement = AudioMeasurement(stats.peak, stats.rms, stats.peak_db, stats.rms_db)
 
         if label:
             debug(f"[{label}] Peak: {measurement.peak_db:.2f} dB, "

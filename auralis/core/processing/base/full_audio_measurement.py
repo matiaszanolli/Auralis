@@ -10,11 +10,10 @@ Consolidates all measurement types (peak, RMS, crest, LUFS) in one place.
 """
 
 
-from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 import numpy as np
 
-from ....dsp.basic import rms
 from ....dsp.utils.adaptive import calculate_loudness_units
+from ....dsp.utils.conversion import level_stats
 
 
 class FullAudioMeasurement:
@@ -33,11 +32,12 @@ class FullAudioMeasurement:
             label: Optional label for identification
         """
         self.label: str | None = label
-        self.peak: float = np.max(np.abs(audio))
-        self.peak_db: float = amplitude_to_db(self.peak)
-        self.rms: float = rms(audio)
-        self.rms_db: float = amplitude_to_db(self.rms)
-        self.crest: float = self.peak_db - self.rms_db
+        stats = level_stats(audio)  # crest 0.0 for silence, not NaN (#6597)
+        self.peak: float = stats.peak
+        self.peak_db: float = stats.peak_db
+        self.rms: float = stats.rms
+        self.rms_db: float = stats.rms_db
+        self.crest: float = stats.crest_db
         self.lufs: float | None = None
 
         if sample_rate:

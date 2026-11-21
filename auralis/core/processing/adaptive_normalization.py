@@ -9,15 +9,14 @@ peak/LUFS normalization pass, as a function over the mode processor.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
+from auralis.dsp.utils.conversion import amplitude_to_db
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ...dsp.utils.conversion import SILENCE_FLOOR_DB
+from ...dsp.utils.conversion import level_stats
 from ...utils.audio_validation import MAX_IN_STAGE_REPAIR_FRACTION, validate_audio_finite
-from ...utils.logging import debug, info
-from ...dsp.basic import rms
+from ...utils.logging import debug
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from .base.normalization_step import NormalizationStep
@@ -52,11 +51,8 @@ def apply_final_normalization(mode: "AdaptiveMode", audio: np.ndarray, spectrum_
     source_lufs = calculate_loudness_units(audio, mode.config.internal_sample_rate)
 
     # Calculate crest factor (peak-to-RMS ratio) for transient preservation
-    current_peak = np.max(np.abs(audio))
-    current_peak_db = amplitude_to_db(current_peak)
-    current_rms = rms(audio)
-    current_rms_db = amplitude_to_db(current_rms)
-    crest_factor_db = current_peak_db - current_rms_db
+    levels = level_stats(audio)  # crest 0.0 for silence, not NaN (#6597)
+    current_peak, current_peak_db, crest_factor_db = levels.peak, levels.peak_db, levels.crest_db
 
     debug(f"[Adaptive Loudness] Source LUFS: {source_lufs:.2f} dB, Crest: {crest_factor_db:.2f} dB")
 
@@ -108,23 +104,14 @@ def apply_final_normalization(mode: "AdaptiveMode", audio: np.ndarray, spectrum_
         debug(f"[Adaptive Loudness] Skipped normalization - peak already appropriate for {source_lufs:.1f} LUFS source")
 
     # Log final pre-limiter metrics
-    final_peak = np.max(np.abs(audio))
-    final_peak_db = amplitude_to_db(final_peak)
-    final_rms = rms(audio)
-    final_rms_db = amplitude_to_db(final_rms)
-    final_crest = final_peak_db - final_rms_db
-    ProcessingLogger.pre_stage("Final", final_peak_db, final_rms_db, final_crest)
+    final = level_stats(audio)
+    ProcessingLogger.pre_stage("Final", final.peak_db, final.rms_db, final.crest_db)
 
     # Step 3: Safety limiter
     audio, _ = SafetyLimiter.apply_if_needed(audio)
 
     # Final metrics
-    final_peak = np.max(np.abs(audio))
-    final_peak_db = amplitude_to_db(final_peak)
-    final_rms = rms(audio)
-    final_rms_db = amplitude_to_db(final_rms)
-    final_crest = final_peak_db - final_rms_db
-
-    debug(f"[Final Result] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, Crest: {final_crest:.2f} dB")
+    final = level_stats(audio)
+    debug(f"[Final Result] Peak: {final.peak_db:.2f} dB, RMS: {final.rms_db:.2f} dB, Crest: {final.crest_db:.2f} dB")
 
     return audio

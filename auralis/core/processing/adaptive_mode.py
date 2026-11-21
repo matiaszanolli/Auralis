@@ -8,14 +8,13 @@ Spectrum-based adaptive processing without reference tracks
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db
 from typing import Any
 
 import numpy as np
 
-from ...dsp.basic import amplify, rms
+from ...dsp.basic import amplify
 from ...dsp.utils.adaptive import calculate_loudness_units
-from ...dsp.utils.conversion import peak_db
+from ...dsp.utils.conversion import level_stats, peak_db
 from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.logging import debug
 from ..utils.smooth_curves import CREST_CENTER_DB, CREST_SCALE_DB, LUFS_CENTER, LUFS_SCALE, smooth_unit
@@ -141,13 +140,9 @@ class AdaptiveMode:
         """Apply continuously weighted compression and expansion."""
 
         source_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
-        current_peak = np.max(np.abs(audio))
-        current_peak_db = amplitude_to_db(current_peak)
-        current_rms = rms(audio)
-        current_rms_db = amplitude_to_db(current_rms)
-        crest_factor_db = current_peak_db - current_rms_db
+        crest_factor_db = level_stats(audio).crest_db  # 0.0 for silence, not NaN (#6597)
 
-        # A silent window measures crest as -inf - -inf = NaN; smooth_unit maps it to neutral (#6596).
+        # smooth_unit also maps any NaN that still arrives to neutral (#6596).
         loudness_coordinate = smooth_unit(source_lufs, LUFS_CENTER, LUFS_SCALE)
         crest_coordinate = smooth_unit(crest_factor_db, CREST_CENTER_DB, CREST_SCALE_DB)
         expansion_response = loudness_coordinate * (1.0 - crest_coordinate)

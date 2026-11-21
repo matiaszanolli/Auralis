@@ -16,12 +16,12 @@ processor state and must stay individually callable, which several regression
 tests (#4104, #4237, #4503, #5108) do directly.
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db
+from auralis.dsp.utils.conversion import amplitude_to_db, level_stats
 from typing import Any
 
 import numpy as np
 
-from ...dsp.basic import amplify, rms
+from ...dsp.basic import amplify
 from ...dsp.dynamics.brick_wall_limiter import create_brick_wall_limiter
 from ...dsp.utils.adaptive import (
     MAX_NORMALIZATION_GAIN_DB,
@@ -269,14 +269,9 @@ class ContinuousDSPOpsMixin:
             debug(f"[Peak Limiting] SKIPPED - audio peak at {final_peak_pre:.2f} dB is safe")
 
         # Final measurements
-        final_peak = np.max(np.abs(audio))
-        final_peak_db = amplitude_to_db(final_peak)
+        final = level_stats(audio)
         final_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
-        final_rms = rms(audio)
-        final_rms_db = amplitude_to_db(final_rms)
-        final_crest = final_peak_db - final_rms_db
-
-        debug(f"[Final] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, "
-              f"Crest: {final_crest:.2f} dB, LUFS: {final_lufs:.1f}")
+        debug(f"[Final] Peak: {final.peak_db:.2f} dB, RMS: {final.rms_db:.2f} dB, "
+              f"Crest: {final.crest_db:.2f} dB, LUFS: {final_lufs:.1f}")
 
         return audio

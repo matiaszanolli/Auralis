@@ -8,6 +8,8 @@ Conversion functions between different audio representations
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from typing import NamedTuple
+
 import numpy as np
 
 # The silence convention used by the mastering pipeline's peak/headroom maths: the
@@ -50,6 +52,38 @@ def rms_db(audio: np.ndarray, silence_db: float = -np.inf) -> float:
     from ..basic import rms
 
     return amplitude_to_db(rms(audio), silence_db)
+
+
+def crest_db(peak_db_value: float, rms_db_value: float) -> float:
+    """Crest factor in dB, ``peak_db - rms_db``; 0.0 for digital silence.
+
+    Silence has no peak-to-RMS ratio: both levels are -inf and the bare difference is NaN, which a
+    stage reading crest (AdaptiveLoudnessControl, the continuous-space curves) then propagates (#6597).
+    """
+    return float(peak_db_value - rms_db_value) if np.isfinite(rms_db_value) else 0.0
+
+
+class LevelStats(NamedTuple):
+    """Peak, RMS and crest of one buffer (linear and dB), as :func:`level_stats` measures them."""
+
+    peak: float
+    peak_db: float
+    rms: float
+    rms_db: float
+    crest_db: float
+
+
+def level_stats(audio: np.ndarray) -> LevelStats:
+    """Peak, RMS and crest of ``audio``: the one level measurement the processing stages share (#6597).
+
+    Levels of digital silence are -inf dB and its crest is 0.0 (:func:`crest_db`).
+    """
+    from ..basic import rms
+
+    peak = float(np.max(np.abs(audio)))
+    rms_value = float(rms(audio))
+    peak_level, rms_level = amplitude_to_db(peak), amplitude_to_db(rms_value)
+    return LevelStats(peak, peak_level, rms_value, rms_level, crest_db(peak_level, rms_level))
 
 
 #: Amplitude epsilon / dB floor for array conversions (#6230). The scalar

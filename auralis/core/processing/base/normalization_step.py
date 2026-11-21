@@ -10,10 +10,10 @@ Consolidates the measure-adjust-remeasure pattern.
 """
 
 
-from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 import numpy as np
 
-from ....dsp.basic import amplify, rms
+from ....dsp.basic import amplify
+from ....dsp.utils.conversion import level_stats
 from ....dsp.utils.adaptive import calculate_loudness_units
 from .processing_logger import ProcessingLogger
 
@@ -51,31 +51,16 @@ class NormalizationStep:
         Returns:
             Dictionary with measurements (peak_db, rms_db, crest, [lufs])
         """
-        peak = np.max(np.abs(audio))
-        peak_db = amplitude_to_db(peak)
-        rms_val = rms(audio)
-        rms_db = amplitude_to_db(rms_val)
-        crest = peak_db - rms_db
-
-        measurement = {
-            'peak_db': peak_db,
-            'rms_db': rms_db,
-            'crest': crest,
-            'peak': peak,
-            'rms': rms_val
-        }
-
-        if use_lufs and sample_rate:
-            lufs = calculate_loudness_units(audio, sample_rate)
-            measurement['lufs'] = lufs
-
+        measurement = self._measure(audio, use_lufs, sample_rate)
         self.before_measurement = measurement
 
         if self.stage_label:
             if 'lufs' in measurement:
-                ProcessingLogger.pre_stage(self.stage_label, peak_db, measurement['lufs'])
+                ProcessingLogger.pre_stage(self.stage_label, measurement['peak_db'], measurement['lufs'])
             else:
-                ProcessingLogger.pre_stage(self.stage_label, peak_db, rms_db, crest)
+                ProcessingLogger.pre_stage(
+                    self.stage_label, measurement['peak_db'], measurement['rms_db'], measurement['crest']
+                )
 
         return measurement
 
@@ -109,23 +94,21 @@ class NormalizationStep:
         Returns:
             Dictionary with measurements
         """
-        peak = np.max(np.abs(audio))
-        peak_db = amplitude_to_db(peak)
-        rms_val = rms(audio)
-        rms_db = amplitude_to_db(rms_val)
-        crest = peak_db - rms_db
-
-        measurement: dict[str, float] = {
-            'peak_db': peak_db,
-            'rms_db': rms_db,
-            'crest': crest,
-            'peak': peak,
-            'rms': rms_val
-        }
-
-        if use_lufs and sample_rate:
-            lufs = calculate_loudness_units(audio, sample_rate)
-            measurement['lufs'] = lufs
-
+        measurement = self._measure(audio, use_lufs, sample_rate)
         self.after_measurement = measurement
+        return measurement
+
+    @staticmethod
+    def _measure(audio: np.ndarray, use_lufs: bool, sample_rate: int | None) -> dict[str, float]:
+        """peak/rms (linear and dB), crest (0.0 for silence, #6597) and optionally LUFS."""
+        stats = level_stats(audio)
+        measurement: dict[str, float] = {
+            'peak_db': stats.peak_db,
+            'rms_db': stats.rms_db,
+            'crest': stats.crest_db,
+            'peak': stats.peak,
+            'rms': stats.rms,
+        }
+        if use_lufs and sample_rate:
+            measurement['lufs'] = calculate_loudness_units(audio, sample_rate)
         return measurement

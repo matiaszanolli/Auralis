@@ -170,20 +170,11 @@ def crest_factor(audio: np.ndarray) -> float:
         audio: Input audio signal
 
     Returns:
-        Crest factor in dB
+        Crest factor in dB; 0.0 for digital silence (the shared level_stats, #6597)
     """
-    from ..basic import rms
-    from .conversion import amplitude_to_db
+    from .conversion import level_stats
 
-    peak = np.max(np.abs(audio))
-    rms_value = rms(audio)
-
-    if rms_value > 0:
-        # rms_value > 0 is guarded above, so amplitude_to_db's -inf
-        # non-positive branch never fires here; identical value (#6213).
-        return amplitude_to_db(peak / rms_value)
-    else:
-        return 0.0
+    return level_stats(audio).crest_db
 
 
 def tempo_estimate(audio: np.ndarray, sample_rate: int) -> float:

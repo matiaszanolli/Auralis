@@ -21,7 +21,7 @@ from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.logging import debug
 from .genre_classification import GenreClassificationMixin
 from ...dsp.utils.audio_info import to_mono
-from ...dsp.utils.conversion import amplitude_to_db
+from ...dsp.utils.conversion import level_stats
 
 
 class ContentAnalyzer(GenreClassificationMixin):
@@ -175,13 +175,9 @@ class ContentAnalyzer(GenreClassificationMixin):
             Dictionary with level category and processing recommendations
         """
         # Calculate basic level metrics
-        peak = np.max(np.abs(audio))
-        peak_db = amplitude_to_db(peak)
-
-        rms_value = rms(audio)
-        rms_db = amplitude_to_db(rms_value)
-
-        crest_db = peak_db - rms_db
+        levels = level_stats(audio)  # crest 0.0 for silence, not NaN (#6597)
+        peak, rms_value = levels.peak, levels.rms
+        peak_db, rms_db, crest_db = levels.peak_db, levels.rms_db, levels.crest_db
 
         # Determine level category based on Matchering analysis
         # KEY INSIGHT: Crest factor is crucial - high crest indicates dynamic material needing compression
