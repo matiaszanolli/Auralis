@@ -13,7 +13,6 @@ Usage:
 import argparse
 import sys
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
 
 try:
@@ -21,7 +20,7 @@ try:
     from sqlalchemy.orm import sessionmaker
 
     from auralis.library.models import Track, TrackFingerprint
-except ImportError as e:
+except ImportError:
     print(f"❌ Error: Missing dependencies. Make sure Auralis is installed.")
     sys.exit(1)
 

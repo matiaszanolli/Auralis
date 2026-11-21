@@ -16,7 +16,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,

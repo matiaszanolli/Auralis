@@ -6,10 +6,7 @@ Tracks memory usage at each step to identify memory leaks.
 """
 
 import os
-import sys
 import tracemalloc
-from pathlib import Path
-from typing import Any
 
 import psutil
 
@@ -44,7 +41,6 @@ def profile_section(name: str, before: dict[str, float], after: dict[str, float]
 
 async def main():
     """Profile a single fingerprint extraction."""
-    import asyncio
     import gc
 
     from auralis.services.fingerprint_extractor import FingerprintExtractor

@@ -10,10 +10,8 @@ import sys
 sys.path.insert(0, '/mnt/data/src/matchering')
 
 import tempfile
-from pathlib import Path
 from typing import Any
 
-import numpy as np
 import soundfile as sf
 
 from auralis.analysis.audio_fingerprint_analyzer import AudioFingerprintAnalyzer

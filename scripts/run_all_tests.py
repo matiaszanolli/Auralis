@@ -20,11 +20,11 @@ def run_test_file(test_file):
     print('='*60)
 
     try:
-        result = subprocess.run([sys.executable, str(test_file)],
+        subprocess.run([sys.executable, str(test_file)],
                               capture_output=False,
                               check=True)
         return True
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         print(f"❌ Test failed: {test_file.name}")
         return False
     except Exception as e:

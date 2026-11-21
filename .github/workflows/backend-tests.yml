@@ -208,10 +208,11 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  # The four ratchets below read the source tree, not the junit report, and
-  # need only the standard library. They lived as steps of the `pytest` job, so
-  # a pytest run that was cancelled at the cap skipped all of them (#6706).
-  # As their own job they run, and report, whatever pytest does.
+  # The ratchets below read the source tree, not the junit report, and need
+  # only the standard library (the ruff step fetches a pinned ruff via pipx).
+  # They lived as steps of the `pytest` job, so a pytest run that was
+  # cancelled at the cap skipped all of them (#6706). As their own job they
+  # run, and report, whatever pytest does.
   gates:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -250,3 +251,10 @@ jobs:
       - name: Check for breadcrumb comments
         if: ${{ !cancelled() }}
         run: python scripts/check_breadcrumbs.py
+
+      # Unused imports/locals regrew after every module split (#6209; #6604-#6607
+      # found ~70): the ruff pre-commit hook only runs in a checkout that
+      # installed it. Same version and rules as .pre-commit-config.yaml.
+      - name: Check for unused imports and locals
+        if: ${{ !cancelled() }}
+        run: pipx run ruff==0.12.12 check --no-cache --select F401,F811,F841 auralis auralis-web/backend scripts tools

@@ -20,7 +20,7 @@ def fingerprint_audio(audio_path: str) -> dict[str, Any]:
         service = FingerprintService(fingerprint_strategy="sampling")
         fingerprint = service.get_or_compute(Path(audio_path))
         return fingerprint if fingerprint else {}
-    except Exception as e:
+    except Exception:
         return {}
 
 

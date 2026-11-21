@@ -5,7 +5,6 @@ Tests fingerprint generation via gRPC when database has no cached fingerprint
 """
 
 import asyncio
-import json
 import logging
 import sys
 import time

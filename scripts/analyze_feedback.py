@@ -13,11 +13,9 @@ Usage:
 
 import argparse
 import json
-from collections import Counter
 from pathlib import Path
-from statistics import mean, median, stdev
+from statistics import mean, stdev
 
-from auralis.core.recording_type_detector import RecordingType
 
 
 def load_feedback(data_dir: Path, recording_type: str | None = None) -> list[dict]:
@@ -202,7 +200,7 @@ def analyze_monthly_summary(data_dir: Path) -> None:
         return
 
     # Group by week
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     by_week = {}
     for rating in ratings:
