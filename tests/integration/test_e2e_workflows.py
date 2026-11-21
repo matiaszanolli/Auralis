@@ -42,7 +42,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save as save_audio
-from auralis.library.models import Track
 
 # Fixtures are now provided by conftest.py:
 # - temp_library: Creates temporary library with audio directory
@@ -153,10 +152,10 @@ def test_add_track_prevents_duplicates(temp_library, sample_audio_file):
     }
 
     # Add first time
-    track1 = manager.repositories.tracks.add(track_info)
+    manager.repositories.tracks.add(track_info)
 
     # Add second time (same filepath)
-    track2 = manager.repositories.tracks.add(track_info)
+    manager.repositories.tracks.add(track_info)
 
     # Should either:
     # 1. Return existing track (no duplicate)
@@ -332,7 +331,6 @@ def test_process_respects_loudness_target(sample_audio_file):
     """
     E2E: Process audio → verify LUFS target is achieved (within tolerance).
     """
-    from auralis.analysis.loudness_meter import LoudnessMeter
     from auralis.io.unified_loader import load_audio
 
     audio, sr = load_audio(sample_audio_file)
