@@ -26,5 +26,6 @@ export function mapTrackInfoToTrack(track: TrackInfo): QueueTrack {
     album: track.album || '',
     duration: track.duration || 0,
     artworkUrl: track.artwork_url,
+    albumId: track.album_id,
   };
 }

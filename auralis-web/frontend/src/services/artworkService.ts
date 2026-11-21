@@ -37,6 +37,21 @@ export function getArtworkUrl(albumId: number, options: ArtworkUrlOptions = {}):
 }
 
 /**
+ * The artwork URL for a track-scoped view (track card, track row, player bar): the track's own URL,
+ * sized and cache-busted, or - once `artwork_updated` has bumped the album's revision - one built
+ * from the album id. A track whose album had no art at load has no URL to bump (#5894, #6586).
+ */
+export function trackArtworkUrl(
+  url: string | null | undefined,
+  albumId: number | null | undefined,
+  size: number,
+  revision: number
+): string | undefined {
+  if (url) return withArtworkSize(url, size, revision);
+  return revision > 0 && albumId ? getArtworkUrl(albumId, { size, revision }) : undefined;
+}
+
+/**
  * Append a thumbnail `size` hint and/or cache-busting `v` revision to an
  * already-built artwork URL (e.g. a backend-provided `track.artworkUrl`).
  * No-op for empty/undefined URLs and when both additions are absent (#4447).

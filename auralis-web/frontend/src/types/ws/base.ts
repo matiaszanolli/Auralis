@@ -59,5 +59,7 @@ export interface TrackInfo {
   artwork_url?: string | null;
   /** Audio container/codec ("flac", "mp3"); `null` when unknown. */
   format?: string | null;
+  /** Sent even without artwork, so art that appears later can be fetched by album (#6586). */
+  album_id?: number | null;
 }
 

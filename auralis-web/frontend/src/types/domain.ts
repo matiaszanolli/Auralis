@@ -45,8 +45,9 @@ export interface Track {
 }
 
 // Named subsets for components that only need specific fields
-export type PlayerTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'duration' | 'artworkUrl'>;
-export type QueueTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'duration' | 'artworkUrl'>;
+// albumId lets art that appears after load be fetched by album (#6586).
+export type PlayerTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'albumId' | 'duration' | 'artworkUrl'>;
+export type QueueTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'albumId' | 'duration' | 'artworkUrl'>;
 export type LibraryTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'albumId' | 'duration' | 'filepath' | 'artworkUrl' | 'genre' | 'year' | 'favorite'>;
 export type DetailTrack = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'duration' | 'filepath' | 'artworkUrl' | 'genre' | 'year' | 'trackNumber' | 'discNumber' | 'albumId' | 'favorite'>;
 export type TrackRef = Pick<Track, 'id'>;

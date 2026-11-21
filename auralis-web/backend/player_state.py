@@ -49,6 +49,9 @@ class TrackInfo(BaseModel):
     # "unknown" for every queue-sourced track. Shipping the format explicitly
     # gives them the data without leaking a server path.
     format: str | None = None
+    # The album the artwork belongs to (#6586). Sent even without artwork: a track whose album gains
+    # art later (artwork_updated) can only build the URL from it.
+    album_id: int | None = None
 
 
 class PlayerState(BaseModel):
@@ -151,6 +154,8 @@ def create_track_info(track: Any) -> TrackInfo | None:
     album = getattr(track, 'album', None)
     if not album_id and album and not isinstance(album, str) and hasattr(album, 'id'):
         album_id = album.id
+    if not isinstance(album_id, int):  # a Mock or partial row, as for `format` above
+        album_id = None
     if album_id and getattr(album, 'artwork_path', None):
         album_art_url = f"/api/albums/{album_id}/artwork"
 
@@ -163,4 +168,5 @@ def create_track_info(track: Any) -> TrackInfo | None:
         filepath=track.filepath,
         artwork_url=album_art_url,
         format=track_format,
+        album_id=album_id,
     )

@@ -14,6 +14,8 @@ import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import { initialStreamingInfo } from '@/store/slices/playerStreamingReducers';
 import Player from '../Player';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { _internal as artworkInternal } from '@/hooks/library/useArtworkUpdates';
 
 // Captured across renders so tests can assert on the exact wire-mode choice.
 const { mockPlayEnhanced, mockPlayNormal, enhancementSettings, session, queuePanelState } =
@@ -331,5 +333,36 @@ describe('Player', () => {
     expect(image).not.toBeNull();
     // 2x the 44 px slot, not the stored original (up to 2048 px).
     expect(image!.getAttribute('src')).toContain('size=88');
+  });
+
+  it('shows art that appears after load for the playing track (#6586)', () => {
+    const contextMock = vi.mocked(useWebSocketContext);
+    const defaults = contextMock();
+    let onArtwork: ((message: any) => void) | null = null;
+    contextMock.mockReturnValue({
+      ...defaults,
+      subscribe: vi.fn((type: string, handler: (message: any) => void) => {
+        if (type === 'artwork_updated') onArtwork = handler;
+        return () => undefined;
+      }),
+    });
+    artworkInternal.reset();
+    try {
+      // Loaded before its album had art: no artworkUrl, only the album id.
+      const track = { ...mockTrack, albumId: 6, artworkUrl: null };
+      const { container } = renderPlayer(<Player />, {
+        preloadedState: { player: { currentTrack: track } as never },
+      });
+      expect(container.querySelector('img[src*="/api/albums/6/artwork"]')).toBeNull();
+
+      act(() => { onArtwork!({ type: 'artwork_updated', data: { album_id: 6 } }); });
+
+      const src = container.querySelector('img[src*="/api/albums/6/artwork"]')?.getAttribute('src') ?? '';
+      expect(src).toContain('size=88');
+      expect(src).toContain('v=1');
+    } finally {
+      contextMock.mockReturnValue(defaults);
+      artworkInternal.reset();
+    }
   });
 });

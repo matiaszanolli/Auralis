@@ -14,7 +14,7 @@ import TrackRowMetadata from './TrackRowMetadata';
 import { useTrackRowHandlers } from './useTrackRowHandlers';
 import { useTrackContextMenu } from './useTrackContextMenu';
 import { useTrackImage } from './useTrackImage';
-import { getArtworkUrl, withArtworkSize } from '@/services/artworkService';
+import { trackArtworkUrl } from '@/services/artworkService';
 import { useArtworkRevision } from '@/hooks/library/useArtworkUpdates';
 import { useTrackFormatting } from './useTrackFormatting';
 import type { LibraryTrack } from '@/types/domain';
@@ -111,16 +111,10 @@ const TrackRowComponent = ({
 
   // The row thumbnail is 40×40; request an ~80px (retina) variant so the browser
   // doesn't decode/hold the full-resolution album bitmap per row (#4447).
-  // Cache-bust on artwork_updated like the album views do (#5473); revision 0
-  // (track without an album) is a no-op in withArtworkSize.
+  // Cache-bust on artwork_updated like the album views do (#5473), and fetch art
+  // that appears after load by album id (#5894); revision 0 (no album) is a no-op.
   const artworkRevision = useArtworkRevision(track.albumId ?? 0);
-  // A track whose album had no art at load has no artworkUrl; once artwork_updated bumps the
-  // revision, build the URL from the album id so the new art can appear (#5894).
-  const rowArtworkUrl = track.artworkUrl
-    ? withArtworkSize(track.artworkUrl, 80, artworkRevision)
-    : artworkRevision > 0 && track.albumId
-      ? getArtworkUrl(track.albumId, { size: 80, revision: artworkRevision })
-      : undefined;
+  const rowArtworkUrl = trackArtworkUrl(track.artworkUrl, track.albumId, 80, artworkRevision);
 
   return (
     <>

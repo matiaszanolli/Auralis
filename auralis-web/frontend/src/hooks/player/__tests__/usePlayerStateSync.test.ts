@@ -131,6 +131,7 @@ const backendTrack = {
   album: 'Led Zeppelin IV',
   duration: 482,
   artwork_url: 'https://example.com/art.jpg',
+  album_id: 7, // lets art that appears later reach the player bar (#6586)
 };
 
 const expectedReduxTrack = {
@@ -140,6 +141,7 @@ const expectedReduxTrack = {
   album: 'Led Zeppelin IV',
   duration: 482,
   artworkUrl: 'https://example.com/art.jpg',
+  albumId: 7,
 };
 
 // ============================================================================

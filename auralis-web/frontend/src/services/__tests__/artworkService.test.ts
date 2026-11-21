@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { getArtworkUrl, withArtworkSize } from '../artworkService';
+import { getArtworkUrl, trackArtworkUrl, withArtworkSize } from '../artworkService';
 
 // ============================================================================
 // getArtworkUrl — pure function, no HTTP calls, no MSW needed
@@ -165,5 +165,20 @@ describe('withArtworkSize — revision param (#5473)', () => {
     expect(withArtworkSize('https://i.discogs.com/artwork/xyz.jpeg', 0, 3)).toBe(
       'https://i.discogs.com/artwork/xyz.jpeg'
     );
+  });
+});
+
+describe('trackArtworkUrl (#6586)', () => {
+  it("sizes and cache-busts the track's own URL", () => {
+    expect(trackArtworkUrl('/api/albums/9/artwork', 9, 80, 2)).toBe('/api/albums/9/artwork?size=80&v=2');
+  });
+
+  it('builds the URL from the album id once art appeared after load', () => {
+    expect(trackArtworkUrl(null, 9, 80, 1)).toBe(getArtworkUrl(9, { size: 80, revision: 1 }));
+  });
+
+  it('shows nothing while there is no URL and no new art, or no album', () => {
+    expect(trackArtworkUrl(undefined, 9, 80, 0)).toBeUndefined();
+    expect(trackArtworkUrl(null, null, 80, 3)).toBeUndefined();
   });
 });

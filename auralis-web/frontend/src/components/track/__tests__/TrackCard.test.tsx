@@ -248,6 +248,20 @@ describe('TrackCard', () => {
       );
     });
 
+    it('shows art that appears after load for a track whose album had none (#6586)', () => {
+      const { container } = render(<TrackCard {...defaultProps} albumId={5} albumArt={undefined} />);
+      expect(container.querySelector('img')).toBeNull();
+
+      act(() => {
+        capturedCallback!({ type: 'artwork_updated', data: { album_id: 5 } });
+      });
+
+      const src = container.querySelector('img')?.getAttribute('src') ?? '';
+      expect(src).toContain('/api/albums/5/artwork?');
+      expect(src).toContain('size=216');
+      expect(src).toContain('v=1');
+    });
+
     it('ignores artwork_updated for a different album', () => {
       const { container } = render(
         <TrackCard {...defaultProps} albumArt="/api/albums/1/artwork" />
