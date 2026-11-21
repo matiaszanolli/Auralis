@@ -125,6 +125,21 @@ def upright_with_profile(image: Any) -> tuple[Any, dict[str, Any]]:
     return ImageOps.exif_transpose(image), ({"icc_profile": profile} if profile else {})
 
 
+def downscaled(image: Any, box: int) -> Any:
+    """``image`` shrunk to fit ``box`` x ``box`` (aspect kept, never upscaled), with filtering.
+
+    Pillow forces nearest-neighbour resampling for palette (``P``) and bilevel (``1``) images, so an
+    indexed PNG or GIF cover shrunk 4-16x came out aliased (#6587). Those are converted first: to
+    RGBA when the palette has a transparent index, else RGB (or L for bilevel). ``convert()`` keeps
+    ``info`` (EXIF, ICC profile) for :func:`upright_with_profile` but drops ``format``.
+    """
+    if image.mode in ("P", "1"):
+        target = "RGBA" if "transparency" in image.info else ("L" if image.mode == "1" else "RGB")
+        image = image.convert(target)
+    image.thumbnail((box, box))
+    return image
+
+
 def bound_artwork_dimensions(data: bytes) -> bytes | None:
     """Downscale artwork whose largest side exceeds MAX_ARTWORK_DIMENSION.
 
@@ -153,15 +168,14 @@ def bound_artwork_dimensions(data: bytes) -> bytes | None:
         with open_bounded_image(io.BytesIO(data)) as image:
             if max(image.size) <= MAX_ARTWORK_DIMENSION:
                 return data
-            # thumbnail() preserves aspect ratio and only ever downsizes.
-            image.thumbnail((MAX_ARTWORK_DIMENSION, MAX_ARTWORK_DIMENSION))
+            fmt = image.format or "JPEG"  # read before downscaled(), whose convert() drops it
+            image = downscaled(image, MAX_ARTWORK_DIMENSION)
             # Re-encode in the format Pillow itself detected rather than a
             # caller-supplied extension (#4849) — forcing every non-PNG
             # format to JPEG here silently produced JPEG bytes under a
             # .webp/.gif filename whenever a large WebP/GIF cover needed
             # downscaling, reproducing the Content-Type mismatch for exactly
             # the oversized case.
-            fmt = image.format or "JPEG"
             image, profile = upright_with_profile(image)
             if fmt == "JPEG" and image.mode not in ("RGB", "L"):
                 image = image.convert("RGB")

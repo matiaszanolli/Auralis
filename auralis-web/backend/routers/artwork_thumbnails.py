@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from auralis.utils.artwork_security import (
     ArtworkRejectedError,
+    downscaled,
     open_bounded_image,
     upright_with_profile,
 )
@@ -108,13 +109,13 @@ def _render_thumbnail(
             # Refuses a decompression bomb before decoding it (#6153); PIL itself
             # stays lazily imported inside open_bounded_image.
             with open_bounded_image(src) as image:
-                # thumbnail() preserves aspect ratio and only ever downsizes, so
-                # a small source is served as-is rather than upscaled.
-                image.thumbnail((bucket, bucket))
+                # Aspect kept and never upscaled, so a small source is served as-is;
+                # palette covers are filtered, not nearest-sampled (#6587).
+                small = downscaled(image, bucket)
                 # Orientation baked in and the ICC profile kept, so the thumbnail matches
                 # the full-size original the browser renders (#5927). Rebound names:
                 # `image` is typed as the ImageFile the context manager yielded.
-                upright, profile = upright_with_profile(image)
+                upright, profile = upright_with_profile(small)
                 out_image = (
                     upright.convert("RGB")
                     if pil_fmt == "JPEG" and upright.mode not in ("RGB", "L")
