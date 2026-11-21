@@ -206,13 +206,13 @@ export async function apiRequest<T = unknown>(
 
     throw new APIRequestError(errorMessage, response.status, errorDetail);
   } catch (error) {
-    if (error instanceof APIRequestError) {
-      throw error;
+    // A caller abort (unmount, supersession) is not a failure: reject with an AbortError callers never toast
+    // (#5653). fetchWithTimeout stops following the caller once headers arrive, so a request cancelled
+    // mid-body still finishes and would throw a status-bearing error; the signal decides (#6450).
+    if (signal?.aborted || isAbortError(error)) {
+      throw isAbortError(error) ? error : new DOMException('The request was aborted.', 'AbortError');
     }
-    // A caller-initiated abort (unmount, supersession) is not a network failure: rethrow
-    // it untouched so callers recognise it with isAbortError and never toast it (#5653).
-    // The internal timeout already surfaced above as an APIRequestError.
-    if (isAbortError(error)) {
+    if (error instanceof APIRequestError) {
       throw error;
     }
 

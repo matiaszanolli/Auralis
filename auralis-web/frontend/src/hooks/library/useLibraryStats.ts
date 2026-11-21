@@ -50,9 +50,8 @@ export const useLibraryStats = ({ includeStats }: UseLibraryStatsOptions): UseLi
       if (controller.signal.aborted) return;
       setStats(data);
     } catch (err) {
-      // get() rethrows a caller abort as the raw AbortError (#5653); the signal
-      // also covers a request that failed some other way after being cancelled.
-      if (controller.signal.aborted || isAbortError(err)) return;
+      // apiRequest rejects with an AbortError once the caller has cancelled (#5653, #6450).
+      if (isAbortError(err)) return;
       const message = err instanceof Error ? err.message : 'Failed to fetch stats';
       console.error('Error fetching library stats:', err);
       setStatsError(message);

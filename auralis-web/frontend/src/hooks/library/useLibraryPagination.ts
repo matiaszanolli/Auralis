@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 import { useLatestRequestGuard } from '@/hooks/shared/useLatestRequestGuard';
 import type { LibraryTrack } from '@/types/domain';
+import { isAbortError } from '@/utils/errorGuards';
 import {
   PAGE_LIMIT,
   fetchLoadedPages,
@@ -77,8 +78,8 @@ export const useLibraryPagination = ({ view, search = '' }: UseLibraryPagination
    * every older request, so a stale page never appends after a view switch even if a transport
    * ignores AbortController cancellation, #4891), run `body`, and report a genuine failure.
    *
-   * A deliberate abort (supersession or unmount) is told apart from a failure by the
-   * controller's own signal, not the error: get() does not preserve the error's type/name (#5346).
+   * A deliberate abort (supersession or unmount) is told apart from a failure by the error:
+   * apiRequest rejects with an AbortError once the caller has cancelled (#5653, #6450).
    */
   const runGuarded = useCallback(
     async (spec: {
@@ -89,13 +90,11 @@ export const useLibraryPagination = ({ view, search = '' }: UseLibraryPagination
       onSettled: (isStale: () => boolean) => void;
     }) => {
       const isStale = beginRequest();
-      let controller: AbortController | undefined;
-      const nextSignal = () => (controller = replaceAbortController(fetchAbortRef)).signal;
+      const nextSignal = () => replaceAbortController(fetchAbortRef).signal;
       try {
         await spec.body(isStale, nextSignal);
       } catch (err) {
-        if (controller?.signal.aborted) return;
-        if (isStale()) return;
+        if (isAbortError(err) || isStale()) return;
 
         console.error(`Error ${spec.logLabel}:`, err);
         const errorMsg = friendlyFetchError(err, spec.failureMessage);

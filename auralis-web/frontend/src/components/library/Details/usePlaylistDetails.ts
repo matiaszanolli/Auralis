@@ -30,9 +30,8 @@ export const usePlaylistDetails = (playlistId: number) => {
         if (controller.signal.aborted) return;
         setPlaylist(data);
       } catch (err) {
-        // Same abort semantics as useAlbumDetails (#3601/#4643): the signal
-        // is authoritative regardless of how the transport shapes an abort.
-        if (controller.signal.aborted || isAbortError(err)) return;
+        // apiRequest rejects with an AbortError once the caller has cancelled (#5653, #6450).
+        if (isAbortError(err)) return;
         console.error('Error fetching playlist details:', err);
         setError(ApiErrorHandler.parse(err));
       } finally {

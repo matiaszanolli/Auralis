@@ -87,7 +87,7 @@ async function loadCurrentTrack(
     dispatch(setCurrentTrackAndSyncQueue(track));
     DEBUG && console.log('[usePlayEnhanced] Set current track:', track.title);
   } catch (err) {
-    if (signal.aborted || isAbortError(err)) return;
+    if (isAbortError(err)) return;
     console.warn(
       `[usePlayEnhanced] Track ${trackId} metadata unavailable; ` +
         'currentTrack will follow the backend track_changed frame:',

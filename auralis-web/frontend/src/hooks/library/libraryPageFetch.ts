@@ -83,9 +83,8 @@ export function friendlyFetchError(err: unknown, serverFailureMessage: string): 
 /**
  * Abort whatever request the ref holds and install a fresh controller (#4891, #5346).
  *
- * Callers keep the returned controller to tell "deliberately aborted (supersession or unmount)"
- * apart from a genuine failure: get() does not preserve the original error's type/name, so abort
- * detection reads the controller's own signal instead.
+ * A request aborted this way rejects with an AbortError (#5653, #6450), which callers recognise
+ * with isAbortError to tell a deliberate supersession or unmount apart from a genuine failure.
  */
 export function replaceAbortController(ref: { current: AbortController | null }): AbortController {
   ref.current?.abort();

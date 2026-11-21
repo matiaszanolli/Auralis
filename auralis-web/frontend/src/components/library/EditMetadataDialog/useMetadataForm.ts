@@ -103,9 +103,8 @@ export const useMetadataForm = (
         loadedRef.current = loaded;
         setMetadata(loaded);
       } catch (err) {
-        // get() rethrows a caller abort as the raw AbortError (#5653); the signal
-        // also covers a request that failed some other way after being cancelled.
-        if (controller.signal.aborted || isAbortError(err)) return;
+        // apiRequest rejects with an AbortError once the caller has cancelled (#5653, #6450).
+        if (isAbortError(err)) return;
         console.error('Error fetching metadata:', err);
         setError(messageFor(err, 'Failed to fetch metadata'));
       } finally {
@@ -183,9 +182,8 @@ export const useMetadataForm = (
 
       return true;
     } catch (err) {
-      // Aborted by unmount — not user-facing. The signal is checked alongside
-      // the error shape because the shared transport rewraps aborts.
-      if (controller.signal.aborted || isAbortError(err)) return false;
+      // Aborted by unmount — not user-facing; apiRequest rejects with an AbortError (#5653, #6450).
+      if (isAbortError(err)) return false;
       console.error('Error saving metadata:', err);
       setError(messageFor(err, 'Failed to save metadata'));
       return false;

@@ -95,10 +95,8 @@ export const useAlbumDetails = (albumId: number) => {
         // stored state before the first click.
         setIsFavorite(tracks[0]?.favorite ?? false);
       } catch (err) {
-        // get() rethrows a caller abort as the raw AbortError (#5653, which
-        // replaced the #4643 wrap-on-abort behaviour); the signal also covers
-        // a request that failed some other way after being cancelled.
-        if (controller.signal.aborted || isAbortError(err)) return;
+        // apiRequest rejects with an AbortError once the caller has cancelled (#5653, #6450).
+        if (isAbortError(err)) return;
         console.error('Error fetching album details:', err);
         setError(ApiErrorHandler.parse(err));
       } finally {
