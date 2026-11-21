@@ -215,7 +215,7 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
 
     def _load_metadata(self) -> None:
         """Load audio file metadata without decoding it. Delegates to chunk_metadata (#4245)."""
-        meta = load_audio_metadata(self.filepath)
+        meta = load_audio_metadata(self.filepath, self._source)
         if not math.isfinite(meta.total_duration) or meta.total_duration <= 0:
             raise ValueError(
                 f"Cannot process unplayable audio with duration "

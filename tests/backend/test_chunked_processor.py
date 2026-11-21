@@ -267,6 +267,7 @@ class TestMetadataLoading:
     def test_rejects_unplayable_duration_before_chunk_processing(self, duration):
         proc = MagicMock(spec=ChunkedAudioProcessor)
         proc.filepath = "/fake/empty.wav"
+        proc._source = None
         metadata = AudioMetadata(
             sample_rate=FAKE_SR,
             channels=FAKE_CHANNELS,

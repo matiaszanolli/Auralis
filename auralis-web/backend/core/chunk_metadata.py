@@ -21,8 +21,11 @@ processor's historical logger name.
 import logging
 from dataclasses import dataclass
 
+import soundfile as sf
+
 from core.chunk_boundaries import content_chunk_count
 from core.seekable_probe import can_seek_natively
+from core.seekable_source import SeekableSource
 from auralis.io import loader as _io_loader
 from auralis.io.audio_probe import get_audio_info
 from auralis.io.processing import decoded_channel_count
@@ -67,7 +70,40 @@ class AudioMetadata:
     total_chunks: int
 
 
-def load_audio_metadata(filepath: str) -> AudioMetadata:
+def _container_duration_is_unreliable(filepath: str) -> bool:
+    """libsndfile opens `filepath` yet `can_seek_natively` rejects it: their lengths disagree (#6448).
+
+    That is the signature of a header-less VBR or joined MP3: one of the two sizes is wrong, and
+    ffprobe's is only an estimate there (off by single-digit percent), so a chunk count derived
+    from it can run past the real end or stop short of it. A file libsndfile cannot open at all
+    (m4a, aac, wma) is not flagged: nothing contradicts ffprobe, and its estimate is sound.
+    """
+    if can_seek_natively(filepath):
+        return False
+    try:
+        sf.info(filepath)
+    except Exception:
+        return False
+    return True
+
+
+def _decoded_duration(source: SeekableSource, probed: float) -> float:
+    """The length of the audio the chunk reader will actually read (#6448).
+
+    `source` resolves to the converted WAV the chunks are read from, so its frame count is the
+    only length that agrees with what gets streamed (and with `stream_normal`, which also sizes
+    itself from the converted WAV). A conversion that fails keeps the probed length: the first
+    chunk read then fails exactly as it did before, with the real error.
+    """
+    try:
+        info = sf.info(source.resolve())
+        return float(info.frames / info.samplerate)
+    except Exception as e:
+        logger.warning(f"Could not measure the decoded length ({e}); keeping the probed {probed:.2f}s")
+        return probed
+
+
+def load_audio_metadata(filepath: str, source: SeekableSource | None = None) -> AudioMetadata:
     """Load audio file metadata without loading full audio.
 
     Routes by extension via ``unified_loader.get_audio_info()``: a
@@ -80,6 +116,13 @@ def load_audio_metadata(filepath: str) -> AudioMetadata:
     architecture for the dominant library format (#4497).
 
     Falls back to a full decode only on a genuine probe failure.
+
+    ``source`` is the caller's own :class:`SeekableSource` (it owns the conversion and must close
+    it). Given one, a file whose container duration cannot be trusted - libsndfile opens it but
+    its length disagrees with ffprobe's, a header-less VBR or joined MP3 - is converted now and
+    its length measured from the WAV, so the chunk count, the stream-start duration and the seek
+    clamp all describe the audio that is streamed (#6448). Every other file keeps the
+    decode-free probe: a recommendation-only construction must not decode a healthy m4a.
     """
     try:
         meta = get_audio_info(filepath)
@@ -93,6 +136,8 @@ def load_audio_metadata(filepath: str) -> AudioMetadata:
         if not can_seek_natively(filepath):
             channels = decoded_channel_count(channels)
         total_duration = float(meta['duration_seconds'])
+        if source is not None and _container_duration_is_unreliable(filepath):
+            total_duration = _decoded_duration(source, total_duration)
         # Count only content-carrying chunks under the overlap model
         # (#4124) — see core.chunk_boundaries.content_chunk_count.
         total_chunks = _bounded_chunk_count(total_duration, filepath)

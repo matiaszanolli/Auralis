@@ -34,6 +34,7 @@ def _bare_processor(filepath: str) -> ChunkedAudioProcessor:
     """Build just enough of a processor to call _load_metadata()."""
     proc = ChunkedAudioProcessor.__new__(ChunkedAudioProcessor)
     proc.filepath = filepath
+    proc._source = None  # no conversion to reconcile against: a pure probe (#6448)
     proc.sample_rate = None
     proc.total_duration = None
     proc.total_chunks = None
