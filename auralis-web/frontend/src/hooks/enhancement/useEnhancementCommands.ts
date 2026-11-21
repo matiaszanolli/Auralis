@@ -14,7 +14,7 @@ import { useCallback, useRef, type Dispatch, type MutableRefObject, type SetStat
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useLatestRequestGuard } from '@/hooks/shared/useLatestRequestGuard';
 import type { ApiError } from '@/types/api';
-import { markLocalEnhancementCommand } from './enhancementBroadcastReissue';
+import { beginLocalEnhancementCommand } from './enhancementBroadcastReissue';
 import { ApiErrorHandler } from '@/types/api';
 import { ENHANCEMENT_PRESETS } from '@/types/domain';
 import type { EnhancementPreset } from '@/types/domain';
@@ -87,8 +87,13 @@ export function useEnhancementCommands({
     }): Promise<void> => {
       beginLoading();
       setError(null);
+      // Before the request: the server broadcasts the change before it answers the POST, so the
+      // echo can arrive first and must already read as this client's own (#6572).
+      const endLocalCommand = beginLocalEnhancementCommand();
+      let succeeded = false;
       try {
         await spec.request();
+        succeeded = true;
         if (spec.isStale?.()) return;
         spec.apply();
       } catch (err) {
@@ -97,6 +102,7 @@ export function useEnhancementCommands({
         setError(apiError);
         throw apiError;
       } finally {
+        endLocalCommand(succeeded);
         endLoading();
       }
     },
@@ -122,7 +128,6 @@ export function useEnhancementCommands({
    *  stream restart from the current position. */
   const reissueEnhanced = useCallback(
     (preset: EnhancementPreset, intensity: number) => {
-      markLocalEnhancementCommand();
       reissueRef.current('play_enhanced', { preset, intensity });
     },
     [reissueRef]
@@ -146,7 +151,6 @@ export function useEnhancementCommands({
           if (newEnabled) {
             reissueEnhanced(presetRef.current, intensityRef.current);
           } else {
-            markLocalEnhancementCommand();
             reissueRef.current('play_normal');
           }
         },

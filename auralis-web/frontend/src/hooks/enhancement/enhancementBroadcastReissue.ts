@@ -12,24 +12,39 @@
  * Two guards make the broadcast-driven re-issue fire exactly once, and never
  * on top of a local command's own re-issue:
  *
- * - a suppression window after every local command (they re-issue already);
+ * - suppression while a local command is in flight and for a window after it succeeds (local
+ *   commands re-issue already). It starts before the request: the server broadcasts the change
+ *   before it answers the POST, so the echo can arrive first (#6572);
  * - a once-per-message guard, because several `useEnhancementControl`
  *   instances subscribe and each holds its own state.
  */
 
-/** How long after a local command its confirmation broadcast is suppressed. */
+/** How long after a local command succeeds its confirmation broadcast is still suppressed. */
 export const LOCAL_COMMAND_SUPPRESS_MS = 2_000;
 
+let _localCommandsInFlight = 0;
 let _lastLocalCommandAt = 0;
 
-/** Call before a local command re-issues — its broadcast must not re-issue too. */
-export function markLocalEnhancementCommand(): void {
-  _lastLocalCommandAt = Date.now();
+/**
+ * Start a local command, BEFORE its request: from now until it ends, and for
+ * LOCAL_COMMAND_SUPPRESS_MS after a successful end, its broadcast is not external. Call the
+ * returned `end` once with whether the request succeeded. A failed command opens no window, so a
+ * genuine external change right after it is still honoured (#6572).
+ */
+export function beginLocalEnhancementCommand(): (succeeded: boolean) => void {
+  _localCommandsInFlight += 1;
+  let ended = false;
+  return (succeeded) => {
+    if (ended) return;
+    ended = true;
+    _localCommandsInFlight -= 1;
+    if (succeeded) _lastLocalCommandAt = Date.now();
+  };
 }
 
-/** True when no local command happened recently (so this broadcast is external). */
+/** True when no local command is in flight or recently succeeded (so this broadcast is external). */
 export function isExternalChange(): boolean {
-  return Date.now() - _lastLocalCommandAt > LOCAL_COMMAND_SUPPRESS_MS;
+  return _localCommandsInFlight === 0 && Date.now() - _lastLocalCommandAt > LOCAL_COMMAND_SUPPRESS_MS;
 }
 
 const _handledMessages = new WeakSet<object>();
