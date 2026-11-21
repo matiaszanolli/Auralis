@@ -17,6 +17,7 @@ import math
 from typing import TYPE_CHECKING
 
 from .dsp import Notch
+from .utils.smooth_curves import smooth_unit
 
 if TYPE_CHECKING:
     from .mastering_config import SimpleMasteringConfig
@@ -77,9 +78,8 @@ def contextualize_notches(
         # Health metric: ratio of actual to target energy share, capped at 1.0.
         # 1.0 = well-energized band, 0.5 = half-energized, etc.
         health = min(1.0, band_pct / band_target) if band_target > 0 else 1.0
-        health_response = 0.5 + 0.5 * math.tanh(
-            (health - config.NOTCH_HEALTH_RESPONSE_CENTER)
-            / config.NOTCH_HEALTH_RESPONSE_WIDTH
+        health_response = smooth_unit(
+            health, config.NOTCH_HEALTH_RESPONSE_CENTER, config.NOTCH_HEALTH_RESPONSE_WIDTH / 2.0
         )
         scaled_depth = n.depth_db * health * health_response
 
@@ -95,9 +95,8 @@ def contextualize_notches(
         # than room/honk resonances. Protect that musical region continuously:
         # below the transition center cuts become both shallower and narrower,
         # while midrange detections retain their measured depth.
-        transition = 0.5 + 0.5 * math.tanh(
-            (n.freq_hz - config.NOTCH_LOW_PROTECTION_CENTER_HZ)
-            / config.NOTCH_LOW_PROTECTION_WIDTH_HZ
+        transition = smooth_unit(
+            n.freq_hz, config.NOTCH_LOW_PROTECTION_CENTER_HZ, config.NOTCH_LOW_PROTECTION_WIDTH_HZ / 2.0
         )
         depth_scale = (
             config.NOTCH_LOW_PROTECTION_FLOOR

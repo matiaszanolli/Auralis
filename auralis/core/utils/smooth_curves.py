@@ -11,7 +11,39 @@ code duplication across DSP processing methods.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import math
+
 import numpy as np
+
+# Corpus calibration of the continuous space: robust center and scale of crest factor (dB) and
+# integrated loudness (LUFS) over a deterministic 512-track sample (July 2026). One home, so a
+# re-calibration moves the continuous mapper, AdaptiveMode and the offline chunk path together (#6596).
+CREST_CENTER_DB = 13.4207
+CREST_SCALE_DB = 1.7884
+LUFS_CENTER = -14.3887
+LUFS_SCALE = 2.7732
+
+
+def smooth_unit(value: float, center: float, scale: float) -> float:
+    """Map an unbounded measurement smoothly into the open interval ``(0, 1)``.
+
+    ``0.5 + 0.5 * tanh((value - center) / (2 * scale))``, the one logistic S-curve the mastering
+    stages share (#6596); a curve written as ``tanh((x - c) / width)`` is ``smooth_unit(x, c, width / 2)``.
+
+    NaN maps to the neutral midpoint: ``tanh(nan)`` is ``nan``, and one NaN
+    coordinate makes every generated parameter NaN (#5505). ±Inf saturates to
+    the interval's ends, exactly like a large-but-finite input already does
+    through ``tanh`` — collapsing Inf to the midpoint conflated "undefined"
+    with "extreme" (#5534).
+    """
+    value = float(value)
+    if math.isnan(value):
+        return 0.5
+    if value == math.inf:
+        return 1.0
+    if value == -math.inf:
+        return 0.0
+    return 0.5 + 0.5 * math.tanh((value - center) / (2.0 * scale))
 
 
 class SmoothCurveUtilities:
@@ -58,7 +90,7 @@ class SmoothCurveUtilities:
             - Use ramp_to_s_curve() if you need automatic clamping
             - This is the core smoothing function used throughout mastering
         """
-        return 0.5 * (1.0 - np.cos(np.pi * normalized))
+        return float(0.5 * (1.0 - np.cos(np.pi * normalized)))
 
     @staticmethod
     def ramp_to_s_curve(value: float, min_val: float, max_val: float) -> float:

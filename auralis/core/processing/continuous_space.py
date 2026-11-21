@@ -11,27 +11,9 @@ Replaces discrete presets with intelligent parameter generation.
 
 import math
 
+from ..utils.smooth_curves import CREST_CENTER_DB, CREST_SCALE_DB, smooth_unit
 
-def _smooth_unit(value: float, center: float, scale: float) -> float:
-    """Map an unbounded measurement smoothly into the open interval ``(0, 1)``.
-
-    NaN maps to the neutral midpoint: ``tanh(nan)`` is ``nan``, and one NaN
-    coordinate makes every generated parameter NaN (#5505). ±Inf saturates to
-    the interval's ends, exactly like a large-but-finite input already does
-    through ``tanh`` — collapsing Inf to the midpoint conflated "undefined"
-    with "extreme" (#5534).
-    """
-    value = float(value)
-    if math.isnan(value):
-        return 0.5
-    if value == math.inf:
-        return 1.0
-    if value == -math.inf:
-        return 0.0
-    return 0.5 + 0.5 * math.tanh((value - center) / (2.0 * scale))
-
-
-from .continuous_space_types import ProcessingCoordinates, ProcessingParameters  # noqa: E402, F401 (ProcessingParameters is re-exported)
+from .continuous_space_types import ProcessingCoordinates, ProcessingParameters  # noqa: F401 (ProcessingParameters is re-exported)
 
 
 class ProcessingSpaceMapper:
@@ -55,8 +37,8 @@ class ProcessingSpaceMapper:
     _SPECTRAL_LOG_RATIO_SCALE = 0.5045
     _CENTROID_CENTER = 0.0986
     _CENTROID_SCALE = 0.0240
-    _CREST_CENTER_DB = 13.4207
-    _CREST_SCALE_DB = 1.7884
+    _CREST_CENTER_DB = CREST_CENTER_DB  # shared with AdaptiveMode and the offline path (#6596)
+    _CREST_SCALE_DB = CREST_SCALE_DB
     _LOUDNESS_VARIATION_LOG_CENTER = 0.9680
     _LOUDNESS_VARIATION_LOG_SCALE = 0.3855
     _ENERGY_EPSILON = 1e-8
@@ -105,7 +87,7 @@ class ProcessingSpaceMapper:
         # The band fractions are sanitized (no NaN/Inf) but not clamped, so a
         # tiny negative sum can push a total through zero (#5534). Each side
         # of the ratio saturates monotonically toward its asymptote as it
-        # approaches zero (log -> ±Inf -> _smooth_unit's end values), so
+        # approaches zero (log -> ±Inf -> smooth_unit's end values), so
         # continue that saturation instead of dividing by zero or jumping to
         # the neutral fallback. NaN energies keep falling through to the NaN
         # branch and stay neutral (#5505).
@@ -123,12 +105,12 @@ class ProcessingSpaceMapper:
             else:
                 log_high_low = math.log(ratio)
 
-        band_coordinate = _smooth_unit(
+        band_coordinate = smooth_unit(
             log_high_low,
             self._SPECTRAL_LOG_RATIO_CENTER,
             self._SPECTRAL_LOG_RATIO_SCALE,
         )
-        centroid_coordinate = _smooth_unit(
+        centroid_coordinate = smooth_unit(
             fp['spectral_centroid'],
             self._CENTROID_CENTER,
             self._CENTROID_SCALE,
@@ -146,13 +128,13 @@ class ProcessingSpaceMapper:
         Returns:
             Dynamic range score (0.0 to 1.0)
         """
-        crest_coordinate = _smooth_unit(
+        crest_coordinate = smooth_unit(
             fp['crest_db'],
             self._CREST_CENTER_DB,
             self._CREST_SCALE_DB,
         )
         loudness_variation = max(0.0, fp.get('loudness_variation_std', 0.0))
-        variation_coordinate = _smooth_unit(
+        variation_coordinate = smooth_unit(
             math.log1p(loudness_variation),
             self._LOUDNESS_VARIATION_LOG_CENTER,
             self._LOUDNESS_VARIATION_LOG_SCALE,

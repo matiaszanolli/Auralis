@@ -20,10 +20,8 @@ Two defects from the #5505 guard's shape:
 
 import math
 
-from auralis.core.processing.continuous_space import (
-    ProcessingSpaceMapper,
-    _smooth_unit,
-)
+from auralis.core.processing.continuous_space import ProcessingSpaceMapper
+from auralis.core.utils.smooth_curves import smooth_unit as _smooth_unit
 
 EPS = 1e-8
 

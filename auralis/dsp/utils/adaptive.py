@@ -109,8 +109,8 @@ def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
     (derived from the fingerprint's -0.691-scale ``lufs`` and from
     ``PresetProfile.target_lufs``, e.g. -14.0), ``AdaptiveLoudnessControl``
     compares against ``TARGET_LUFS = -11.0`` / ``VERY_LOUD_THRESHOLD = -12.0``,
-    and ``adaptive_mode``'s ``loudness_coordinate`` tanh is centred on
-    -14.3887. Reading 25 LU low turned the first into a systematic ~+25 dB
+    and ``adaptive_mode``'s ``loudness_coordinate`` curve is centred on
+    ``smooth_curves.LUFS_CENTER`` (-14.3887). Reading 25 LU low turned the first into a systematic ~+25 dB
     over-boost that the peak limiter then clawed back to the -0.3 dBFS
     ceiling (making "LUFS normalization" behave as peak normalization), and
     starved the other two: the tanh sat at ~0.0005 instead of ~0.45, and the

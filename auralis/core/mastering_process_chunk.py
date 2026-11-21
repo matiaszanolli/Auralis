@@ -24,6 +24,7 @@ from ..dsp.utils.conversion import SILENCE_FLOOR_DB, peak_db
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
 from .mastering_branches import ContinuousMasteringBranch
 from .utils import FingerprintUnpacker, SmoothCurveUtilities
+from .utils.smooth_curves import CREST_CENTER_DB, CREST_SCALE_DB, LUFS_CENTER, LUFS_SCALE, smooth_unit
 
 if TYPE_CHECKING:
     from .simple_mastering import SimpleMasteringPipeline
@@ -41,12 +42,8 @@ def calculate_intensity(base: float, lufs: float, crest_db: float) -> float:
     Crest factor and LUFS contribute through smooth corpus-calibrated curves.
     No region selects a different formula or material type.
     """
-    crest_coordinate = 0.5 + 0.5 * np.tanh(
-        (crest_db - 13.4207) / (2.0 * 1.7884)
-    )
-    loudness_coordinate = 0.5 + 0.5 * np.tanh(
-        (lufs + 14.3887) / (2.0 * 2.7732)
-    )
+    crest_coordinate = smooth_unit(crest_db, CREST_CENTER_DB, CREST_SCALE_DB)
+    loudness_coordinate = smooth_unit(lufs, LUFS_CENTER, LUFS_SCALE)
     multiplier = 0.5 + 0.7 * crest_coordinate * (
         1.0 - 0.65 * loudness_coordinate
     )

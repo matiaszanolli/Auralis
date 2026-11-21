@@ -20,6 +20,7 @@ from ..mastering_config import SimpleMasteringConfig
 from ..processing.continuous_space import ProcessingSpaceMapper
 from ..stages.hf_budget import hf_lift_factor
 from ..utils import FingerprintUnpacker, StageRecorder
+from ..utils.smooth_curves import smooth_unit
 from .soft_clip_params import compute_soft_clip_threshold
 
 if TYPE_CHECKING:
@@ -161,9 +162,7 @@ class ContinuousMasteringBranch:
         #
         # Crest factor attenuates excitation smoothly. The asymptotic floor
         # preserves a small response without a bypass boundary.
-        crest_preservation = 0.5 + 0.5 * np.tanh(
-            (unpacker.crest_db - 16.0) / 4.0
-        )
+        crest_preservation = smooth_unit(unpacker.crest_db, 16.0, 2.0)
         exciter_factor = 1.0 - 0.85 * crest_preservation
         exciter_intensity = effective_intensity * exciter_factor
 
@@ -206,9 +205,7 @@ class ContinuousMasteringBranch:
 
         # Larger crest factors move the knee continuously toward 0 dB, so the
         # stage becomes asymptotically transparent without a hard bypass.
-        clip_transparency = 0.5 + 0.5 * np.tanh(
-            (unpacker.crest_db - 18.0) / 3.0
-        )
+        clip_transparency = smooth_unit(unpacker.crest_db, 18.0, 1.5)
         threshold_db *= 1.0 - clip_transparency
         ceiling += clip_transparency * (0.97 - ceiling)
         threshold_linear = 10 ** (threshold_db / 20.0)

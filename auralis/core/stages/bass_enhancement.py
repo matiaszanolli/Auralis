@@ -6,6 +6,7 @@ import numpy as np
 
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
+from ..utils.smooth_curves import smooth_unit
 from . import no_op
 
 if TYPE_CHECKING:
@@ -73,9 +74,8 @@ def apply(
     tilt_z = (
         high_to_bass_log - config.BASS_TILT_LOG_MEDIAN
     ) / config.BASS_TILT_LOG_SCALE
-    counterweight_factor = 0.5 + 0.5 * np.tanh(
-        (tilt_z - config.BASS_COUNTERWEIGHT_CENTER_Z)
-        / config.BASS_COUNTERWEIGHT_WIDTH_Z
+    counterweight_factor = smooth_unit(
+        tilt_z, config.BASS_COUNTERWEIGHT_CENTER_Z, config.BASS_COUNTERWEIGHT_WIDTH_Z / 2.0
     )
     counterweight_db = (
         config.MAX_BASS_COUNTERWEIGHT_DB
