@@ -206,7 +206,12 @@ describe('useAudioStreamingCore stream epoch (#4563)', () => {
 
   it('shouldDiscardSupersededBuffer keeps un-stamped starts behaving as before', () => {
     expect(shouldDiscardSupersededBuffer(undefined, 1)).toBe(false);
-    expect(shouldDiscardSupersededBuffer(1, null)).toBe(false);
+    expect(shouldDiscardSupersededBuffer(undefined, null)).toBe(false);
+  });
+
+  it('a stamped start over a ring of unknown epoch replaces it (#6590)', () => {
+    // The ring's epoch is forgotten on disconnect; a restarted backend may reuse the same number.
+    expect(shouldDiscardSupersededBuffer(1, null)).toBe(true);
   });
 
   it('keeps the append path when the seek start carries the SAME epoch (no superseded content)', () => {
@@ -367,6 +372,22 @@ describe('useAudioStreamingCore stream epoch (#4563)', () => {
     act(() => { ws.emit('audio_stream_start', streamStart(1)); });
 
     expect(startHandler).toHaveBeenCalledTimes(2);
+  });
+
+  it('forgets the buffer epoch on disconnect, since the next backend may reuse it (#6590)', () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Provider store={store}>{children}</Provider>
+    );
+    const hook = renderHook(
+      ({ socket }) => useAudioStreamingCore(socket as never, OPTIONS),
+      { wrapper, initialProps: { socket: ws } }
+    );
+    act(() => { ws.emit('audio_stream_start', streamStart(1)); });
+    expect(hook.result.current.bufferEpochRef.current).toBe(1);
+
+    hook.rerender({ socket: { ...ws, isConnected: false } });
+
+    expect(hook.result.current.bufferEpochRef.current).toBeNull();
   });
 
   it('clears the epoch on cleanup', () => {

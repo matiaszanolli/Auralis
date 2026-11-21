@@ -1019,6 +1019,39 @@ describe('usePlayEnhanced – seekTo', () => {
     expect(engine.setSeekOffset).toHaveBeenCalledWith(10); // clock re-armed at the resume position
   });
 
+  it('a reconnect-resume after a backend restart replaces the buffer even when the epoch repeats (#6590)', async () => {
+    store = createTestStore();
+    const { result, rerender } = renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    await act(async () => {
+      await result.current.playEnhanced(42, 'adaptive', 0.8);
+    });
+    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 42, stream_epoch: 1 }));
+    const engine = vi.mocked(AudioPlaybackEngine).mock.results[
+      vi.mocked(AudioPlaybackEngine).mock.results.length - 1
+    ].value as typeof mockEngineInstance;
+    engine.stopPlayback.mockClear();
+    mockBufferInstance.reset.mockClear();
+
+    // The backend restarts: the socket drops and comes back, and its epoch count starts over.
+    mockWsConnected = false;
+    act(() => { rerender(); });
+    mockWsConnected = true;
+    act(() => { rerender(); });
+    act(() => {
+      fireHandler('audio_stream_start', makeStreamStartMsg({
+        track_id: 42, is_seek: true, seek_position: 10, stream_epoch: 1,
+      }));
+    });
+
+    // Old content discarded and the engine stopped (tracker reset) BEFORE the offset is re-armed,
+    // so the clock is the resume position rather than resume position + time already played.
+    expect(engine.stopPlayback).toHaveBeenCalledTimes(1);
+    expect(mockBufferInstance.reset).toHaveBeenCalled();
+    expect(engine.stopPlayback.mock.invocationCallOrder[0])
+      .toBeLessThan(Math.max(...engine.setSeekOffset.mock.invocationCallOrder));
+    expect(engine.setSeekOffset).toHaveBeenLastCalledWith(10);
+  });
+
   it('applies the backend seek_position to the playback clock on the resume path (#5860)', async () => {
     const result = await setupWithStream();
     const engine = vi.mocked(AudioPlaybackEngine).mock.results[

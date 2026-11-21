@@ -137,9 +137,12 @@ export function useStreamSubscriptions(deps: StreamSubscriptionDeps) {
   });
 
   // The next connection may reach a restarted backend whose epoch count starts
-  // over, so the ordering guard above must not compare across connections.
+  // over, so neither the ordering guard above nor the buffer-discard check may
+  // compare across connections (#6590).
   useEffect(() => {
-    if (!wsContext.isConnected) streamEpochRef.current = null;
-  }, [wsContext.isConnected, streamEpochRef]);
+    if (wsContext.isConnected) return;
+    streamEpochRef.current = null;
+    bufferEpochRef.current = null;
+  }, [wsContext.isConnected, streamEpochRef, bufferEpochRef]);
 
 }

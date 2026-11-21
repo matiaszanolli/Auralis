@@ -99,9 +99,11 @@ export function shouldDiscardSupersededBuffer(
   incomingEpoch: number | undefined,
   bufferEpoch: number | null,
 ): boolean {
-  // Either side missing an epoch degrades to the pre-#5861 keep-the-buffer
-  // behaviour, same degradation philosophy as the per-chunk filter (#4563).
-  return incomingEpoch != null && bufferEpoch != null && incomingEpoch !== bufferEpoch;
+  // An un-stamped start (older backend) keeps the buffer, as before #5861. A stamped start over a
+  // ring with no recorded epoch replaces it: that content came from a connection that has since
+  // closed (the epoch is forgotten on disconnect), and a restarted backend counts epochs from 1
+  // again, so an EQUAL number proves nothing (#6590).
+  return incomingEpoch != null && incomingEpoch !== bufferEpoch;
 }
 
 /**
