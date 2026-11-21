@@ -32,7 +32,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar
 
-__all__ = ["ATOMIC_TMP_PREFIX", "publish_atomically", "write_json_atomic"]
+__all__ = ["ATOMIC_TMP_PREFIX", "publish_atomically", "write_bytes_atomic", "write_json_atomic"]
 
 _T = TypeVar("_T")
 
@@ -154,3 +154,13 @@ def publish_atomically(path: Path | str, render: Callable[[Path], _T]) -> _T:
         # TemporaryDirectory also removes the stage on every exception,
         # including KeyboardInterrupt, while leaving an earlier file intact.
     return result
+
+
+def write_bytes_atomic(path: Path | str, data: bytes) -> None:
+    """Write ``data`` to ``path`` so a concurrent reader sees the whole old file or the whole new one.
+
+    For a file that may already be live and served: opening it ``'wb'`` truncates it in place
+    under any reader, so rewriting a content-addressed artwork file with the same bytes could hand
+    the artwork GET or the thumbnail renderer an empty or partial image (#6575).
+    """
+    publish_atomically(path, lambda staged: staged.write_bytes(data))

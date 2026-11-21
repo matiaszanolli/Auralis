@@ -21,6 +21,7 @@ from ..utils.artwork_security import (
     bound_artwork_dimensions,
     detect_image_extension,
 )
+from ..utils.atomic_write import write_bytes_atomic
 from ..utils.logging import debug, error, info
 from .artwork_tags import TagArtworkReadersMixin
 from .folder_artwork import candidate_cover_files, read_folder_artwork
@@ -182,9 +183,7 @@ class ArtworkExtractor(TagArtworkReadersMixin):
 
             artwork_path = self.artwork_dir / filename
 
-            # Save artwork data
-            with open(artwork_path, 'wb') as f:
-                f.write(artwork_data)
+            write_bytes_atomic(artwork_path, artwork_data)  # it may be live and being read (#6575)
 
             info(f"Saved artwork to {artwork_path}")
             return str(artwork_path)

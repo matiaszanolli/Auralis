@@ -28,6 +28,7 @@ from .artwork_providers.itunes import try_itunes
 from .artwork_providers.musicbrainz import try_musicbrainz
 from auralis.utils.artwork_security import bound_artwork_dimensions as _bound_artwork_dimensions
 from auralis.utils.artwork_security import detect_image_extension as _detect_image_extension
+from auralis.utils.atomic_write import write_bytes_atomic
 from auralis.utils.logging import sanitize_log_value
 
 logger = logging.getLogger(__name__)
@@ -206,7 +207,8 @@ class ArtworkDownloader:
             bounded = _bound_artwork_dimensions(data)
             if bounded is None:
                 return False
-            filepath.write_bytes(bounded)
+            # The same bytes may already be live under this name and being served (#6575).
+            write_bytes_atomic(filepath, bounded)
             return True
 
         if not await asyncio.to_thread(_bound_and_write):
