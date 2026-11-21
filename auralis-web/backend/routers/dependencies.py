@@ -206,3 +206,30 @@ class RouterDeps(Generic[D]):
             yield
         finally:
             self._active.reset(token)
+
+
+def unavailable() -> Any:
+    """Placeholder getter for a dependency no router has been handed yet: resolves to None.
+
+    Every ``_*Deps`` holder defaults its getters to this before a factory call
+    binds the real ones (#6624; two modules defined their own ``_unavailable``
+    and seven more an inline ``lambda: None``).
+    """
+    return None
+
+
+def resolve_optional(getter: Callable[[], T] | None) -> T | None:
+    """Call an optional getter, or return None when the router was not handed one."""
+    return None if getter is None else getter()
+
+
+def provide_connection_manager(deps: RouterDeps[Any]) -> Callable[[], Any]:
+    """The ``Depends()`` provider for the connection manager of the router serving the request.
+
+    Five routers carried the same ``_get_connection_manager`` body against their own
+    ``RouterDeps`` (#6624); each now builds it from its own holder with this.
+    """
+    def _get_connection_manager() -> Any:
+        return deps.current().connection_manager
+
+    return _get_connection_manager

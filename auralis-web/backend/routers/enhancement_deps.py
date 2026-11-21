@@ -8,7 +8,7 @@ Enhancement router dependency plumbing: the per-router RouterDeps binding and th
 from collections.abc import Callable
 from typing import Any
 
-from .dependencies import RouterDeps, require_service
+from .dependencies import RouterDeps, provide_connection_manager, require_service, resolve_optional
 
 
 class _EnhancementDeps:
@@ -39,23 +39,19 @@ def _get_enhancement_settings() -> dict[str, Any]:
     return require_service(_deps.current().get_enhancement_settings, "Enhancement settings")()
 
 
-def _get_connection_manager() -> Any:
-    return _deps.current().connection_manager
+_get_connection_manager = provide_connection_manager(_deps)
 
 
 def _get_player_state_manager() -> Any:
     """Optional dependency: None when the factory got no callable for it."""
-    getter = _deps.current().get_player_state_manager
-    return None if getter is None else getter()
+    return resolve_optional(_deps.current().get_player_state_manager)
 
 
 def _get_streamlined_cache() -> Any:
     """Optional dependency: None when the factory got no callable for it."""
-    getter = _deps.current().get_streamlined_cache
-    return None if getter is None else getter()
+    return resolve_optional(_deps.current().get_streamlined_cache)
 
 
 def _get_repository_factory() -> Any:
     """Optional dependency: None when the factory got no callable for it."""
-    getter = _deps.current().get_repository_factory
-    return None if getter is None else getter()
+    return resolve_optional(_deps.current().get_repository_factory)

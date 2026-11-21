@@ -11,13 +11,13 @@ from typing import Any
 
 from core.thumbnail_cache import artwork_cache_root
 
-from .dependencies import RouterDeps
+from .dependencies import RouterDeps, unavailable
 
 
 class _LibraryDeps:
     def __init__(
         self,
-        get_repository_factory: Callable[[], Any] = lambda: None,
+        get_repository_factory: Callable[[], Any] = unavailable,
         resolve_worker: Callable[[str], Any] | None = None,
         get_cache_manager: Callable[[], Any] | None = None,
         get_artwork_cache_dir: Callable[[], Path] = artwork_cache_root,

@@ -28,7 +28,7 @@ from schemas import CacheHealthResponse, CacheStatsResponse, TrackCacheStatusRes
 from websocket.outbound_messages import broadcast_typed
 
 from .errors import NotFoundError, ServiceUnavailableError
-from .dependencies import RouterDeps, with_error_handling
+from .dependencies import RouterDeps, unavailable, with_error_handling
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ def _require_cache(
 class _CacheDeps:
     def __init__(
         self,
-        get_cache_manager: Callable[[], StreamlinedCacheManager | None] = lambda: None,
+        get_cache_manager: Callable[[], StreamlinedCacheManager | None] = unavailable,
         broadcast_manager: Any | None = None,
         get_artwork_cache_dir: Callable[[], FilePath] = artwork_cache_root,
     ) -> None:

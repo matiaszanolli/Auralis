@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from auralis.analysis.fingerprint import KNNGraphBuilder
 from auralis.analysis.fingerprint.knn_graph import GraphBuildInProgress
 
-from .dependencies import RouterDeps
+from .dependencies import RouterDeps, unavailable
 from .errors import ServiceUnavailableError
 from .similarity_common import _with_similarity_error_handling
 
@@ -46,7 +46,7 @@ class GraphStatsResponse(BaseModel):
 
 class _GraphDeps:
     def __init__(
-        self, get_graph_builder: Callable[[], KNNGraphBuilder | None] = lambda: None
+        self, get_graph_builder: Callable[[], KNNGraphBuilder | None] = unavailable
     ) -> None:
         self.get_graph_builder = get_graph_builder
 

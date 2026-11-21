@@ -7,7 +7,7 @@ Playlists router dependency plumbing (split from playlists.py, #5831).
 
 from typing import Any
 
-from .dependencies import RouterDeps
+from .dependencies import RouterDeps, provide_connection_manager
 from .repo_deps import RepositoryFactoryDeps
 
 
@@ -20,5 +20,4 @@ _repo_deps = RepositoryFactoryDeps("playlists")
 _deps = RouterDeps("playlists", _PlaylistsDeps())
 
 
-def _get_connection_manager() -> Any:
-    return _deps.current().connection_manager
+_get_connection_manager = provide_connection_manager(_deps)

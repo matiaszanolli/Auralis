@@ -20,7 +20,7 @@ from services import (
     RecommendationService,
 )
 
-from .dependencies import RouterDeps
+from .dependencies import RouterDeps, provide_connection_manager, unavailable
 
 
 # ============================================================================
@@ -47,17 +47,12 @@ from .dependencies import RouterDeps
 # ============================================================================
 
 
-def _unavailable() -> Any:
-    """Getter used before any router has been built: resolves to nothing."""
-    return None
-
-
 class _PlayerDeps:
     def __init__(
         self,
-        get_library_database: Callable[[], Any] = _unavailable,
-        get_audio_player: Callable[[], Any] = _unavailable,
-        get_player_state_manager: Callable[[], Any] = _unavailable,
+        get_library_database: Callable[[], Any] = unavailable,
+        get_audio_player: Callable[[], Any] = unavailable,
+        get_player_state_manager: Callable[[], Any] = unavailable,
         connection_manager: Any = None,
         create_track_info_fn: Callable[[Any], Any] = lambda _track: None,
     ) -> None:
@@ -83,8 +78,7 @@ def _get_player_state_manager() -> Any:
     return _deps.current().get_player_state_manager()
 
 
-def _get_connection_manager() -> Any:
-    return _deps.current().connection_manager
+_get_connection_manager = provide_connection_manager(_deps)
 
 
 def _get_playback_service(

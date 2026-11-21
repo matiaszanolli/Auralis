@@ -9,7 +9,7 @@ from typing import Any, Literal
 from websocket.outbound.library import ArtworkUpdatedPayload
 from websocket.outbound_messages import broadcast_typed
 
-from .dependencies import RouterDeps
+from .dependencies import RouterDeps, provide_connection_manager
 from .repo_deps import RepositoryFactoryDeps
 
 
@@ -22,8 +22,7 @@ _repo_deps = RepositoryFactoryDeps("artwork")
 _deps = RouterDeps("artwork", _ArtworkDeps())
 
 
-def _get_connection_manager() -> Any:
-    return _deps.current().connection_manager
+_get_connection_manager = provide_connection_manager(_deps)
 
 
 async def _broadcast_artwork_updated(

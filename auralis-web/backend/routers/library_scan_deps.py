@@ -8,7 +8,7 @@ Library-scan router dependency plumbing (split from library_scan.py, #5831).
 from collections.abc import Callable
 from typing import Any
 
-from .dependencies import RouterDeps
+from .dependencies import RouterDeps, provide_connection_manager, resolve_optional
 
 
 class _LibraryScanDeps:
@@ -31,9 +31,7 @@ def _get_library_database() -> Any:
     meaningful: handlers check the *resolved* manager for None, which the
     always-truthy getter callable could never expose.
     """
-    getter = _deps.current().get_library_database
-    return getter() if getter else None
+    return resolve_optional(_deps.current().get_library_database)
 
 
-def _get_connection_manager() -> Any:
-    return _deps.current().connection_manager
+_get_connection_manager = provide_connection_manager(_deps)

@@ -14,13 +14,13 @@ from typing import Any
 
 from fastapi import Depends
 
-from .dependencies import RouterDeps, require_service
+from .dependencies import RouterDeps, require_service, unavailable
 
 
 class _SettingsDeps:
     def __init__(
         self,
-        get_settings_repo: Callable[[], Any] = lambda: None,
+        get_settings_repo: Callable[[], Any] = unavailable,
         get_auto_scanner: Callable[[], Any] | None = None,
         get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
         connection_manager: Any = None,

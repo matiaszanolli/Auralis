@@ -14,7 +14,7 @@ from typing import Any
 
 from core.processing_engine import ProcessingEngine
 
-from .dependencies import RouterDeps
+from .dependencies import RouterDeps, unavailable
 
 # ============================================================================
 # DEPENDENCY WIRING (#4670)
@@ -61,7 +61,7 @@ class _ProcessingDeps:
         get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
     ) -> None:
         self.get_processing_engine: Callable[[], ProcessingEngine | None] = (
-            get_processing_engine if get_processing_engine is not None else (lambda: None)
+            get_processing_engine if get_processing_engine is not None else unavailable
         )
         self.get_enhancement_settings = get_enhancement_settings
 

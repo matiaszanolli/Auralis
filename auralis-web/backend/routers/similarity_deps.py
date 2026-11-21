@@ -9,12 +9,7 @@ from auralis.analysis.fingerprint import FingerprintSimilarity, KNNGraphBuilder
 from collections.abc import Callable
 from typing import Any
 
-from .dependencies import RouterDeps
-
-
-def _unavailable() -> Any:
-    """Placeholder getter used before any router has been built."""
-    return None
+from .dependencies import RouterDeps, unavailable
 
 
 class _SimilarityDeps:
@@ -22,9 +17,9 @@ class _SimilarityDeps:
 
     def __init__(
         self,
-        get_similarity_system: Callable[[], FingerprintSimilarity] = _unavailable,
-        get_graph_builder: Callable[[], KNNGraphBuilder | None] = _unavailable,
-        get_repository_factory: Callable[[], Any] = _unavailable,
+        get_similarity_system: Callable[[], FingerprintSimilarity] = unavailable,
+        get_graph_builder: Callable[[], KNNGraphBuilder | None] = unavailable,
+        get_repository_factory: Callable[[], Any] = unavailable,
     ) -> None:
         self.get_similarity_system = get_similarity_system
         self.get_graph_builder = get_graph_builder

@@ -11,7 +11,7 @@ from collections.abc import Callable
 from security.path_security import PathMissingError, PathValidationError, validate_file_path
 from typing import Any
 
-from .dependencies import RouterDeps, require_service
+from .dependencies import RouterDeps, require_service, unavailable
 from .errors import BadRequestError, NotFoundError
 
 
@@ -72,7 +72,7 @@ async def _validate_track_filepath(track_id: int, filepath: Any) -> str:
 class _MetadataDeps:
     def __init__(
         self,
-        get_repository_factory: Callable[[], Any] = lambda: None,
+        get_repository_factory: Callable[[], Any] = unavailable,
         broadcast_manager: Any = None,
         metadata_editor: MetadataEditor | None = None,
     ) -> None:
