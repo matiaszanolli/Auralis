@@ -247,27 +247,33 @@ def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     # Create and include the similarity router family (if available). Split
     # into three domain routers (#4270): similarity search, graph management,
     # and fingerprint-queue admin. All three keep the /api/similarity prefix so
-    # existing route paths are unchanged.
+    # existing route paths are unchanged. One try each (#6601): a broken import
+    # in one router used to drop the other two with it.
     if HAS_SIMILARITY:
         try:
             from routers.similarity import create_similarity_router
-            from routers.similarity_graph import create_similarity_graph_router
-            from routers.fingerprint_queue import create_fingerprint_queue_router
-
             app.include_router(create_similarity_router(
                 get_similarity_system=get_component('similarity_system'),
                 get_graph_builder=get_component('graph_builder'),
                 get_repository_factory=get_component('repository_factory')
             ))
+        except Exception as e:
+            logger.warning(f"⚠️  Failed to register similarity search router: {e}", exc_info=True)
+        try:
+            from routers.similarity_graph import create_similarity_graph_router
             app.include_router(create_similarity_graph_router(
                 get_graph_builder=get_component('graph_builder')
             ))
+        except Exception as e:
+            logger.warning(f"⚠️  Failed to register similarity graph router: {e}", exc_info=True)
+        try:
+            from routers.fingerprint_queue import create_fingerprint_queue_router
             app.include_router(create_fingerprint_queue_router(
                 get_repository_factory=get_component('repository_factory')
             ))
-            logger.info("✅ Similarity router family registered (search, graph, fingerprint-queue)")
         except Exception as e:
-            logger.warning(f"⚠️  Failed to register similarity router family: {e}", exc_info=True)
+            logger.warning(f"⚠️  Failed to register fingerprint-queue router: {e}", exc_info=True)
+        logger.info("✅ Similarity router family registration attempted (search, graph, fingerprint-queue)")
 
     # Live playback is entirely WebSocket-based (play_normal / play_enhanced);
     # there is no REST/MSE chunk-streaming router.

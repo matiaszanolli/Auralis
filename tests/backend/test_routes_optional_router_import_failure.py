@@ -178,7 +178,7 @@ def test_processing_parameters_is_registered_when_processing_api_is_available():
 # #4717: the composed-app surface for the #4270 three-router similarity split.
 #
 # similarity/similarity_graph/fingerprint_queue all mount under the shared
-# /api/similarity prefix inside ONE try/except (config/routes.py). Per-router
+# /api/similarity prefix, each in its own try/except since #6601 (config/routes.py). Per-router
 # unit tests (test_similarity_api.py) mount each router individually into its
 # own throwaway FastAPI() app, so they verify each router in isolation but
 # never the composed application — nothing asserted the three route tables
@@ -235,26 +235,28 @@ class TestSimilarityRouterFamilyComposition:
             f"{[p for p in similarity_pairs if similarity_pairs.count(p) > 1]}"
         )
 
-    def test_a_broken_import_silently_drops_all_three_routers(self):
-        """Pins the sharper half of #4717: similarity/similarity_graph/
-        fingerprint_queue share ONE try/except, so a broken transitive
-        import in any single one of them takes down all three — not just
-        the broken one. This is the all-or-nothing failure mode the issue
-        asks to make detectable; splitting the try/except three ways is a
-        deliberate follow-up, not done here (see #4717's Proposed Fix)."""
+    @pytest.mark.parametrize(
+        ("broken_module", "lost_prefixes"),
+        [
+            ("routers.similarity", ("/api/similarity/tracks", "/api/similarity/fit")),
+            ("routers.similarity_graph", ("/api/similarity/graph",)),
+            ("routers.fingerprint_queue", ("/api/similarity/fingerprint-queue",)),
+        ],
+    )
+    def test_a_broken_import_drops_only_its_own_router(self, broken_module, lost_prefixes):
+        """Each of the three routers registers in its own try/except (#6601): a
+        broken transitive import in one used to take down all three (the
+        all-or-nothing mode #4717 made detectable), and now drops only its own
+        endpoints."""
         from fastapi import FastAPI
 
         from config.routes import setup_routers
 
         app = FastAPI()
-        with patch.dict(sys.modules, {"routers.similarity_graph": None}):
+        with patch.dict(sys.modules, {broken_module: None}):
             setup_routers(app, _base_deps())  # must not raise (#3907)
 
         similarity_paths = {p for p in _paths(app) if p.startswith("/api/similarity")}
-        assert similarity_paths == set(), (
-            "expected the shared try/except to drop ALL THREE similarity "
-            "routers when just one (similarity_graph) fails to import — "
-            f"got {similarity_paths!r}. If this now fails because the "
-            "try/except was split per-router (#4717 follow-up), update this "
-            "test to assert only similarity_graph's paths are missing."
-        )
+        expected = {p for p in EXPECTED_SIMILARITY_PATHS if not p.startswith(lost_prefixes)}
+        assert expected and expected != EXPECTED_SIMILARITY_PATHS  # the split is not vacuous
+        assert similarity_paths == expected
