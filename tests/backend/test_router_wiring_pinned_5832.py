@@ -66,6 +66,7 @@ _CASES: list[tuple[str, Callable[[], Any], set[tuple[str, tuple[str, ...]]]]] = 
     }),
     ("health", lambda: create_health_router(True), {
         ("/api/health", ("GET",)),
+        ("/api/ready", ("GET",)),
         ("/api/version", ("GET",)),
     }),
     ("cache_streamlined", lambda: create_streamlined_cache_router(_none), {

@@ -22,7 +22,7 @@ from auralis.analysis.fingerprint.rust_fingerprint import fingerprint_engine_err
 from auralis.version import get_version_info
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from schemas import HealthResponse, VersionInfoResponse
+from schemas import HealthResponse, ReadinessResponse, VersionInfoResponse
 
 from .dependencies import RouterDeps
 
@@ -78,7 +78,11 @@ async def readiness_check(deps: _HealthDeps = Depends(_get_deps)) -> JSONRespons
     # that wins a port-bind race cannot accidentally satisfy their probe.
     if launch_id := os.environ.get("AURALIS_LAUNCH_ID"):
         headers["X-Auralis-Launch-Id"] = launch_id
-    return JSONResponse({"ready": ready}, status_code=200 if ready else 503, headers=headers)
+    return JSONResponse(
+        ReadinessResponse(ready=ready).model_dump(),
+        status_code=200 if ready else 503,
+        headers=headers,
+    )
 
 
 async def get_version() -> VersionInfoResponse:
@@ -99,6 +103,11 @@ def create_health_router(
     deps = _HealthDeps(HAS_AURALIS, get_library_database, get_player_state_manager)
     router = APIRouter(tags=["system"], dependencies=[Depends(_deps.bind(deps))])
     router.add_api_route("/api/health", health_check, methods=["GET"], response_model=HealthResponse)
-    router.add_api_route("/api/ready", readiness_check, methods=["GET"])
+    # Returned as a JSONResponse (it sets the status and headers itself), so the
+    # model documents the body rather than filtering it; 503 carries the same body.
+    router.add_api_route(
+        "/api/ready", readiness_check, methods=["GET"], response_model=ReadinessResponse,
+        responses={503: {"model": ReadinessResponse, "description": "Not ready yet"}},
+    )
     router.add_api_route("/api/version", get_version, methods=["GET"], response_model=VersionInfoResponse)
     return router

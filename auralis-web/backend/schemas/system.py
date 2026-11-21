@@ -31,6 +31,14 @@ class HealthResponse(BaseModel):
     )
 
 
+class ReadinessResponse(BaseModel):
+    """Response model for GET /api/ready (200 when ready, 503 with the same body when not)."""
+    ready: bool = Field(
+        description="True only when the library database, the player state manager "
+                    "and the Rust fingerprint engine are all up"
+    )
+
+
 class VersionInfoResponse(BaseModel):
     """Response model for GET /api/version (matches get_version_info() shape)."""
     version: str = Field(description="Full semantic version string (e.g. '1.5.1')")
