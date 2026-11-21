@@ -3,7 +3,7 @@ Audio Format Registry
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Single source of truth for the audio extensions Auralis can decode. The
-scanner, the unified loader (including its ``is_audio_file`` predicate), and
+scanner, the unified loader, and
 the upload allowlist all derive their extension sets from here so the lists
 never drift apart again (#4109).
 

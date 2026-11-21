@@ -31,7 +31,6 @@ from auralis.core.dsp.resonance_notcher import ResonanceNotcher
 from auralis.core.dsp.transient_shaper import TransientShaper
 from auralis.core.mastering_config import SimpleMasteringConfig
 from auralis.core.stages import harmonic_exciter as harmonic_exciter_stage
-from auralis.dsp.dynamics.lookahead_buffer import LookaheadBuffer
 from auralis.dsp.dynamics.lowmid_transient_enhancer import LowMidTransientEnhancer
 from auralis.dsp.utils.stereo import adjust_stereo_width, adjust_stereo_width_multiband
 
@@ -110,13 +109,6 @@ class TestAdjustStereoWidthMultibandReturnsCopy:
     def test_no_change_width_factor_returns_copy(self):
         stereo = np.random.randn(4410, 2).astype(np.float32)
         assert_returns_copy(adjust_stereo_width_multiband, stereo, width_factor=0.5, sample_rate=44100)
-
-
-class TestLookaheadBufferReturnsCopy:
-    def test_zero_lookahead_returns_copy(self):
-        buf = LookaheadBuffer(lookahead_samples=0)
-        audio = np.random.randn(4410).astype(np.float32)
-        assert_returns_copy(buf.apply, audio)
 
 
 class TestLowMidTransientEnhancerReturnsCopy:

@@ -15,40 +15,6 @@ from ...io.processing import downmix_to_stereo, requires_layout_aware_downmix
 from .audio_info import mono_to_stereo
 
 
-def adaptive_gain_calculation(target_rms: float,
-                             reference_rms: float,
-                             adaptation_factor: float = 0.8) -> float:
-    """
-    Calculate adaptive gain with smoother transitions
-
-    Computes the gain needed to match target RMS to reference RMS,
-    with optional smoothing for gradual adaptation.
-
-    Args:
-        target_rms: RMS of target signal
-        reference_rms: RMS of reference or target level
-        adaptation_factor: How aggressively to adapt (0-1)
-                          1.0 = full adaptation, 0.0 = no adaptation
-
-    Returns:
-        Gain factor (linear)
-    """
-    if target_rms > 0:
-        raw_gain = reference_rms / target_rms
-
-        # Special case: if adaptation_factor is 1.0, return raw gain
-        if adaptation_factor >= 0.99:
-            return float(np.clip(raw_gain, 0.1, 10.0))
-
-        # Apply adaptation factor for smoother transitions
-        # adaptation_factor of 0.8 means 80% of the way to the target
-        gain = 1.0 + (raw_gain - 1.0) * adaptation_factor
-
-        # Limit gain to reasonable range
-        return float(np.clip(gain, 0.1, 10.0))
-    return 1.0
-
-
 def smooth_parameter_transition(current_value: float,
                                target_value: float,
                                smoothing_factor: float = 0.1) -> float:

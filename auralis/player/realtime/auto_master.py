@@ -74,7 +74,6 @@ class AutoMasterProcessor:
             release_ms=200.0,
             knee_db=10.0,
             makeup_gain_db=0.0,
-            enable_lookahead=False
         )
         return AdaptiveCompressor(comp_settings, sample_rate)
 

@@ -39,7 +39,7 @@ class PlaybackReportingMixin:
     _notify_callbacks: "Callable[[dict[str, Any]], None]"
 
     def get_playback_info(self) -> dict[str, Any]:
-        """Get comprehensive playback information"""
+        """Engine status snapshot; no backend caller, kept for its lock-ordered read (#6611)."""
         queue_info = self.queue.get_queue_info()
 
         with self._position_lock:

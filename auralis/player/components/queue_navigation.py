@@ -141,7 +141,7 @@ class QueueNavigationMixin:
             return self._get_current_track_unlocked(), saved_index, self.current_index
 
     def snapshot_index(self) -> int:
-        """Atomically read self.current_index under self._lock (#3726)."""
+        """Atomically read self.current_index under self._lock (#3726); a test-only reader (#6611)."""
         with self._lock:
             return self.current_index
 

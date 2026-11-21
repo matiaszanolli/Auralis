@@ -16,11 +16,8 @@ import os
 
 # Import unified system components
 import sys
-import tempfile
-from pathlib import Path
 
 import numpy as np
-import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -29,9 +26,8 @@ from auralis.core.hybrid_processor import (
     ContentAnalyzer,
     HybridProcessor,
 )
-from auralis.core.config import AdaptiveConfig, GenreProfile, UnifiedConfig
+from auralis.core.config import UnifiedConfig
 from auralis.dsp.basic import rms
-from auralis.dsp.utils.adaptive import adaptive_gain_calculation
 from auralis.dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate
 
 
@@ -145,29 +141,11 @@ class TestDSPFunctions:
         expected_cf = 20 * np.log10(np.sqrt(2))  # Crest factor of sine wave
         assert abs(cf - expected_cf) < 2.0  # More tolerance
 
-    def test_adaptive_gain_calculation(self):
-        """Test adaptive gain calculation"""
-        target_rms = 0.1
-        reference_rms = 0.2
-
-        # Test with full adaptation (1.0)
-        gain = adaptive_gain_calculation(target_rms, reference_rms, 1.0)
-        assert gain == 2.0  # Should double the level
-
-        # Test with partial adaptation
-        gain_adapted = adaptive_gain_calculation(target_rms, reference_rms, 0.5)
-        assert 1.0 < gain_adapted < 2.0  # Should be between 1 and 2
-
-        # Test default adaptation (0.8)
-        gain_default = adaptive_gain_calculation(target_rms, reference_rms)
-        assert 1.6 <= gain_default <= 2.0  # Should be 80% of the way to 2.0
-
     def test_tempo_estimation(self):
         """Test tempo estimation"""
         # Create rhythmic signal
         tempo_bpm = 120
         beat_interval = 60.0 / tempo_bpm
-        beats_per_measure = 4
 
         t = np.linspace(0, 4 * beat_interval, int(self.sample_rate * 4 * beat_interval))
         rhythmic_signal = np.zeros_like(t)
@@ -239,7 +217,7 @@ class TestContentAnalyzer:
 
         # Test electronic audio
         electronic_profile = self.analyzer.analyze_content(self.electronic_audio)
-        electronic_genre = electronic_profile["genre_info"]["primary"]
+        electronic_profile["genre_info"]["primary"]
 
         # Test that genre classification is working (basic validation)
         assert "primary" in classical_profile["genre_info"]
@@ -387,7 +365,6 @@ class TestHybridProcessor:
 
     def test_mode_switching(self):
         """Test switching between processing modes"""
-        original_mode = self.processor.config.adaptive.mode
 
         self.processor.set_processing_mode("reference")
         assert self.processor.config.is_reference_mode()
@@ -478,7 +455,7 @@ class TestIntegration:
 
         # Time content analysis
         start_time = time.time()
-        content_profile = self.processor.content_analyzer.analyze_content(stereo_audio)
+        self.processor.content_analyzer.analyze_content(stereo_audio)
         analysis_time = time.time() - start_time
 
         # Should complete analysis in reasonable time
@@ -486,7 +463,7 @@ class TestIntegration:
 
         # Time adaptive processing
         start_time = time.time()
-        processed = self.processor._process_adaptive_mode(stereo_audio)
+        self.processor._process_adaptive_mode(stereo_audio)
         processing_time = time.time() - start_time
 
         # Should process faster than real-time

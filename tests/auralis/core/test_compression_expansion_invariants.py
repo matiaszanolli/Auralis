@@ -8,7 +8,6 @@ Related to issue #2150.
 """
 
 import numpy as np
-import pytest
 
 from auralis.core.processing.base.compression_expansion import (
     CompressionStrategies,
@@ -56,7 +55,7 @@ class TestCompressionInvariant:
         original_copy = original.copy()
 
         # Apply compression that should trigger threshold processing
-        result = CompressionStrategies.apply_soft_knee_compression(
+        CompressionStrategies.apply_soft_knee_compression(
             original, compression_amount=0.9
         )
 
@@ -74,7 +73,7 @@ class TestCompressionInvariant:
         original_copy = original.copy()
 
         comp_params = {'ratio': 2.0, 'amount': 0.7}
-        result = CompressionStrategies.apply_clip_blend_compression(
+        CompressionStrategies.apply_clip_blend_compression(
             original, comp_params
         )
 
@@ -127,7 +126,7 @@ class TestExpansionInvariant:
         original_copy = original.copy()
 
         # Apply expansion that should trigger above-threshold processing
-        result = ExpansionStrategies.apply_peak_enhancement_expansion(
+        ExpansionStrategies.apply_peak_enhancement_expansion(
             original, expansion_amount=0.8
         )
 
@@ -137,25 +136,6 @@ class TestExpansionInvariant:
             original_copy,
             err_msg="Expansion modified input when processing peaks"
         )
-
-    def test_rms_reduction_expansion_preserves_input(self):
-        """Verify apply_rms_reduction_expansion() doesn't modify input array."""
-        original = np.random.randn(48000).astype(np.float32)
-        original *= 0.3
-        original_copy = original.copy()
-
-        exp_params = {'target_crest_increase': 3.0, 'amount': 0.7}
-        result = ExpansionStrategies.apply_rms_reduction_expansion(
-            original, exp_params
-        )
-
-        # Verify input array was NOT modified
-        np.testing.assert_array_equal(
-            original,
-            original_copy,
-            err_msg="apply_rms_reduction_expansion() modified input array"
-        )
-
 
 class TestMultipleApplications:
     """Test that functions can be safely applied multiple times to same buffer."""

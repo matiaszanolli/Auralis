@@ -17,7 +17,6 @@ from auralis.io.unified_loader import (
     FFMPEG_FORMATS,
     SUPPORTED_FORMATS,
     get_supported_formats,
-    is_audio_file,
     load_audio,
     load_reference,
 )
@@ -225,31 +224,6 @@ class TestGetAudioInfo:
 
 class TestHelperFunctions:
     """Test helper functions"""
-
-    def test_is_audio_file_valid_formats(self):
-        """Test is_audio_file with valid formats"""
-        assert is_audio_file("song.wav") == True
-        assert is_audio_file("track.mp3") == True
-        assert is_audio_file("audio.flac") == True
-        assert is_audio_file("music.m4a") == True
-
-    def test_is_audio_file_invalid_formats(self):
-        """Test is_audio_file with invalid formats"""
-        assert is_audio_file("document.pdf") == False
-        assert is_audio_file("image.jpg") == False
-        assert is_audio_file("video.mp4") == False
-        assert is_audio_file("text.txt") == False
-
-    def test_is_audio_file_case_insensitive(self):
-        """Test is_audio_file is case-insensitive"""
-        assert is_audio_file("song.WAV") == True
-        assert is_audio_file("track.MP3") == True
-        assert is_audio_file("audio.FLAC") == True
-
-    def test_is_audio_file_with_path_object(self):
-        """Test is_audio_file with Path object"""
-        assert is_audio_file(Path("song.wav")) == True
-        assert is_audio_file(Path("document.pdf")) == False
 
     def test_get_supported_formats(self):
         """Test get_supported_formats returns expected list"""

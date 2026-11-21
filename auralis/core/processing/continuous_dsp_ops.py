@@ -102,7 +102,7 @@ class ContinuousDSPOpsMixin:
 
         audio = self._apply_compression(audio, compression_params)
 
-        # #5561: the expansion stage (apply_rms_reduction_expansion) was a
+        # #5561: the expansion stage (an RMS-reduction "expansion") was a
         # scalar gain — peak and RMS moved together, so crest factor was
         # invariant and the downstream LUFS normalization re-boosted the
         # attenuation. Removed following #5309's precedent for the same

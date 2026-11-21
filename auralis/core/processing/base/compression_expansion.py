@@ -12,12 +12,12 @@ Consolidates compression/expansion logic used across adaptive_mode and continuou
 
 import numpy as np
 
-from ....dsp.basic import amplify
 from ....dsp.dynamics.soft_clipper import soft_clip
 from .audio_measurement import MeasurementUtilities
 
 # The keys each strategy below indexes with `[...]` — i.e. the ones whose
-# absence is a KeyError, not a defaulted value.
+# absence is a KeyError, not a defaulted value. EXPANSION_REQUIRED_KEYS now pins
+# only the reporting schema: the RMS-reduction expansion stage that read it is gone (#5561).
 #
 # Two independent producers build these dicts: the fixed-targets fast path in
 # `fixed_target_params.convert_targets_to_parameters` and the fingerprint path
@@ -227,41 +227,3 @@ class ExpansionStrategies:
 
         return audio
 
-    @staticmethod
-    def apply_rms_reduction_expansion(audio: np.ndarray, exp_params: dict[str, float]) -> np.ndarray:
-        """
-        Apply expansion by reducing RMS (used by continuous_mode).
-        Increases crest factor through RMS reduction.
-
-        Args:
-            audio: Input audio array
-            exp_params: Dictionary with 'target_crest_increase' and 'amount' keys
-                - target_crest_increase: Target crest increase in dB
-                - amount: Application amount (0.0-1.0)
-
-        Returns:
-            Expanded audio array
-        """
-        audio = audio.copy()
-        before = MeasurementUtilities.measure_audio(audio)
-
-        target_increase = exp_params['target_crest_increase']
-        amount = exp_params['amount']
-
-        # Expansion strategy: Reduce RMS while keeping peaks (increases crest)
-        rms_reduction_db = target_increase * amount
-
-        # Apply RMS reduction (makes audio quieter, increasing crest)
-        audio = amplify(audio, -rms_reduction_db)
-
-        after = MeasurementUtilities.measure_audio(audio)
-
-        info_str = f"Target +{target_increase:.1f} dB @ {amount:.0%}"
-        MeasurementUtilities.log_processing_step(
-            "Expansion (RMS Reduction)",
-            before,
-            after,
-            info_str
-        )
-
-        return audio

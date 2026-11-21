@@ -13,7 +13,6 @@ import numpy as np
 
 from ...utils.logging import debug
 from .envelope import EnvelopeFollower
-from .lookahead_buffer import LookaheadBuffer
 from .settings import CompressorSettings
 
 
@@ -33,13 +32,6 @@ class AdaptiveCompressor:
 
         # Initialize envelope follower for gain smoothing
         self.gain_follower = EnvelopeFollower(sample_rate, settings.attack_ms, settings.release_ms)
-
-        # Lookahead buffer (will be initialized on first use to match audio dimensions)
-        if settings.enable_lookahead:
-            self.lookahead_samples = int(settings.lookahead_ms * sample_rate / 1000)
-        else:
-            self.lookahead_samples = 0
-        self._lookahead = LookaheadBuffer(self.lookahead_samples)
 
         # State variables
         self.gain_reduction = 0.0
@@ -103,11 +95,8 @@ class AdaptiveCompressor:
         # lookahead was pure added output latency with zero gain-computer
         # benefit. Compute levels from, and apply gain to, the same
         # undelayed `audio` instead (this mirrored the same fix in the
-        # now-deleted AdaptiveLimiter — #4873).
-        # `_apply_lookahead`/`_lookahead` are kept as
-        # directly-tested helpers (see
-        # tests/regression/test_compressor_lookahead_buffer.py) but are no
-        # longer part of this signal path.
+        # now-deleted AdaptiveLimiter — #4873). The compressor therefore has
+        # no lookahead delay at all (#6611).
 
         # Compute per-sample input levels for the gain envelope (#2214).
         # Mono: use absolute value; stereo: max across channels.
@@ -165,18 +154,8 @@ class AdaptiveCompressor:
 
         return processed_audio, compression_info
 
-    def _apply_lookahead(self, audio: np.ndarray) -> np.ndarray:
-        """Apply lookahead delay for better transient handling"""
-        return self._lookahead.apply(audio)
-
-    @property
-    def lookahead_buffer(self) -> np.ndarray | None:
-        """Current ring-buffer contents, or None before first use."""
-        return self._lookahead.buffer
-
     def reset(self) -> None:
         """Reset compressor state"""
         self.gain_follower.reset()
         self.gain_reduction = 0.0
         self.previous_gain = 1.0
-        self._lookahead.reset()

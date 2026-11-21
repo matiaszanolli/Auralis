@@ -17,14 +17,9 @@ import numpy as np
 import pytest
 
 from auralis.dsp.eq.critical_bands import (
-    CriticalBand,
     create_frequency_mapping,
 )
-from auralis.dsp.utils.interpolation_helpers import (
-    create_mel_triangular_filters,
-    create_triangular_envelope,
-    create_triangular_filterbank,
-)
+from auralis.dsp.utils.interpolation_helpers import create_mel_triangular_filters
 
 
 @dataclass
@@ -41,151 +36,6 @@ class MockCriticalBand:
             self.bandwidth = self.high_freq - self.low_freq
         if self.weight is None:
             self.weight = 0.7
-
-
-class TestTriangularEnvelope:
-    """Test triangular envelope creation"""
-
-    def test_basic_triangular_envelope(self):
-        """Test basic triangular envelope creation"""
-        envelope = create_triangular_envelope(100, 150, 200, 400)
-        assert len(envelope) == 400
-        assert np.max(envelope) <= 1.0
-        assert np.min(envelope) >= 0.0
-
-    def test_envelope_peak_at_center(self):
-        """Verify envelope peaks at center"""
-        envelope = create_triangular_envelope(100, 150, 200, 300)
-        center_idx = 150
-        assert envelope[center_idx] >= 0.99  # Allow small floating point error
-        assert envelope[center_idx] >= envelope[100]
-        assert envelope[center_idx] >= envelope[200]
-
-    def test_envelope_zero_at_ends(self):
-        """Verify envelope approaches zero at edges"""
-        envelope = create_triangular_envelope(100, 150, 200, 300)
-        assert envelope[100] < 0.01 or envelope[100] == 0.0
-        assert envelope[200] < 0.01 or envelope[200] == 0.0
-
-    def test_envelope_symmetry(self):
-        """Test envelope symmetry around peak"""
-        envelope = create_triangular_envelope(100, 150, 200, 300)
-        # Distance from peak on left vs right
-        left_dist = np.abs(envelope[100] - envelope[150])
-        right_dist = np.abs(envelope[150] - envelope[200])
-        # Should be close (symmetric shape)
-        assert abs(left_dist - right_dist) < 0.1
-
-    def test_envelope_degenerate_single_point(self):
-        """Test degenerate case: single point triangle"""
-        envelope = create_triangular_envelope(150, 150, 150, 300)
-        assert len(envelope) == 300
-        assert envelope[150] == 1.0
-        assert np.count_nonzero(envelope) <= 1
-
-    def test_envelope_rising_slope_only(self):
-        """Test envelope with only rising slope"""
-        envelope = create_triangular_envelope(100, 150, 150, 300)
-        assert np.max(envelope) <= 1.0
-        assert envelope[100] < envelope[150]
-
-    def test_envelope_falling_slope_only(self):
-        """Test envelope with only falling slope"""
-        envelope = create_triangular_envelope(100, 100, 200, 300)
-        assert np.max(envelope) <= 1.0
-        assert envelope[100] > envelope[200]
-
-    def test_envelope_hann_strategy(self):
-        """Test Hann window smoothing"""
-        linear = create_triangular_envelope(100, 150, 200, 300, strategy='linear')
-        hann = create_triangular_envelope(100, 150, 200, 300, strategy='hann')
-        assert len(hann) == 300
-        assert np.max(hann) <= 1.0
-
-    def test_envelope_hamming_strategy(self):
-        """Test Hamming window smoothing"""
-        linear = create_triangular_envelope(100, 150, 200, 300, strategy='linear')
-        hamming = create_triangular_envelope(100, 150, 200, 300, strategy='hamming')
-        assert len(hamming) == 300
-        assert np.max(hamming) <= 1.0
-
-    def test_envelope_invalid_strategy(self):
-        """Test invalid strategy raises error"""
-        with pytest.raises(ValueError):
-            create_triangular_envelope(100, 150, 200, 300, strategy='invalid')
-
-    def test_envelope_invalid_length(self):
-        """Test invalid length raises error"""
-        with pytest.raises(ValueError):
-            create_triangular_envelope(100, 150, 200, 0)
-
-    def test_envelope_invalid_bounds(self):
-        """Test invalid bounds raise error"""
-        with pytest.raises(ValueError):
-            create_triangular_envelope(100, 150, 200, 100)  # 150 > 100
-
-
-class TestTriangularFilterbank:
-    """Test triangular filterbank creation"""
-
-    def test_filterbank_shape(self):
-        """Test filterbank has correct shape"""
-        bands = [
-            MockCriticalBand(100, 150, 200),
-            MockCriticalBand(200, 300, 400),
-            MockCriticalBand(400, 600, 800),
-        ]
-        fb = create_triangular_filterbank(bands, 44100, 2048)
-        assert fb.shape[0] == 3
-        assert fb.shape[1] == 2048 // 2 + 1
-
-    def test_filterbank_values_normalized(self):
-        """Test filterbank values are in [0, 1]"""
-        bands = [MockCriticalBand(100, 150, 200)]
-        fb = create_triangular_filterbank(bands, 44100, 2048)
-        assert np.all(fb >= 0.0)
-        assert np.all(fb <= 1.0)
-
-    def test_filterbank_band_coverage(self):
-        """Test each band has non-zero coverage"""
-        bands = [
-            MockCriticalBand(0, 1000, 2000),
-            MockCriticalBand(2000, 5000, 8000),
-            MockCriticalBand(8000, 15000, 20000),
-        ]
-        fb = create_triangular_filterbank(bands, 44100, 4096)
-        for i in range(len(bands)):
-            assert np.any(fb[i] > 0.0)
-
-    def test_filterbank_triangular_shape(self):
-        """Verify each filter has triangular shape"""
-        bands = [MockCriticalBand(100, 200, 300)]
-        fb = create_triangular_filterbank(bands, 44100, 2048)
-        # Filter should increase then decrease
-        nonzero_idx = np.where(fb[0] > 0)[0]
-        if len(nonzero_idx) > 0:
-            peak_idx = np.argmax(fb[0])
-            # Verify roughly triangular shape
-            assert fb[0, peak_idx] == np.max(fb[0])
-
-    def test_filterbank_mel_scale(self):
-        """Test with many bands spanning mel scale"""
-        bands = [MockCriticalBand(100 * 2**i, 150 * 2**i, 200 * 2**i)
-                 for i in range(8)]
-        fb = create_triangular_filterbank(bands, 44100, 2048)
-        assert fb.shape[0] == 8
-
-    def test_filterbank_empty_bands(self):
-        """Test with empty band list"""
-        fb = create_triangular_filterbank([], 44100, 2048)
-        assert fb.shape == (0, 2048 // 2 + 1)
-
-    def test_filterbank_single_band(self):
-        """Test with single band"""
-        bands = [MockCriticalBand(100, 150, 200)]
-        fb = create_triangular_filterbank(bands, 44100, 2048)
-        assert fb.shape[0] == 1
-        assert np.max(fb) <= 1.0
 
 
 class TestMelTriangularFilters:
@@ -315,23 +165,6 @@ class TestFrequencyMapping:
 class TestPerformanceComparison:
     """Performance tests comparing vectorized vs loop implementations"""
 
-    def test_filterbank_vectorization_correctness(self):
-        """Test vectorized filterbank matches mathematical properties"""
-        bands = [
-            MockCriticalBand(100, 150, 200),
-            MockCriticalBand(200, 300, 400),
-            MockCriticalBand(400, 700, 1000),
-        ]
-        fb = create_triangular_filterbank(bands, 44100, 2048)
-
-        # Each filter should have triangular shape
-        for i in range(fb.shape[0]):
-            nonzero = np.where(fb[i] > 0)[0]
-            if len(nonzero) > 1:
-                # Peak should be somewhere in middle
-                peak_idx = np.argmax(fb[i])
-                assert nonzero[0] < peak_idx < nonzero[-1]
-
     def test_frequency_mapping_correct_order(self):
         """Test frequency mapping preserves frequency order"""
         bands = [MockCriticalBand(k*200, k*200+100, (k+1)*200)
@@ -353,18 +186,6 @@ class TestPerformanceComparison:
 
 class TestEdgeCasesAndIntegration:
     """Edge cases and integration tests"""
-
-    def test_envelope_zero_range(self):
-        """Test envelope with zero range"""
-        envelope = create_triangular_envelope(50, 50, 50, 100)
-        assert len(envelope) == 100
-        assert envelope[50] <= 1.0
-
-    def test_filterbank_wide_frequency_range(self):
-        """Test filterbank with very wide frequency bands"""
-        bands = [MockCriticalBand(20, 1000, 20000)]
-        fb = create_triangular_filterbank(bands, 44100, 2048)
-        assert fb.shape == (1, 2048 // 2 + 1)
 
     def test_frequency_mapping_boundary_frequencies(self):
         """Test mapping at band boundaries"""

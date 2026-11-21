@@ -244,7 +244,7 @@ class PlaybackController(PlaybackNotifierMixin):
             return self.state == PlaybackState.PLAYING
 
     def is_paused(self) -> bool:
-        """Check if paused"""
+        """Check if paused (public player status, read under the controller lock; no backend caller, #6611)."""
         with self._lock:
             return self.state == PlaybackState.PAUSED
 

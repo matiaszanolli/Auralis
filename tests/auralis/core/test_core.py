@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import select
 
 from auralis.library.database import LibraryDatabase
-from auralis.library.models import Album, Artist, Playlist, Track
+from auralis.library.models import Track
 from auralis.library.scanner import LibraryScanner
 
 
@@ -382,20 +382,6 @@ class TestIOComponents:
 class TestUtilityComponents:
     """Test utility components for coverage."""
 
-    def test_is_audio_file(self):
-        """is_audio_file accepts decodable audio and rejects everything else.
-
-        Moved from the deleted auralis/utils/checker.py (#5197) to the one
-        remaining predicate in unified_loader.
-        """
-        from auralis.io.unified_loader import is_audio_file
-
-        for filename in ('test.mp3', 'test.wav', 'TEST.FLAC', '/path/to/song.ogg'):
-            assert is_audio_file(filename) is True, filename
-
-        for filename in ('test.txt', 'test.doc', 'no_extension', 'cover.jpg'):
-            assert is_audio_file(filename) is False, filename
-
     def test_logging_comprehensive(self):
         """Test logging utilities comprehensively."""
         from auralis.utils.logging import debug, error, info, warning
@@ -512,7 +498,7 @@ class TestErrorHandlingAndEdgeCases:
         track_info = {'filepath': '/test/duplicate.mp3', 'title': 'Duplicate Track'}
 
         track1 = db.tracks.add(track_info)
-        track2 = db.tracks.add(track_info)  # Should handle gracefully
+        db.tracks.add(track_info)  # Should handle gracefully
 
         assert track1 is not None
 

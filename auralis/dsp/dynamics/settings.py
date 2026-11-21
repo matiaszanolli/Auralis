@@ -18,13 +18,11 @@ from ..utils.loudness_targets import DEFAULT_TARGET_LUFS
 # bare literals months apart with no cross-reference: CompressorSettings.ratio
 # / DynamicsSettings.gate_ratio and CompressorSettings.threshold_db /
 # DynamicsSettings.gate_threshold_db. (The third pair, CompressorSettings /
-# LimiterSettings lookahead_ms, went with AdaptiveLimiter in #4873.) Fields
-# whose valid range is not shared with another field keep their own inline
-# bounds — LOOKAHEAD_MS_BOUNDS now has a single consumer but stays named
-# because it is the compressor's documented contract, not a bare literal.
+# LimiterSettings lookahead_ms, went with AdaptiveLimiter in #4873; the
+# compressor's own lookahead went in #6611.) Fields whose valid range is not
+# shared with another field keep their own inline bounds.
 THRESHOLD_DB_BOUNDS: tuple[float, float] = (-80.0, 0.0)
 RATIO_BOUNDS: tuple[float, float] = (1.0, 100.0)
-LOOKAHEAD_MS_BOUNDS: tuple[float, float] = (0.0, 50.0)
 
 
 def _clamp(value: float, bounds: tuple[float, float]) -> float:
@@ -51,8 +49,6 @@ class CompressorSettings:
     release_ms: float = 100.0
     knee_db: float = 2.0
     makeup_gain_db: float = 0.0
-    enable_lookahead: bool = True
-    lookahead_ms: float = 5.0
 
     def __post_init__(self) -> None:
         self.threshold_db = _clamp(self.threshold_db, THRESHOLD_DB_BOUNDS)
@@ -60,7 +56,6 @@ class CompressorSettings:
         self.attack_ms = _clamp(self.attack_ms, (0.01, 500.0))
         self.release_ms = _clamp(self.release_ms, (1.0, 5000.0))
         self.knee_db = _clamp(self.knee_db, (0.0, 24.0))
-        self.lookahead_ms = _clamp(self.lookahead_ms, LOOKAHEAD_MS_BOUNDS)
 
 
 @dataclass

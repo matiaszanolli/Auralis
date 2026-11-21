@@ -15,7 +15,7 @@ def _compressor(ratio: float, knee_db: float, threshold_db: float = -20.0) -> Ad
     return AdaptiveCompressor(
         CompressorSettings(
             threshold_db=threshold_db, ratio=ratio, attack_ms=10.0, release_ms=100.0,
-            knee_db=knee_db, makeup_gain_db=0.0, enable_lookahead=False,
+            knee_db=knee_db, makeup_gain_db=0.0,
         ),
         44100,
     )

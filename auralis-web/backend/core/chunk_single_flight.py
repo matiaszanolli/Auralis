@@ -63,6 +63,7 @@ class ChunkSingleFlight:
         flight._done.set()
 
     def in_flight(self) -> int:
+        """Number of leaders in flight. Test introspection only: proves the map drains (#6611)."""
         with self._lock:
             return len(self._leaders)
 

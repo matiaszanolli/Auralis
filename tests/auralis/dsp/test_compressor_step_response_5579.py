@@ -22,7 +22,6 @@ def _make_compressor() -> AdaptiveCompressor:
         release_ms=100.0,
         knee_db=0.0,
         makeup_gain_db=0.0,
-        enable_lookahead=False,
     )
     return AdaptiveCompressor(settings, 44100)
 

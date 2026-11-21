@@ -61,36 +61,3 @@ class SafeOperations:
 
         return result
 
-    @staticmethod
-    def safe_power(
-        base: np.ndarray,
-        exponent: float,
-        fallback: float = 0.0
-    ) -> np.ndarray:
-        """
-        Safe power operation for positive bases.
-
-        Args:
-            base: Base value(s)
-            exponent: Exponent (typically 0.5 for square root, 1/3 for cube root)
-            fallback: Value to use for base <= epsilon
-
-        Returns:
-            Result of base^exponent with fallback for small bases
-        """
-        base = np.asarray(base)
-
-        # Create safe base with epsilon guard
-        safe_base = np.maximum(base, SafeOperations.EPSILON)
-
-        # Compute power
-        result = np.power(safe_base, exponent)
-
-        # Use fallback where original base was too small
-        result = np.where(
-            base <= SafeOperations.EPSILON,
-            fallback,
-            result
-        )
-
-        return result

@@ -55,15 +55,9 @@ def convert_targets_to_parameters(targets: dict[str, Any]) -> ProcessingParamete
         'amount': compression.get('amount', 0.6)  # Compression amount/strength
     }
 
-    # Build expansion parameters (de-mastering)
-    #
-    # `target_crest_increase` is read unconditionally by
-    # ExpansionStrategies.apply_rms_reduction_expansion — before it looks at
-    # `amount` — so omitting it was a hard KeyError on every fixed-targets
-    # (`.25d` sidecar) chunk, which is the primary chunked-streaming path
-    # (#4856). 0.0 is behaviour-preserving: the applied reduction is
-    # `target_crest_increase * amount`, and `amount` is already 0.0 here.
-    # See EXPANSION_REQUIRED_KEYS in base/compression_expansion.py.
+    # Expansion parameters (de-mastering). No stage applies them any more (#5561); they are
+    # reporting data, kept in the same schema as the fingerprint path's (EXPANSION_REQUIRED_KEYS in
+    # base/compression_expansion.py, #4856), with expansion disabled.
     expansion_params = {
         'threshold_db': -30.0,
         'ratio': 1.5,

@@ -176,7 +176,7 @@ class PrebufferMixin:
                 self.next_track_sample_rate = None
 
     def has_prebuffered_track(self) -> bool:
-        """Check if next track is prebuffered and ready"""
+        """Next track prebuffered and ready? No production caller; decided with #5708 (#6611)."""
         with self.update_lock:
             return (self.next_track_buffer is not None and
                     self.next_track_info is not None)

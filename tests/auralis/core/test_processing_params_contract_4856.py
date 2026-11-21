@@ -9,8 +9,8 @@ Two independent producers build `compression_params` / `expansion_params`:
   * `ContinuousParameterGenerator` — the fingerprint path.
 
 Nothing tied their schemas together, so they drifted. The fast path omitted
-`target_crest_increase`, which `ExpansionStrategies.apply_rms_reduction_expansion`
-indexes unconditionally *before* it checks `amount`. Result: a deterministic
+`target_crest_increase`, which the expansion stage (since removed, #5561)
+indexed unconditionally *before* it checked `amount`. Result: a deterministic
 KeyError on the primary chunked-streaming path for every sidecar-backed track.
 
 Compression survived the same drift only by coincidence — both producers happen
@@ -28,7 +28,6 @@ from auralis.core.processing.base.compression_expansion import (
     COMPRESSION_REQUIRED_KEYS,
     EXPANSION_REQUIRED_KEYS,
     CompressionStrategies,
-    ExpansionStrategies,
 )
 from auralis.core.processing.fixed_target_params import convert_targets_to_parameters
 
@@ -76,14 +75,6 @@ class TestFixedTargetsSchema:
         missing = COMPRESSION_REQUIRED_KEYS - params.compression_params.keys()
         assert not missing, f"fixed-targets compression_params missing {missing}"
 
-    def test_expansion_does_not_raise_on_the_fixed_targets_path(self):
-        """The exact call that raised KeyError before the fix."""
-        params = _fixed_target_params()
-        result = ExpansionStrategies.apply_rms_reduction_expansion(
-            _audio(), params.expansion_params.copy()
-        )
-        assert isinstance(result, np.ndarray)
-
     def test_compression_does_not_raise_on_the_fixed_targets_path(self):
         params = _fixed_target_params()
         result = CompressionStrategies.apply_clip_blend_compression(
@@ -95,37 +86,11 @@ class TestFixedTargetsSchema:
 class TestExpansionStaysDisabled:
     """Adding the key must not switch expansion on for this path."""
 
-    def test_expansion_is_a_no_op_when_amount_is_zero(self):
+    def test_expansion_is_reported_disabled(self):
+        # The expansion stage itself is gone (#5561); the params remain reporting data.
         params = _fixed_target_params()
         assert params.expansion_params['amount'] == 0.0
         assert params.expansion_params['target_crest_increase'] == 0.0
-
-        audio = _audio()
-        result = ExpansionStrategies.apply_rms_reduction_expansion(
-            audio, params.expansion_params.copy()
-        )
-
-        # target_crest_increase * amount == 0 dB of reduction -> bit-identical.
-        np.testing.assert_allclose(result, audio, rtol=0, atol=0)
-
-    def test_sample_count_and_dtype_preserved(self):
-        params = _fixed_target_params()
-        audio = _audio()
-        result = ExpansionStrategies.apply_rms_reduction_expansion(
-            audio, params.expansion_params.copy()
-        )
-        assert len(result) == len(audio)
-        assert result.dtype == audio.dtype
-
-    def test_input_not_mutated_in_place(self):
-        params = _fixed_target_params()
-        audio = _audio()
-        before = audio.copy()
-        ExpansionStrategies.apply_rms_reduction_expansion(
-            audio, params.expansion_params.copy()
-        )
-        np.testing.assert_array_equal(audio, before)
-
 
 class TestGeneratorPathSchema:
     """The fingerprint producer must satisfy the same contract."""
@@ -152,9 +117,6 @@ class TestGeneratorPathSchema:
         assert not missing, f"generator compression_params missing {missing}"
 
     def test_generator_params_survive_their_consumers(self, generator_params):
-        ExpansionStrategies.apply_rms_reduction_expansion(
-            _audio(), generator_params.expansion_params.copy()
-        )
         CompressionStrategies.apply_clip_blend_compression(
             _audio(), generator_params.compression_params.copy()
         )

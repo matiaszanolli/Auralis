@@ -75,23 +75,6 @@ class TestSafeOperations:
         assert result[1] == 0.0  # Fallback
         assert result[2] == 5.0
 
-    def test_safe_power_normal(self):
-        """Test safe power operation."""
-        result = SafeOperations.safe_power(4.0, 0.5)
-        assert np.isclose(result, 2.0)
-
-    def test_safe_power_zero(self):
-        """Test safe power of zero returns fallback."""
-        result = SafeOperations.safe_power(0.0, 0.5, fallback=0.0)
-        assert result == 0.0
-
-    def test_safe_power_negative(self):
-        """Test safe power with negative base."""
-        result = SafeOperations.safe_power(-4.0, 0.5, fallback=0.0)
-        # Negative base with fractional exponent returns fallback
-        assert result == 0.0
-
-
 class TestMetricUtils:
     """Test metric utility functions."""
 

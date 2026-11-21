@@ -155,11 +155,6 @@ def load_reference(file_path: str | Path, **kwargs: Any) -> tuple[np.ndarray, in
     return load_audio(file_path, file_type="reference", **kwargs)
 
 
-def is_audio_file(file_path: str | Path) -> bool:
-    """Check if file is a supported audio format"""
-    return Path(file_path).suffix.lower() in SUPPORTED_FORMATS
-
-
 def get_supported_formats() -> list[str]:
     """Get list of supported audio formats"""
     return list(SUPPORTED_FORMATS.keys())
