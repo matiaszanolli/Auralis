@@ -1,10 +1,10 @@
 """Air Enhancement Stage — adaptive 6-20kHz sparkle for dark mixes."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from . import MIN_AUDIBLE_BOOST_DB, no_op
+from . import MIN_AUDIBLE_BOOST_DB, cap_additive_hf_intensity, no_op
 
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
@@ -22,7 +22,7 @@ def apply(
     verbose: bool,
     config: 'SimpleMasteringConfig',
     hf_lift: float = 1.0,
-) -> tuple[np.ndarray, dict | None]:
+) -> tuple[np.ndarray, dict[str, Any] | None]:
     """Apply adaptive air enhancement for dark mixes (6-20kHz sparkle).
 
     Boosts high frequencies to add air, sparkle, and openness. Uses both
@@ -43,8 +43,7 @@ def apply(
     Returns:
         (processed_audio, stage_info) or (audio, None) if no enhancement applied
     """
-    # Cap additive-HF intensity at 1.0 (the quiet-material 1.2× over-drove air).
-    intensity = min(intensity, 1.0)
+    intensity = cap_additive_hf_intensity(intensity)
 
     darkness_factor = (1.0 - air_pct) * 0.6 + (1.0 - spectral_rolloff) * 0.4
 

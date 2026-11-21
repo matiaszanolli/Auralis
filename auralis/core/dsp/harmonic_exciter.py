@@ -51,6 +51,13 @@ class HarmonicExciter:
     def will_bypass(wet_db: float) -> bool:
         """True when apply() returns the input unchanged for this wet level."""
         return wet_db <= HarmonicExciter.BYPASS_WET_DB
+
+    @staticmethod
+    def has_no_donor_band(donor_low_hz: float, donor_high_hz: float, sample_rate: float) -> bool:
+        """True when the donor band collapses at this sample rate (e.g. a very low
+        one), so apply() returns the input unchanged. The pipeline stage asks this
+        instead of re-deriving the corners, so the two cannot disagree."""
+        return normalized_corner(donor_low_hz, sample_rate) >= normalized_corner(donor_high_hz, sample_rate)
     """
     Generate upper-octave harmonics from a donor midrange band.
 
@@ -112,11 +119,11 @@ class HarmonicExciter:
             return audio.copy()
 
         # --- 1. Extract donor band (midrange that has actual energy) ---
-        low_norm = normalized_corner(donor_low_hz, sample_rate)
-        high_norm = normalized_corner(donor_high_hz, sample_rate)
-        if low_norm >= high_norm:
+        if HarmonicExciter.has_no_donor_band(donor_low_hz, donor_high_hz, sample_rate):
             # Degenerate band (e.g. very low sample rate) — no exciter possible.
             return audio.copy()
+        low_norm = normalized_corner(donor_low_hz, sample_rate)
+        high_norm = normalized_corner(donor_high_hz, sample_rate)
         bp_sos = butter(order, [low_norm, high_norm], btype='band', output='sos')
 
         # --- 2. Saturate to generate harmonics ---
@@ -131,8 +138,6 @@ class HarmonicExciter:
         # --- 4. Wet gain (so the parallel mix lands at wet_db below dry) ---
         wet_linear = 10.0 ** (wet_db / 20.0)
 
-        axis = -1 if audio.ndim > 1 else 0
-
         # Use sosfiltfilt (zero-phase) on both the donor bandpass and the
         # post-saturation high-pass. Causal sosfilt would delay the
         # generated harmonics relative to the un-delayed dry signal at
@@ -144,7 +149,7 @@ class HarmonicExciter:
         # promote the mixed signal (same dtype concern as
         # ParallelEQUtilities, issue #2158).
         # Too-short buffers (#5736): no donor band means no harmonics, so zeros.
-        donor = sosfiltfilt_safe(bp_sos, audio, axis=axis, context="harmonic_exciter donor", on_too_short="zeros")
+        donor = sosfiltfilt_safe(bp_sos, audio, axis=-1, context="harmonic_exciter donor", on_too_short="zeros")
         driven = donor * np.asarray(drive_linear, dtype=audio.dtype)
 
         if asymmetry > 0.0:
@@ -156,6 +161,6 @@ class HarmonicExciter:
         else:
             saturated = np.tanh(driven)
 
-        harmonics = sosfiltfilt_safe(hp_sos, saturated, axis=axis, context="harmonic_exciter highpass", on_too_short="zeros")
+        harmonics = sosfiltfilt_safe(hp_sos, saturated, axis=-1, context="harmonic_exciter highpass", on_too_short="zeros")
 
         return np.asarray(audio + harmonics * np.asarray(wet_linear, dtype=audio.dtype), dtype=audio.dtype)

@@ -1,13 +1,11 @@
 """Presence Enhancement Stage — adaptive 2-6kHz boost for dull mixes."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from . import MIN_AUDIBLE_BOOST_DB, no_op
-
-from ..dsp import ParallelEQUtilities
-from ..utils import SmoothCurveUtilities
+from . import cap_additive_hf_intensity
+from .deficit_boost import deficit_bandpass_boost
 
 if TYPE_CHECKING:
     from ..mastering_config import SimpleMasteringConfig
@@ -22,7 +20,7 @@ def apply(
     verbose: bool,
     config: 'SimpleMasteringConfig',
     hf_lift: float = 1.0,
-) -> tuple[np.ndarray, dict | None]:
+) -> tuple[np.ndarray, dict[str, Any] | None]:
     """Apply adaptive presence enhancement for dull mixes (2-6kHz boost).
 
     Boosts presence frequencies to add clarity, definition, and forward
@@ -42,36 +40,19 @@ def apply(
     Returns:
         (processed_audio, stage_info) or (audio, None) if no enhancement applied
     """
-    # Additive HF boost is over-driven at intensity > 1.0 (the quiet-material
-    # 1.2× multiplier pushed presence to +2.4 dB on near-silent bands). Cap it.
-    intensity = min(intensity, 1.0)
+    intensity = cap_additive_hf_intensity(intensity)
 
-    presence_content = (presence_pct + upper_mid_pct) / 2.0
-
-    if presence_content >= 0.30:
-        return no_op(audio)
-
-    presence_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(presence_content, 0.0, 0.30)
-
-    max_boost_db = config.MAX_PRESENCE_BOOST_DB * intensity
-    boost_db = max_boost_db * presence_factor * hf_lift
-
-    if boost_db < MIN_AUDIBLE_BOOST_DB:
-        return no_op(audio)
-
-    processed = ParallelEQUtilities.apply_bandpass_boost(
+    return deficit_bandpass_boost(
         audio,
-        boost_db=boost_db,
+        content=(presence_pct + upper_mid_pct) / 2.0,
+        threshold=0.30,
+        max_boost_db=config.MAX_PRESENCE_BOOST_DB * intensity,
+        hf_lift=hf_lift,
         low_hz=config.PRESENCE_LOW_HZ,
         high_hz=config.PRESENCE_HIGH_HZ,
         sample_rate=sample_rate,
+        verbose=verbose,
+        label="Presence enhance",
+        stage='presence_enhance',
+        content_key='presence_content',
     )
-
-    if verbose:
-        print(f"   Presence enhance: +{boost_db:.1f} dB @ {config.PRESENCE_LOW_HZ:.0f}-{config.PRESENCE_HIGH_HZ:.0f}Hz")
-
-    return processed, {
-        'stage': 'presence_enhance',
-        'boost_db': boost_db,
-        'presence_content': presence_content,
-    }

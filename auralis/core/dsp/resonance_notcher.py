@@ -177,7 +177,6 @@ class ResonanceNotcher:
 
         out = audio.astype(audio.dtype, copy=True)
         nyq = sample_rate / 2.0
-        axis = -1 if out.ndim > 1 else 0
 
         for n in notches:
             if n.freq_hz <= 20.0 or n.freq_hz >= nyq * 0.95:
@@ -208,6 +207,6 @@ class ResonanceNotcher:
             # sosfiltfilt for zero phase. Cast back to preserve dtype (NumPy
             # would otherwise promote to float64 — same issue as parallel_eq.py).
             # A notch shapes in place, so a too-short buffer passes through (#5736).
-            out = sosfiltfilt_safe(sos, out, axis=axis, context="resonance_notcher")
+            out = sosfiltfilt_safe(sos, out, axis=-1, context="resonance_notcher")
 
         return out

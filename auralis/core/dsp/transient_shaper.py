@@ -37,7 +37,7 @@ output equals the input.
 import numpy as np
 from scipy.signal import butter, sosfilt
 
-from ...dsp.utils.filters import sosfiltfilt_safe
+from ...dsp.utils.filters import normalized_corner, sosfiltfilt_safe
 
 
 class TransientShaper:
@@ -85,19 +85,17 @@ class TransientShaper:
         if attack_boost_db <= 0.05:
             return audio.copy()
 
-        nyq = sample_rate / 2.0
         # Floor is a numerical-stability minimum, NOT a musical low cut. The
         # old 0.005 floor mapped to 110 Hz @ 44.1 kHz and silently clamped the
         # 60 Hz kick/bass band up to 110 Hz, excluding the fundamentals this
         # stage exists to restore (#4211). butter(order<=2) is stable down to
         # ~1e-4 normalized, so use that as the true floor.
-        lo_n = max(1e-4, min(0.995, band_low_hz / nyq))
-        hi_n = max(1e-4, min(0.995, band_high_hz / nyq))
+        lo_n = normalized_corner(band_low_hz, sample_rate)
+        hi_n = normalized_corner(band_high_hz, sample_rate)
         if lo_n >= hi_n:
             return audio.copy()
 
         bp = butter(order, [lo_n, hi_n], btype='band', output='sos')
-        axis = -1 if audio.ndim > 1 else 0
 
         # Extract band with sosfiltfilt (zero-phase). Causal sosfilt
         # would delay `band` by the filter's group delay, and the final
@@ -109,7 +107,7 @@ class TransientShaper:
         # sosfiltfilt always returns float64; cast back to preserve dtype.
         # A buffer too short to filter has no extractable band (#5736): zeros
         # make the delta zero, i.e. the audio passes through unshaped.
-        band = sosfiltfilt_safe(bp, audio, axis=axis, context="transient_shaper", on_too_short="zeros")
+        band = sosfiltfilt_safe(bp, audio, axis=-1, context="transient_shaper", on_too_short="zeros")
 
         # Envelope detector: one-pole low-pass on |band|. The time constant
         # determines how fast the envelope follows. Same fast/slow envelopes
@@ -120,7 +118,7 @@ class TransientShaper:
             """One-pole low-pass with time constant tau (ms). Causal IIR."""
             alpha = float(np.exp(-1.0 / (sample_rate * tau_ms / 1000.0)))
             sos = np.array([[1.0 - alpha, 0.0, 0.0, 1.0, -alpha, 0.0]])
-            return np.asarray(sosfilt(sos, x, axis=axis), dtype=x.dtype)
+            return np.asarray(sosfilt(sos, x, axis=-1), dtype=x.dtype)
 
         fast_env = _onepole(rect, fast_ms)
         slow_env = _onepole(rect, slow_ms)

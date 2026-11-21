@@ -34,6 +34,16 @@ import numpy as np
 MIN_AUDIBLE_BOOST_DB = 0.05
 
 
+def cap_additive_hf_intensity(intensity: float) -> float:
+    """Cap the intensity of an additive high-frequency boost at 1.0.
+
+    Presence, clarity and air add energy on top of the source, so the quiet-material
+    1.2x intensity multiplier over-drove them (presence reached +2.4 dB on near-silent
+    bands). Body and low-end stages are not capped; they were not the over-driven ones.
+    """
+    return min(intensity, 1.0)
+
+
 def no_op(audio: np.ndarray) -> tuple[np.ndarray, None]:
     """Shared bypass return for tuple-contract stages.
 

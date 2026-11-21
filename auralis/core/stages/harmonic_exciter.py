@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ...dsp.utils.filters import normalized_corner
 from ..dsp import HarmonicExciter
 from . import no_op
 
@@ -57,18 +56,15 @@ def apply(
     wet_db = base_wet_db + 20.0 * np.log10(wet_mix)
     drive_db = config.EXCITER_DRIVE_DB * (0.7 + 0.3 * spectral_need)
 
-    # Mirror HarmonicExciter.apply()'s own bypass conditions here so a stage
-    # that will do nothing reports it honestly via no_op() (stage_info=None)
-    # instead of returning a stage_info dict claiming wet_db/drive_db applied
-    # when the exciter never ran (#4900). The eps guard above only rejects
-    # wet_mix <= 0; any wet_mix below ~1e-3 still lands wet_db at/below
+    # Ask HarmonicExciter.apply()'s own bypass predicates so a stage that will do
+    # nothing reports it honestly via no_op() (stage_info=None) instead of
+    # returning a stage_info dict claiming wet_db/drive_db applied when the
+    # exciter never ran (#4900). The eps guard above only rejects wet_mix <= 0;
+    # any wet_mix below ~1e-3 still lands wet_db at/below
     # HarmonicExciter.BYPASS_WET_DB here.
-    if HarmonicExciter.will_bypass(wet_db):
-        return no_op(audio)
-    low_norm = normalized_corner(config.EXCITER_DONOR_LOW_HZ, sample_rate)
-    high_norm = normalized_corner(config.EXCITER_DONOR_HIGH_HZ, sample_rate)
-    if low_norm >= high_norm:
-        # Degenerate donor band (e.g. very low sample rate) — no exciter possible.
+    if HarmonicExciter.will_bypass(wet_db) or HarmonicExciter.has_no_donor_band(
+        config.EXCITER_DONOR_LOW_HZ, config.EXCITER_DONOR_HIGH_HZ, sample_rate
+    ):
         return no_op(audio)
 
     processed = HarmonicExciter.apply(

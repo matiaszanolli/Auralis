@@ -1,10 +1,10 @@
 """Clarity Boost Stage — focused Up-Mid bell boost for buried vocals/snare attack."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from . import MIN_AUDIBLE_BOOST_DB, no_op
+from . import MIN_AUDIBLE_BOOST_DB, cap_additive_hf_intensity, no_op
 
 from ..dsp import ParallelEQUtilities
 from ..utils import SmoothCurveUtilities
@@ -23,7 +23,7 @@ def apply(
     hf_lift: float = 1.0,
     bass_pct: float = 0.0,
     mid_pct: float = 0.0,
-) -> tuple[np.ndarray, dict | None]:
+) -> tuple[np.ndarray, dict[str, Any] | None]:
     """Apply a focused Up-Mid bell boost (1.5-3.5 kHz) for sources where
     vocal consonants and snare attack are buried.
 
@@ -56,7 +56,7 @@ def apply(
     Returns:
         (processed_audio, stage_info) or (audio, None) if no boost applied
     """
-    intensity = min(intensity, 1.0)
+    intensity = cap_additive_hf_intensity(intensity)
 
     # Trigger 1 — absolute Up-Mid deficit (capped at CLARITY_MAX_BOOST_DB).
     deficit = max(0.0, config.CLARITY_TOL_LOW - upper_mid_pct)

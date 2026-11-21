@@ -1,13 +1,10 @@
 """Mid Warmth Stage — adaptive 200-2kHz body boost for thin mixes."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from . import MIN_AUDIBLE_BOOST_DB, no_op
-
-from ..dsp import ParallelEQUtilities
-from ..utils import SmoothCurveUtilities
+from .deficit_boost import deficit_bandpass_boost
 
 if TYPE_CHECKING:
     from ..mastering_config import SimpleMasteringConfig
@@ -21,7 +18,7 @@ def apply(
     sample_rate: int,
     verbose: bool,
     config: 'SimpleMasteringConfig',
-) -> tuple[np.ndarray, dict | None]:
+) -> tuple[np.ndarray, dict[str, Any] | None]:
     """Apply adaptive mid-range warmth (200-2kHz body).
 
     Boosts when the combined low-mid + mid body content is below 25%.
@@ -39,32 +36,16 @@ def apply(
     Returns:
         (processed_audio, stage_info) or (audio, None) if no boost applied
     """
-    body_content = (low_mid_pct + mid_pct) / 2.0
-
-    if body_content >= 0.25:
-        return no_op(audio)
-
-    body_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(body_content, 0.0, 0.25)
-
-    max_boost_db = config.MAX_MID_BOOST_DB * intensity
-    boost_db = max_boost_db * body_factor
-
-    if boost_db < MIN_AUDIBLE_BOOST_DB:
-        return no_op(audio)
-
-    processed = ParallelEQUtilities.apply_bandpass_boost(
+    return deficit_bandpass_boost(
         audio,
-        boost_db=boost_db,
+        content=(low_mid_pct + mid_pct) / 2.0,
+        threshold=0.25,
+        max_boost_db=config.MAX_MID_BOOST_DB * intensity,
         low_hz=config.MID_BODY_LOW_HZ,
         high_hz=config.MID_BODY_HIGH_HZ,
         sample_rate=sample_rate,
+        verbose=verbose,
+        label="Mid warmth",
+        stage='mid_warmth',
+        content_key='body_content',
     )
-
-    if verbose:
-        print(f"   Mid warmth: +{boost_db:.1f} dB @ {config.MID_BODY_LOW_HZ:.0f}-{config.MID_BODY_HIGH_HZ:.0f}Hz")
-
-    return processed, {
-        'stage': 'mid_warmth',
-        'boost_db': boost_db,
-        'body_content': body_content,
-    }

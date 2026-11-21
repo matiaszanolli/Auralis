@@ -67,7 +67,6 @@ def apply(
         # the 25 Hz rumble HP into a 110 Hz one at 44.1 kHz (#4211).
         hp_norm = normalized_corner(config.SUBBASS_HP_FREQ_HZ, sample_rate)
         hp_sos = butter(config.SUBBASS_HP_ORDER, hp_norm, btype='high', output='sos')
-        axis = -1 if processed.ndim > 1 else 0
         # Zero-phase (sosfiltfilt) so the rumble HP does not add group delay that
         # smears low-frequency transients — matching every sibling DSP stage
         # (#3469/#3470/#3661/#3664/#3666). The HP only fires on elevated
@@ -76,7 +75,7 @@ def apply(
         # raise ValueError and abort mastering for the whole file. The HP
         # removes rumble, so too-short degrades to passthrough (no HP), the
         # same semantics as hp_depth == 0.
-        filtered = sosfiltfilt_safe(hp_sos, processed, axis=axis,
+        filtered = sosfiltfilt_safe(hp_sos, processed, axis=-1,
                                     context="sub_bass rumble HP").astype(processed.dtype)
         processed = (
             hp_depth * filtered + (1.0 - hp_depth) * processed
