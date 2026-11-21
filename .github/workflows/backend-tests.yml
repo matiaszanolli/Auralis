@@ -105,6 +105,9 @@ jobs:
     # the former at 83% around the 30-minute mark despite
     # test_thread_safety.py itself completing in under a second mid-run.
     # 45 restores comfortable margin for a suite whose real work grew.
+    # Run 44234238821 still spent 40 of those minutes in pytest; ~23 of them
+    # were tests/performance, load_stress and stress, which now run nightly
+    # in slow-tests.yml instead (#6708).
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -467,12 +467,62 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "regression: Regression tests")
     config.addinivalue_line("markers", "error: Error handling and edge case tests")
 
-def pytest_collection_modifyitems(config, items):
-    """Warn about tests whose only assertions are ``X is not None`` (#5154).
+TESTS_ROOT = Path(__file__).parent
 
-    Automatic *marker* assignment stays disabled here for performance — it was
-    doing O(n) string searches over 6000+ items and slowing collection
-    noticeably. If markers are ever needed again, use set operations.
+# Directories whose every test is a large-library performance, load or stress
+# run. They took ~1370 s of a ~2020 s per-push run (CI 44229331896) and pushed
+# Backend Tests to its 45-minute cap, so they run in the nightly slow job
+# (slow-tests.yml) instead (#6708). One rule here rather than a `slow` mark on
+# each class, so a new class added to one of these files cannot slip back in.
+NIGHTLY_ONLY_DIRS = frozenset({"performance", "load_stress", "stress"})
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(config, items):
+    """The one collection hook: there were two, and the first never ran (#6709).
+
+    ``tryfirst`` so the ``slow`` marks land before pytest's own ``-m``
+    deselection reads them.
+    """
+    _mark_nightly_only_dirs_slow(items)
+    _skip_local_library_unless_opted_in(config, items)
+    _warn_weak_assertions(items)
+
+
+def _mark_nightly_only_dirs_slow(items):
+    """Mark every test under NIGHTLY_ONLY_DIRS ``slow`` (#6708)."""
+    slow = pytest.mark.slow
+    for item in items:
+        try:
+            top = Path(item.path).relative_to(TESTS_ROOT).parts[0]
+        except (ValueError, IndexError):
+            continue
+        if top in NIGHTLY_ONLY_DIRS:
+            item.add_marker(slow)
+
+
+def _skip_local_library_unless_opted_in(config, items):
+    """Skip `local_library` tests unless the developer opted in (#6242).
+
+    These tests read personal music libraries (and one a side-effect file
+    from a validation script); on CI or any other machine they are skipped
+    by declaration — the registered marker plus this env gate — rather than
+    by ambient path-sniffing skips inside each test.
+    """
+    if config.getoption("--collect-only", default=False):
+        return
+    if os.environ.get("AURALIS_LOCAL_LIBRARY_TESTS", "") == "1":
+        return
+    skip = pytest.mark.skip(
+        reason="local-library test: set AURALIS_LOCAL_LIBRARY_TESTS=1 to run (#6242)"
+    )
+    for item in items:
+        if "local_library" in item.keywords:
+            item.add_marker(skip)
+
+
+def _warn_weak_assertions(items):
+    """Warn about tests whose only assertions are ``X is not None`` (#5154).
 
     The weak-assertion check below is deliberately scoped to the files this
     session actually collected, not the whole tree: a single-file run parses
@@ -586,24 +636,3 @@ __all__ = [
     'assert_audio_equal',
     'assert_rms_similar'
 ]
-
-
-def pytest_collection_modifyitems(config, items):
-    """Skip `local_library` tests unless the developer opted in (#6242).
-
-    These tests read personal music libraries (and one a side-effect file
-    from a validation script); on CI or any other machine they are skipped
-    by declaration — the registered marker plus this env gate — rather than
-    by ambient path-sniffing skips inside each test.
-    """
-    if config.getoption("--collect-only", default=False):
-        return
-    opted_in = os.environ.get("AURALIS_LOCAL_LIBRARY_TESTS", "") == "1"
-    if opted_in:
-        return
-    skip = pytest.mark.skip(
-        reason="local-library test: set AURALIS_LOCAL_LIBRARY_TESTS=1 to run (#6242)"
-    )
-    for item in items:
-        if "local_library" in item.keywords:
-            item.add_marker(skip)

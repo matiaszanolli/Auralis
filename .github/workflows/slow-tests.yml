@@ -3,6 +3,11 @@ name: Slow Tests
 # The `slow` mark (pytest.ini) means "run nightly", but backend-tests.yml deselects it and nothing
 # scheduled ever ran those ~170 tests, so they could rot unseen (#5966). This is that nightly run.
 #
+# Since #6708 it also carries every test under tests/performance, tests/load_stress and
+# tests/stress: tests/conftest.py marks those directories `slow` (NIGHTLY_ONLY_DIRS), which took
+# ~23 minutes out of the per-push job. Runs here took ~19-22 minutes before that, so expect
+# ~40-45 against the 60-minute cap; read this job's durations before adding another directory.
+#
 # Report-only on purpose: the slow suite has never had a CI baseline, so a red/green verdict would
 # start from an unknown. The job always succeeds, uploads the junit report and prints the failures
 # in the run summary; once a few nights show a stable set, check a baseline in and gate on it the way

@@ -1,5 +1,5 @@
 {
-  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5175, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, #5295, #5419, and #5225 removed obsolete or newly passing entries by hand, as did #5811 (38 entries: 36 tests that run and pass, and 2 that no longer exist \u2014 --strict-stale cannot see the latter): --strict-stale (#5091) fails the job on a baselined test that passes. #6657 removed 15 entries that only failed because CI had no `auralis_dsp` (they pass once the job builds it). Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update. #5169, #5175, #5255, #5257, #5284, #5287, #5288, #5289, #5290, #5291, #5292, #5295, #5419, and #5225 removed obsolete or newly passing entries by hand, as did #5811 (38 entries: 36 tests that run and pass, and 2 that no longer exist \u2014 --strict-stale cannot see the latter): --strict-stale (#5091) fails the job on a baselined test that passes. #6657 removed 15 entries that only failed because CI had no `auralis_dsp` (they pass once the job builds it). #6708 removed 14 entries under tests/performance, tests/load_stress and tests/stress: those directories are marked slow and run only in the nightly slow-tests.yml job, so this per-push baseline can no longer see them pass or fail. Removed rather than regenerated -- a baseline built outside CI reports spurious new failures.",
   "generatedFrom": {
     "totalTests": 6889,
     "failedTests": 147
@@ -22,17 +22,6 @@
     "tests.edge_cases.test_resource_exhaustion.TestResourceLimitConfiguration::test_processing_with_memory_limit",
     "tests.integration.test_end_to_end_processing::test_e2e_handles_invalid_audio_data",
     "tests.integration.test_end_to_end_processing::test_e2e_process_very_quiet_input",
-    "tests.performance.test_audio_processing_performance.TestComponentPerformance::test_combined_pipeline_performance",
-    "tests.performance.test_audio_processing_performance.TestComponentPerformance::test_eq_processing_performance",
-    "tests.performance.test_audio_processing_performance.TestComponentPerformance::test_loudness_measurement_performance",
-    "tests.performance.test_audio_processing_performance.TestComponentPerformance::test_spectrum_analysis_performance",
-    "tests.performance.test_audio_processing_performance.TestMemoryEfficiency::test_concurrent_processing_memory_isolation",
-    "tests.performance.test_audio_processing_performance.TestMemoryEfficiency::test_processing_memory_per_second",
-    "tests.performance.test_memory_profiling.TestGarbageCollection::test_gc_frequency_impact",
-    "tests.performance.test_memory_profiling.TestMemoryPressure::test_processing_under_memory_pressure",
-    "tests.performance.test_throughput_benchmarks.TestDatabaseThroughput::test_query_throughput",
-    "tests.performance.test_throughput_benchmarks.TestScalabilityThroughput::test_concurrent_processing_scalability",
-    "tests.performance.test_throughput_benchmarks.TestScalabilityThroughput::test_throughput_vs_data_size",
     "tests.regression.test_data_migration.TestUserPreferencesMigration::test_favorite_tracks_preserved",
     "tests.regression.test_data_migration.TestUserPreferencesMigration::test_play_count_migration",
     "tests.regression.test_fingerprint_keyboard_interrupt.TestFingerprintKeyboardInterrupt::test_keyboard_interrupt_handler_cancels_and_waits",
@@ -53,9 +42,6 @@
     "tests.regression.test_version_compatibility.TestDatabaseSchemaMigrations::test_composite_index_on_favorites",
     "tests.regression.test_version_compatibility.TestDeprecatedFeatures::test_deprecated_config_keys_ignored",
     "tests.security.test_data_security.TestBackupSecurity::test_backup_encryption_readiness",
-    "tests.stress.test_large_library.TestMemoryManagement::test_gc_performance",
-    "tests.stress.test_processing_stress.TestHighVolumeProcessing::test_processing_prioritization",
-    "tests.stress.test_processing_stress.TestHighVolumeProcessing::test_processing_queue_overflow",
     "tests.test_preset_system.TestPresetEdgeCases::test_very_quiet_audio",
     "tests.test_preset_system.TestPresetProcessing::test_preset_reaches_target_lufs_range"
   ]
