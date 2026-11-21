@@ -10,6 +10,8 @@ import asyncio
 import logging
 from typing import Any
 
+from core.mastering_target_service import clear_global_mastering_target_entry
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +32,15 @@ async def enqueue_scanned_for_fingerprinting(scan_result: Any) -> None:
     ]
     if not tracks:
         return
+    # A rescan that found the audio changed has just discarded the row a cached plan may have been
+    # built from; drop it so the next stream derives its targets from the new file (#6446).
+    updated_ids = [t.id for t in getattr(scan_result, 'updated_tracks', ())]
+
+    def _drop_cached_plans() -> None:
+        for track_id in updated_ids:
+            clear_global_mastering_target_entry(track_id)
+
+    await asyncio.to_thread(_drop_cached_plans)
     try:
         from analysis.fingerprint_queue import get_fingerprint_queue
         fp_queue = get_fingerprint_queue()

@@ -21,10 +21,15 @@ class" check when composed together on the facade.
 """
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from ..models import Track, TrackFingerprint
 from .base import BaseRepository
 from .fingerprint_shared import _current_fingerprint_clause
+
+# get_by_track_id carries the Track the row describes, so a caller can tell whether the file on
+# disk is still the one that was analysed: the fingerprint row records no signature of its own (#6446).
+_WITH_TRACK = (selectinload(TrackFingerprint.track),)
 
 
 class FingerprintQueryMixin(BaseRepository):
@@ -92,10 +97,9 @@ class FingerprintQueryMixin(BaseRepository):
         with self._session_scope() as session:
             fingerprint = self._first_detached(
                 session,
-                select(TrackFingerprint).where(
-                    TrackFingerprint.track_id == track_id,
-                    _current_fingerprint_clause(),
-                ),
+                select(TrackFingerprint)
+                .where(TrackFingerprint.track_id == track_id, _current_fingerprint_clause())
+                .options(*_WITH_TRACK),
             )
             return fingerprint
 
@@ -254,7 +258,7 @@ class FingerprintQueryMixin(BaseRepository):
                 TrackFingerprint,
                 Track.id == TrackFingerprint.track_id
             ).where(
-                TrackFingerprint.id == None
+                TrackFingerprint.id.is_(None)
             ).order_by(Track.id)  # deterministic under LIMIT (#5715)
 
             if limit is not None:

@@ -8,6 +8,7 @@ the cache and the tier ordering; these functions only fetch.
 """
 
 import logging
+import os
 import traceback
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +17,7 @@ from typing import Any
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
 from auralis.analysis.fingerprint.windows import FINGERPRINT_SAMPLE_RATE
+from auralis.library.repositories.track_audio_change import _audio_changed
 from mutagen import File as MutagenFile
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,26 @@ def probe_file_properties(filepath: str) -> tuple[float, int]:
             return f.frames / f.samplerate, int(f.samplerate)
     except Exception:
         return 0.0, FINGERPRINT_SAMPLE_RATE
+
+
+def _replaced_since_scan(fp_record: Any) -> bool:
+    """True when the file on disk is no longer the one the library scanned (#6446).
+
+    The fingerprint row records no file signature, so it cannot be tied to the signature the
+    caller keys its cache on. The Track it describes can: its size and mtime are what the scan
+    saw, and the library's own rescan test (``_audio_changed``) decides whether a fingerprint
+    row survives that comparison. A file replaced in place and played before the rescan fails it,
+    and its row still describes the previous recording. Unknown (no track, no file, an unstatable
+    path) never counts as replaced.
+    """
+    track = getattr(fp_record, "track", None)
+    if track is None or not isinstance(getattr(track, "filepath", None), str):
+        return False
+    try:
+        stat = os.stat(track.filepath)
+    except OSError:
+        return False
+    return _audio_changed(track, {"filesize": stat.st_size, "file_mtime": stat.st_mtime})
 
 
 def load_from_database(
@@ -68,6 +90,13 @@ def load_from_database(
 
         # Try to get fingerprint from database
         fp_record = fingerprints_repo.get_by_track_id(track_id)
+
+        if fp_record and _replaced_since_scan(fp_record):
+            logger.warning(
+                f"Database fingerprint for track {track_id} describes a previous version of its "
+                "file (replaced since the last scan); ignoring it until the rescan re-analyses it"
+            )
+            return None
 
         if fp_record:
             # Convert the TrackFingerprint row's 25 columns to the dict shape
