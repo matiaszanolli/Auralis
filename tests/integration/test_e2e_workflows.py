@@ -372,7 +372,15 @@ def test_process_respects_loudness_target(sample_audio_file):
 def test_process_handles_different_formats(temp_library):
     """
     E2E: Process WAV, FLAC, MP3 → verify all formats work.
+
+    WAV and FLAC are written by libsndfile; MP3 needs an encoder, so it is encoded with ffmpeg and
+    skipped where ffmpeg is absent. Per-format decode edge cases live in tests/auralis/io/.
     """
+    import shutil
+    import subprocess
+
+    from auralis.io.unified_loader import load_audio
+
     _, audio_dir, _ = temp_library
 
     # Generate test audio
@@ -381,27 +389,32 @@ def test_process_handles_different_formats(temp_library):
     num_samples = int(duration * sample_rate)
     audio = np.random.randn(num_samples, 2) * 0.1  # Quiet noise
 
-    # Test WAV format (already tested above, but for completeness)
-    wav_file = os.path.join(audio_dir, "test.wav")
-    save_audio(wav_file, audio, sample_rate, subtype='PCM_16')
-
-    from auralis.io.unified_loader import load_audio
-
-    # Load and process
-    loaded_audio, sr = load_audio(wav_file)
+    files = []
+    for ext in ("wav", "flac"):
+        path = os.path.join(audio_dir, f"test.{ext}")
+        save_audio(path, audio, sample_rate, subtype='PCM_16')
+        files.append(path)
+    if shutil.which("ffmpeg"):
+        mp3 = os.path.join(audio_dir, "test.mp3")
+        subprocess.run(
+            ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", files[0], "-c:a", "libmp3lame", mp3],
+            check=True,
+        )
+        files.append(mp3)
 
     config = UnifiedConfig()
     config.set_processing_mode("adaptive")
     processor = HybridProcessor(config)
 
-    processed = processor.process(loaded_audio)
+    for path in files:
+        loaded_audio, sr = load_audio(path)
+        assert sr == sample_rate, path
+        assert abs(len(loaded_audio) - num_samples) <= 2048, path  # MP3 adds encoder padding
 
-    # Verify processing succeeded
-    assert len(processed) > 0
-    assert not np.any(np.isnan(processed))
+        processed = processor.process(loaded_audio)
 
-    # Note: FLAC and MP3 tests would require those encoders installed
-    # Keeping this test simple with just WAV for now
+        assert len(processed) == len(loaded_audio), path
+        assert not np.any(np.isnan(processed)), path
 
 
 # ============================================================================
