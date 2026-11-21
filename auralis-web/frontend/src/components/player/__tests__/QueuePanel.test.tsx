@@ -9,7 +9,9 @@ import { ReactElement, ReactNode } from 'react';
 import { describe, it, expect, beforeAll, beforeEach, vi, afterEach, afterAll } from 'vitest';
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Provider } from 'react-redux';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { createTestStore } from '@/test/test-utils';
 import { QueuePanel } from '../QueuePanel';
 
 // Mock usePlaybackQueue at module level (MUST be before component import)
@@ -79,13 +81,21 @@ const mockTracks = [
 /**
  * Minimal wrapper for tests
  */
+// QueuePanel reads player.currentTrack to tell a playing row from a queue built while idle (#6591).
+// Created per test (beforeEach) so a rerender keeps the same store.
+let store = createTestStore();
+const playingTrack = (track: (typeof mockTracks)[number] | null) =>
+  createTestStore({ player: { currentTrack: track } as never });
+
 function MinimalWrapper({ children }: { children: ReactNode }) {
   // No <BrowserRouter> (#4943): this file kept its own copy of the router
   // wrapper that test-utils.tsx had, and the app has no router at all.
   return (
-    <ThemeProvider>
-      {children}
-    </ThemeProvider>
+    <Provider store={store}>
+      <ThemeProvider>
+        {children}
+      </ThemeProvider>
+    </Provider>
   );
 }
 
@@ -125,6 +135,7 @@ afterAll(() => {
 describe('QueuePanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    store = playingTrack(mockTracks[0]);
 
     // Setup default mock return value with tracks
     vi.mocked(usePlaybackQueueModule.usePlaybackQueue).mockReturnValue({
@@ -332,6 +343,34 @@ describe('QueuePanel', () => {
 
     expect(mockRemoveTrack).toHaveBeenCalledWith(0);
     expect(mockFollowRemovedTrack).toHaveBeenCalledWith(0, 1);
+  });
+
+  it('marks no row as playing for a queue built while nothing plays (#6591)', () => {
+    store = playingTrack(null);
+    renderWithWrapper(<QueuePanel />);
+
+    const rows = screen.getAllByRole('listitem');
+    expect(rows).toHaveLength(3);
+    expect(rows.filter((row) => row.getAttribute('aria-current') === 'true')).toHaveLength(0);
+  });
+
+  it('marks the pointer row as playing once a track is loaded (#6591)', () => {
+    renderWithWrapper(<QueuePanel />);
+
+    const rows = screen.getAllByRole('listitem');
+    expect(rows.map((row) => row.getAttribute('aria-current'))).toEqual(['true', null, null]);
+  });
+
+  it('removing row 0 of an idle queue hands nothing to the playback session (#6591)', async () => {
+    store = playingTrack(null);
+    renderWithWrapper(<QueuePanel />);
+
+    const rows = screen.getAllByRole('listitem');
+    fireEvent.mouseEnter(rows[0]);
+    await userEvent.click(within(rows[0]).getByText('✕'));
+
+    expect(mockRemoveTrack).toHaveBeenCalledWith(0);
+    expect(mockFollowRemovedTrack).not.toHaveBeenCalled();
   });
 
   it('leaves playback alone when a row other than the playing one is removed', async () => {

@@ -6,6 +6,9 @@
  * the current stream, syncs queue index + player.currentTrack atomically (#3587) and starts the
  * new track with the live enhancement settings.
  *
+ * With no current track (a queue built while idle: the engine selects nothing on add, #6591) every
+ * direction, and Play, starts the queued track at the queue pointer instead of stepping past it.
+ *
  * @module contexts/usePlaybackNavigation
  */
 
@@ -21,6 +24,8 @@ const DEBUG = import.meta.env.DEV;
 interface UsePlaybackNavigationArgs {
   queueTracks: readonly QueueTrack[];
   currentQueueIndex: number;
+  /** False while nothing is loaded: the queue pointer then names the track to START, not the playing one. */
+  hasCurrentTrack: boolean;
   repeatMode: RepeatMode;
   runTransportCommand: (command: () => Promise<void>) => Promise<boolean>;
   stopPlayback: () => void;
@@ -30,6 +35,7 @@ interface UsePlaybackNavigationArgs {
 export function usePlaybackNavigation({
   queueTracks,
   currentQueueIndex,
+  hasCurrentTrack,
   repeatMode,
   runTransportCommand,
   stopPlayback,
@@ -39,8 +45,9 @@ export function usePlaybackNavigation({
 
   /** Resolves whether the command actually started (false = the gate was busy and dropped it). */
   const step = useCallback(
-    (delta: 1 | -1): Promise<boolean> => {
-      const label = delta > 0 ? 'Next' : 'Previous';
+    (requested: 1 | -1 | 0): Promise<boolean> => {
+      const delta = hasCurrentTrack ? requested : 0;
+      const label = requested > 0 ? 'Next' : requested < 0 ? 'Previous' : 'Play';
       return runTransportCommand(async () => {
         try {
           let index = currentQueueIndex + delta;
@@ -65,7 +72,7 @@ export function usePlaybackNavigation({
         }
       });
     },
-    [currentQueueIndex, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]
+    [currentQueueIndex, hasCurrentTrack, queueTracks, repeatMode, stopPlayback, dispatch, runTransportCommand, startTrackForSettings]
   );
 
   const advanceNext = useCallback(() => step(1), [step]);
@@ -73,6 +80,8 @@ export function usePlaybackNavigation({
   // behaviour, so a drop needs no reaction - they only keep the Promise<void> contract.
   const handleNext = useCallback(async () => { await step(1); }, [step]);
   const handlePrevious = useCallback(async () => { await step(-1); }, [step]);
+  /** Start the queued track at the pointer - Play's action while nothing is loaded (#6591). */
+  const startQueued = useCallback(async () => { await step(0); }, [step]);
 
-  return { advanceNext, handleNext, handlePrevious };
+  return { advanceNext, handleNext, handlePrevious, startQueued };
 }

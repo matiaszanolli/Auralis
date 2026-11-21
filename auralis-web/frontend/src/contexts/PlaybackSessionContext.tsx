@@ -108,16 +108,14 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     seekTo(position);
   }, [isStreaming, currentTrack?.id, seekTo]);
 
-  const { advanceNext, handleNext, handlePrevious } = usePlaybackNavigation({
+  const { advanceNext, handleNext, handlePrevious, startQueued } = usePlaybackNavigation({
     queueTracks, currentQueueIndex, repeatMode, runTransportCommand, stopPlayback, startTrackForSettings,
+    hasCurrentTrack: currentTrack != null,
   });
 
   const handlePlayPause = useCallback(async () => {
+    if (!currentTrack?.id) return startQueued(); // a queue built while idle (#6591)
     await runTransportCommand(async () => {
-    if (!currentTrack?.id) {
-      DEBUG && console.warn('[PlaybackSession] No track loaded, cannot play');
-      return;
-    }
 
     try {
       // If a session is already active, toggle pause/resume against the SAME
@@ -136,8 +134,8 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     }
     });
   }, [
-    currentTrack?.id, isPlaybackActive, isPaused, resumePlayback, pausePlayback,
-    runTransportCommand, startTrackForSettings,
+    currentTrack, isPlaybackActive, isPaused, resumePlayback, pausePlayback,
+    runTransportCommand, startTrackForSettings, startQueued,
   ]);
 
   const { handleVolumeChange, handleMuteToggle } = usePlaybackVolume({

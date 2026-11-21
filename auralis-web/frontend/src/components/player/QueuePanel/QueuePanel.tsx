@@ -1,6 +1,9 @@
 import { memo, useCallback } from 'react';
 import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
+import { useSelector } from 'react-redux';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
+import { playerSelectors } from '@/store/selectors';
+import type { RootState } from '@/store';
 import { QueuePanelExpanded } from './QueuePanelExpanded';
 import { styles } from './styles';
 
@@ -38,16 +41,19 @@ const QueuePanelComponent = ({
     error,
   } = usePlaybackQueue();
   const { followRemovedTrack } = usePlaybackControls();
+  // The queue pointer is 0 for a queue built while nothing plays; no row is playing then (#6591).
+  const hasCurrentTrack = useSelector((state: RootState) => playerSelectors.selectCurrentTrack(state) != null);
+  const playingIndex = hasCurrentTrack ? currentIndex : -1;
 
   // #6016: removing the current row moves playback to the track that takes its
   // slot (the session checks it really was the playing track: ids can repeat).
   const removeTrackFollowingPlayback = useCallback(
     async (index: number) => {
-      const removedId = index === currentIndex ? queue[index]?.id : undefined;
+      const removedId = index === playingIndex ? queue[index]?.id : undefined;
       await removeTrack(index);
       if (removedId != null) await followRemovedTrack(index, removedId);
     },
-    [currentIndex, queue, removeTrack, followRemovedTrack]
+    [playingIndex, queue, removeTrack, followRemovedTrack]
   );
 
   if (collapsed) {
@@ -68,7 +74,7 @@ const QueuePanelComponent = ({
   return (
     <QueuePanelExpanded
       queue={queue}
-      currentIndex={currentIndex}
+      currentIndex={playingIndex}
       isShuffled={isShuffled}
       repeatMode={repeatMode}
       isLoading={isLoading}

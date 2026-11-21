@@ -609,4 +609,49 @@ describe('PlaybackSessionContext transport logic (#5399)', () => {
       expect(mockPlayEnhanced).toHaveBeenLastCalledWith(mockTrack2.id, 'warm', 0.5);
     });
   });
+
+  describe('a queue built while nothing plays (#6591)', () => {
+    function renderIdleQueue() {
+      const out: { value?: PlaybackControlsContextValue } = {};
+      const { store } = render(<ControlsCapture out={out} />, {
+        preloadedState: {
+          player: { currentTrack: null } as never,
+          queue: { tracks: [mockTrack, mockTrack2, mockTrack3], currentIndex: 0 } as never,
+        },
+      });
+      return { out, store };
+    }
+
+    it('Play starts the first queued track', async () => {
+      const { out, store } = renderIdleQueue();
+
+      await act(async () => { await out.value!.handlePlayPause(); });
+
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack.id, 'warm', 0.5);
+      expect(store.getState().player.currentTrack?.id).toBe(mockTrack.id);
+      expect(store.getState().queue.currentIndex).toBe(0);
+    });
+
+    it.each([
+      ['Next', 'handleNext'],
+      ['Previous', 'handlePrevious'],
+    ] as const)('%s starts the first queued track instead of stepping past it', async (_label, handler) => {
+      const { out, store } = renderIdleQueue();
+
+      await act(async () => { await out.value![handler](); });
+
+      expect(mockPlayEnhanced).toHaveBeenCalledTimes(1);
+      expect(mockPlayEnhanced).toHaveBeenCalledWith(mockTrack.id, 'warm', 0.5);
+      expect(store.getState().player.currentTrack?.id).toBe(mockTrack.id);
+    });
+
+    it('once a track is loaded, Next steps as before', async () => {
+      const { out } = renderIdleQueue();
+      await act(async () => { await out.value!.handlePlayPause(); });
+
+      await act(async () => { await out.value!.handleNext(); });
+
+      expect(mockPlayEnhanced).toHaveBeenLastCalledWith(mockTrack2.id, 'warm', 0.5);
+    });
+  });
 });
