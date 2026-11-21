@@ -9,7 +9,9 @@ Enables dependency injection across the application without global singletons.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import threading
 from collections.abc import Callable
+from typing import TypeVar
 
 from sqlalchemy.orm import Session
 
@@ -25,6 +27,8 @@ from .settings_repository import SettingsRepository
 from .similarity_graph_repository import SimilarityGraphRepository
 from .stats_repository import StatsRepository
 from .track_repository import TrackRepository
+
+_Repo = TypeVar("_Repo")
 
 
 class RepositoryFactory:
@@ -48,9 +52,12 @@ class RepositoryFactory:
         ```
 
     Thread Safety:
-        Lazy properties are not thread-safe for initial creation, but since
-        repositories are typically created during application startup (before
-        concurrent requests), this is not a concern in practice.
+        Every thread gets the same instance of each repository, however many touch it first at once.
+        Repositories are NOT all created at startup: the fingerprint queue's workers first touch
+        ``fingerprint_scheduler`` together, and each private copy started its claim cursors at 0
+        (#5310's cursors live on the one per-process instance), so the lazy getters go through a
+        double-checked lock (#6578). Creation stays lazy rather than eager because
+        ``AlbumRepository`` creates the artwork directory on construction.
     """
 
     def __init__(
@@ -64,6 +71,8 @@ class RepositoryFactory:
             session_factory: Callable that returns a new SQLAlchemy Session
         """
         self.session_factory = session_factory
+        # Re-entrant: building `tracks` reads `albums` under the same lock.
+        self._create_lock = threading.RLock()
 
         # Lazy initialization caches for all repositories
         self._track_repo: TrackRepository | None = None
@@ -79,92 +88,64 @@ class RepositoryFactory:
         self._processing_job_repo: ProcessingJobRepository | None = None
         self._similarity_graph_repo: SimilarityGraphRepository | None = None
 
+    def _cached(self, attr: str, build: Callable[[], _Repo]) -> _Repo:
+        """The repository cached in ``attr``, built once under the lock however many threads ask."""
+        repo: _Repo | None = getattr(self, attr)
+        if repo is None:
+            with self._create_lock:
+                repo = getattr(self, attr)
+                if repo is None:
+                    repo = build()
+                    setattr(self, attr, repo)
+        return repo
+
     @property
     def tracks(self) -> TrackRepository:
-        """Get or create TrackRepository instance (lazy initialization)."""
-        if not self._track_repo:
-            self._track_repo = TrackRepository(
-                self.session_factory,
-                album_repository=self.albums
-            )
-        return self._track_repo
+        return self._cached("_track_repo", lambda: TrackRepository(self.session_factory, album_repository=self.albums))
 
     @property
     def albums(self) -> AlbumRepository:
-        """Get or create AlbumRepository instance (lazy initialization)."""
-        if not self._album_repo:
-            self._album_repo = AlbumRepository(self.session_factory)
-        return self._album_repo
+        return self._cached("_album_repo", lambda: AlbumRepository(self.session_factory))
 
     @property
     def artists(self) -> ArtistRepository:
-        """Get or create ArtistRepository instance (lazy initialization)."""
-        if not self._artist_repo:
-            self._artist_repo = ArtistRepository(self.session_factory)
-        return self._artist_repo
+        return self._cached("_artist_repo", lambda: ArtistRepository(self.session_factory))
 
     @property
     def genres(self) -> GenreRepository:
-        """Get or create GenreRepository instance (lazy initialization)."""
-        if not self._genre_repo:
-            self._genre_repo = GenreRepository(self.session_factory)
-        return self._genre_repo
+        return self._cached("_genre_repo", lambda: GenreRepository(self.session_factory))
 
     @property
     def playlists(self) -> PlaylistRepository:
-        """Get or create PlaylistRepository instance (lazy initialization)."""
-        if not self._playlist_repo:
-            self._playlist_repo = PlaylistRepository(self.session_factory)
-        return self._playlist_repo
+        return self._cached("_playlist_repo", lambda: PlaylistRepository(self.session_factory))
 
     @property
     def fingerprints(self) -> FingerprintRepository:
-        """Get or create FingerprintRepository instance (lazy initialization)."""
-        if not self._fingerprint_repo:
-            self._fingerprint_repo = FingerprintRepository(self.session_factory)
-        return self._fingerprint_repo
+        return self._cached("_fingerprint_repo", lambda: FingerprintRepository(self.session_factory))
 
     @property
     def fingerprint_scheduler(self) -> FingerprintSchedulerRepository:
-        """Get or create FingerprintSchedulerRepository instance (lazy initialization)."""
-        if not self._fingerprint_scheduler_repo:
-            self._fingerprint_scheduler_repo = FingerprintSchedulerRepository(self.session_factory)
-        return self._fingerprint_scheduler_repo
+        return self._cached("_fingerprint_scheduler_repo", lambda: FingerprintSchedulerRepository(self.session_factory))
 
     @property
     def fingerprint_stats(self) -> FingerprintStatsRepository:
-        """Get or create FingerprintStatsRepository instance (lazy initialization)."""
-        if not self._fingerprint_stats_repo:
-            self._fingerprint_stats_repo = FingerprintStatsRepository(self.session_factory)
-        return self._fingerprint_stats_repo
+        return self._cached("_fingerprint_stats_repo", lambda: FingerprintStatsRepository(self.session_factory))
 
     @property
     def stats(self) -> StatsRepository:
-        """Get or create StatsRepository instance (lazy initialization)."""
-        if not self._stats_repo:
-            self._stats_repo = StatsRepository(self.session_factory)
-        return self._stats_repo
+        return self._cached("_stats_repo", lambda: StatsRepository(self.session_factory))
 
     @property
     def settings(self) -> SettingsRepository:
-        """Get or create SettingsRepository instance (lazy initialization)."""
-        if not self._settings_repo:
-            self._settings_repo = SettingsRepository(self.session_factory)
-        return self._settings_repo
+        return self._cached("_settings_repo", lambda: SettingsRepository(self.session_factory))
 
     @property
     def processing_jobs(self) -> ProcessingJobRepository:
-        """Get ProcessingJobRepository instance (#5278)"""
-        if not self._processing_job_repo:
-            self._processing_job_repo = ProcessingJobRepository(self.session_factory)
-        return self._processing_job_repo
+        return self._cached("_processing_job_repo", lambda: ProcessingJobRepository(self.session_factory))
 
     @property
     def similarity_graph(self) -> SimilarityGraphRepository:
-        """Get or create SimilarityGraphRepository instance (#5368)"""
-        if not self._similarity_graph_repo:
-            self._similarity_graph_repo = SimilarityGraphRepository(self.session_factory)
-        return self._similarity_graph_repo
+        return self._cached("_similarity_graph_repo", lambda: SimilarityGraphRepository(self.session_factory))
 
     def reset_library(self) -> None:
         """Atomically delete the entire library in a single transaction.
