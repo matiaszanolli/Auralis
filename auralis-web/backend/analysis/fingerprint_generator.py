@@ -18,17 +18,12 @@ cannot be force-killed (#4377).
 """
 
 import asyncio
-import atexit
 import logging
-import os
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
 
 from sqlalchemy.orm import Session
-
-from core.env_config import get_int_env
 
 from auralis.analysis.fingerprint.schema import DIMENSION_NAMES
 
@@ -45,19 +40,11 @@ except ImportError:
     logger.warning("⚠️  Rust fingerprinting module not available, fingerprint generation will fail")
 
 
-# =============================================================================
-# THREAD POOL EXECUTOR FOR FINGERPRINTING
-# =============================================================================
-# Uses a thread pool to run fingerprinting off the asyncio event loop.
-# PyO3 Rust code releases the GIL, so threads get true parallelism
-# without the overhead of ProcessPoolExecutor (pickling, process spawn,
-# module re-import — which can exceed 10s timeout in AppImage environments).
-
-
-from .fingerprint_executor import (  # noqa: E402  (split #6271; body-used)
+# Fingerprinting runs on a thread pool off the asyncio event loop (PyO3 releases the GIL); the pool
+# and its lifecycle live in fingerprint_executor.py since #6271.
+from .fingerprint_executor import (  # noqa: E402  (body-used)
     _compute_windowed_fingerprint_in_thread,
     _get_fingerprint_executor,
-    shutdown_fingerprint_executor,
 )
 
 

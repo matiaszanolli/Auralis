@@ -16,15 +16,12 @@ from typing import cast
 
 import numpy as np
 
+from .level_constants import LEVEL_SMOOTHING_GATE_DB, MAX_LEVEL_CHANGE_DB
+from .level_transition import LevelTransitionMixin
+
 logger = logging.getLogger(__name__)
 
-from .level_constants import (  # noqa: E402  (body-used below; see level_constants.py)
-    GAIN_RAMP_SECONDS,
-    LEVEL_SMOOTHING_GATE_DB,
-    MAX_GAIN_CORRECTION_DB,
-    MAX_LEVEL_CHANGE_DB,
-)
-from .level_transition import LevelTransitionMixin
+
 class LevelManager(LevelTransitionMixin):
     """
     Track and manage audio levels across chunks.

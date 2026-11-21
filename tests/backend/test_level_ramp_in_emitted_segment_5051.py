@@ -32,7 +32,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from core.audio_processing_pipeline import AudioProcessingPipeline
 from core.chunked_processor import ChunkedAudioProcessor
-from core.level_manager import GAIN_RAMP_SECONDS, LevelManager
+from core.level_constants import GAIN_RAMP_SECONDS
+from core.level_manager import LevelManager
 
 SR = 22050
 DURATION = 40.0

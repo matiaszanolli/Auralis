@@ -20,12 +20,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.level_manager import (
-    LevelManager,
-    GAIN_RAMP_SECONDS,
-    LEVEL_SMOOTHING_GATE_DB,
-    MAX_GAIN_CORRECTION_DB,
-)
+from core.level_constants import GAIN_RAMP_SECONDS, LEVEL_SMOOTHING_GATE_DB, MAX_GAIN_CORRECTION_DB
+from core.level_manager import LevelManager
 
 
 SR = 44100

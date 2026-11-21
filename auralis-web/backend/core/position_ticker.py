@@ -22,9 +22,6 @@ from websocket.outbound_messages import broadcast_typed
 
 from .task_cancellation import await_cancelled_task
 
-if TYPE_CHECKING:
-    from player_state import PlayerState
-
 
 class PositionTickerMixin:
     """Hosts provide ``state``, ``_lock``, ``ws_manager``,

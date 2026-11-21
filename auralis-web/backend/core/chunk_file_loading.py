@@ -24,7 +24,6 @@ from core.chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
     CONTEXT_DURATION,
-    OVERLAP_DURATION,
 )
 
 logger = logging.getLogger(__name__)

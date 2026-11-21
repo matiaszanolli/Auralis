@@ -1095,7 +1095,7 @@ class TestSettingsEndpoints:
         requires the path to exist, so a literal "/new/music" 400s regardless
         of mocking (pre-existing bug in this test, unrelated to #3842).
         """
-        from security.path_security import _extra_allowed_dirs
+        from security.path_allowlist import _extra_allowed_dirs
 
         mock_repo = Mock()
         mock_repo.add_scan_folder.return_value = self._mock_settings()

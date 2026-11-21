@@ -15,15 +15,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from analysis import fingerprint_executor as fe
 from analysis import fingerprint_generator as fg
 
 
 def test_executor_is_threadpool():
-    executor = fg._get_fingerprint_executor()
+    # The pool and its lifecycle live in fingerprint_executor since #6271.
+    executor = fe._get_fingerprint_executor()
     try:
         assert isinstance(executor, ThreadPoolExecutor)
     finally:
-        fg.shutdown_fingerprint_executor()
+        fe.shutdown_fingerprint_executor()
 
 
 def test_no_docstring_claims_process_isolation():

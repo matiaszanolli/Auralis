@@ -46,7 +46,6 @@ __all__ = [
 from auralis.library.data_dir import get_data_dir  # noqa: E402
 from .path_allowlist import (  # noqa: E402  (split #6271; body-used below)
     DEFAULT_ALLOWED_DIRS,
-    _extra_allowed_dirs,
     _is_system_directory,
     get_allowed_directories,
 )

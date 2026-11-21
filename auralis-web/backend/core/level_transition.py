@@ -23,7 +23,6 @@ import numpy as np
 from .level_constants import (
     GAIN_RAMP_SECONDS,
     LEVEL_SMOOTHING_GATE_DB,
-    MAX_GAIN_CORRECTION_DB,
     _clamp_gain_db,
 )
 from .level_peak_guard import peak_safe_gain_db
