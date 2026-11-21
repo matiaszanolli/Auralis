@@ -47,8 +47,8 @@ def create_processor_config(job: ProcessingJob, sample_rate: int) -> UnifiedConf
     `config.adaptive.compressor`, `config.adaptive.target_lufs`,
     `config.adaptive.gain`, or `config.adaptive.genre_override`.
 
-    Until those readers exist (tracked as the wire-up follow-up for
-    #3490), any "eq" / "dynamics" / "level_matching" / "genre_override"
+    Until those readers exist (#5098, the wire-up follow-up to #3490), any
+    "eq" / "dynamics" / "level_matching" / "genre_override"
     keys in `job.settings` are logged at INFO and ignored. Prior code
     silently wrote them into dynamic attributes on `AdaptiveConfig` —
     the UI looked responsive while changing nothing audible.
@@ -61,8 +61,8 @@ def create_processor_config(job: ProcessingJob, sample_rate: int) -> UnifiedConf
     config.set_processing_mode(job.mode)
 
     # Log (don't silently drop) any UI settings the engine cannot consume.
-    # The frontend should hide these controls until the engine reads them
-    # (see #3490 follow-up). Logging at INFO so developers see it in dev.
+    # TODO(#5098): wire these into HybridProcessor; until then the frontend should
+    # hide the controls. Logging at INFO so developers see it in dev.
     unsupported: list[str] = []
     # Guard each lookup against an explicit `None` value, not just a missing
     # key — ProcessingSettings.model_dump() always includes "eq"/"dynamics"/

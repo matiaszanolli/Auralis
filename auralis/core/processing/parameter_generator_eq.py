@@ -69,7 +69,8 @@ def _band_gains(fp: dict[str, float]) -> dict[str, float]:
         # corpus center comes from the same truncated spectrum. On six reference
         # records it was the largest remaining EQ move on excellent masters (+1.8 dB
         # on one, +2.5 dB on another) and the cause of every remaining bench miss.
-        # Revisit once the fingerprint measures above 11 kHz (no tracking issue yet).
+        # TODO(#6356): revisit once the fingerprint measures above 11 kHz; #6356 owns
+        # the air-band behaviour, including the reference-cloud path's own air correction.
         'high_shelf_gain': 0.0,
     }
 
