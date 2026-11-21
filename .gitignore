@@ -139,7 +139,7 @@ docs/_build/
 config.local.py
 
 # Node.js and React (Frontend)
-auralis-web/frontend/node_modules/
+auralis-web/frontend/node_modules
 auralis-web/frontend/build/
 auralis-web/frontend/dist/
 auralis-web/frontend/.env
@@ -165,7 +165,7 @@ desktop/yarn-error.log*
 desktop/package-lock.json
 
 # Root Node.js files
-**/node_modules/
+**/node_modules
 # pnpm is the single package manager (#4357). Ignore stray npm/yarn lockfiles so
 # a `npm install` / `yarn` never commits a competing lockfile; CI enforces this
 # too (.github/workflows/lockfile-guard.yml).
