@@ -213,6 +213,10 @@ class FeatureExtractor(TemporalFeaturesMixin):
         magnitude = self._averaged_magnitude(audio)
 
         band_edges = np.logspace(np.log10(80), np.log10(self.sample_rate/2), n_bands + 1)
+        # logspace's endpoints round-trip through log10/pow, so Nyquist came out as
+        # 22049.999999999978 on one libm and 22050.0 on another, and int() put the
+        # top band's edge one bin apart: the feature depended on the machine.
+        band_edges[0], band_edges[-1] = 80.0, self.sample_rate / 2
         contrasts = []
 
         for i in range(n_bands):

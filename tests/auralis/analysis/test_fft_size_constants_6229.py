@@ -24,7 +24,9 @@ from auralis.analysis.spectrum_analyzer import SpectrumSettings
 
 # Captured from the extractor at the #6229 constants refactor and
 # re-baselined once for #6142's whole-track windowing (a deliberate
-# feature-semantics change). Pins the current contract so any future
+# feature-semantics change). The top contrast band was re-baselined for
+# #6709: its Nyquist edge now lands on bin 2048 on every libm, which is what
+# the CI runner already computed. Pins the current contract so any future
 # accidental drift (constants refactor, window change) fails loudly.
 GOLDEN = {
     "rms": 0.19790193438529968,
@@ -32,7 +34,7 @@ GOLDEN = {
     "spectral_bandwidth": 6978.863206657909,
     "spectral_flatness": 0.8782261229514094,
     "spectral_contrast": [0.8386013647541404, 25.90923017989843, 2.1065120786428446,
-                          0.88774991966784, 0.8200932320207355, 0.7793722677975894],
+                          0.88774991966784, 0.8200932320207355, 0.7789921895600855],
     "energy_low": 0.0016011476034777322,
     "energy_mid": 0.9421016003912444,
     "energy_high": 0.05629725200527733,
