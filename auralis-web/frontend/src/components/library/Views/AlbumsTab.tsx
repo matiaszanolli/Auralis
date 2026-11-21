@@ -79,7 +79,7 @@ export const AlbumsTab = ({
           fontSize: tokens.typography.fontSize.lg,
           fontWeight: tokens.typography.fontWeight.semibold,
           color: themeVars.textSecondary,
-          letterSpacing: '0.02em',
+          letterSpacing: tokens.typography.letterSpacing.loose,
         }}>
           Albums {/* Sorted by year (newest first) - can be enhanced later */}
         </Typography>

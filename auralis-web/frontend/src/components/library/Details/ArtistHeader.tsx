@@ -78,7 +78,7 @@ export const ArtistHeader = ({
             color: themeVars.textSecondary,
             fontSize: tokens.typography.fontSize.md,
             fontWeight: tokens.typography.fontWeight.medium,
-            letterSpacing: '0.02em',
+            letterSpacing: tokens.typography.letterSpacing.loose,
           }}>
             {artist.albumCount && `${artist.albumCount} ${artist.albumCount === 1 ? 'Album' : 'Albums'}`}
             {artist.albumCount && artist.trackCount && ' • '}

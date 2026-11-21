@@ -101,7 +101,7 @@ const Subtitle = styled(Typography)({
   color: themeVars.textSecondary,
   marginBottom: tokens.spacing.md,
   fontWeight: tokens.typography.fontWeight.semibold,
-  letterSpacing: '-0.01em',                          // Tight tracking for headers
+  letterSpacing: tokens.typography.letterSpacing.tight, // Tight tracking for headers
 }) as typeof Typography;
 
 const ActionsContainer = styled(Box)({

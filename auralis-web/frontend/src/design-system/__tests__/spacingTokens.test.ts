@@ -157,6 +157,9 @@ describe('no doubled px after a px-valued token (#5644)', () => {
  *  - 2/3/4/6px radii: the radius scale starts at 8px (sm). Those are skeleton
  *    bars, progress tracks and chips that are meant to be tighter than any
  *    component radius, so they stay literal.
+ *  - letter-spacing outside the `tight` / `loose` steps (0.5px, 1px, 0.05em, -0.02em, 0.01em ...):
+ *    uppercase labels, table headers and display text tracked to taste, each a one-off with no
+ *    shared meaning, so no new step is minted for them (#6447).
  *  - 1.1 / 1.4 / 1.6 line-heights: between the 1.2 / 1.5 / 1.75 steps by design
  *    (a tight heading, dense row text, long-form description).
  *  - spin / rotate / shimmer / breathe / playbackShimmer durations: no animation
@@ -200,6 +203,16 @@ describe('values equal to a token use the token (#5648)', () => {
     expect(wrongScale.test("margin: tokens.spacing.xs, borderRadius: '4px',")).toBe(false);
   });
 
+  it('no literal letterSpacing equals a typography.letterSpacing step (#6447)', () => {
+    const exactMatch = /letterSpacing:\s*['"](?:-0\.01em|0\.02em)['"]/;
+    expect(offenders(exactMatch)).toEqual([]);
+
+    expect(exactMatch.test("letterSpacing: '-0.01em',")).toBe(true);
+    expect(exactMatch.test('letterSpacing: "0.02em"')).toBe(true);
+    expect(exactMatch.test("letterSpacing: '0.05em',")).toBe(false);
+    expect(exactMatch.test('letterSpacing: tokens.typography.letterSpacing.tight,')).toBe(false);
+  });
+
   it('no literal lineHeight equals a typography.lineHeight step', () => {
     expect(offenders(/lineHeight:\s*(?:1\.2|1\.5|1\.75)\s*[,}\n]/)).toEqual([]);
   });
@@ -213,6 +226,10 @@ describe('values equal to a token use the token (#5648)', () => {
       '8px',
       '12px',
       '16px',
+    ]);
+    expect([tokens.typography.letterSpacing.tight, tokens.typography.letterSpacing.loose]).toEqual([
+      '-0.01em',
+      '0.02em',
     ]);
     expect(tokens.typography.lineHeight.normal).toBe(1.5);
     expect(tokens.animations.pulse.duration).toBe('2s');
