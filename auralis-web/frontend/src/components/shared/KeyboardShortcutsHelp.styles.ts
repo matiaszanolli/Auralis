@@ -25,7 +25,7 @@ export const ShortcutKey = styled(Box)(() => ({
   background: themeVars.surfaceSecondary,
   border: `1px solid ${tokens.colors.border.heavy}`,
   borderRadius: tokens.borderRadius.sm,
-  padding: `${tokens.spacing.sm} 12px`,
+  padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
   fontFamily: tokens.typography.fontFamily.mono,
   fontSize: tokens.typography.fontSize.base,
   fontWeight: tokens.typography.fontWeight.bold,
@@ -52,7 +52,7 @@ export const CategoryTitle = styled(Typography)(() => ({
 
 export const EmptyStateBox = styled(Box)(() => ({
   textAlign: 'center',
-  padding: `40px ${tokens.spacing.md}`,
+  padding: `${tokens.spacing.xxl} ${tokens.spacing.md}`,
   color: themeVars.textMuted,
 }));
 

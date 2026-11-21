@@ -78,7 +78,7 @@ export const ResultsContainer = styled(Paper)({
  */
 export const StyledListItemButton = styled(ListItemButton)({
   borderRadius: '4px', // a row, tighter than the 8px component floor (#5648)
-  margin: `2px ${tokens.spacing.xs}`,
+  margin: `${tokens.spacing.xxs} ${tokens.spacing.xs}`,
   '&:hover': {
     backgroundColor: tokens.colors.opacityScale.accent.ultraLight,
     '& .result-title': {

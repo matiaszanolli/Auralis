@@ -100,6 +100,46 @@ describe('no new raw spacing literals (#4663)', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('no template-literal padding/margin/gap re-types a spacing step (#6449)', async () => {
+    // The scan above matches `padding: '` only, so a backtick value that mixes a token with a
+    // literal equal to another step (`${tokens.spacing.sm} 12px`) slipped past it. A px literal
+    // inside such a template is an offender when its value is a step of the scale; calc() offsets
+    // (`calc(${tokens.spacing.md} - 3px)`) are arithmetic, not steps, and are skipped.
+    const steps = new Set<string>(Object.values(tokens.spacing));
+    const stepLiteralsIn = (source: string): string[] =>
+      [...source.matchAll(/\b\w*(?:padding|Padding|margin|Margin|gap|Gap)\w*:\s*`([^`]*)`/g)]
+        .map((m) => m[1])
+        .filter((value) => !value.includes('calc('))
+        .flatMap((value) => [...value.replace(/\$\{[^}]*\}/g, ' ').matchAll(/(?<![\w.-])\d+px\b/g)])
+        .map((m) => m[0])
+        .filter((px) => steps.has(px));
+
+    // The scan sees what it exists for, and leaves alone what it must.
+    expect(stepLiteralsIn('padding: `${tokens.spacing.sm} 12px`,')).toEqual(['12px']);
+    expect(stepLiteralsIn('margin: `2px ${tokens.spacing.xs}`,')).toEqual(['2px']);
+    expect(stepLiteralsIn('columnGap: `${tokens.spacing.sm} 4px`')).toEqual(['4px']);
+    expect(stepLiteralsIn('padding: `${tokens.spacing.cluster} 48px`,')).toEqual([]); // off-scale, documented
+    expect(stepLiteralsIn('paddingLeft: `calc(${tokens.spacing.md} - 4px)`,')).toEqual([]);
+    expect(stepLiteralsIn('padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,')).toEqual([]);
+    expect(stepLiteralsIn("border: `1px solid ${tokens.colors.border.heavy}`,")).toEqual([]);
+
+    const modules = import.meta.glob('/src/**/*.{ts,tsx}', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string>;
+    const stripComments = (src: string) =>
+      src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+
+    const offenders = Object.entries(modules)
+      .filter(([path]) => !path.includes('__tests__') && !/\.test\.tsx?$/.test(path))
+      .flatMap(([path, source]) =>
+        stepLiteralsIn(stripComments(source)).map((px) => `${path.replace(/^\/src\//, '')}: ${px}`)
+      );
+
+    expect(offenders).toEqual([]);
+  });
+
   it('PlaylistSection keeps only its 48px nesting indent', async () => {
     // The one partial case: three of its four values tokenised, the indent did
     // not. It is deliberately NOT on the allowlist above, because the file no
