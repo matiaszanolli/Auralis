@@ -20,6 +20,7 @@ from ..models import Album, Artist, Track
 from .album_artwork import AlbumArtworkMixin
 from .base import correlated_count, correlated_sum, sort_terms
 from .text_search import contains_text
+from .track_repository import nested_track_options
 
 
 def _total_duration_subquery() -> Any:
@@ -52,9 +53,7 @@ def _album_order_by(order_by: str, order: str | None) -> tuple[Any, ...]:
 # relationship access downstream otherwise degrades to an empty wire value.
 _ALBUM_DETAIL_OPTIONS = (
     joinedload(Album.artist),
-    selectinload(Album.tracks).selectinload(Track.genres),
-    selectinload(Album.tracks).selectinload(Track.artists),
-    selectinload(Album.tracks).joinedload(Track.album),
+    *nested_track_options(Album.tracks),
 )
 
 # Paginated/listing reads: track_count_expr/total_duration_expr cover what

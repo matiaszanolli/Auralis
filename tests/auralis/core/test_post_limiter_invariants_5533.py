@@ -17,21 +17,31 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parents[3]
 
-# (file, mode label) for each converted site. The adaptive and hybrid
-# guards live in auralis/core/processing/mode_dispatch.py (#6272) and are
-# exercised behaviorally by tests/regression/test_sample_count_invariant.py.
-_SITES = [
+# The three mode bodies end in one helper, finish_mode_output (#6618), so the
+# invariant lives in a single raise. (file, mode label) names each caller; the
+# adaptive and hybrid ones are also exercised behaviorally by
+# tests/regression/test_sample_count_invariant.py.
+_HELPER_FILE = "auralis/core/hybrid_stage_dispatch.py"
+_CALLERS = [
     ("auralis/core/hybrid_stage_dispatch.py", "reference"),
+    ("auralis/core/processing/mode_dispatch.py", "adaptive"),
+    ("auralis/core/processing/mode_dispatch.py", "hybrid"),
 ]
 
 
-@pytest.mark.parametrize("rel,mode", _SITES)
-def test_shape_invariants_are_real_raises(rel, mode):
+def test_shape_invariant_is_a_real_raise():
     """The invariant must be a raise, not an assert (asserts vanish under -O)."""
+    src = (_ROOT / _HELPER_FILE).read_text()
+    assert "assert processed.shape == target_audio.shape" not in src
+    assert "Sample count mismatch after limiter ({mode})" in src
+    assert "raise RuntimeError(" in src
+
+
+@pytest.mark.parametrize("rel,mode", _CALLERS)
+def test_every_mode_ends_in_the_shared_tail(rel, mode):
+    """A mode that stopped calling the helper would silently lose the guard."""
     src = (_ROOT / rel).read_text()
-    assert f"assert processed.shape == target_audio.shape" not in src, rel
-    assert f"Sample count mismatch after limiter ({mode})" in src, rel
-    assert "raise RuntimeError(" in src, rel
+    assert f'finish_mode_output(processor, processed, target_audio, "{mode}")' in src, rel
 
 
 def test_reference_dispatch_raises_on_limiter_shape_change(monkeypatch):

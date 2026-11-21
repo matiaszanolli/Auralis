@@ -268,10 +268,7 @@ class ContentAnalyzer(GenreClassificationMixin):
 
         for i in range(0, len(audio) - window_size, window_size // 2):
             window = audio[i:i + window_size]
-            if audio.ndim == 2:
-                window_rms = np.sqrt(np.mean(np.mean(window, axis=1) ** 2))
-            else:
-                window_rms = np.sqrt(np.mean(window ** 2))
+            window_rms = np.sqrt(np.mean(to_mono(window) ** 2))
             rms_values.append(window_rms)
 
         if len(rms_values) < 2:

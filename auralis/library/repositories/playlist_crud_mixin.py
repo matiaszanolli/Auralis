@@ -16,22 +16,17 @@ project's 300-line convention. Pairs with ``playlist_query_mixin.py``
 from typing import Any
 
 from sqlalchemy import insert, select
-from sqlalchemy.orm import selectinload
 
 from ...utils.logging import info
 from ..models import Playlist, Track
 from ..models.base import track_playlist
 from .base import BaseRepository
-from .track_repository import _iter_in_batches
+from .track_repository import _iter_in_batches, nested_track_options
 
 # Named eager-load constants (#5028's rule, extended to playlists by #6212):
 # module scope so a future playlist read path can't silently omit the tuple —
 # inline copies are how #4236's DetachedInstanceError happened elsewhere.
-_PLAYLIST_DETAIL_OPTIONS = (
-    selectinload(Playlist.tracks).selectinload(Track.artists),
-    selectinload(Playlist.tracks).selectinload(Track.genres),
-    selectinload(Playlist.tracks).selectinload(Track.album),
-)
+_PLAYLIST_DETAIL_OPTIONS = nested_track_options(Playlist.tracks)
 
 
 

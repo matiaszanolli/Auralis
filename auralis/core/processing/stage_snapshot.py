@@ -17,6 +17,7 @@ import numpy as np
 from scipy.fft import rfft, rfftfreq
 
 from .base import FullAudioMeasurement, StereoWidthProcessor
+from ...dsp.utils.audio_info import to_mono
 from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.logging import debug
 
@@ -69,7 +70,7 @@ def _compute_3band_energy(audio: np.ndarray, sample_rate: int) -> tuple[float, f
     """
     bass = mid = high = 0.0
     for chunk in _analysis_windows(audio, sample_rate):
-        signal = chunk.mean(axis=1) if chunk.ndim == 2 else chunk
+        signal = to_mono(chunk)
         power = np.abs(rfft(signal * np.hanning(len(signal)))) ** 2
         freqs = rfftfreq(len(signal), d=1.0 / sample_rate)
         bass += power[freqs < 250].sum()

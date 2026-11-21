@@ -110,6 +110,34 @@ def validate_and_normalize_input(
     return remove_dc(target_audio, processor.config.internal_sample_rate), None
 
 
+def finish_mode_output(
+    processor: "HybridProcessor",
+    processed: np.ndarray,
+    target_audio: np.ndarray,
+    mode: str,
+) -> np.ndarray:
+    """The tail every HybridProcessor mode ends with (#6618).
+
+    Brick-wall limiter, then the sample-count invariant the gapless engine
+    depends on, then the finite check. Three copies of this lived in the mode
+    bodies; a guard added to one had to be remembered in the other two.
+    """
+    # Final peak control: the output never clips and stays within the safe range.
+    processed = processor.brick_wall_limiter.process(processed)
+
+    # Sample-count invariant: the limiter must preserve length (fixes #2519).
+    # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
+    if processed.shape != target_audio.shape:
+        raise RuntimeError(
+            f"Sample count mismatch after limiter ({mode}): "
+            f"expected {target_audio.shape}, got {processed.shape}"
+        )
+
+    # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
+    # silently masking them with zero-replacement (fixes #2520).
+    return validate_audio_finite(processed, context=f"{mode} mode output", repair=False)
+
+
 def process_reference_mode(
     processor: "HybridProcessor",
     target_audio: np.ndarray,
@@ -124,17 +152,4 @@ def process_reference_mode(
     # Delegate to reference matching
     processed = apply_reference_matching(target_audio, reference_audio)
 
-    # Apply brick-wall limiter for final peak control (same as adaptive/hybrid)
-    processed = processor.brick_wall_limiter.process(processed)
-    # raise, not assert — asserts vanish under python -O (#5533, cf. #5511).
-    if processed.shape != target_audio.shape:
-        raise RuntimeError(
-            f"Sample count mismatch after limiter (reference): "
-            f"expected {target_audio.shape}, got {processed.shape}"
-        )
-
-    # Fail fast on NaN/Inf in mastering output — surface DSP bugs rather than
-    # silently masking them with zero-replacement (fixes #2520).
-    processed = validate_audio_finite(processed, context="reference mode output", repair=False)
-
-    return processed
+    return finish_mode_output(processor, processed, target_audio, "reference")
