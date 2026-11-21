@@ -41,6 +41,8 @@ export const SEEK_RETRY_DELAY_MS = 1000;
 interface PendingSeek {
   trackId: number;
   position: number;
+  /** The clock before the seek, restored if the backend rejects it for good (#6589). */
+  from: number;
   /** Already re-sent once after a rate-limit rejection. */
   retried: boolean;
 }
@@ -87,8 +89,11 @@ export function useEnhancedSeek({
     // Set seeking state
     setIsSeeking(true);
 
-    // Stop current playback and clear buffer
+    // Stop current playback and clear buffer. stopPlayback() zeroes the clock; hold the target
+    // until audio_stream_start re-arms it with the backend's effective position (#5860), or the
+    // clock, keyboard-seek base and reconnect resume all read 0:00 meanwhile (#6589).
     core.playbackEngineRef.current?.stopPlayback();
+    core.playbackEngineRef.current?.setSeekOffset(seek.position);
     core.pcmBufferRef.current?.reset();
 
     // Reset streaming metadata for new seek stream
@@ -130,8 +135,9 @@ export function useEnhancedSeek({
 
     // A new target supersedes a scheduled retry of an older one.
     clearRetry();
-    sendSeek({ trackId: currentTrackInfoRef.current.trackId, position, retried: false });
-  }, [isConnectedRef, currentTrackInfoRef, clearRetry, sendSeek]);
+    const from = core.playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0;
+    sendSeek({ trackId: currentTrackInfoRef.current.trackId, position, from, retried: false });
+  }, [isConnectedRef, currentTrackInfoRef, clearRetry, sendSeek, core.playbackEngineRef]);
 
   // seek_started clears isSeeking as soon as the backend acknowledges the seek
   // request (fallback for a lost audio_stream_start #2873). The shared
@@ -147,7 +153,10 @@ export function useEnhancedSeek({
       if (message.command !== 'seek' || rejected === null) return;
       pendingSeekRef.current = null;
       setIsSeeking(false);
-      if (message.error !== 'rate_limit_exceeded' || rejected.retried) return;
+      if (message.error !== 'rate_limit_exceeded' || rejected.retried) {
+        core.playbackEngineRef.current?.setSeekOffset(rejected.from); // the seek never happened
+        return;
+      }
       clearRetry();
       retryTimerRef.current = setTimeout(() => {
         retryTimerRef.current = null;

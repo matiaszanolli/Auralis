@@ -204,3 +204,76 @@ describe('useEnhancedSeek – rejected seek (#5885)', () => {
     expect(send).toHaveBeenCalledWith({ type: 'seek', data: { track_id: 3, position: 12 } });
   });
 });
+
+// ---------------------------------------------------------------------------
+// The clock holds the seek target until the ack, not 0:00 (#6589)
+// ---------------------------------------------------------------------------
+
+describe('useEnhancedSeek – the clock between the click and audio_stream_start (#6589)', () => {
+  /** Mimics PlaybackPositionTracker: stop zeroes the offset, a stopped engine reports the held offset. */
+  function makeEngine(position: number) {
+    const engine = {
+      offset: position,
+      stopPlayback: vi.fn(() => { engine.offset = 0; }),
+      setSeekOffset: vi.fn((seconds: number) => { engine.offset = seconds; }),
+      getCurrentPlaybackTime: () => engine.offset,
+    };
+    return engine;
+  }
+
+  function setup() {
+    const handlers: Record<string, (message: any) => void> = {};
+    const subscribe = vi.fn((type: string, h: (message: any) => void) => {
+      handlers[type] = h;
+      return vi.fn();
+    });
+    const engine = makeEngine(10);
+    const core = makeCore();
+    core.playbackEngineRef.current = engine as any;
+    const { result } = renderHook(() =>
+      useEnhancedSeek({
+        wsContext: makeWsContext(true, subscribe),
+        core,
+        currentTrackInfoRef: { current: { trackId: 7 } } as any,
+        setIsSeeking: vi.fn(),
+      })
+    );
+    const reject = (error: string) =>
+      act(() => handlers.error!({ type: 'error', error, message: 'x', command: 'seek' }));
+    return { result, engine, reject };
+  }
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('reads the requested target, not 0, as soon as the seek is sent', () => {
+    const { result, engine } = setup();
+
+    act(() => result.current.seekTo(42));
+
+    expect(engine.stopPlayback).toHaveBeenCalledOnce();
+    expect(engine.getCurrentPlaybackTime()).toBe(42);
+  });
+
+  it('a seek the backend rejects for good puts the clock back where it was', () => {
+    const { result, engine, reject } = setup();
+    act(() => result.current.seekTo(42));
+
+    reject('internal_error');
+
+    expect(engine.getCurrentPlaybackTime()).toBe(10);
+  });
+
+  it('a rate-limited seek keeps the target through its retry, and rolls back only if that fails too', () => {
+    const { result, engine, reject } = setup();
+    act(() => result.current.seekTo(42));
+
+    reject('rate_limit_exceeded');
+    expect(engine.getCurrentPlaybackTime()).toBe(42);
+    act(() => vi.advanceTimersByTime(SEEK_RETRY_DELAY_MS));
+    expect(engine.getCurrentPlaybackTime()).toBe(42);
+
+    reject('rate_limit_exceeded');
+    expect(engine.getCurrentPlaybackTime()).toBe(10);
+  });
+});
