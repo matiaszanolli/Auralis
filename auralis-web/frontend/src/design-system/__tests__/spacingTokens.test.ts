@@ -188,6 +188,18 @@ describe('values equal to a token use the token (#5648)', () => {
     expect(offenders(/borderRadius:\s*['"](?:8|12|16)px['"]/)).toEqual([]);
   });
 
+  it('no borderRadius reads the spacing scale (#6445)', () => {
+    // Radii move with the radius scale, not the spacing scale; the literal guard above cannot see a
+    // token-category mix-up, so this one matches the expression instead of a value.
+    const wrongScale = /[Rr]adius[A-Za-z]*:[^,\n}]*tokens\.spacing\./;
+    expect(offenders(wrongScale)).toEqual([]);
+
+    expect(wrongScale.test('borderRadius: tokens.spacing.md,')).toBe(true);
+    expect(wrongScale.test('borderRadius: `${tokens.spacing.xs} 0`,')).toBe(true);
+    expect(wrongScale.test('borderRadius: tokens.borderRadius.md,')).toBe(false);
+    expect(wrongScale.test("margin: tokens.spacing.xs, borderRadius: '4px',")).toBe(false);
+  });
+
   it('no literal lineHeight equals a typography.lineHeight step', () => {
     expect(offenders(/lineHeight:\s*(?:1\.2|1\.5|1\.75)\s*[,}\n]/)).toEqual([]);
   });

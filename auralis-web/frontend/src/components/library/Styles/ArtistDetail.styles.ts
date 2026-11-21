@@ -22,6 +22,6 @@ export { ArtistAvatarCircle } from './Avatar.styles';
  */
 export const TracksTableContainer = styled(TableContainer)({
   background: tokens.colors.opacityScale.accent.ultraLight,
-  borderRadius: tokens.spacing.sm,
+  borderRadius: tokens.borderRadius.sm,
   backdropFilter: 'blur(10px)'
 });

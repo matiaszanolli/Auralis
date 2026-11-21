@@ -68,7 +68,7 @@ export const ResultsContainer = styled(Paper)({
   background: themeVars.surfacePrimary,
   backdropFilter: 'blur(20px)',
   border: `1px solid ${tokens.colors.opacityScale.accent.lighter}`,
-  borderRadius: tokens.spacing.sm,
+  borderRadius: tokens.borderRadius.sm,
   boxShadow: containerShadows.resultsPanel,
   zIndex: tokens.zIndex.dropdown
 });
@@ -77,7 +77,7 @@ export const ResultsContainer = styled(Paper)({
  * StyledListItemButton - Result row with hover effects
  */
 export const StyledListItemButton = styled(ListItemButton)({
-  borderRadius: tokens.spacing.xs,
+  borderRadius: '4px', // a row, tighter than the 8px component floor (#5648)
   margin: `2px ${tokens.spacing.xs}`,
   '&:hover': {
     backgroundColor: tokens.colors.opacityScale.accent.ultraLight,

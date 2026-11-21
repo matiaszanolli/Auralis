@@ -7,7 +7,7 @@ import { themeVars } from '@/theme/semanticTheme';
 export const StyledListItemButton = styled(ListItemButton, {
   shouldForwardProp: (prop) => prop !== 'isDraggingOver' && prop !== 'selected',
 })<{ isDraggingOver?: boolean; selected?: boolean }>(({ isDraggingOver, selected }) => ({
-  borderRadius: tokens.spacing.xs,
+  borderRadius: '4px', // a row, tighter than the 8px component floor (#5648)
   marginBottom: tokens.spacing.xxs,
   padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
   transition: tokens.transitions.hover_out,
@@ -49,7 +49,7 @@ export const DropIndicator = styled(Box)({
   justifyContent: 'center',
   backgroundColor: tokens.colors.opacityScale.accent.veryLight,
   border: `2px dashed ${tokens.colors.opacityScale.accent.veryStrong}`,
-  borderRadius: tokens.spacing.xs,
+  borderRadius: '4px', // matches the row it overlays
   pointerEvents: 'none',
   zIndex: tokens.zIndex.content,
 });

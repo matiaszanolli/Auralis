@@ -16,7 +16,7 @@ import { themeVars } from '@/theme/semanticTheme';
  */
 export const ListLoadingContainer = styled(Paper)({
   background: themeVars.surfaceSecondary,
-  borderRadius: tokens.spacing.md,
+  borderRadius: tokens.borderRadius.md,
   overflow: 'hidden',
   padding: tokens.spacing.sm,
 });
