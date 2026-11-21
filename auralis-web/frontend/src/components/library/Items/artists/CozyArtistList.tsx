@@ -33,6 +33,7 @@ import { ArtistInfoModal } from './ArtistInfoModal';
 import { useArtistsQuery } from '@/hooks/library';
 import { LIBRARY_CHANGE_MESSAGES } from '@/hooks/library/useLibraryChangeSync';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
+import { useReconnected } from '@/hooks/websocket/useReconnected';
 import { useGroupedArtists } from '@/hooks/shared';
 import { useContextMenuActions } from './useContextMenuActions';
 import { useContextMenu } from '@/components/shared/ContextMenu';
@@ -65,6 +66,7 @@ export const CozyArtistList = ({ onArtistClick, search }: CozyArtistListProps) =
   // pages in place when the library changes while the list is mounted (#5871).
   const refreshArtists = useCallback(() => void refresh(), [refresh]);
   useWebSocketMessages(LIBRARY_CHANGE_MESSAGES, refreshArtists);
+  useReconnected(refreshArtists); // changes missed while the socket was down (#6581)
 
   // Artist grouping by first letter
   const { groupedArtists, sortedLetters } = useGroupedArtists(artists);

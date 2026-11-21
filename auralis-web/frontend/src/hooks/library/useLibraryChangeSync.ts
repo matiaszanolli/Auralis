@@ -8,12 +8,18 @@
  * metadata edit. Mounted once, app-wide; the artist list refreshes its own
  * hook-local state on the same frames (CozyArtistList).
  *
+ * Frames missed while the WebSocket was down are never replayed, so a reconnect
+ * re-invalidates the same caches and refreshes the mounted artwork (#6581); the
+ * artist and track lists resync their own state on reconnect too.
+ *
  * @module hooks/library/useLibraryChangeSync
  */
 
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
+import { useReconnected } from '@/hooks/websocket/useReconnected';
+import { refreshAllArtwork } from '@/hooks/library/useArtworkUpdates';
 import type { MessageOf } from '@/contexts/WebSocketContext';
 
 type LibraryChangeMessageType =
@@ -49,6 +55,13 @@ export function useLibraryChangeSync(): void {
   );
 
   useWebSocketMessages(LIBRARY_CHANGE_MESSAGES, handleChange);
+
+  const handleReconnect = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['albums'] });
+    void queryClient.invalidateQueries({ queryKey: ['album-fingerprint'] });
+    refreshAllArtwork();
+  }, [queryClient]);
+  useReconnected(handleReconnect);
 }
 
 export default useLibraryChangeSync;

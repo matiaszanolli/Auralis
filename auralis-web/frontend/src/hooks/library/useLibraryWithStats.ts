@@ -8,6 +8,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { useWebSocketMessages } from '@/hooks/websocket/useWebSocketMessages';
+import { useReconnected } from '@/hooks/websocket/useReconnected';
 import { isElectron } from '@/utils/electron';
 import type { LibraryStats, LibraryTrack } from '@/types/domain';
 import { useLibraryPagination } from './useLibraryPagination';
@@ -85,6 +86,7 @@ export const useLibraryWithStats = ({
   }, [refreshTracks, includeStats, refetchStats]);
 
   useWebSocketMessages(['library_updated'], handleLibraryUpdated);
+  useReconnected(handleLibraryUpdated); // a library_updated missed while the socket was down (#6581)
 
   return {
     ...paginationState,

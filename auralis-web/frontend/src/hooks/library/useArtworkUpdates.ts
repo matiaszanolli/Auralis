@@ -37,6 +37,15 @@ function bumpRevision(albumId: number): void {
   }
 }
 
+/**
+ * Re-fetch every artwork this session has shown or revised, after a WebSocket outage (#6581).
+ * An `artwork_updated` frame missed while disconnected named an album this client cannot know,
+ * so all of them get a fresh cache-busting revision.
+ */
+export function refreshAllArtwork(): void {
+  for (const albumId of new Set([...revisionMap.keys(), ...albumListeners.keys()])) bumpRevision(albumId);
+}
+
 function getRevisionSnapshot(albumId: number): number {
   return revisionMap.get(albumId) ?? 0;
 }
