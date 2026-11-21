@@ -19,6 +19,8 @@ from .errors import (
     ResourceNotFound,
     require_collaborators,
 )
+from player_state import PlaybackState
+
 from .queue_service_base import QueueServiceBase
 
 logger = logging.getLogger(__name__)
@@ -231,6 +233,14 @@ class QueueEditMixin(QueueServiceBase):
                 index=index,
                 queue_size=len(updated_queue),
             )
+            # The engine is stopped now (on the successor at 0, or empty); after the queue mirror
+            # above, a snapshot must not keep saying PLAYING at the old position (#6594).
+            if was_current and self.player_state_manager is not None:
+                try:  # best-effort like the mirror: the removal already happened
+                    await self.player_state_manager.set_playing(False, broadcast=False)  # stops the ticker
+                    await self.player_state_manager.update_state(state=PlaybackState.STOPPED, current_time=0.0)
+                except Exception as e:
+                    logger.warning(f"Could not record the stopped engine in PlayerState: {e}")
 
             logger.info(f"Track at index {index} removed from queue")
             return {

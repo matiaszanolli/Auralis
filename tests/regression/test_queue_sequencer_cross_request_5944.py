@@ -57,6 +57,9 @@ class _World:
                     world.first_broadcast_started.set()
                     await world.release_first_broadcast.wait()
 
+            def get_state(self):  # read for the shuffle flag the engine may have reset (#6592)
+                return SimpleNamespace(shuffle_enabled=False)
+
             async def set_track(self, *_a, **_kw):
                 return SimpleNamespace(kind="track")
 

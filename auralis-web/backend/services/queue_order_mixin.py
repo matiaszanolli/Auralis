@@ -136,21 +136,6 @@ class QueueOrderMixin(QueueServiceBase):
             logger.error(f"Failed to move track in queue: {e}")
             raise
 
-    async def _record_shuffle_state(self, enabled: bool) -> None:
-        """Mirror the engine's shuffle flag into PlayerState.
-
-        Nothing wrote ``shuffle_enabled`` there, so every ``player_state`` snapshot carried
-        False and the next one (a repeat toggle, a reconnect push) switched the UI's shuffle
-        off while the queue stayed shuffled (#5899). Best-effort: a failed state update must
-        not fail the shuffle that already happened.
-        """
-        if self.player_state_manager is None:
-            return
-        try:
-            await self.player_state_manager.update_state(shuffle_enabled=enabled)
-        except Exception as e:
-            logger.warning(f"Could not record shuffle state in PlayerState: {e}")
-
     async def shuffle_queue(self) -> dict[str, Any]:
         """
         Shuffle the playback queue (keeps current track in place).
@@ -212,27 +197,25 @@ class QueueOrderMixin(QueueServiceBase):
             queue_manager = self.audio_player.queue
 
             async with self._queue_mutation():
-                if not queue_manager.unshuffle():
-                    # The snapshot is gone (an edit dropped it) but shuffle is off now, and the
-                    # UI has already flipped; keep PlayerState in step (#5936).
-                    await self._record_shuffle_state(False)
-                    return {
-                        "message": "No shuffle to undo",
-                        "queue_size": queue_manager.get_queue_size()
-                    }
-
+                restored = queue_manager.unshuffle()
                 updated_queue = queue_manager.get_queue()
 
+            if not restored:
+                # The snapshot is gone (an edit dropped it) but shuffle is off now, and the
+                # UI has already flipped; keep PlayerState in step (#5936) - after leaving the
+                # engine lock, since this broadcasts (#4825, #6595).
+                await self._follow_engine_shuffle_off(False)
+                return {
+                    "message": "No shuffle to undo",
+                    "queue_size": len(updated_queue)
+                }
+
+            # Also sends queue_shuffled{false} and records it in PlayerState: the engine's flag is
+            # off now, and _broadcast_queue_changed follows it (#6592).
             await self._broadcast_queue_changed(
                 action="unshuffled",
                 queue_size=len(updated_queue),
             )
-            await broadcast_typed(
-                self.connection_manager,
-                "queue_shuffled",
-                {"is_shuffled": False},
-            )
-            await self._record_shuffle_state(False)
 
             logger.info(f"Queue unshuffled ({len(updated_queue)} tracks)")
             return {

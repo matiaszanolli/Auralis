@@ -225,6 +225,10 @@ class QueueSetMixin(QueueServiceBase):
 
             for snapshot in deferred_snapshots:
                 await self.player_state_manager.broadcast_state(snapshot)
+            # The engine's set_queue cleared its shuffle flag (#5728); PlayerState follows (#6592).
+            await self._follow_engine_shuffle_off(
+                bool(getattr(getattr(self.audio_player, 'queue', None), 'shuffle_enabled', True))
+            )
 
             logger.info(f"Queue set to {len(track_infos)} tracks, starting at index {start_index}")
             return result

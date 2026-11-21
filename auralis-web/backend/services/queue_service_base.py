@@ -176,18 +176,51 @@ class QueueServiceBase:
         hydration. The edit itself stays outside the lock (#4825).
         """
         async with queue_set_sequencer.broadcast_lock:
-            await self._broadcast_queue_changed_locked(action, **extras)
+            engine_shuffled = await self._broadcast_queue_changed_locked(action, **extras)
+        await self._follow_engine_shuffle_off(engine_shuffled)
+
+    async def _record_shuffle_state(self, enabled: bool) -> None:
+        """Mirror the engine's shuffle flag into PlayerState.
+
+        Nothing wrote ``shuffle_enabled`` there, so every ``player_state`` snapshot carried
+        False and the next one (a repeat toggle, a reconnect push) switched the UI's shuffle
+        off while the queue stayed shuffled (#5899). Best-effort: a failed state update must
+        not fail the shuffle that already happened.
+        """
+        if self.player_state_manager is None:
+            return
+        try:
+            await self.player_state_manager.update_state(shuffle_enabled=enabled)
+        except Exception as e:
+            logger.warning(f"Could not record shuffle state in PlayerState: {e}")
+
+    async def _follow_engine_shuffle_off(self, engine_shuffled: bool) -> None:
+        """Follow an engine whose shuffle flag a queue replacement reset (#6592).
+
+        ``QueueManager.clear()`` (set_queue, clear_queue, load_playlist) turns shuffle off (#5728),
+        but only the shuffle endpoints wrote ``PlayerState.shuffle_enabled`` and told clients, so
+        the UI kept showing shuffle on over an ordered queue. Only that on-to-off transition is
+        handled here; the shuffle endpoints record their own changes. Never under the engine lock.
+        """
+        psm = self.player_state_manager
+        if engine_shuffled or psm is None or getattr(psm.get_state(), 'shuffle_enabled', None) is not True:
+            return
+        await broadcast_typed(self.connection_manager, "queue_shuffled", {"is_shuffled": False})
+        await self._record_shuffle_state(False)
 
     async def _broadcast_queue_changed_locked(
         self,
         action: QueueChangeAction,
         **extras: Unpack[QueueChangedExtras],
-    ) -> None:
+    ) -> bool:
+        """Read, hydrate, mirror and send; returns the engine's shuffle flag (True when unknown)."""
+        engine_shuffled = True
         try:
             if hasattr(self.audio_player, 'queue'):
                 queue_obj = self.audio_player.queue
                 if hasattr(queue_obj, 'get_queue_info'):
                     info = await asyncio.to_thread(queue_obj.get_queue_info)
+                    engine_shuffled = bool(info.get('shuffle_enabled', True))
                     raw_tracks = info.get('tracks', [])
                     current_index = info.get('current_index', -1)
                 else:
@@ -251,3 +284,4 @@ class QueueServiceBase:
             # Omit rather than send an empty queue, which a client would apply.
             del payload['tracks']
         await broadcast_typed(self.connection_manager, "queue_changed", payload)
+        return engine_shuffled

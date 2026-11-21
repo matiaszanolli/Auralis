@@ -23,12 +23,26 @@ from auralis.player.queue_controller import QueueController  # noqa: E402
 pytestmark = pytest.mark.asyncio
 
 
+class _StateManager:
+    """Records shuffle_enabled like PlayerStateManager, so get_state() reflects update_state()."""
+
+    def __init__(self, update_state=None):
+        self.shuffle_enabled = False
+        self.update_state = update_state or AsyncMock(side_effect=self._update)
+
+    async def _update(self, **fields):
+        self.shuffle_enabled = fields.get("shuffle_enabled", self.shuffle_enabled)
+
+    def get_state(self):
+        return SimpleNamespace(shuffle_enabled=self.shuffle_enabled)
+
+
 def _service(update_state=None):
     controller = QueueController(lambda: None)
     controller.set_queue([
         {"id": i, "title": f"T{i}", "filepath": f"/m/{i}.flac"} for i in range(1, 8)
     ], 0)
-    state_manager = SimpleNamespace(update_state=update_state or AsyncMock())
+    state_manager = _StateManager(update_state)
     connection_manager = MagicMock()
     connection_manager.broadcast = AsyncMock()
     service = QueueService(
