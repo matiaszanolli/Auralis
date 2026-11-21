@@ -1,8 +1,7 @@
 """
 Regression test for #4928 — FFT-EQ zero-padding must preserve input rank.
 
-Pre-fix, `apply_eq_gains` (filters.py), `apply_eq_gains_vectorized`
-(vectorized_processor.py), and the now-deleted `ParallelEQProcessor`
+Pre-fix, `apply_eq_gains` (filters.py) and two sibling EQ implementations
 padded a short chunk into a `(fft_size, channels_or_1)` array and called
 `.squeeze()` to restore rank. For a genuinely-2-D single-channel `(N, 1)`
 input with `N < fft_size`, `squeeze()` drops *every* size-1 axis — including
@@ -21,9 +20,6 @@ import numpy as np
 
 from auralis.dsp.eq.filters import apply_eq_gains
 from auralis.dsp.eq.padding import pad_for_fft
-from auralis.dsp.eq.parallel_eq_processor.vectorized_processor import (
-    VectorizedEQProcessor,
-)
 
 
 def _band_map_for(fft_size: int) -> np.ndarray:
@@ -75,27 +71,5 @@ def test_apply_eq_gains_keeps_2d_output_for_long_single_channel_input() -> None:
     gains = np.zeros(1, dtype=np.float32)
     band_map = _band_map_for(fft_size)
     out = apply_eq_gains(long, gains, band_map, fft_size)
-    assert out.ndim == 2
-    assert out.shape == (fft_size, 1)
-
-
-def test_vectorized_eq_keeps_2d_output_for_short_single_channel_input() -> None:
-    fft_size = 64
-    short = np.random.randn(10, 1).astype(np.float32)
-    gains = np.zeros(1, dtype=np.float32)
-    band_map = _band_map_for(fft_size)
-    proc = VectorizedEQProcessor()
-    out = proc.apply_eq_gains_vectorized(short, gains, band_map, fft_size)
-    assert out.ndim == 2
-    assert out.shape == (10, 1)
-
-
-def test_vectorized_eq_keeps_2d_output_for_long_single_channel_input() -> None:
-    fft_size = 64
-    long = np.random.randn(fft_size, 1).astype(np.float32)
-    gains = np.zeros(1, dtype=np.float32)
-    band_map = _band_map_for(fft_size)
-    proc = VectorizedEQProcessor()
-    out = proc.apply_eq_gains_vectorized(long, gains, band_map, fft_size)
     assert out.ndim == 2
     assert out.shape == (fft_size, 1)

@@ -9,7 +9,7 @@ Main orchestrator for psychoacoustic EQ processing
 """
 
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import threading
 import numpy as np
@@ -23,15 +23,6 @@ from .critical_bands import (
 from .filters import apply_eq_gains
 from .spectrum_gains import SpectrumGainsMixin
 
-# Use vectorized EQ processor for 1.7x speedup
-try:
-    from .parallel_eq_processor import VectorizedEQProcessor
-    VECTORIZED_EQ_AVAILABLE = True
-except ImportError:
-    VECTORIZED_EQ_AVAILABLE = False
-    debug("Vectorized EQ not available, using standard version")
-
-
 @dataclass
 class EQSettings:
     """Psychoacoustic EQ settings"""
@@ -43,8 +34,7 @@ class EQSettings:
     adaptation_speed: float = 0.2
 
     def __post_init__(self) -> None:
-        # #4985: the Hermitian-mirror step shared by apply_eq_mono,
-        # _apply_eq_mono_vectorized, and _apply_eq_mono_parallel/_sequential
+        # #4985: the Hermitian-mirror step in apply_eq_mono
         # (spectrum[num_bins:] *= gain_curve[1:-1][::-1]) is length-consistent
         # only for an even fft_size — for odd fft_size the two sides of the
         # multiply have mismatched lengths and raise a broadcast ValueError.
@@ -101,13 +91,7 @@ class PsychoacousticEQ(SpectrumGainsMixin):
             self.fft_size
         )
 
-        # Initialize vectorized EQ processor (1.7x speedup)
-        if VECTORIZED_EQ_AVAILABLE:
-            self.vectorized_processor: Any | None = VectorizedEQProcessor()
-            debug(f"Psychoacoustic EQ initialized: {len(self.critical_bands)} critical bands (vectorized)")
-        else:
-            self.vectorized_processor = None
-            debug(f"Psychoacoustic EQ initialized: {len(self.critical_bands)} critical bands (standard)")
+        debug(f"Psychoacoustic EQ initialized: {len(self.critical_bands)} critical bands")
 
     def apply_eq(self, audio_chunk: np.ndarray, gains: np.ndarray) -> np.ndarray:
         """
@@ -120,17 +104,7 @@ class PsychoacousticEQ(SpectrumGainsMixin):
         Returns:
             EQ-processed audio
         """
-        # Use vectorized processor if available (1.7x faster)
-        if self.vectorized_processor is not None:
-            return cast(np.ndarray, self.vectorized_processor.apply_eq_gains_vectorized(
-                audio_chunk,
-                gains,
-                self.freq_to_band_map,
-                self.fft_size
-            ))
-        else:
-            # Fall back to standard implementation
-            return apply_eq_gains(audio_chunk, gains, self.freq_to_band_map, self.fft_size)
+        return apply_eq_gains(audio_chunk, gains, self.freq_to_band_map, self.fft_size)
 
     def process_realtime_chunk(self,
                               audio_chunk: np.ndarray,

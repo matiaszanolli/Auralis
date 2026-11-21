@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Regression tests for double-windowing artifact in VectorizedEQProcessor (issue #2389)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Regression tests for double-windowing artifact in the FFT EQ (issue #2389)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Before the fix, _apply_eq_mono_vectorized applied a Hanning window both before
+Before the fix, the EQ applied a Hanning window both before
 the FFT and after the IFFT, producing a w(n)^2 amplitude envelope — squared
 Hanning — that modulated output amplitude at ~44100/4096 ≈ 10.8 Hz.
 
 Acceptance criterion: amplitude variance of a 1 kHz sine processed through
-VectorizedEQProcessor must be < 0.1 %.
+``filters.apply_eq_gains`` must be < 0.1 %.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 from scipy.signal import hilbert
 
-from auralis.dsp.eq.parallel_eq_processor.vectorized_processor import VectorizedEQProcessor
+from auralis.dsp.eq.filters import apply_eq_gains
 
 
 # ---------------------------------------------------------------------------
@@ -59,23 +59,22 @@ def _envelope_variance_pct(signal: np.ndarray, edge_trim: float = 0.05) -> float
 # Tests
 # ---------------------------------------------------------------------------
 
-class TestVectorizedEQNoAmplitudeModulation:
-    """VectorizedEQProcessor must not introduce amplitude modulation."""
+class TestEQNoAmplitudeModulation:
+    """The FFT EQ must not introduce amplitude modulation."""
 
     def test_unity_gain_amplitude_variance_below_0_1_percent(self):
         """
-        0 dB EQ through VectorizedEQProcessor must produce < 0.1 % amplitude variance.
+        0 dB EQ through apply_eq_gains must produce < 0.1 % amplitude variance.
 
         The pre-fix code multiplied by the Hanning window twice (before FFT and
         after IFFT), creating a w(n)^2 envelope at ~11 Hz.  The Hilbert envelope
         of the processed sine should be essentially flat after the fix.
         """
-        processor = VectorizedEQProcessor()
         audio = _make_1khz_sine(FFT_SIZE)
         gains = np.array([0.0])
         freq_to_band_map = _make_flat_band_map(FFT_SIZE)
 
-        result = processor.apply_eq_gains_vectorized(audio, gains, freq_to_band_map, FFT_SIZE)
+        result = apply_eq_gains(audio, gains, freq_to_band_map, FFT_SIZE)
 
         variance_pct = _envelope_variance_pct(result)
         assert variance_pct < 0.1, (
@@ -87,12 +86,11 @@ class TestVectorizedEQNoAmplitudeModulation:
         """
         +6 dB EQ must also produce a flat amplitude envelope (no tremolo).
         """
-        processor = VectorizedEQProcessor()
         audio = _make_1khz_sine(FFT_SIZE)
         gains = np.array([6.0])
         freq_to_band_map = _make_flat_band_map(FFT_SIZE)
 
-        result = processor.apply_eq_gains_vectorized(audio, gains, freq_to_band_map, FFT_SIZE)
+        result = apply_eq_gains(audio, gains, freq_to_band_map, FFT_SIZE)
 
         variance_pct = _envelope_variance_pct(result)
         assert variance_pct < 0.1, (
@@ -106,12 +104,11 @@ class TestVectorizedEQNoAmplitudeModulation:
         Before the fix, w(n)^2 caused the mean amplitude to be attenuated
         (area under squared Hanning < 1), so this also catches the bug.
         """
-        processor = VectorizedEQProcessor()
         audio = _make_1khz_sine(FFT_SIZE)
         gains = np.array([0.0])
         freq_to_band_map = _make_flat_band_map(FFT_SIZE)
 
-        result = processor.apply_eq_gains_vectorized(audio, gains, freq_to_band_map, FFT_SIZE)
+        result = apply_eq_gains(audio, gains, freq_to_band_map, FFT_SIZE)
 
         rms_in = np.sqrt(np.mean(audio ** 2))
         rms_out = np.sqrt(np.mean(result ** 2))
@@ -124,13 +121,12 @@ class TestVectorizedEQNoAmplitudeModulation:
 
     def test_stereo_input_no_amplitude_modulation(self):
         """Double-windowing fix must also hold for stereo (2-channel) input."""
-        processor = VectorizedEQProcessor()
         mono = _make_1khz_sine(FFT_SIZE)
         audio_stereo = np.column_stack([mono, mono])
         gains = np.array([0.0])
         freq_to_band_map = _make_flat_band_map(FFT_SIZE)
 
-        result = processor.apply_eq_gains_vectorized(
+        result = apply_eq_gains(
             audio_stereo, gains, freq_to_band_map, FFT_SIZE
         )
 

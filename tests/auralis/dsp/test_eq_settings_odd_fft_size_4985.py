@@ -4,8 +4,7 @@
 EQSettings rejects odd fft_size at construction time (#4985)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The Hermitian-mirror step shared by ``apply_eq_mono``,
-``_apply_eq_mono_vectorized``, and ``_apply_eq_mono_parallel``/``_sequential``
+The Hermitian-mirror step in ``apply_eq_mono``
 (``spectrum[num_bins:] *= gain_curve[1:-1][::-1]``) is length-consistent only
 for an even ``fft_size`` — for odd ``fft_size`` the two sides of the multiply
 have mismatched lengths and raise a broadcast ``ValueError`` deep in the FFT

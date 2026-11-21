@@ -5,13 +5,25 @@ Test for issue #2166: Double windowing in FFT EQ causes amplitude modulation
 import numpy as np
 import pytest
 
-from auralis.dsp.eq.filters import apply_eq_mono
+from auralis.dsp.eq.filters import apply_eq_gains, apply_eq_mono
 
 
 def create_freq_to_band_map(fft_size: int, num_bands: int = 10) -> np.ndarray:
     """Create a simple frequency-to-band mapping for testing"""
     freq_bins = fft_size // 2 + 1
     return np.linspace(0, num_bands - 1, freq_bins, dtype=int)
+
+
+def apply_eq_chunked(audio, gains, freq_to_band_map, fft_size):
+    """Run a buffer longer than ``fft_size`` through the EQ the way production does.
+
+    ``apply_eq_mono`` rejects more than ``fft_size`` samples (#3742), so the caller
+    chunks; ``apply_eq_gains`` pads a short final chunk and trims it back.
+    """
+    return np.concatenate([
+        apply_eq_gains(audio[start:start + fft_size], gains, freq_to_band_map, fft_size)
+        for start in range(0, len(audio), fft_size)
+    ])
 
 
 class TestDoubleWindowingFix:
@@ -41,7 +53,7 @@ class TestDoubleWindowingFix:
         freq_to_band_map = create_freq_to_band_map(fft_size, num_bands)
 
         # Process through EQ
-        processed = apply_eq_mono(audio, gains, freq_to_band_map, fft_size)
+        processed = apply_eq_chunked(audio, gains, freq_to_band_map, fft_size)
 
         # Verify output amplitude is consistent
         output_amplitude = np.abs(processed).max()
@@ -79,7 +91,7 @@ class TestDoubleWindowingFix:
         freq_to_band_map = create_freq_to_band_map(fft_size, num_bands)
 
         # Process through EQ
-        processed = apply_eq_mono(audio, gains, freq_to_band_map, fft_size)
+        processed = apply_eq_chunked(audio, gains, freq_to_band_map, fft_size)
 
         # Calculate RMS for both signals (use same length for fair comparison)
         min_len = min(len(audio), len(processed))
@@ -168,7 +180,7 @@ class TestDoubleWindowingFix:
         freq_to_band_map = create_freq_to_band_map(fft_size, num_bands)
 
         # Process through EQ
-        processed = apply_eq_mono(audio, gains, freq_to_band_map, fft_size)
+        processed = apply_eq_chunked(audio, gains, freq_to_band_map, fft_size)
 
         # Compare frequency content
         # Take FFT of both signals (use same length)
