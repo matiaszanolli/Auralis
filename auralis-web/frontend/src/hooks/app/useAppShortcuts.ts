@@ -64,6 +64,7 @@ export function useAppShortcuts({
       key: ' ',
       description: 'Play/Pause',
       category: 'Playback',
+      noRepeat: true, // a held key is one command, not ~30 play_* frames/s (#6582)
       handler: () => {
         // #5008: runTransportCommand's shared commandPendingRef silently
         // drops this command if a different transport command (Next/
@@ -79,6 +80,7 @@ export function useAppShortcuts({
       key: 'ArrowRight',
       description: 'Next track',
       category: 'Playback',
+      noRepeat: true, // a held key is one command, not ~30 play_* frames/s (#6582)
       handler: () => {
         if (session.isCommandPending) return;
         nextTrack();
@@ -89,6 +91,7 @@ export function useAppShortcuts({
       key: 'ArrowLeft',
       description: 'Previous track',
       category: 'Playback',
+      noRepeat: true, // a held key is one command, not ~30 play_* frames/s (#6582)
       handler: () => {
         if (session.isCommandPending) return;
         previousTrack();

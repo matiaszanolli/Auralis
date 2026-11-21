@@ -65,6 +65,32 @@ describe('KeyboardShortcutsService', () => {
     expect(handler).toHaveBeenCalledOnce();
   });
 
+  it('a noRepeat shortcut ignores OS key repeat; others still repeat (#6582)', () => {
+    const once = vi.fn();
+    const repeating = vi.fn();
+    service.register(makeShortcut('ArrowRight', { noRepeat: true }), once);
+    service.register(makeShortcut('ArrowUp'), repeating);
+    service.startListening();
+
+    for (const key of ['ArrowRight', 'ArrowUp']) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+      for (let i = 0; i < 30; i++) window.dispatchEvent(new KeyboardEvent('keydown', { key, repeat: true }));
+    }
+
+    expect(once).toHaveBeenCalledOnce();
+    expect(repeating).toHaveBeenCalledTimes(31);
+  });
+
+  it('still claims a repeated noRepeat key so it does not scroll the page (#6582)', () => {
+    service.register(makeShortcut('ArrowRight', { noRepeat: true }), vi.fn());
+    service.startListening();
+    const event = new KeyboardEvent('keydown', { key: 'ArrowRight', repeat: true, cancelable: true });
+
+    window.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   it('does not invoke handler when disabled', () => {
     const handler = vi.fn();
     service.register(makeShortcut('a'), handler);

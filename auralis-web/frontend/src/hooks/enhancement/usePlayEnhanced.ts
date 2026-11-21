@@ -45,6 +45,7 @@ import { useAudioStreamingCore } from './useAudioStreamingCore';
 import { useFingerprintStatus, type FingerprintStatus } from './useFingerprintStatus';
 import { useEnhancedStreamStart, type CurrentTrackInfo } from './useEnhancedStreamStart';
 import { useEnhancedSeek } from './useEnhancedSeek';
+import { usePlayRejectionRetry } from './usePlayRejectionRetry';
 import { useEnhancedPlayCommand } from './useEnhancedPlayCommand';
 
 /**
@@ -174,13 +175,15 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
   const { seekTo } = useEnhancedSeek({ wsContext, core, currentTrackInfoRef, setIsSeeking });
 
-  const startPlayback = useEnhancedPlayCommand({
+  const sendPlay = useEnhancedPlayCommand({
     wsContext,
     dispatch,
     core,
     currentTrackInfoRef,
     resetFingerprint: fingerprint.resetFingerprint,
   });
+  // A play the WS limiter rejects is re-sent once instead of silently lost (#6582).
+  const startPlayback = usePlayRejectionRetry(wsContext.subscribe, dispatch, sendPlay, currentTrackInfoRef);
   const playEnhanced = useCallback(
     (trackId: number, preset: EnhancementPreset, intensity: number) =>
       startPlayback(trackId, preset, intensity, 'enhanced'),

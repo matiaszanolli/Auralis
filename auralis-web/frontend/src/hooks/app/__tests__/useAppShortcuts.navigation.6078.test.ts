@@ -165,4 +165,12 @@ describe('volume shortcuts read the volume at keypress time (#6067)', () => {
 
     expect(result.current).toBe(before);
   });
+
+  it('transport keys fire once per press; volume keys keep repeating (#6582)', () => {
+    const { result } = renderHook(() => useAppShortcuts(setup().args));
+    const noRepeat = (key: string) => result.current.find((s) => s.key === key && !s.ctrl)?.noRepeat === true;
+
+    expect([' ', 'ArrowRight', 'ArrowLeft'].map(noRepeat)).toEqual([true, true, true]);
+    expect(['ArrowUp', 'ArrowDown'].map(noRepeat)).toEqual([false, false]);
+  });
 });

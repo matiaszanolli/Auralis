@@ -20,6 +20,8 @@ export interface ShortcutDefinition {
   meta?: boolean;
   description: string;
   category: 'Playback' | 'Navigation' | 'Library' | 'Queue' | 'Global';
+  /** Fire once per press, ignoring OS key repeat: a held key must not issue ~30 commands/s (#6582). */
+  noRepeat?: boolean;
 }
 
 interface RegisteredShortcut extends ShortcutDefinition {
@@ -145,35 +147,23 @@ class KeyboardShortcutsService {
     return event.key === ' ' && target.closest(SPACE_ACTIVATED_SELECTOR) !== null;
   }
 
-  /**
-   * Register a keyboard shortcut
-   */
-  register(definition: ShortcutDefinition, handler: ShortcutHandler): void {
-    const key = this.generateKey(
+  private keyOf(definition: ShortcutDefinition): string {
+    return this.generateKey(
       definition.key,
       definition.ctrl || definition.meta || false,
       definition.shift || false,
       definition.alt || false
     );
-
-    this.shortcuts.set(key, {
-      ...definition,
-      handler
-    });
   }
 
-  /**
-   * Unregister a keyboard shortcut
-   */
-  unregister(definition: ShortcutDefinition): void {
-    const key = this.generateKey(
-      definition.key,
-      definition.ctrl || definition.meta || false,
-      definition.shift || false,
-      definition.alt || false
-    );
+  /** Register a keyboard shortcut */
+  register(definition: ShortcutDefinition, handler: ShortcutHandler): void {
+    this.shortcuts.set(this.keyOf(definition), { ...definition, handler });
+  }
 
-    this.shortcuts.delete(key);
+  /** Unregister a keyboard shortcut */
+  unregister(definition: ShortcutDefinition): void {
+    this.shortcuts.delete(this.keyOf(definition));
   }
 
   /**
@@ -230,7 +220,7 @@ class KeyboardShortcutsService {
     const shortcut = this.shortcuts.get(key);
     if (shortcut) {
       event.preventDefault();
-      shortcut.handler();
+      if (!(event.repeat && shortcut.noRepeat)) shortcut.handler();
     }
   };
 
