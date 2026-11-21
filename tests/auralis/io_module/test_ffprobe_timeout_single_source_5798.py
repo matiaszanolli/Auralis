@@ -11,10 +11,10 @@ value is now ``FFPROBE_TIMEOUT_S``; this fails if either site stops using it.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.io import unified_loader
+from auralis.io import audio_probe
 from auralis.io.loaders import FFPROBE_TIMEOUT_S, ffmpeg_loader
 from auralis.io.loaders.ffmpeg_process import FFMPEG_VERSION_CHECK_TIMEOUT_S
-from auralis.io.unified_loader import get_audio_info
+from auralis.io.audio_probe import get_audio_info
 
 
 class _FailedProbe:
@@ -33,9 +33,9 @@ def test_both_probe_paths_pass_the_shared_timeout(tmp_path, monkeypatch):
         seen.append(kwargs.get("timeout"))
         return _FailedProbe()
 
-    monkeypatch.setattr(unified_loader, "check_ffprobe", lambda: True)
+    monkeypatch.setattr(audio_probe, "check_ffprobe", lambda: True)
     # unified_loader and ffmpeg_loader share the one `subprocess` module.
-    monkeypatch.setattr(unified_loader.subprocess, "run", fake_run)
+    monkeypatch.setattr(audio_probe.subprocess, "run", fake_run)
 
     get_audio_info(path)
     ffmpeg_loader._probe_audio(path)

@@ -17,7 +17,6 @@ same cap has to apply there too (``TestScanTimeDurationCap`` below).
 """
 
 import json
-import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -25,13 +24,9 @@ import pytest
 import soundfile as sf
 
 from auralis.io import loader as io_loader
-from auralis.io import unified_loader
+from auralis.io import audio_probe
 from auralis.io.loader import oversize_probe_detail
-from auralis.io.unified_loader import (
-    _get_info_with_ffprobe,
-    _get_info_with_soundfile,
-    get_audio_info,
-)
+from auralis.io.audio_probe import _get_info_with_ffprobe, _get_info_with_soundfile, get_audio_info
 from auralis.utils.logging import ModuleError
 
 
@@ -61,9 +56,9 @@ def _fake_ffprobe(monkeypatch, *, duration, sample_rate=44100, channels=2):
         stdout = json.dumps(payload)
         stderr = ""
 
-    monkeypatch.setattr(unified_loader, "check_ffprobe", lambda: True)
+    monkeypatch.setattr(audio_probe, "check_ffprobe", lambda: True)
     monkeypatch.setattr(
-        unified_loader.subprocess, "run", lambda *a, **k: _Result()
+        audio_probe.subprocess, "run", lambda *a, **k: _Result()
     )
 
 

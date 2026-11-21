@@ -21,7 +21,6 @@ import subprocess
 import threading
 from pathlib import Path
 
-import numpy as np
 import pytest
 from sqlalchemy import func, select
 
@@ -142,7 +141,8 @@ class TestFFmpegChannelAgreement:
     """get_audio_info() and load_audio() must describe the same file the same way."""
 
     def test_mono_source_is_not_upmixed_to_fake_stereo(self, tmp_path):
-        from auralis.io.unified_loader import get_audio_info, load_audio
+        from auralis.io.unified_loader import load_audio
+        from auralis.io.audio_probe import get_audio_info
 
         p = _synth(tmp_path / "mono.mp3", 1)
 
@@ -153,7 +153,8 @@ class TestFFmpegChannelAgreement:
         assert audio.ndim == 1, f"mono source should load 1-D, got shape {audio.shape}"
 
     def test_stereo_source_is_unchanged(self, tmp_path):
-        from auralis.io.unified_loader import get_audio_info, load_audio
+        from auralis.io.unified_loader import load_audio
+        from auralis.io.audio_probe import get_audio_info
 
         p = _synth(tmp_path / "stereo.mp3", 2)
 
@@ -163,7 +164,8 @@ class TestFFmpegChannelAgreement:
 
     def test_surround_source_is_still_downmixed_to_stereo(self, tmp_path):
         """#3672 must be preserved — gating the downmix must not disable it."""
-        from auralis.io.unified_loader import get_audio_info, load_audio
+        from auralis.io.unified_loader import load_audio
+        from auralis.io.audio_probe import get_audio_info
 
         p = _synth(tmp_path / "surround.m4a", 6, codec="aac")
 

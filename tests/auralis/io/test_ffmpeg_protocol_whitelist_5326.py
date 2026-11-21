@@ -22,7 +22,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from auralis.io import unified_loader
+from auralis.io import audio_probe
 from auralis.io.loaders import ffmpeg_loader
 from auralis.io.loaders.ffmpeg_loader import _probe_audio
 from auralis.io.loaders.ffmpeg_probe import ffprobe_command
@@ -51,9 +51,9 @@ class TestProbeArgv:
     def test_both_probe_paths_run_the_same_whitelisted_argv(self):
         path = Path("/music/track.mp3")
         commands = []
-        for probe in (ffmpeg_loader._probe_audio, unified_loader._get_info_with_ffprobe):
+        for probe in (ffmpeg_loader._probe_audio, audio_probe._get_info_with_ffprobe):
             run = MagicMock(return_value=MagicMock(returncode=0, stdout=_PROBE_JSON))
-            with patch.object(unified_loader, "check_ffprobe", return_value=True), \
+            with patch.object(audio_probe, "check_ffprobe", return_value=True), \
                     patch.object(ffmpeg_loader.subprocess, "run", run):
                 probe(path)
             commands.append(run.call_args[0][0])

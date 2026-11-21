@@ -10,35 +10,18 @@ Enhanced audio file loading supporting multiple formats and processing modes
 Unified audio loading system combining Matchering and Auralis capabilities
 """
 
-import json
-import subprocess
 import threading
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-import soundfile as sf
 
-from ..utils.logging import Code, ModuleError, debug, info, warning
+from ..utils.logging import Code, ModuleError, debug, info
 from .formats import FFMPEG_FORMATS, SUPPORTED_FORMATS
-from .loaders import (
-    FFPROBE_TIMEOUT_S,
-    SUBPROCESS_TEXT_KWARGS,
-    check_ffprobe,
-    ffprobe_command,
-    load_with_ffmpeg,
-    load_with_soundfile,
-    redact_subprocess_output,
-)
+from .loaders import load_with_ffmpeg, load_with_soundfile
 from .processing import peak_amplitude, resample_audio, validate_audio
 
-from .audio_probe import (  # noqa: F401  (pre-split import paths, #6273)
-    _get_info_with_ffprobe,
-    _get_info_with_soundfile,
-    _reject_oversize_probe,
-    get_audio_info,
-)
-
+# Metadata probing (get_audio_info and its ffprobe/soundfile backends) lives in audio_probe.py (#6273).
 # SUPPORTED_FORMATS / FFMPEG_FORMATS live in auralis.io.formats (the single
 # source of truth) and are re-exported here for existing importers.
 

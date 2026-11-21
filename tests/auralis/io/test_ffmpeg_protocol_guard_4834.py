@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from auralis.io.loaders import reject_protocol_path
-from auralis.io.unified_loader import _get_info_with_ffprobe, get_audio_info
+from auralis.io.audio_probe import _get_info_with_ffprobe, get_audio_info
 from auralis.utils.logging import ModuleError
 
 

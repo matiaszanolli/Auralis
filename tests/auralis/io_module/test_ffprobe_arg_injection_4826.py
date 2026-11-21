@@ -15,7 +15,7 @@ path argument.
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from auralis.io import unified_loader
+from auralis.io import audio_probe
 from auralis.io.loaders import ffmpeg_loader
 
 
@@ -36,9 +36,9 @@ def test_get_info_with_ffprobe_isolates_path_with_double_dash():
         '"format": {"duration": "1.0"}}'
     )
     mock_run = MagicMock(return_value=MagicMock(returncode=0, stdout=probe_json))
-    with patch.object(unified_loader, "check_ffprobe", return_value=True), \
-         patch.object(unified_loader.subprocess, "run", mock_run):
-        unified_loader._get_info_with_ffprobe(Path("-show_entries"))
+    with patch.object(audio_probe, "check_ffprobe", return_value=True), \
+         patch.object(audio_probe.subprocess, "run", mock_run):
+        audio_probe._get_info_with_ffprobe(Path("-show_entries"))
 
     cmd = mock_run.call_args[0][0]
     assert cmd[-2:] == ["--", "-show_entries"], cmd

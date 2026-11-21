@@ -16,12 +16,12 @@ import pytest
 from auralis.io.unified_loader import (
     FFMPEG_FORMATS,
     SUPPORTED_FORMATS,
-    get_audio_info,
     get_supported_formats,
     is_audio_file,
     load_audio,
     load_reference,
 )
+from auralis.io.audio_probe import get_audio_info
 from auralis.utils.logging import ModuleError
 
 
@@ -193,7 +193,9 @@ class TestGetAudioInfo:
 
     def test_get_info_with_soundfile(self, temp_wav_file):
         """Test getting info using soundfile"""
-        with patch('auralis.io.unified_loader._get_info_with_soundfile') as mock_info:
+        # Patched where get_audio_info looks it up: the probe lives in
+        # audio_probe (#6273), and unified_loader no longer re-exports it (#6606).
+        with patch('auralis.io.audio_probe._get_info_with_soundfile') as mock_info:
             mock_info.return_value = {
                 'sample_rate': 44100,
                 'channels': 2,
@@ -203,7 +205,9 @@ class TestGetAudioInfo:
 
             info = get_audio_info(temp_wav_file)
 
-            assert mock_info.called
+            mock_info.assert_called_once_with(Path(temp_wav_file))
+            assert info['sample_rate'] == 44100
+            assert info['duration_seconds'] == 1.0
 
     def test_get_info_handles_errors(self):
         """Test that get_audio_info handles errors gracefully"""

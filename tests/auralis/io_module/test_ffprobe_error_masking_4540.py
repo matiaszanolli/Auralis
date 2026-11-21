@@ -21,8 +21,8 @@ from pathlib import Path
 
 import pytest
 
-from auralis.io import audio_probe, unified_loader
-from auralis.io.unified_loader import get_audio_info
+from auralis.io import audio_probe
+from auralis.io.audio_probe import get_audio_info
 
 _MASKING_SUBSTRINGS = ("local variable", "UnboundLocalError", "not associated with a value")
 
@@ -133,7 +133,7 @@ def test_json_is_module_scope_not_function_local():
     inside the function, or the except clause breaks again."""
     import inspect
 
-    source = inspect.getsource(unified_loader._get_info_with_ffprobe)
+    source = inspect.getsource(audio_probe._get_info_with_ffprobe)
     assert "import json" not in source, (
         "json was re-imported inside _get_info_with_ffprobe — that is exactly "
         "what made `except json.JSONDecodeError` raise UnboundLocalError"

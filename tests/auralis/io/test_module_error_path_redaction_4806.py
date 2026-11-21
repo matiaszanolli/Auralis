@@ -24,7 +24,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from auralis.io.loaders.ffmpeg_loader import redact_subprocess_output
-from auralis.io.unified_loader import _get_info_with_ffprobe, get_audio_info, load_audio
+from auralis.io.unified_loader import load_audio
+from auralis.io.audio_probe import _get_info_with_ffprobe, get_audio_info
 from auralis.utils.logging import Code, ModuleError, set_log_handler
 
 
