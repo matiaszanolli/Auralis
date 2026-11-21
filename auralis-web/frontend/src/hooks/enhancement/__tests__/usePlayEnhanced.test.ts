@@ -1420,6 +1420,49 @@ describe('usePlayEnhanced – chunks queued before audio_stream_start (#5464)', 
   });
 });
 
+describe('usePlayEnhanced – a seek stream publishes its progress (#6588)', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('a backward seek leaves buffering on its first chunk, below the old high-water decile', () => {
+    setupMocks();
+    const store = createTestStore();
+    renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    vi.mocked(pcmDecoding.decodeAudioChunkMessage).mockImplementation((message: any) => ({
+      samples: new Float32Array(3),
+      metadata: {
+        chunkIndex: message.data.chunk_index,
+        chunkCount: 10,
+        frameIndex: 0,
+        frameCount: 1,
+        sampleCount: 3,
+        sampleRate: 44100,
+        channels: 2,
+      },
+    }));
+    mockBufferInstance.getAvailableSamples.mockReturnValue(1000);
+
+    // Stream the first eight of ten chunks: the last dispatched progress is 80%.
+    fireHandler('audio_stream_start', makeStreamStartMsg({ total_chunks: 10 }));
+    for (let i = 0; i < 8; i++) fireHandler('audio_chunk', makeChunkMsg({ chunk_index: i }));
+    expect(store.getState().player.streaming.enhanced.processedChunks).toBe(8);
+
+    // Seek back to chunk 2: the resume-into-existing-buffer path.
+    fireHandler('audio_stream_start', makeStreamStartMsg({
+      total_chunks: 10, is_seek: true, seek_position: 20, start_chunk: 2,
+    }));
+    expect(store.getState().player.streaming.enhanced.state).toBe('buffering');
+    fireHandler('audio_chunk', makeChunkMsg({ chunk_index: 2 }));
+
+    const enhanced = store.getState().player.streaming.enhanced;
+    expect(enhanced.state).toBe('streaming');
+    expect(enhanced.processedChunks).toBe(3);
+    expect(enhanced.bufferedSamples).toBe(1000);
+  });
+});
+
 // ============================================================================
 // 8e. Local playback stall (#5461)
 // ============================================================================

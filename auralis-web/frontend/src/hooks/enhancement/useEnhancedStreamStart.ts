@@ -99,6 +99,9 @@ export function useEnhancedStreamStart({
         setIsSeeking(false);
       }
 
+      // Every stream, seek/resume included, starts unthrottled and flowing (#2535, #6588).
+      core.lastDispatchedProgressRef.current = -1;
+      core.flowPausedRef.current = false;
       // Resume guard: if we already have a live engine+buffer (e.g. after WS
       // reconnect), skip recreation and let new chunks append seamlessly (#3185).
       if (isSeek && core.playbackEngineRef.current && core.pcmBufferRef.current) {
@@ -230,7 +233,6 @@ export function useEnhancedStreamStart({
         dispatch(setPlaybackStalled({ streamType: 'enhanced', stalled, trackId: stallTrackId }));
       });
 
-      // Store metadata
       core.streamingMetadataRef.current = {
         sampleRate: message.data.sample_rate,
         channels: message.data.channels,
@@ -240,8 +242,6 @@ export function useEnhancedStreamStart({
 
       // Reset chunk tracking for new stream
       core.lastReceivedChunkIndexRef.current = -1;
-      core.lastDispatchedProgressRef.current = -1; // Reset progress throttle (fixes #2535)
-      core.flowPausedRef.current = false; // Reset flow control for new stream
 
       // Update Redux state
       dispatch(
