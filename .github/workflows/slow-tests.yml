@@ -34,6 +34,10 @@ jobs:
           python-version: '3.14'
           cache: 'pip'
 
+      # Same reason as backend-tests.yml: the probe and decode paths need the real binaries (#6709).
+      - name: Install FFmpeg
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip

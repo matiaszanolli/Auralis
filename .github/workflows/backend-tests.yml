@@ -125,6 +125,13 @@ jobs:
           python-version: '3.14'
           cache: 'pip'
 
+      # The app decodes and probes non-native formats through ffmpeg/ffprobe,
+      # and the probe tests (protocol guard, duration cap, argv whitelist,
+      # stderr redaction) drive the real binaries. ubuntu-latest has neither,
+      # so those tests failed on "FFmpeg not found" (#6709).
+      - name: Install FFmpeg
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
