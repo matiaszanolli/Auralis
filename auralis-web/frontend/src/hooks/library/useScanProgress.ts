@@ -23,6 +23,7 @@ import type { ScanPhase, WebSocketMessageType } from '@/types/websocket';
 import type { ScanFailure } from '@/types/ws/library';
 import { isLibraryTracksRemovedMessage } from '@/types/ws/guards';
 import { get } from '@/utils/apiRequest';
+import { recordScanTimeout } from '@/services/scanRequestTimeout';
 
 export interface ScanProgress {
   isScanning: boolean;
@@ -202,12 +203,11 @@ function resyncScanStatus(): void {
   const controller = new AbortController();
   resyncController = controller;
   const epochAtRequest = scanFrameEpoch;
-  // #5019: shared transport, so the resync inherits DEFAULT_TIMEOUT_MS on top
-  // of the disconnect/unmount signal. get() rejects on a non-2xx rather than
-  // resolving to null, which the .catch() below already treats as "leave
-  // local state alone".
-  get<{ is_scanning?: boolean }>('/api/library/scan/status', { signal: controller.signal })
+  // #5019: shared transport (DEFAULT_TIMEOUT_MS plus the disconnect/unmount signal). get() rejects
+  // on a non-2xx, which the .catch() below treats as "leave local state alone".
+  get<{ is_scanning?: boolean; scan_timeout_s?: number }>('/api/library/scan/status', { signal: controller.signal })
     .then((data) => {
+      recordScanTimeout(data?.scan_timeout_s); // so a scan request knows the server's bound (#6576)
       if (!data || epochAtRequest !== scanFrameEpoch) return;
       setSharedState((prev) => {
         if (data.is_scanning) {

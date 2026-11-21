@@ -43,6 +43,8 @@ logger = logging.getLogger(__name__)
 class ScanStatusResponse(BaseModel):
     """Live scan-slot state, for a client resyncing mid-scan (#4821)."""
     is_scanning: bool = Field(description="True while a directory scan holds the scan slot")
+    scan_timeout_s: int = Field(description="This server's bound on one scan request (AURALIS_SCAN_TIMEOUT); "
+                                "a client's own bound must exceed it, or its abort stops the scan first (#6576)")
 
 
 # ============================================================================
@@ -85,16 +87,14 @@ async def get_scan_status(
     """Resync point for a client that (re)connects mid-scan or after one
     finished while its WebSocket was disconnected (#4821).
 
-    Scan lifecycle (`library_scan_started`/`scan_progress`/`scan_complete`/
-    `library_scan_error`) is otherwise broadcast-only — a client offline
-    when the terminal frame goes out never learns the scan ended, and
-    `isScanning` gets stuck. This is a live read of the same scan-slot
+    Scan lifecycle frames are otherwise broadcast-only — a client offline when the
+    terminal frame goes out never learns the scan ended, and `isScanning` gets stuck. This is a live read of the same scan-slot
     counter try_acquire_scan_slot()/release_scan_slot() maintain, so it
     self-heals even after a scan crashed without emitting a terminal frame.
     """
     if library_database is None:
         raise LibraryUnavailableError()
-    return {"is_scanning": library_database.is_scanning()}
+    return {"is_scanning": library_database.is_scanning(), "scan_timeout_s": SCAN_TIMEOUT_S}
 
 
 async def scan_library(

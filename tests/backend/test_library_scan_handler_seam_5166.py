@@ -49,7 +49,7 @@ class TestHandlersAreCallableWithoutTheFactory:
         """No router, no _LibraryScanDeps, no app -- just the handler."""
         stub = SimpleNamespace(is_scanning=lambda: True)
 
-        assert await get_scan_status(library_database=stub) == {"is_scanning": True}
+        assert (await get_scan_status(library_database=stub))["is_scanning"] is True
 
     @pytest.mark.asyncio
     async def test_get_scan_status_503s_on_a_missing_library_manager(self):

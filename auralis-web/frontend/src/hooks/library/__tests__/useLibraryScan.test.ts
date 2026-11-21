@@ -12,6 +12,7 @@ import { useLibraryScan } from '../useLibraryScan';
 import { SCAN_TIMEOUT_MS } from '@/config/api';
 import { useToast } from '@/components/shared/Toast';
 import { DEFAULT_TIMEOUT_MS } from '@/utils/apiRequest';
+import { recordScanTimeout } from '@/services/scanRequestTimeout';
 
 /** A request that never settles until the transport's timeout aborts it. */
 const hangingImpl = (_url: string, init: RequestInit) =>
@@ -41,6 +42,9 @@ function setup(includeStats = true) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // As in the app, where the scan-status resync on connect has reported the server's bound
+  // (default 1h), so a scan posts without reading it first (#6576).
+  recordScanTimeout(3600);
   vi.mocked(useToast).mockReturnValue({ success: mockSuccess, error: mockError, info: mockInfo } as any);
   mockFetch = vi.fn();
   vi.stubGlobal('fetch', mockFetch);

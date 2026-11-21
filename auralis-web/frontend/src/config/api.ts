@@ -49,13 +49,19 @@ export const WS_BASE_URL =
  * A real library scan runs for minutes, and since #4820 the backend treats an
  * aborted fetch as "stop the scan": under the shared default, every scan longer
  * than 30 seconds would abort its own fetch and take the running scan down with
- * it. The meaningful bound is the backend's own `AURALIS_SCAN_TIMEOUT` (1h),
- * which answers 504 rather than hanging, so this sits just past it — the request
- * stays bounded (#5019's point) without being the thing that gives up first.
+ * it. The meaningful bound is the backend's own `AURALIS_SCAN_TIMEOUT`, which
+ * answers 504 rather than hanging, so the client bound sits SCAN_TIMEOUT_MARGIN_MS
+ * past it — the request stays bounded (#5019's point) without being the thing that
+ * gives up first.
  *
- * Every caller of POST `ENDPOINTS.LIBRARY_SCAN` must pass this (#5643).
+ * The server reports its actual bound (`scan_timeout_s` on GET
+ * /api/library/scan/status), and `services/scanRequestTimeout` derives the client
+ * bound from it (#6576); this constant is the bound for the default (1h) server and
+ * the fallback when that read fails. Every caller of POST `ENDPOINTS.LIBRARY_SCAN`
+ * must pass `await scanRequestTimeoutMs()` (#5643).
  */
-export const SCAN_TIMEOUT_MS = 3_660_000;
+export const SCAN_TIMEOUT_MARGIN_MS = 60_000;
+export const SCAN_TIMEOUT_MS = 3_600_000 + SCAN_TIMEOUT_MARGIN_MS;
 
 /**
  * Get full API URL for an endpoint
@@ -102,6 +108,7 @@ export const ENDPOINTS = {
 
   // Library scan
   LIBRARY_SCAN: '/api/library/scan',
+  LIBRARY_SCAN_STATUS: '/api/library/scan/status',
   LIBRARY_RESET: '/api/library/reset',
 
   // Player

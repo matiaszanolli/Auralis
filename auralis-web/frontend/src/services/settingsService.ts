@@ -7,7 +7,8 @@
  * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
  */
 
-import { ENDPOINTS, SCAN_TIMEOUT_MS } from '@/config/api';
+import { ENDPOINTS } from '@/config/api';
+import { knownScanRequestTimeoutMs, scanRequestTimeoutMs } from '@/services/scanRequestTimeout';
 import { post, put } from '@/utils/apiRequest';
 import { createCrudService } from '@/utils/serviceFactory';
 import { isUserSettingsShape } from '@/api/responseGuards';
@@ -206,15 +207,16 @@ export async function removeScanFolder(folder: string): Promise<SettingsResponse
  *
  * The request stays open for the length of the scan, and since #4820 the
  * backend stops the scan when the client aborts — so it must carry the long
- * `SCAN_TIMEOUT_MS`, not the 30s default that would kill any scan past
- * 30 seconds and report "Failed to start scan" (#5643). It deliberately takes
+ * scan bound derived from the server's own (`scanRequestTimeoutMs`, #6576), not the
+ * 30s default that would kill any scan past 30 seconds and report "Failed to start
+ * scan" (#5643). It deliberately takes
  * no abort signal: closing Settings must not cancel a scan the user started.
  */
 export async function triggerLibraryScan(directories: string[]): Promise<void> {
   await post(
     ENDPOINTS.LIBRARY_SCAN,
     { directories, recursive: true, skip_existing: true },
-    { timeoutMs: SCAN_TIMEOUT_MS },
+    { timeoutMs: knownScanRequestTimeoutMs() ?? (await scanRequestTimeoutMs()) },
   );
 }
 

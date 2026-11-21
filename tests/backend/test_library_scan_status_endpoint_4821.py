@@ -46,14 +46,14 @@ def test_reports_not_scanning_when_no_scan_active():
     client = _make_app(lambda: _FakeLibraryDatabase(scanning=False))
     response = client.get("/api/library/scan/status")
     assert response.status_code == 200
-    assert response.json() == {"is_scanning": False}
+    assert response.json()["is_scanning"] is False
 
 
 def test_reports_scanning_when_a_scan_is_active():
     client = _make_app(lambda: _FakeLibraryDatabase(scanning=True))
     response = client.get("/api/library/scan/status")
     assert response.status_code == 200
-    assert response.json() == {"is_scanning": True}
+    assert response.json()["is_scanning"] is True
 
 
 def test_503_when_library_database_unavailable():
@@ -75,10 +75,10 @@ def test_reflects_a_crashed_scan_that_never_broadcast_a_terminal_frame():
     manager = _FakeLibraryDatabase(scanning=True)
     client = _make_app(lambda: manager)
 
-    assert client.get("/api/library/scan/status").json() == {"is_scanning": True}
+    assert client.get("/api/library/scan/status").json()["is_scanning"] is True
 
     # Scanner crashes; its `finally` block releases the slot without ever
     # broadcasting scan_complete/library_scan_error.
     manager._scanning = False
 
-    assert client.get("/api/library/scan/status").json() == {"is_scanning": False}
+    assert client.get("/api/library/scan/status").json()["is_scanning"] is False

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
-import { SCAN_TIMEOUT_MS } from '@/config/api';
+import { knownScanRequestTimeoutMs, scanRequestTimeoutMs } from '@/services/scanRequestTimeout';
 import { isElectron, getElectronAPI } from '@/utils/electron';
 import type { ScanFailure } from '@/types/ws/library';
 import { post } from '@/utils/apiRequest';
@@ -120,11 +120,13 @@ export const useLibraryScan = ({
       // with the cancellation signal below. The raw fetch() this replaces had
       // no upper bound, so a hung backend left `scanning` true (and the button
       // disabled) indefinitely. The timeout is scan-specific (see
-      // SCAN_TIMEOUT_MS) because aborting now really does stop the scan.
+      // scanRequestTimeoutMs) because aborting now really does stop the scan: it sits past
+      // the server's own, configurable bound (#6576).
+      const timeoutMs = knownScanRequestTimeoutMs() ?? (await scanRequestTimeoutMs(controller.signal));
       const result = await post<ScanSummary>(
         '/api/library/scan',
         { directories: [folderPath] },
-        { signal: controller.signal, timeoutMs: SCAN_TIMEOUT_MS }
+        { signal: controller.signal, timeoutMs }
       );
       await registration;
 
