@@ -28,7 +28,7 @@ from typing import Any, ParamSpec, TypeVar
 from fastapi import HTTPException
 from sqlalchemy.exc import OperationalError
 
-from .errors import NotFoundError, ServiceUnavailableError
+from .errors import NotFoundError, ServiceUnavailableError, handle_query_error
 
 # Stable logger name shared across the similarity router family so
 # correlation-id log records stay under "routers.similarity" no matter which
@@ -109,6 +109,9 @@ def _with_similarity_error_handling(operation: str) -> Callable[[Callable[P, T]]
                 return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
             except HTTPException:
                 raise
+            except OverflowError as e:
+                # An id above SQLite's INTEGER range names no row: the shared 404 mapping (#6162, #6583).
+                raise handle_query_error(operation, e) from e
             except OperationalError as e:
                 # A locked SQLite database (concurrent scan, graph rebuild) is retryable (#5381).
                 logger.warning("[similarity] database unavailable during %s: %s", operation, e)
