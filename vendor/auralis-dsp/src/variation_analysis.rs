@@ -1,6 +1,6 @@
 /// Temporal variation analysis
 /// Measures how audio characteristics vary over time
-use crate::dsp_math::{compute_rms, estimate_lufs};
+use crate::dsp_math::{compute_rms, estimate_lufs, std_dev_about};
 use crate::rhythm::SILENT_FRAME_RMS_RATIO;
 
 /// Compute crest factor in decibels.
@@ -66,10 +66,7 @@ fn compute_std_dev(values: &[f32]) -> f32 {
     }
 
     let mean: f32 = values.iter().sum::<f32>() / values.len() as f32;
-    let variance: f32 =
-        values.iter().map(|&v| (v - mean).powi(2)).sum::<f32>() / values.len() as f32;
-
-    variance.sqrt()
+    std_dev_about(values, mean)
 }
 
 /// Compute coefficient of variation (std dev / mean)

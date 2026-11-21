@@ -1,7 +1,7 @@
 /// Spectral feature analysis (centroid, rolloff, flatness)
 /// These features describe the "shape" and "color" of the audio spectrum
 
-use std::f32::consts::PI;
+use crate::dsp_math::hann_weight;
 
 /// Compute spectral centroid (center of mass of spectrum)
 /// Higher values = brighter/more high-frequency content
@@ -175,7 +175,7 @@ pub fn audio_to_freq_domain(audio: &[f32], sample_rate: u32) -> (Vec<f32>, Vec<f
     // Apply Hann window
     let n = audio.len() as f32;
     for (i, sample) in fft_input.iter_mut().enumerate().take(audio.len()) {
-        let window = 0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos());
+        let window = hann_weight(i, n);
         sample.re *= window;
     }
 

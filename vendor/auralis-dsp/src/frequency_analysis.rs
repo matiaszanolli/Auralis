@@ -1,9 +1,9 @@
 /// FFT-based frequency distribution analysis
 /// Divides the audio spectrum into 7 perceptual frequency bands
 
+use crate::dsp_math::{hann_weight, hz_to_bin};
 use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
-use std::f32::consts::PI;
 
 /// Longest FFT frame the band analysis uses (3 s at 22.05 kHz): bounded memory, and
 /// 0.34 Hz bins are far finer than the 20 Hz lower edge of the first band needs.
@@ -34,7 +34,7 @@ pub(crate) fn windowed_into(frame: &[f32], out: &mut [Complex<f32>]) {
     for (i, slot) in out.iter_mut().enumerate() {
         *slot = match frame.get(i) {
             Some(&sample) => {
-                let window = 0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos());
+                let window = hann_weight(i, n);
                 Complex { re: sample * window, im: 0.0 }
             }
             None => Complex { re: 0.0, im: 0.0 },
@@ -74,11 +74,6 @@ fn compute_psd(spectrum: &[Complex<f32>]) -> Vec<f32> {
         .iter()
         .map(|c| c.norm_sqr() / (spectrum.len() as f32).powi(2))
         .collect()
-}
-
-/// Find frequency index for a given Hz value
-fn hz_to_bin(hz: f32, sample_rate: u32, fft_size: usize) -> usize {
-    ((hz * fft_size as f32) / sample_rate as f32).floor() as usize
 }
 
 /// Integrate power across frequency range
@@ -172,6 +167,7 @@ pub fn compute_frequency_distribution(audio: &[f32], sample_rate: u32) -> Freque
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::f32::consts::PI;
 
     #[test]
     fn test_frequency_distribution_empty() {

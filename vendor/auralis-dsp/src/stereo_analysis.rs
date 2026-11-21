@@ -1,5 +1,6 @@
 /// Stereo field analysis
 /// Measures stereo width and phase correlation between channels
+use crate::dsp_math::{compute_rms, std_dev_about};
 
 /// Compute mid-side decomposition
 /// mid = (L + R) / 2
@@ -14,16 +15,6 @@ fn compute_midside(left: &[f32], right: &[f32]) -> (Vec<f32>, Vec<f32>) {
     }
 
     (mid, side)
-}
-
-/// Compute RMS energy
-fn compute_energy(signal: &[f32]) -> f32 {
-    if signal.is_empty() {
-        return 0.0;
-    }
-
-    let sum_sq: f32 = signal.iter().map(|s| s * s).sum();
-    (sum_sq / signal.len() as f32).sqrt()
 }
 
 /// Compute stereo width (mid-side energy ratio)
@@ -44,8 +35,8 @@ pub fn compute_stereo_width(left: &[f32], right: &[f32]) -> f32 {
     // Compute mid-side
     let (mid, side) = compute_midside(left, right);
 
-    let mid_energy = compute_energy(&mid);
-    let side_energy = compute_energy(&side);
+    let mid_energy = compute_rms(&mid);
+    let side_energy = compute_rms(&side);
     let total_energy = mid_energy + side_energy;
 
     if total_energy < 1e-10 {
@@ -103,13 +94,7 @@ fn normalize_signal(signal: &[f32]) -> Vec<f32> {
     }
 
     let mean: f32 = signal.iter().sum::<f32>() / signal.len() as f32;
-    let variance: f32 = signal
-        .iter()
-        .map(|&s| (s - mean).powi(2))
-        .sum::<f32>()
-        / signal.len() as f32;
-
-    let std_dev = variance.sqrt().max(1e-10);
+    let std_dev = std_dev_about(signal, mean).max(1e-10);
 
     signal
         .iter()
@@ -171,11 +156,11 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_energy() {
+    fn test_compute_rms() {
         // RMS: sqrt((0.09 + 0.16) / 2) = sqrt(0.125) ≈ 0.3536 (#5859: the old
         // expectation divided the root by N instead of the sum).
         let signal = vec![0.3, 0.4];
-        let energy = compute_energy(&signal);
+        let energy = compute_rms(&signal);
         assert!((energy - 0.125f32.sqrt()).abs() < 1e-6);
     }
 

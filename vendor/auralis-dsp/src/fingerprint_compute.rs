@@ -4,7 +4,7 @@
 use rustfft::{FftPlanner, num_complex::Complex32};
 
 use crate::chroma;
-use crate::dsp_math::{compute_rms, estimate_lufs};
+use crate::dsp_math::{compute_rms, estimate_lufs, hz_to_bin, std_dev_about};
 use crate::frequency_analysis;
 use crate::spectral_features;
 use crate::variation_analysis;
@@ -111,13 +111,6 @@ fn compute_bass_mid_ratio(audio: &[f32], sample_rate: u32) -> f32 {
     }
 
     ((bass_total / total) as f32).clamp(0.0, 1.0)
-}
-
-/// Convert Hz to FFT bin index
-fn hz_to_bin(hz: f32, sample_rate: u32, fft_size: usize) -> usize {
-    (((hz * fft_size as f32) / sample_rate as f32)
-        .floor() as usize)
-        .min(fft_size - 1)
 }
 
 // #4533: compute_silence_ratio() removed. It counted individual samples below
@@ -477,8 +470,7 @@ fn estimate_pitch_stability(audio: &[f32]) -> f32 {
         return 0.5; // Silent audio
     }
 
-    let variance: f32 = zcrs.iter().map(|&z| (z - mean_zcr).powi(2)).sum::<f32>() / zcrs.len() as f32;
-    let cv = variance.sqrt() / mean_zcr;
+    let cv = std_dev_about(&zcrs, mean_zcr) / mean_zcr;
 
     // Map CV to stability: CV=0 → 1.0, CV≥1 → 0.0
     (1.0 - cv).clamp(0.0, 1.0)
@@ -509,8 +501,7 @@ fn estimate_transient_density(audio: &[f32], sample_rate: u32) -> f32 {
         if frame.len() < 2 {
             break;
         }
-        let sum: f32 = frame.iter().map(|s| s * s).sum();
-        frame_rms.push((sum / frame.len() as f32).sqrt());
+        frame_rms.push(compute_rms(frame));
     }
     if frame_rms.len() < 2 {
         return 0.0;

@@ -6,6 +6,15 @@
 //! (`&[f32]` vs `&[f32], u32`) and different calibration constants (`-0.7` vs
 //! `+1.0`) — so tuning one left the other computing a different loudness.
 //! Consolidated here to a single implementation.
+//!
+//! `hz_to_bin`, the f32 Hann weight and the population standard deviation moved
+//! here in #6622 from the two to three copies each had in `fingerprint_compute`,
+//! `frequency_analysis`, `spectral_features`, `stereo_analysis` and
+//! `variation_analysis`. The f64 periodic Hann window in `rhythm.rs`
+//! (`hann_periodic`) is a different expression in a different precision, not a
+//! copy: unifying it would change the tempo path's numbers, so it stays there.
+
+use std::f32::consts::PI;
 
 /// Compute RMS energy of a signal.
 pub(crate) fn compute_rms(signal: &[f32]) -> f32 {
@@ -40,4 +49,30 @@ pub(crate) fn estimate_lufs(signal: &[f32]) -> f32 {
 
     let db = 20.0 * rms.log10() - 0.7; // Calibration constant (see doc comment)
     db.clamp(-120.0, 0.0)
+}
+
+/// FFT bin index of `hz`, clamped to the last bin.
+///
+/// The clamp is the `fingerprint_compute` form. `frequency_analysis` used to
+/// carry an unclamped copy and relied on its one caller pre-clamping the
+/// frequency to Nyquist; with the clamp here that no longer has to hold.
+pub(crate) fn hz_to_bin(hz: f32, sample_rate: u32, fft_size: usize) -> usize {
+    (((hz * fft_size as f32) / sample_rate as f32).floor() as usize).min(fft_size - 1)
+}
+
+/// Weight `i` of a Hann window of length `n`, as `0.5 * (1 - cos(2*pi*i/n))`.
+///
+/// The caller picks `n`: the frame length for a window over a zero-padded
+/// frame (`frequency_analysis::windowed_into`), or the audio length for a
+/// window over a whole signal (`spectral_features`).
+pub(crate) fn hann_weight(i: usize, n: f32) -> f32 {
+    0.5 * (1.0 - ((2.0 * PI * i as f32) / n).cos())
+}
+
+/// Population standard deviation of `values` about a `mean` the caller already
+/// has (every caller needs the mean as well). `values` must not be empty.
+pub(crate) fn std_dev_about(values: &[f32], mean: f32) -> f32 {
+    let variance: f32 =
+        values.iter().map(|&v| (v - mean).powi(2)).sum::<f32>() / values.len() as f32;
+    variance.sqrt()
 }
