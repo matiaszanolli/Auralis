@@ -39,6 +39,7 @@ function makeStableRefs() {
     streamingMetadataRef: { current: null },
     flowPausedRef: { current: false },
     lastReceivedChunkIndexRef: { current: -1 },
+    lastRecoveryAttemptRef: { current: null },
     lastDispatchedProgressRef: { current: 0 },
   };
 }

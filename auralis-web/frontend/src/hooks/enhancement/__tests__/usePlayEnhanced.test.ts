@@ -743,6 +743,65 @@ describe('usePlayEnhanced – audio_stream_error', () => {
   });
 });
 
+describe('usePlayEnhanced – recovery guard is per play, not per session (#6585)', () => {
+  let store: TestStore;
+
+  beforeEach(() => {
+    setupMocks();
+    store = createTestStore();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  async function playTrackOne() {
+    const { result } = renderHook(() => usePlayEnhanced(), { wrapper: makeWrapper(store) });
+    await act(async () => {
+      await result.current.playEnhanced(1, 'adaptive', 1);
+    });
+    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 1 }));
+    return result;
+  }
+
+  it('replaying the track earns a fresh recovery at the same failing position', async () => {
+    const result = await playTrackOne();
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 5.0 }));
+    expect(mockReissueActiveStreamAs).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.playEnhanced(1, 'adaptive', 1);
+    });
+    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 1 }));
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 5.0 }));
+
+    expect(mockReissueActiveStreamAs).toHaveBeenCalledTimes(2);
+  });
+
+  it('a seek earns a fresh recovery too', async () => {
+    const result = await playTrackOne();
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 5.0 }));
+
+    act(() => {
+      result.current.seekTo(1);
+    });
+    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 1, is_seek: true, seek_position: 1 }));
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 5.0 }));
+
+    expect(mockReissueActiveStreamAs).toHaveBeenCalledTimes(2);
+  });
+
+  it('within one play, the same failing position is still terminal after one attempt', async () => {
+    await playTrackOne();
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 5.0 }));
+    fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 1, is_seek: true, seek_position: 5 }));
+    fireHandler('audio_stream_error', makeStreamErrorMsg({ recovery_position: 5.0 }));
+
+    expect(mockReissueActiveStreamAs).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ============================================================================
 // 5b. Streaming resource disposal (#4147, #4869)
 // ============================================================================

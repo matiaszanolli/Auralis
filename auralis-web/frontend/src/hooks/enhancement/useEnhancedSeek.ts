@@ -99,6 +99,7 @@ export function useEnhancedSeek({
     // Clear pending chunks
     core.pendingChunksRef.current = [];
     core.lastReceivedChunkIndexRef.current = -1;
+    core.lastRecoveryAttemptRef.current = null; // a seek starts a fresh stream (#6585)
 
     // preset/intensity are deliberately OMITTED (#5604): the backend resolves
     // them from this connection's active_stream_settings (#4742), which the
@@ -114,7 +115,7 @@ export function useEnhancedSeek({
         position: seek.position,
       },
     });
-  }, [send, setIsSeeking, core.playbackEngineRef, core.pcmBufferRef, core.streamingMetadataRef, core.pendingChunksRef, core.lastReceivedChunkIndexRef]);
+  }, [send, setIsSeeking, core.playbackEngineRef, core.pcmBufferRef, core.streamingMetadataRef, core.pendingChunksRef, core.lastReceivedChunkIndexRef, core.lastRecoveryAttemptRef]);
 
   const seekTo = useCallback((position: number) => {
     if (!currentTrackInfoRef.current) {

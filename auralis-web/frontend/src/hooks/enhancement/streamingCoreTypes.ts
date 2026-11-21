@@ -67,6 +67,10 @@ export interface StreamingCoreReturn {
   bufferEpochRef: React.MutableRefObject<number | null>;
   lastReceivedChunkIndexRef: React.MutableRefObject<number>;
   lastDispatchedProgressRef: React.MutableRefObject<number>;
+  /** Bounds handleStreamError's auto-resume to one attempt per (trackId, recovery_position), so a
+   *  chunk that keeps failing at the same point cannot loop the stream (#4655). A user-initiated
+   *  play or seek starts a fresh stream and clears it (#6585). */
+  lastRecoveryAttemptRef: React.MutableRefObject<{ trackId: number; position: number } | null>;
   /** Set by a user pause; while set, buffered audio never starts on its own (#5459).
    *  A new play command clears it. */
   pauseHoldRef: React.MutableRefObject<boolean>;

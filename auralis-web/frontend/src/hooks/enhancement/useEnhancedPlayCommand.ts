@@ -126,6 +126,7 @@ export function useEnhancedPlayCommand({
         core.streamingMetadataRef.current = null;
         core.pendingChunksRef.current = [];
         core.lastReceivedChunkIndexRef.current = -1;
+        core.lastRecoveryAttemptRef.current = null; // a new play earns a fresh recovery (#6585)
 
         // Reset streaming state
         dispatch(resetStreaming('enhanced'));
@@ -223,6 +224,7 @@ export function useEnhancedPlayCommand({
       core.streamingMetadataRef,
       core.pendingChunksRef,
       core.lastReceivedChunkIndexRef,
+      core.lastRecoveryAttemptRef,
       core.abortRef,
       core.pauseHoldRef,
       core.armStreamStartWatchdog,

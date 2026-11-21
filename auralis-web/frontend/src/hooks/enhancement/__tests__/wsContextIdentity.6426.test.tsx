@@ -109,6 +109,7 @@ describe('useEnhancedPlayCommand with a flickering wsContext (#6426)', () => {
       streamingMetadataRef: { current: null },
       pendingChunksRef: { current: [] },
       lastReceivedChunkIndexRef: { current: -1 },
+      lastRecoveryAttemptRef: { current: null },
       abortRef: { current: undefined },
       armStreamStartWatchdog: vi.fn(),
     };

@@ -27,6 +27,7 @@ function makeCore(): StreamingCoreReturn {
     streamingMetadataRef: { current: null },
     pendingChunksRef: { current: [] },
     lastReceivedChunkIndexRef: { current: -1 },
+    lastRecoveryAttemptRef: { current: null },
   } as unknown as StreamingCoreReturn;
 }
 

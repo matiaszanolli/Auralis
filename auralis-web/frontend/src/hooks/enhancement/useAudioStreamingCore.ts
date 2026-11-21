@@ -108,9 +108,7 @@ export function useAudioStreamingCore(
   /** Epoch the ring's current content belongs to (#5861). */
   const bufferEpochRef = useRef<number | null>(null);
   const lastDispatchedProgressRef = useRef<number>(-1);
-  /** Bounds handleStreamError's auto-resume to one attempt per distinct
-   *  (trackId, recovery_position) pair, so a chunk that keeps failing at the
-   *  same recovery point can't loop the stream forever (#4655). */
+  /** One auto-resume per (trackId, recovery_position) per play (#4655, #6585). */
   const lastRecoveryAttemptRef = useRef<{ trackId: number; position: number } | null>(null);
 
   const [currentTime, setCurrentTime] = useState(0);
@@ -229,6 +227,7 @@ export function useAudioStreamingCore(
     flowPausedRef,
     lastReceivedChunkIndexRef,
     lastDispatchedProgressRef,
+    lastRecoveryAttemptRef,
     pauseHoldRef,
     currentTime,
     setCurrentTime,
