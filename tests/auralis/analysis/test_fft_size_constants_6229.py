@@ -71,11 +71,23 @@ def _extracted() -> dict:
     }))
 
 
+# The fixture is float32, so rounding in the vectorized kernels may differ in
+# the last float32 bits between CPUs; 1e-6 still fails on any window, size or
+# constant change, which moves these values by whole percents (#6709).
+RTOL = 1e-6
+# harmonic_ratio divides by the sum of an autocorrelation whose lags nearly
+# cancel (sum ~200 against an absolute sum ~780000 on this fixture, ~3900x),
+# so CPU-dependent rounding in np.correlate is amplified. CI runners disagreed
+# at 1.6e-6 relative.
+RTOL_OVERRIDES = {"harmonic_ratio": 1e-3}
+
+
 def test_feature_vector_matches_pre_change_golden() -> None:
     got = _extracted()
     assert set(got) == set(GOLDEN)
     for key, want in GOLDEN.items():
-        assert np.allclose(got[key], want, rtol=1e-12), key
+        rtol = RTOL_OVERRIDES.get(key, RTOL)
+        assert np.allclose(got[key], want, rtol=rtol, atol=0.0), (key, got[key], want)
 
 
 def test_settings_defaults_follow_canonical_constant() -> None:
