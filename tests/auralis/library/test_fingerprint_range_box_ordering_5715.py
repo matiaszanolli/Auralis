@@ -112,7 +112,7 @@ def test_find_similar_prefilter_returns_nearest(library_database, limit):
 
         class normalizer:
             @staticmethod
-            def normalize(vec):
+            def normalize(vec, stats=None):  # FingerprintNormalizer.normalize's signature (#6573)
                 return vec
 
     target = library_database.fingerprints.get_by_track_id(1)

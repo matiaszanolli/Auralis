@@ -38,7 +38,7 @@ class _Repo:
 
 
 class _Identity:
-    def normalize(self, vector):
+    def normalize(self, vector, stats=None):  # FingerprintNormalizer.normalize's signature (#6573)
         return vector
 
 
