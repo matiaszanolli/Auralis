@@ -129,7 +129,7 @@ is depth, UX, and productization:
 | Vision | Foundation in code | Remaining |
 |--------|--------------------|-----------|
 | "Find songs like this" | Similarity API + kNN graph shipped | Discovery UX, cross-genre tuning |
-| Intelligent / flow playlists | `auralis-web/backend/services/recommendation_service.py` (`RecommendationService`) | Playlist generation UX, sequencing |
+| Intelligent / flow playlists | *auralis-web/backend/services/recommendation_service.py* (*RecommendationService*, deleted in #6579) | Playlist generation UX, sequencing |
 | User preference learning | [`auralis/learning/`](../auralis/learning/) (`preference_engine`, `reference_analyzer`, `reference_library`) | Closing the loop into live mastering params |
 | Section-aware / real-time adaptation | ContinuousMode + per-chunk params | Intra-track section detection |
 | Enhancement profile sharing | Deterministic fingerprint→params | Export/import + sharing surface |

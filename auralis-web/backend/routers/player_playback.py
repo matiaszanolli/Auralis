@@ -13,10 +13,10 @@ import asyncio
 import logging
 from typing import Any
 
-from fastapi import BackgroundTasks, Depends
+from fastapi import Depends
 
 from player_state import PlayerState
-from services import NavigationService, PlaybackService, RecommendationService
+from services import NavigationService, PlaybackService
 from services.errors import ServiceError
 from websocket.outbound_messages import broadcast_typed
 
@@ -35,7 +35,6 @@ from .player_deps import (
     _get_navigation_service,
     _get_playback_service,
     _get_player_state_manager,
-    _get_recommendation_service,
 )
 from .player_models import LoadTrackRequest, SeekRequest, SetVolumeRequest
 
@@ -68,20 +67,15 @@ async def get_player_status(
 @with_error_handling("load track")
 async def load_track(
     request: LoadTrackRequest,
-    background_tasks: BackgroundTasks,
     audio_player: Any = Depends(_get_audio_player),
     library_database: Any = Depends(_get_library_database),
     connection_manager: Any = Depends(_get_connection_manager),
-    recommendation_service: RecommendationService = Depends(_get_recommendation_service),
 ) -> dict[str, Any]:
     """
     Load a track into the player (database-backed, prevents path traversal).
 
-    Also generates and broadcasts mastering profile recommendation (Priority 4) in background.
-
     Args:
         request: LoadTrackRequest with track_id (required for security - validates file path)
-        background_tasks: FastAPI background tasks
 
     Returns:
         dict: Success message
@@ -129,14 +123,6 @@ async def load_track(
             "track_loaded",
             {"track_id": track.id},
         )
-
-        # Generate mastering recommendation in background (Priority 4)
-        background_tasks.add_task(
-            recommendation_service.generate_and_broadcast_recommendation,
-            track_id=track.id,
-            track_path=track.filepath
-        )
-        logger.info(f"🎯 Scheduled mastering recommendation generation for track {track.id}")
 
         return {"message": "Track loaded successfully", "track_id": track.id}
     else:

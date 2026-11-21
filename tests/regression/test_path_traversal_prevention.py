@@ -48,7 +48,7 @@ class TestPathTraversalPrevention:
         # since the typed-outbound-message migration.
         broadcast_source = source[
             source.index("broadcast_typed("):
-            source.index("background_tasks.add_task")
+            source.index('return {"message"')
         ]
         assert '"track_id"' in broadcast_source or "'track_id'" in broadcast_source, (
             "Broadcast must use track_id to avoid leaking filesystem layout"

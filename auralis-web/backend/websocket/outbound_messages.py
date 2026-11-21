@@ -12,12 +12,7 @@ from typing import Any, Literal, Protocol, overload
 # Payload contracts live in the outbound/ package since #6269 (player, queue,
 # library, enhancement); this module owns the broadcast entry point and the
 # discriminator overloads that tie each payload to its message type.
-from .outbound.enhancement import (
-    AlternativeProfilePayload,
-    EnhancementSettingsChangedPayload,
-    MasteringRecommendationPayload,
-    WeightedProfilePayload,
-)
+from .outbound.enhancement import EnhancementSettingsChangedPayload
 from .outbound.library import (
     ArtworkUpdatedPayload,
     CacheClearedPayload,
@@ -31,7 +26,6 @@ from .outbound.library import (
     PlaylistDeletedPayload,
     PlaylistUpdatedPayload,
     ScanCompletePayload,
-    ScanFailurePayload,
     ScanProgressPayload,
 )
 from .outbound.player import (
@@ -78,7 +72,6 @@ BroadcastMessageType = Literal[
     "playlist_updated",
     "playlist_deleted",
     "enhancement_settings_changed",
-    "mastering_recommendation",
     "artwork_updated",
     "cache_cleared",
     "library_scan_started",
@@ -181,13 +174,6 @@ async def broadcast_typed(
     manager: BroadcastManager,
     message_type: Literal["enhancement_settings_changed"],
     data: EnhancementSettingsChangedPayload,
-    *, suppress_errors: bool = False,
-) -> None: ...
-@overload
-async def broadcast_typed(
-    manager: BroadcastManager,
-    message_type: Literal["mastering_recommendation"],
-    data: MasteringRecommendationPayload,
     *, suppress_errors: bool = False,
 ) -> None: ...
 @overload

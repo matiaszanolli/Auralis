@@ -325,11 +325,6 @@ class InProcessNavigationService:
         return {"message": "No previous track available"}
 
 
-class NoOpRecommendationService:
-    async def generate_and_broadcast_recommendation(self, **kwargs: Any) -> None:
-        del kwargs
-
-
 class BackendClient:
     """Small JSON wrapper around FastAPI's in-process client."""
 
@@ -394,9 +389,6 @@ def backend() -> BackendClient:
     app.dependency_overrides[player_deps._get_queue_service] = lambda: queue_service
     app.dependency_overrides[player_deps._get_navigation_service] = lambda: (
         navigation_service
-    )
-    app.dependency_overrides[player_deps._get_recommendation_service] = lambda: (
-        NoOpRecommendationService()
     )
 
     @app.websocket("/ws")

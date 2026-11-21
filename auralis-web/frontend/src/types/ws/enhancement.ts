@@ -11,7 +11,6 @@ import type { EnhancementPreset, StreamType } from '@/types/domain';
 /** Message-type literals owned by the enhancement domain. */
 export type EnhancementMessageType =
   | 'enhancement_settings_changed'
-  | 'mastering_recommendation'
   | 'artwork_updated'
   | 'fingerprint_progress';
 
@@ -28,40 +27,6 @@ export interface EnhancementSettingsChangedMessage extends WebSocketMessage {
     preset: EnhancementPreset;
     intensity: number; // 0.0 - 1.0
   };
-}
-
-
-export interface MasteringRecommendationData {
-  track_id: number;
-  primary_profile_id: string;
-  primary_profile_name: string;
-  confidence_score: number; // 0.0 - 1.0
-  predicted_loudness_change: number; // dB
-  predicted_crest_change: number; // dB
-  predicted_centroid_change: number; // Hz
-  /** Optional on the wire — the backend dataclass only emits this when
-   *  `self.weighted_profiles` is truthy (#3550 / BE-NEW-92). */
-  weighted_profiles?: Array<{
-    profile_id: string;
-    profile_name: string;
-    weight: number; // 0.0 - 1.0, sum of all = 1.0
-  }>;
-  reasoning: string;
-  is_hybrid: boolean;
-  /** Alternative profile rankings emitted by adaptive_mastering_engine
-   *  but not currently consumed by the frontend (#3550 / BE-NEW-92). */
-  alternative_profiles?: Array<{
-    id: string;
-    name: string;
-  }>;
-  /** ISO timestamp the recommendation was computed. */
-  created?: string;
-}
-
-
-export interface MasteringRecommendationMessage extends WebSocketMessage {
-  type: 'mastering_recommendation';
-  data: MasteringRecommendationData;
 }
 
 

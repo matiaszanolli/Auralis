@@ -84,7 +84,7 @@ auralis-web/backend/
 - `routers/enhancement.py` — path_security, chunked_processor (×2), get_last_content_profile
 - *schemas.py* (now the `auralis-web/backend/schemas/` package, #5479) — path_security
 - `services/navigation_service.py` — state_manager
-- `services/recommendation_service.py` — chunked_processor (×2)
+- *services/recommendation_service.py* — chunked_processor (×2)
 
 ### Tests — 24 files updated
 `tests/boundaries/`, `tests/security/`, `tests/integration/`, `tests/backend/`

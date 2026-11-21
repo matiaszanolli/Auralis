@@ -2,10 +2,9 @@
 Cached, bounded mastering-recommendation analysis (#5970)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The one implementation behind both ``GET /api/player/mastering/recommendation/{id}`` and
-``RecommendationService``, so a fix to the bound (#5248) or the cache key (#5956) lands once.
-Callers validate the path first and own their error mapping: the route turns a
-``TimeoutError`` into a 504 and ``None`` into a 422, the service logs and moves on.
+The analysis behind ``GET /api/player/mastering/recommendation/{id}``, so a fix to the bound
+(#5248) or the cache key (#5956) lands in one place. The caller validates the path first and owns
+its error mapping: the route turns a ``TimeoutError`` into a 504 and ``None`` into a 422.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

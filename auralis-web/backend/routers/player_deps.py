@@ -17,7 +17,6 @@ from services import (
     NavigationService,
     PlaybackService,
     QueueService,
-    RecommendationService,
 )
 
 from .dependencies import RouterDeps, provide_connection_manager, unavailable
@@ -108,13 +107,6 @@ def _get_queue_service(
         connection_manager=connection_manager,
         create_track_info_fn=_deps.current().create_track_info_fn,
     )
-
-
-def _get_recommendation_service(
-    connection_manager: Any = Depends(_get_connection_manager),
-) -> RecommendationService:
-    """Lazy service initialization"""
-    return RecommendationService(connection_manager=connection_manager)
 
 
 def _get_navigation_service(

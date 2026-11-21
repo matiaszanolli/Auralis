@@ -3,7 +3,7 @@ Player Router
 
 Handles audio playback control and queue management via FastAPI endpoints.
 Delegates business logic to service layer (PlaybackService, QueueService,
-RecommendationService, NavigationService).
+NavigationService).
 
 Split by sub-resource (#5472). This module is the coordinator:
 create_player_router() registers every /api/player route, and every handler

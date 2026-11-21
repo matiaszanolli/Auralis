@@ -29,7 +29,7 @@ describe('@/types/websocket barrel (#4081)', () => {
     // #5525 removed 'job_progress' again — the subscribe_job_progress handler
     // had no frontend sender and no consumer, so the whole protocol surface
     // was retired on both sides.
-    expect(ws.ALL_MESSAGE_TYPES).toHaveLength(34);
+    expect(ws.ALL_MESSAGE_TYPES).toHaveLength(33);
     expect(ws.ALL_MESSAGE_TYPES).not.toContain('audio_chunk_meta');
     expect(ws.ALL_MESSAGE_TYPES).not.toContain('queue_updated');
     expect(ws.ALL_MESSAGE_TYPES).not.toContain('job_progress');
@@ -38,7 +38,7 @@ describe('@/types/websocket barrel (#4081)', () => {
     expect(ws.ALL_MESSAGE_TYPES).toContain('error');
     expect(ws.ALL_MESSAGE_TYPES).toContain('playback_started');
     expect(ws.ALL_MESSAGE_TYPES).toContain('queue_changed');
-    expect(ws.ALL_MESSAGE_TYPES).toContain('mastering_recommendation');
+    expect(ws.ALL_MESSAGE_TYPES).toContain('enhancement_settings_changed');
     expect(ws.ALL_MESSAGE_TYPES).toContain('library_updated');
   });
 

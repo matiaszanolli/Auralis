@@ -329,74 +329,6 @@ Broadcast when audio enhancement settings are updated.
 }
 ```
 
-#### `mastering_recommendation`
-Broadcast when a mastering profile recommendation is generated for the current track.
-
-This message contains weighted profile information for hybrid mastering scenarios.
-
-**Trigger**: When track loads or `GET /api/player/mastering/recommendation/{track_id}` completes
-
-**Payload**:
-```typescript
-{
-  "type": "mastering_recommendation",
-  "data": {
-    "track_id": number,
-    "primary_profile_id": string,
-    "primary_profile_name": string,
-    "confidence_score": number,          // 0.0 - 1.0
-    "predicted_loudness_change": number, // dB
-    "predicted_crest_change": number,    // dB
-    "predicted_centroid_change": number, // Hz
-    "weighted_profiles": [
-      {
-        "profile_id": string,
-        "profile_name": string,
-        "weight": number  // 0.0 - 1.0, sum of all weights = 1.0
-      }
-      // Only present if hybrid/blended recommendation
-    ],
-    "reasoning": string,
-    "is_hybrid": boolean  // True if weighted_profiles present and non-empty
-  }
-}
-```
-
-**Example (Hybrid Mastering)**:
-```json
-{
-  "type": "mastering_recommendation",
-  "data": {
-    "track_id": 42,
-    "primary_profile_id": "bright-masters-spectral-v1",
-    "primary_profile_name": "Bright Masters - High-Frequency Emphasis",
-    "confidence_score": 0.21,
-    "predicted_loudness_change": -1.06,
-    "predicted_crest_change": 1.47,
-    "predicted_centroid_change": 22.7,
-    "weighted_profiles": [
-      {
-        "profile_id": "bright-masters-spectral-v1",
-        "profile_name": "Bright Masters - High-Frequency Emphasis",
-        "weight": 0.43
-      },
-      {
-        "profile_id": "hires-masters-modernization-v1",
-        "profile_name": "Hi-Res Masters - Modernization with Expansion",
-        "weight": 0.31
-      },
-      {
-        "profile_id": "damaged-studio-restoration-v1",
-        "profile_name": "Damaged Studio - Restoration",
-        "weight": 0.26
-      }
-    ],
-    "reasoning": "Hybrid mastering detected (low single-profile confidence: 21%) → Blend: Bright Masters(43%) + Hi-Res Masters(31%) + Damaged Studio(26%)",
-    "is_hybrid": true
-  }
-}
-```
-
 ---
 
 ### Audio Streaming Messages (Server → Client)
@@ -875,7 +807,7 @@ Complete TypeScript types for all WebSocket messages are available in:
 
 **Frontend**: [auralis-web/frontend/src/types/websocket.ts](../frontend/src/types/websocket.ts) — a barrel re-export (#4081); the canonical source is [`auralis-web/frontend/src/types/ws/registry.ts`](../frontend/src/types/ws/registry.ts)
 
-The complete `WebSocketMessageType` union (34 members) is reproduced here for quick reference. This block is hand-maintained and has drifted from the real union before (#4991); `tests/backend/test_ws_type_registry_drift_4680.py` now checks it against both the backend's emitted literals and `registry.ts`, so a stale copy fails CI rather than misleading the next reader. Note `audio_chunk_meta` is intentionally excluded from this union — it's a JSON text frame fused with the following binary frame into a synthetic `audio_chunk` event by `WebSocketContext` before reaching consumers (see `ws/streaming.ts`):
+The complete `WebSocketMessageType` union (33 members) is reproduced here for quick reference. This block is hand-maintained and has drifted from the real union before (#4991); `tests/backend/test_ws_type_registry_drift_4680.py` now checks it against both the backend's emitted literals and `registry.ts`, so a stale copy fails CI rather than misleading the next reader. Note `audio_chunk_meta` is intentionally excluded from this union — it's a JSON text frame fused with the following binary frame into a synthetic `audio_chunk` event by `WebSocketContext` before reaching consumers (see `ws/streaming.ts`):
 
 ```typescript
 export type WebSocketMessageType =
@@ -904,7 +836,6 @@ export type WebSocketMessageType =
   | 'playlist_deleted'
   // Enhancement messages
   | 'enhancement_settings_changed'
-  | 'mastering_recommendation'
   // Artwork messages
   | 'artwork_updated'
   // Fingerprint messages
@@ -937,7 +868,7 @@ export type WebSocketMessageType =
 | System | `cache_cleared` |
 | Metadata | `metadata_updated`, `metadata_batch_updated` |
 | Playlists | `playlist_created`, `playlist_updated`, `playlist_deleted` |
-| Enhancement | `enhancement_settings_changed`, `mastering_recommendation` |
+| Enhancement | `enhancement_settings_changed` |
 | Artwork | `artwork_updated` |
 | Fingerprint | `fingerprint_progress` |
 | Seek | `seek_started` |

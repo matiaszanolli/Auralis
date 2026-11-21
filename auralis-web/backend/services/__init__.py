@@ -2,7 +2,7 @@
 Player Services
 
 Business logic services extracted from routers/player.py.
-Handles playback control, queue management, recommendations, and navigation.
+Handles playback control, queue management, and navigation.
 
 Only the names with a live importer are re-exported here; the error types
 beyond ServiceUnavailable and the queue protocols are imported from their
@@ -17,12 +17,10 @@ from .errors import ServiceUnavailable
 from .navigation_service import NavigationService
 from .playback_service import PlaybackService
 from .queue_service import QueueService
-from .recommendation_service import RecommendationService
 
 __all__ = [
     'ServiceUnavailable',
     'PlaybackService',
     'QueueService',
-    'RecommendationService',
     'NavigationService',
 ]

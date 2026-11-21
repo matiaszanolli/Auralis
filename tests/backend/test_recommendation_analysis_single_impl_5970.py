@@ -1,4 +1,4 @@
-"""The recommendation route and RecommendationService share one analysis path (#5970).
+"""The recommendation route's analysis lives in one place (#5970).
 
 Both carried their own copy of "cache lookup -> bounded ChunkedAudioProcessor analysis -> cache
 store", so every fix (#5248 timeout, #5956 cache key) had to land twice.
@@ -72,6 +72,6 @@ async def test_a_slow_analysis_raises_timeout_for_the_caller_to_map():
             await cached_or_analyzed_recommendation(cache, 5, "/m/a.flac", 0.4)
 
 
-def test_neither_caller_builds_its_own_processor():
-    for name in ("routers/enhancement_recommendation.py", "services/recommendation_service.py"):
-        assert "ChunkedAudioProcessor(" not in (_BACKEND / name).read_text(), name
+def test_the_route_does_not_build_its_own_processor():
+    name = "routers/enhancement_recommendation.py"
+    assert "ChunkedAudioProcessor(" not in (_BACKEND / name).read_text(), name

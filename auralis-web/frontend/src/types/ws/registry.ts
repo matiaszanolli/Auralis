@@ -62,7 +62,6 @@ import type {
 import type {
   EnhancementMessageType,
   EnhancementSettingsChangedMessage,
-  MasteringRecommendationMessage,
   ArtworkUpdatedMessage,
   FingerprintProgressMessage,
 } from './enhancement';
@@ -102,7 +101,6 @@ export type AnyWebSocketMessage =
   | PlaylistUpdatedMessage
   | PlaylistDeletedMessage
   | EnhancementSettingsChangedMessage
-  | MasteringRecommendationMessage
   | ArtworkUpdatedMessage
   | FingerprintProgressMessage
   | SeekStartedMessage
@@ -143,7 +141,6 @@ export const ALL_MESSAGE_TYPES: readonly WebSocketMessageType[] = [
   'playlist_updated',
   'playlist_deleted',
   'enhancement_settings_changed',
-  'mastering_recommendation',
   'artwork_updated',
   'fingerprint_progress',
   'seek_started',
