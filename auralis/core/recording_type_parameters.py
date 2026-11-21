@@ -10,11 +10,10 @@ scripts-only by design (#4873/#5780); the tables are data.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from .utils import SmoothCurveUtilities
 from .utils.fingerprint_unpacker import FingerprintUnpacker
 from dataclasses import dataclass
 
-from .recording_type_detector import RecordingType, _centroid_hz
+from .recording_type_detector import _centroid_hz
 
 
 

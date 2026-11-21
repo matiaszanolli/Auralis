@@ -12,7 +12,6 @@ from auralis.core.utils import fingerprint_default
 from typing import Any
 
 import numpy as np
-from scipy.signal.windows import hann
 
 from ...dsp.eq.psychoacoustic_eq import PsychoacousticEQ
 from ...utils.logging import debug, warning

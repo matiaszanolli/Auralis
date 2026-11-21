@@ -11,7 +11,7 @@ Unified stereo width processing with safety checks. Both modes'
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
+from auralis.dsp.utils.conversion import amplitude_to_db
 import numpy as np
 
 from ....dsp.utils.stereo import WIDTH_FACTOR_UNITY, adjust_stereo_width_multiband

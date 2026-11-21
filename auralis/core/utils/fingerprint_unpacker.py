@@ -13,7 +13,6 @@ with centralized defaults and lazy evaluation.
 
 from auralis.dsp.constants import SPECTRAL_CENTROID_HZ_DEFAULT
 from dataclasses import dataclass
-from typing import Any
 
 from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 
