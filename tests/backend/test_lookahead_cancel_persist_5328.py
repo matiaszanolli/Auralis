@@ -34,6 +34,7 @@ def _rendering_processor(event: threading.Event, *, cancel_during_dsp: bool) -> 
     processor.sample_rate = 44100
     processor.total_duration = 15.0
     processor.file_signature = "sig"
+    processor._dsp_fallback = None
     processor._sync_cache_lock = threading.RLock()
     processor._get_chunk_path = Mock(return_value=Path("/tmp/v4_track_1_chunk_1.wav"))
     processor._wav_encoder.encode_and_save_from_path = Mock(return_value="/tmp/chunk_1.wav")

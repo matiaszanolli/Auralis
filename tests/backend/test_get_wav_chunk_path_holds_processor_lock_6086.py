@@ -52,6 +52,7 @@ def _processor(spy: _SpyLock, sync_events: list[str]) -> Mock:
     processor.sample_rate = 44100
     processor.total_duration = 15.0
     processor.file_signature = "sig"
+    processor._dsp_fallback = None
     processor._processor_lock = spy
     sync = _SpyLock()
     sync.events = sync_events

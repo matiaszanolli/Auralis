@@ -34,6 +34,7 @@ def _processor(encode_error: Exception | None) -> MagicMock:
     processor.sample_rate = 44100
     processor.preset = "adaptive"
     processor._cancel_event = None
+    processor._dsp_fallback = None
     processor._process_chunk_core.return_value = SEGMENT
     processor._smooth_level_transition.side_effect = lambda audio, _index: audio
     processor._wav_encoder.encode_and_save_from_path.side_effect = encode_error

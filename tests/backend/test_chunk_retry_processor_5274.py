@@ -54,6 +54,7 @@ def test_retry_uses_fresh_processor_after_post_dsp_failure(tmp_path: Path):
         _wav_encoder=encoder,
         _path_cache=path_cache,
         _dsp_state_advanced=False,
+        _dsp_fallback=None,
         _validate_chunk_index=lambda _index: None,
         _smooth_level_transition=lambda chunk, _index: chunk,
         _lookup_cached_chunk=lambda _index: None,
