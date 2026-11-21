@@ -304,6 +304,30 @@ class TestShuffleQueue:
             assert response.status_code == 503
 
 
+class TestRepeatReachesTheEngine:
+    """POST /api/player/queue/repeat sets the engine's repeat flag too (#6593).
+
+    Only PlayerState.repeat_mode was written, so the engine's has_next/has_previous and REST
+    next/previous never wrapped under repeat "all".
+    """
+
+    @pytest.mark.parametrize(("mode", "wraps"), [("all", True), ("one", False), ("off", False)])
+    def test_repeat_mode_sets_the_engine_flag(self, client, queue_manager, mode, wraps):
+        queue_manager.repeat_enabled = not wraps  # prove the route writes it either way
+        player = Mock(queue=queue_manager, set_repeat=queue_manager.set_repeat)
+        state = Mock(update_state=AsyncMock())
+        ws = Mock(broadcast=AsyncMock())
+
+        with patch.dict('main.globals_dict', {'audio_player': player, 'player_state_manager': state}), \
+                patch('main.manager', ws):
+            response = client.post("/api/player/queue/repeat", json={"mode": mode})
+
+        assert response.status_code == 200
+        assert queue_manager.repeat_enabled is wraps
+        queue_manager.current_index = queue_manager.get_queue_size() - 1  # at the last track
+        assert queue_manager.get_queue_info()["has_next"] is wraps
+
+
 class TestQueueIntegration:
     """Integration tests for queue manipulation"""
 

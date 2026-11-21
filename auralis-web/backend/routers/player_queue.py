@@ -9,6 +9,7 @@ registers them.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import asyncio
 from typing import Annotated, Any
 
 from fastapi import Depends, Path
@@ -20,6 +21,7 @@ from websocket.outbound_messages import broadcast_typed
 from .dependencies import with_error_handling
 from .errors import raise_for_service_error
 from .player_deps import (
+    _get_audio_player,
     _get_connection_manager,
     _get_player_state_manager,
     _get_queue_service,
@@ -149,6 +151,7 @@ async def set_repeat_mode(
     request: RepeatModeRequest,
     player_state_manager: Any = Depends(_get_player_state_manager),
     connection_manager: Any = Depends(_get_connection_manager),
+    audio_player: Any = Depends(_get_audio_player),
 ) -> dict[str, Any]:
     """Set the playback repeat mode (off, all, one)."""
     try:
@@ -158,6 +161,10 @@ async def set_repeat_mode(
         # Pass through 'off' / 'one' / 'all' — backend now uses the same
         # vocabulary as the frontend Literal (#3501 / BE-NEW-43).
         await player_state_manager.update_state(repeat_mode=request.mode)
+        # The engine wraps next/previous and reports has_next/has_previous under its own flag,
+        # which nothing set (#6593). Only 'all' wraps the queue: 'one' is a track-end mode (#5605).
+        if audio_player is not None and hasattr(audio_player, "set_repeat"):
+            await asyncio.to_thread(audio_player.set_repeat, request.mode == "all")
 
         # Broadcast canonical value so WS and REST always agree
         await broadcast_typed(
