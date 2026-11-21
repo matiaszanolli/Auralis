@@ -212,38 +212,3 @@ class EstimationOperations:
         )
         return float(max(20 * np.log10(rms) - noise_floor_db, 0.0))
 
-    @staticmethod
-    def compute_stereo_correlation(left: np.ndarray,
-                                  right: np.ndarray) -> float:
-        """
-        Compute stereo correlation coefficient
-
-        Measures how similar left and right channels are.
-        1.0 = identical, 0.0 = uncorrelated, -1.0 = inverse
-
-        Args:
-            left: Left channel audio
-            right: Right channel audio
-
-        Returns:
-            Correlation coefficient (-1 to 1)
-        """
-        # Ensure same length
-        min_len = min(len(left), len(right))
-        left = left[:min_len]
-        right = right[:min_len]
-
-        # Normalize
-        left_norm = left - np.mean(left)
-        right_norm = right - np.mean(right)
-
-        # Compute correlation
-        numerator = np.sum(left_norm * right_norm)
-        denominator = np.sqrt(np.sum(left_norm ** 2) * np.sum(right_norm ** 2))
-
-        if denominator == 0:
-            return 0.0
-
-        correlation = numerator / denominator
-
-        return float(np.clip(correlation, -1.0, 1.0))

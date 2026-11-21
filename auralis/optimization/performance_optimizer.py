@@ -13,7 +13,7 @@ The rest of the surface this class used to carry is gone because nothing drove i
 ``optimized_fft``/``optimized_convolution``, the audio-buffer pool calls and the
 ``@optimized``/``@cached`` decorators), and #5769 then deleted the ``SmartCache``,
 ``MemoryPool`` and ``SIMDAccelerator`` objects that were kept constructed only so
-``get_optimization_stats()`` could report an empty cache and an idle pool, along
+a stats report could show an empty cache and an idle pool, along
 with ``PerformanceConfig``, whose every field sized one of them. If a real
 cache or buffer pool is wanted later it should be built against a caller.
 
@@ -22,7 +22,6 @@ cache or buffer pool is wanted later it should be built against a caller.
 """
 
 import threading
-from typing import Any
 
 from ..utils.logging import info
 from .profiling import PerformanceProfiler
@@ -35,10 +34,6 @@ class PerformanceOptimizer:
         self.profiler: PerformanceProfiler = PerformanceProfiler()
 
         info("Performance optimizer initialized")
-
-    def get_optimization_stats(self) -> dict[str, Any]:
-        """Profiling report for the instrumented pipeline methods"""
-        return {'performance': self.profiler.get_performance_report()}
 
     def shutdown(self) -> None:
         """Shutdown optimizer and cleanup resources"""

@@ -174,17 +174,6 @@ class AdaptiveCompressor:
         """Current ring-buffer contents, or None before first use."""
         return self._lookahead.buffer
 
-    def get_current_state(self) -> dict[str, float]:
-        """Get current compressor state"""
-        return {
-            'gain_reduction_db': self.gain_reduction,
-            'current_gain': self.previous_gain,
-            'threshold_db': self.settings.threshold_db,
-            'ratio': self.settings.ratio,
-            'attack_ms': self.settings.attack_ms,
-            'release_ms': self.settings.release_ms
-        }
-
     def reset(self) -> None:
         """Reset compressor state"""
         self.gain_follower.reset()

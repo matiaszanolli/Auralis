@@ -54,7 +54,6 @@ class SmoothCurveUtilities:
     the mastering pipeline, providing consistent implementations of:
     - S-curves for smooth 0→1 transitions via cosine
     - Ramp-to-curve mapping for value ranges
-    - Bell curves for symmetric peak responses
 
     All methods are stateless static methods for easy reuse.
     """
@@ -170,41 +169,4 @@ class SmoothCurveUtilities:
         return SmoothCurveUtilities.ramp_to_s_curve(
             max(0.0, mask_ratio - ratio_low), 0.0, ratio_range
         )
-
-    @staticmethod
-    def bell_curve(value: float, center: float, width: float) -> float:
-        """
-        Symmetric bell curve peaking at center with given width.
-
-        Creates a smooth bell-shaped curve that peaks at the center value
-        and falls off symmetrically on both sides. Uses S-curve for the
-        falloff to maintain musical smoothness.
-
-        Args:
-            value: Input position (arbitrary scale)
-            center: Peak position (output = 1.0 at this point)
-            width: Half-width at half-maximum (HWHM)
-
-        Returns:
-            Curve value 0.0-1.0 (1.0 at center, 0.0 beyond width)
-
-        Examples:
-            >>> SmoothCurveUtilities.bell_curve(0.5, 0.5, 0.2)
-            1.0  # At center
-            >>> SmoothCurveUtilities.bell_curve(0.6, 0.5, 0.2)
-            ~0.5  # Half-width away
-            >>> SmoothCurveUtilities.bell_curve(0.8, 0.5, 0.2)
-            0.0  # Beyond width
-
-        Notes:
-            - Symmetric around center point
-            - Falls to 0.0 beyond ±width from center
-            - Uses S-curve for smooth falloff (not Gaussian)
-            - Used for stereo width expansion curves
-        """
-        distance = abs(value - center) / width
-        if distance > 1.0:
-            return 0.0
-        # S-curve applied to inverted distance for smooth falloff
-        return SmoothCurveUtilities.s_curve(1.0 - distance)
 

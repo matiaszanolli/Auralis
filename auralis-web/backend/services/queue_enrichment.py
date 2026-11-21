@@ -73,14 +73,6 @@ class QueueEnricher:
         self.library_database: Any = library_database
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
 
-    async def enrich_tracks(self, entries: list[Any]) -> list[TrackInfo]:
-        """Resolve engine queue entries (filepath dicts) to full TrackInfo.
-
-        Entries that resolve to nothing are dropped rather than emitted as
-        schema-invalid partial dicts (#4374); see resolve_tracks().
-        """
-        return [ti for ti in await self.resolve_tracks(entries) if ti is not None]
-
     async def resolve_tracks(self, entries: list[Any]) -> list[TrackInfo | None]:
         """Resolve engine queue entries position-for-position, None where
         an entry resolves to no track.

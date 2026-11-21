@@ -200,25 +200,6 @@ class SpectrumOperations(WeightingMixin):
         return float(cast(np.ndarray, frequency_bins[rolloff_idx]))
 
     @staticmethod
-    def get_band_names(frequency_bins: np.ndarray) -> list[str]:
-        """
-        Get human-readable frequency band names
-
-        Args:
-            frequency_bins: Frequency bin centers
-
-        Returns:
-            List of band name strings
-        """
-        band_names = []
-        for freq in frequency_bins:
-            if freq < 1000:
-                band_names.append(f"{freq:.0f}Hz")
-            else:
-                band_names.append(f"{freq/1000:.1f}kHz")
-        return band_names
-
-    @staticmethod
     def aggregate_analysis_results(chunk_results: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Aggregate spectrum analysis results across multiple chunks

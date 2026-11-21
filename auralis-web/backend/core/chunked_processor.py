@@ -238,10 +238,6 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
         """Load a chunk with optional context. Delegates to chunk_render (#4245)."""
         return chunk_render.load_chunk(self, chunk_index, with_context)
 
-    def _calculate_rms(self, audio: np.ndarray) -> float:
-        """RMS level in dB. Delegates to chunk_render / LevelManager (#4245)."""
-        return chunk_render.calculate_rms(self, audio)
-
     def _smooth_level_transition(self, chunk: np.ndarray, chunk_index: int) -> np.ndarray:
         """Smooth level transitions across chunks. Delegates to chunk_render (#4245)."""
         return chunk_render.smooth_level_transition(self, chunk, chunk_index)
