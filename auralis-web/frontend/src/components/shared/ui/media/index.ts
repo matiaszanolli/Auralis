@@ -6,5 +6,3 @@
 
 export { AlbumArtDisplay } from './AlbumArtDisplay';
 export { ProgressiveImage } from './ProgressiveImage';
-
-// Future media components will be added here
