@@ -38,6 +38,21 @@ def content_chunk_count(total_duration: float) -> int:
     return max(1, int(np.ceil((total_duration - OVERLAP_DURATION) / CHUNK_INTERVAL)))
 
 
+# The normal (unprocessed) stream reads CHUNK_DURATION-long chunks back to back: no context, no
+# overlap, so its stride is the whole chunk rather than CHUNK_INTERVAL (#6637).
+NORMAL_CHUNK_STRIDE = CHUNK_DURATION
+
+
+def normal_chunk_count(total_frames: int, sample_rate: int) -> int:
+    """Number of chunks the normal (no-overlap) stream reads; the twin of :func:`content_chunk_count`.
+
+    Plain ``ceil(frames / stride)`` is correct here and only here: with no overlap, every chunk
+    carries new audio, so the trailing-chunk over-allocation #4124 fixed for the enhanced path
+    cannot happen.
+    """
+    return max(1, int(np.ceil(total_frames / int(NORMAL_CHUNK_STRIDE * sample_rate))))
+
+
 # Minimum amount of new audio the first chunk of a seek must still carry.
 # Below this, the seek advances to the next chunk instead: an immediate
 # buffer underrun is worse than starting a fraction of a second late.
@@ -173,11 +188,11 @@ def normal_stream_plan(
     instant (a saved playback position at the very end of a track hits this
     on every resume).
     """
-    chunk_duration = float(CHUNK_DURATION)
+    chunk_duration = float(NORMAL_CHUNK_STRIDE)
     chunk_samples = int(chunk_duration * sample_rate)
     interval_samples = chunk_samples  # No overlap for the normal path.
 
-    total_chunks = max(1, int(np.ceil(total_frames / interval_samples)))
+    total_chunks = normal_chunk_count(total_frames, sample_rate)
     duration = total_frames / sample_rate
 
     pos = min(max(0.0, float(start_position)), max(0.0, duration - SEEK_MIN_CHUNK_REMAINDER))

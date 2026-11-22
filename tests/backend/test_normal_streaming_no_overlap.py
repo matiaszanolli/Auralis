@@ -301,3 +301,14 @@ class TestEffectiveSeekPosition:
 
     def test_a_negative_request_is_reported_as_zero(self) -> None:
         assert _plan(60 * SAMPLE_RATE, -3.0).effective_position == 0.0
+
+
+@pytest.mark.parametrize("seconds", [0.1, 14.99, 15.0, 15.01, 29.9, 30.0, 151.3, 3600.0])
+@pytest.mark.parametrize("sample_rate", [44100, 48000, 96000])
+def test_normal_chunk_count_is_the_plain_ceil_over_the_full_chunk(seconds, sample_rate):
+    """#6637: the named twin of content_chunk_count keeps the old inline formula's values."""
+    frames = int(seconds * sample_rate)
+    expected = max(1, int(np.ceil(frames / int(chunk_boundaries.CHUNK_DURATION * sample_rate))))
+
+    assert chunk_boundaries.normal_chunk_count(frames, sample_rate) == expected
+    assert chunk_boundaries.normal_stream_plan(frames, sample_rate).total_chunks == expected

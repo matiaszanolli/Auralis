@@ -212,6 +212,7 @@ post-commit paths must touch the relationship while still attached.
 **Chunk geometry**: `CHUNK_DURATION` / `INTERVAL` / `OVERLAP` / `CONTEXT` come
 only from `backend/core/chunk_boundaries.py`; `content_chunk_count()` is the sole
 chunk-counting authority (overlap-aware — not `ceil(duration / CHUNK_DURATION)`).
+Its one twin there is `normal_chunk_count()`, for the no-overlap normal stream.
 Cached chunk files are 16-bit PCM WAV, not float32.
 
 ## Patterns

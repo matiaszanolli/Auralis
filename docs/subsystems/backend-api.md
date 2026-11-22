@@ -180,7 +180,8 @@ The full protocol reference is [`WEBSOCKET_API.md`](../../auralis-web/backend/WE
 Chunk geometry is sourced *only* from
 [`core/chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py):
 `CHUNK_DURATION=15`, `CHUNK_INTERVAL=10`, `OVERLAP_DURATION=5`, `CONTEXT_DURATION=5`. Count
-chunks with `content_chunk_count()`, never naive `ceil(duration / CHUNK_DURATION)`. See
+chunks with `content_chunk_count()`, never naive `ceil(duration / CHUNK_DURATION)` (the no-overlap
+normal stream counts with its twin `normal_chunk_count()`). See
 [dsp-engine.md §6](dsp-engine.md#6-chunked-streaming-auralis-webbackendcore) for the chunk
 seam model (no crossfade, #4642) and `ProcessorFactory` lifecycle.
 
