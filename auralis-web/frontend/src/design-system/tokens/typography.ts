@@ -42,7 +42,6 @@ export const typography = {
     },
 
     lineHeight: {
-      tight: 1.2,      // Headers
       normal: 1.5,     // Body text
       relaxed: 1.75,   // Long-form
     },
