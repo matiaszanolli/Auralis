@@ -199,8 +199,9 @@ class TestStreamlinedCacheRecommendations:
     def test_missing_track_returns_none(self):
         assert StreamlinedCacheManager().get_mastering_recommendation(track_id=999) is None
 
-    async def test_clear_removes_every_recommendation(self):
+    async def test_clear_removes_every_recommendation(self, tmp_path):
         cache = StreamlinedCacheManager()
+        cache.chunk_dir = tmp_path  # clear_all() sweeps every *.wav here; not the shared cache
         cache.set_mastering_recommendation(1, self._rec_payload())
         cache.set_mastering_recommendation(2, self._rec_payload())
         assert cache.get_mastering_recommendation(1) is not None

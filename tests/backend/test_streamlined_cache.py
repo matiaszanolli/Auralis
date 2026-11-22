@@ -198,9 +198,16 @@ class TestStreamlinedCacheManager:
     """Test StreamlinedCacheManager."""
 
     @pytest.fixture
-    def cache_manager(self):
-        """Create a fresh cache manager for each test."""
-        return StreamlinedCacheManager()
+    def cache_manager(self, tmp_path):
+        """A fresh cache manager whose on-disk sweep stays in a scratch directory.
+
+        clear_track()/clear_all() also delete matching files from manager.chunk_dir (#5340). Left
+        at the real shared chunk cache, a test counted other runs' track_1_*.wav files (removed
+        == 3, not 1) and deleted them.
+        """
+        manager = StreamlinedCacheManager()
+        manager.chunk_dir = tmp_path / "chunk_cache"
+        return manager
 
     def test_initialization(self, cache_manager):
         """Test cache manager initialization."""
@@ -642,9 +649,16 @@ class TestCacheMemoryManagement:
     """Test cache memory management."""
 
     @pytest.fixture
-    def cache_manager(self):
-        """Create a fresh cache manager for each test."""
-        return StreamlinedCacheManager()
+    def cache_manager(self, tmp_path):
+        """A fresh cache manager whose on-disk sweep stays in a scratch directory.
+
+        clear_track()/clear_all() also delete matching files from manager.chunk_dir (#5340). Left
+        at the real shared chunk cache, a test counted other runs' track_1_*.wav files (removed
+        == 3, not 1) and deleted them.
+        """
+        manager = StreamlinedCacheManager()
+        manager.chunk_dir = tmp_path / "chunk_cache"
+        return manager
 
     @pytest.mark.asyncio
     async def test_tier2_evicts_oldest_track(self, cache_manager):
