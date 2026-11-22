@@ -2,13 +2,12 @@
  * Tabs Styles - Reusable tab component styling
  *
  * Consolidates tab navigation patterns with aurora indicator styling
- * used across dialogs and detail views.
+ * used by dialogs.
  *
  * Includes:
  * - DialogTabs: Compact tabs for dialog interfaces (minHeight: 48)
- * - DetailViewTabs: Larger tabs for detail view interfaces (fontSize: 1rem, marginBottom: 3)
  *
- * Both use the aurora gradient for selected state and indicator.
+ * Uses the accent color for the selected state and indicator.
  */
 
 import { Tabs, styled } from '@mui/material';
@@ -28,28 +27,6 @@ export const DialogTabs = styled(Tabs)({
     fontSize: tokens.typography.fontSize.base,
     minHeight: 48,
     color: themeVars.textSecondary,
-    '&.Mui-selected': {
-      color: tokens.colors.accent.primary
-    }
-  },
-  '& .MuiTabs-indicator': {
-    backgroundColor: tokens.colors.accent.primary
-  }
-});
-
-/**
- * DetailViewTabs - Tab navigation for detail view interfaces
- * Larger styling (fontSize 1rem, marginBottom 3, minWidth 120) for artist/album views
- * Used by: ArtistDetailView, AlbumDetailView
- */
-export const DetailViewTabs = styled(Tabs)({
-  borderBottom: `1px solid ${tokens.colors.border.light}`,
-  marginBottom: tokens.spacing.md,
-  '& .MuiTab-root': {
-    textTransform: 'none',
-    fontSize: tokens.typography.fontSize.md,
-    fontWeight: tokens.typography.fontWeight.medium,
-    minWidth: 120,
     '&.Mui-selected': {
       color: tokens.colors.accent.primary
     }

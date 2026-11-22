@@ -1,7 +1,7 @@
 /**
  * Skeleton Styles - Reusable skeleton loader and loading state styling
  *
- * Consolidates skeleton component styling and shimmer/pulse animations
+ * Consolidates skeleton component styling and the shimmer animation
  * used for loading states across image components, progressive loaders,
  * and other loading placeholders.
  *
@@ -9,13 +9,11 @@
  *
  * Variants:
  * - SkeletonBox: Base shimmer animation for skeleton elements
- * - PulsingBox: Opacity pulse animation for icon/text loaders
  */
 
-import { tokens } from '@/design-system';
 import { Box, styled } from '@mui/material';
 import { themeVars } from '@/theme/semanticTheme';
-import { shimmer, pulse } from './Animation.styles';
+import { shimmer } from './Animation.styles';
 import { radiusMedium } from './BorderRadius.styles';
 
 /**
@@ -36,15 +34,6 @@ export const SkeletonBox = styled(Box)({
 });
 
 /**
- * PulsingBox - Box with opacity pulse animation
- * Used for loading state icons and text indicators
- * Features: fades in/out smoothly over 2 seconds
- */
-export const PulsingBox = styled(Box)({
-  animation: `${pulse} ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}`,
-});
-
-/**
  * SkeletonContainer - Container for skeleton elements (image load state)
  * Positioned absolutely to overlay loading state
  */
@@ -54,30 +43,4 @@ export const SkeletonContainer = styled(Box)({
   left: 0,
   width: '100%',
   height: '100%',
-});
-
-/**
- * ImageLoadingContainer - Container for image loading state
- * Used by ProgressiveImage component
- */
-export const ImageLoadingContainer = styled(Box)({
-  position: 'relative',
-  overflow: 'hidden',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  flexShrink: 0,
-});
-
-/**
- * LoadingIconContainer - Container for loading state icon
- * Used by enhancement pane and processing feedback
- * Features: centered flex layout for icons
- */
-export const LoadingIconContainer = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: tokens.spacing.group,
 });

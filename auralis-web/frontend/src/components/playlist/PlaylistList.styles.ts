@@ -99,10 +99,6 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
         : tokens.glass.subtle.background,                 // Glass effect on hover
       transform: 'translateX(2px)',                       // Subtle movement
       backdropFilter: tokens.glass.subtle.backdropFilter, // 20px blur for glossy feel
-
-      '& .playlist-actions': {
-        opacity: 1,
-      },
     },
 
     '& .MuiListItemText-primary': {
@@ -112,17 +108,6 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
     },
   })
 );
-
-/**
- * PlaylistActions - Container for action buttons that appear on hover
- * Organic cluster spacing for tight grouping
- */
-export const PlaylistActions = styled(Box)({
-  display: 'flex',
-  gap: tokens.spacing.xs,                                 // 4px - very tight cluster
-  opacity: 0,
-  transition: `opacity ${tokens.transitions.base}`,
-});
 
 /**
  * ActionButton - Icon button for playlist edit/delete actions

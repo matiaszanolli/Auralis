@@ -5,7 +5,7 @@
  * Each artist is displayed as a discrete glass card.
  */
 
-import { Avatar, Box, ButtonBase, Typography, styled } from '@mui/material';
+import { Box, ButtonBase, Typography, styled } from '@mui/material';
 import { tokens } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -63,17 +63,6 @@ export const StyledListItemButton = styled(ButtonBase)({
   '&:active': {
     transform: 'translateY(0)',
   },
-});
-
-/**
- * ArtistAvatar - Avatar display for artist with gradient background
- */
-export const ArtistAvatar = styled(Avatar)({
-  width: 56,
-  height: 56,
-  marginRight: tokens.spacing.lg, // #3947: was 20px → token scale (20px)
-  background: `linear-gradient(135deg, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.secondary} 100%)`,
-  fontSize: tokens.typography.fontSize.xl,
 });
 
 /**

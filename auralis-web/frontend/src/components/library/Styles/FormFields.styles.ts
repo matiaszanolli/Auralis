@@ -8,7 +8,6 @@
  * Variants:
  * - StyledTextField: Base form input (metadata, dialogs)
  * - SearchTextField: Search field with rounded pill shape
- * - CompactTextField: Minimal form input for space-constrained layouts
  */
 
 import { TextField, styled } from '@mui/material';
@@ -76,28 +75,6 @@ export const SearchTextField = styled(TextField)(({ theme: _theme }) => ({
     marginRight: tokens.spacing.sm,
     color: themeVars.textMuted,
     opacity: 0.6,
-  },
-}));
-
-/**
- * CompactTextField - Minimal form input for space-constrained layouts
- * Used in compact forms, inline editing, or mobile layouts
- * Features: reduced padding, minimal borders, dense styling
- */
-export const CompactTextField = styled(TextField)(({ theme: _theme }) => ({
-  '& .MuiOutlinedInput-root': {
-    fontSize: tokens.typography.fontSize.sm,
-    color: themeVars.textPrimary,
-    '& fieldset': { borderColor: themeVars.borderSubtle },
-    '&:hover fieldset': { borderColor: themeVars.borderDefault },
-    '&.Mui-focused fieldset': { borderColor: themeVars.accent },
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-  },
-  '& .MuiInputLabel-root': {
-    color: themeVars.textSecondary,
-    fontSize: tokens.typography.fontSize.sm,
   },
 }));
 

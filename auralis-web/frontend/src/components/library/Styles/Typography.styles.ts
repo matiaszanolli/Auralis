@@ -10,8 +10,6 @@
  * - CategoryHeader: Section category header (uppercase, small)
  * - ResultTitle: Search result title
  * - ResultSubtitle: Search result metadata
- * - SmallText: Compact text for dense UI
- * - SecondaryText: Dimmed secondary text
  */
 
 import { Typography, styled } from '@mui/material';
@@ -74,37 +72,4 @@ export const ResultTitle = styled(Typography)({
 export const ResultSubtitle = styled(Typography)({
   fontSize: tokens.typography.fontSize.sm,
   color: themeVars.textSecondary,
-});
-
-/**
- * SmallText - Compact text for dense UI
- * Used for: metadata, timestamps, utility text
- * Features: small font, secondary color
- */
-export const SmallText = styled(Typography)({
-  fontSize: tokens.typography.fontSize.xs,
-  color: themeVars.textSecondary,
-  fontWeight: tokens.typography.fontWeight.normal,
-});
-
-/**
- * SecondaryText - Dimmed secondary text
- * Used for: inactive elements, helper text, disabled state
- * Features: disabled color, normal weight
- */
-export const SecondaryText = styled(Typography)({
-  color: themeVars.textSecondary,
-  fontSize: tokens.typography.fontSize.sm,
-  fontWeight: tokens.typography.fontWeight.normal,
-});
-
-/**
- * HelperText - Small helper or hint text
- * Used for: form helper text, tooltips, hints
- * Features: very small, disabled color, reduced line height
- */
-export const HelperText = styled(Typography)({
-  fontSize: tokens.typography.fontSize.xs,
-  color: themeVars.textMuted,
-  lineHeight: tokens.typography.lineHeight.tight,
 });
