@@ -15,6 +15,8 @@ to ensure consistency and reduce code duplication.
 import numpy as np
 
 from ....dsp.utils.audio_info import to_mono
+from auralis.dsp.basic import rms
+from auralis.dsp.utils.conversion import amplitude_to_db
 
 
 class EstimationOperations:
@@ -190,7 +192,7 @@ class EstimationOperations:
         psd = psd_sum / (n_frames * float(np.sum(window ** 2)))
         floor_power = float(np.percentile(psd[1:], percentile))
         noise_level = max(float(np.sqrt(floor_power)), silence_threshold)
-        return float(20 * np.log10(noise_level))
+        return amplitude_to_db(noise_level)
 
     @staticmethod
     def estimate_snr_db(audio: np.ndarray,
@@ -204,11 +206,11 @@ class EstimationOperations:
         ``_SILENT_SNR_DB``.
         """
         audio_mono = to_mono(audio)
-        rms = float(np.sqrt(np.mean(audio_mono ** 2))) if len(audio_mono) else 0.0
-        if rms <= silence_threshold:
+        level = rms(audio_mono) if len(audio_mono) else 0.0
+        if level <= silence_threshold:
             return EstimationOperations._SILENT_SNR_DB
         noise_floor_db = EstimationOperations.estimate_noise_floor(
             audio_mono, silence_threshold
         )
-        return float(max(20 * np.log10(rms) - noise_floor_db, 0.0))
+        return float(max(amplitude_to_db(level) - noise_floor_db, 0.0))
 

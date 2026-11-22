@@ -5,7 +5,7 @@ LUFS Loudness Measurement
 ITU-R BS.1770-4 compliant loudness measurement implementation.
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db_array
+from auralis.dsp.utils.conversion import amplitude_to_db, amplitude_to_db_array
 from dataclasses import dataclass
 from typing import Any
 
@@ -176,11 +176,7 @@ class LoudnessMeter(KWeightingMixin):
 
     def _calculate_peak(self, audio_chunk: np.ndarray) -> float:
         """Calculate peak level in dBFS"""
-        peak = float(np.max(np.abs(audio_chunk)))
-        if peak > 0:
-            return float(20 * np.log10(peak))
-        else:
-            return float(-np.inf)
+        return amplitude_to_db(float(np.max(np.abs(audio_chunk))))
 
     def _calculate_true_peak_linear(self, audio_chunk: np.ndarray) -> float:
         """True peak in the linear domain with 4x oversampling (ITU-R BS.1770-4)"""
@@ -188,12 +184,7 @@ class LoudnessMeter(KWeightingMixin):
 
     def _calculate_true_peak(self, audio_chunk: np.ndarray) -> float:
         """Calculate true peak in dBFS with oversampling (ITU-R BS.1770-4 compliant)"""
-        true_peak = self._calculate_true_peak_linear(audio_chunk)
-
-        if true_peak > 0:
-            return float(20 * np.log10(true_peak))
-        else:
-            return float(-np.inf)
+        return amplitude_to_db(self._calculate_true_peak_linear(audio_chunk))
 
     def finalize_measurement(self) -> LUFSMeasurement:
         """

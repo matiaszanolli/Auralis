@@ -13,6 +13,7 @@ from scipy import signal
 from ..dsp.utils.spectral import ANALYSIS_WINDOW_S, frames_for_seconds
 from .fingerprint.metrics import MetricUtils, SafeOperations
 from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
+from auralis.dsp.basic import rms
 
 _HILBERT_MAX_SECONDS = 30
 
@@ -75,8 +76,8 @@ class PhaseCorrelationAnalyzer:
             'phase_correlation': float(phase_correlation),
             'stereo_width': float(stereo_width),
             'phase_stability': float(phase_stability),
-            'mid_level': float(np.sqrt(np.mean(mid**2))),
-            'side_level': float(np.sqrt(np.mean(side**2))),
+            'mid_level': rms(mid),
+            'side_level': rms(side),
             'correlation_variance': float(correlation_variance),
             'correlation_trend': float(correlation_trend),
             'mono_compatibility': float(self._calculate_mono_compatibility(correlation)),
@@ -135,8 +136,8 @@ class PhaseCorrelationAnalyzer:
         mid, side = self._calculate_mid_side(left, right)
 
         # Calculate RMS levels
-        mid_rms = np.sqrt(np.mean(mid**2))
-        side_rms = np.sqrt(np.mean(side**2))
+        mid_rms = rms(mid)
+        side_rms = rms(side)
 
         # Stereo width based on side/mid ratio
         if mid_rms > 0:
@@ -198,8 +199,8 @@ class PhaseCorrelationAnalyzer:
 
     def _calculate_stereo_balance(self, left: np.ndarray, right: np.ndarray) -> dict[str, Any]:
         """Calculate stereo balance information"""
-        left_rms = np.sqrt(np.mean(left**2))
-        right_rms = np.sqrt(np.mean(right**2))
+        left_rms = rms(left)
+        right_rms = rms(right)
 
         total_rms = left_rms + right_rms
         if total_rms > 0:

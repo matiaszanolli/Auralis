@@ -4,6 +4,8 @@ dynamic_range.py to keep it under its LOC ceiling, #5744).
 """
 
 import numpy as np
+from auralis.dsp.basic import rms
+from auralis.dsp.utils.conversion import amplitude_to_db
 
 
 class DRValueMixin:
@@ -60,9 +62,9 @@ class DRValueMixin:
         peak2 = peaks_desc[1] if n_blocks >= 2 else peaks_desc[0]
 
         n_top = max(1, int(round(0.2 * n_blocks)))
-        rms_top = float(np.sqrt(np.mean(np.sort(block_rms)[::-1][:n_top] ** 2)))
+        rms_top = rms(np.sort(block_rms)[::-1][:n_top])
 
         if rms_top <= 0.0 or peak2 <= 0.0:
             return 0.0
 
-        return max(0.0, float(20.0 * np.log10(peak2 / rms_top)))
+        return max(0.0, amplitude_to_db(peak2 / rms_top))

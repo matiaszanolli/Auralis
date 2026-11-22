@@ -8,6 +8,7 @@ reproduces its tabulated 48 kHz coefficients exactly and extends them to any rat
 """
 
 import numpy as np
+from auralis.dsp.utils.conversion import db_to_amplitude
 
 # BS.1770-4 Annex 1 filter parameters, the values the 48 kHz tables in the standard were
 # derived from (also what pyloudnorm and ffmpeg's ebur128 use).
@@ -21,7 +22,7 @@ _RLB_FC_HZ = 38.13547087613982
 def head_shelf(fs: float) -> tuple[np.ndarray, np.ndarray]:
     """Stage-1 high-shelf biquad (+4 dB above ~1.7 kHz), normalised to a0 = 1."""
     k = np.tan(np.pi * _SHELF_FC_HZ / fs)
-    vh = 10 ** (_SHELF_GAIN_DB / 20)
+    vh = db_to_amplitude(_SHELF_GAIN_DB)
     vb = vh ** 0.4996667741545416
     a0 = 1 + k / _SHELF_Q + k * k
     b = np.array([vh + vb * k / _SHELF_Q + k * k, 2 * (k * k - vh), vh - vb * k / _SHELF_Q + k * k]) / a0

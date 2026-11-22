@@ -33,6 +33,8 @@ from ...dsp.utils.audio_info import to_mono
 from .analysis_budget import AnalysisCancelled, analysis_budget
 from .audio_fingerprint_analyzer import require_finite
 from .track_audio import analysis_span_s, load_track_audio
+from auralis.dsp.basic import rms
+from auralis.dsp.utils.conversion import amplitude_to_db
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +65,12 @@ def _numpy_to_python(obj: Any) -> Any:
 def _rms_lufs_crest(a: np.ndarray) -> tuple[float, float] | None:
     """Return (lufs_approx, crest_db) from a mono/stereo array, or None if silent or non-finite."""
     mono = to_mono(a, 'channels_samples')  # librosa layout: (channels, samples)
-    rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
-    if not np.isfinite(rms) or rms < 1e-9:  # NaN < 1e-9 is False: a glitch sample was a NaN median (#6144)
+    level = rms(mono.astype(np.float64))
+    if not np.isfinite(level) or level < 1e-9:  # NaN < 1e-9 is False: a glitch sample was a NaN median (#6144)
         return None
     peak = float(np.max(np.abs(mono)))
-    lufs = 20.0 * np.log10(rms) - 0.691   # K-weighted proxy
-    crest = 20.0 * np.log10(peak / max(rms, 1e-9))
+    lufs = amplitude_to_db(level) - 0.691   # K-weighted proxy
+    crest = amplitude_to_db(peak / max(level, 1e-9))
     return lufs, crest
 
 
@@ -122,8 +124,7 @@ def compute_windowed_fingerprint(
 
         _apply_probe_correction(fingerprint, audio, probe_audios)
 
-        # #3767: a partial result (e.g. 12 of 25 dimensions) is truthy and would
-        # be cached as valid; discard it so it is retried instead.
+        # #3767: a partial (e.g. 12 of 25 dimensions) would cache as valid; retry it.
         if fingerprint and len(fingerprint) < 25:
             logger.warning(
                 f"Incomplete fingerprint for {audio_path.name}: "
@@ -136,7 +137,6 @@ def compute_windowed_fingerprint(
         if fingerprint:
             require_finite(fingerprint, audio_path.name)
 
-        # Convert numpy types to JSON-safe Python types
         fingerprint_clean: dict[str, Any] = _numpy_to_python(fingerprint)
 
         return fingerprint_clean

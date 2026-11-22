@@ -8,7 +8,7 @@ import numpy as np
 from scipy import signal
 
 from auralis.analysis.fingerprint.metrics import AudioMetrics
-from ..dsp.utils.conversion import amplitude_to_db, peak_db
+from ..dsp.utils.conversion import peak_db, rms_db
 from .dynamic_range_dr_value import DRValueMixin
 from .dynamic_range_dynamics import DynamicsMetricsMixin
 from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
@@ -119,7 +119,7 @@ class DynamicRangeAnalyzer(DynamicsMetricsMixin, DRValueMixin):
 
     def _calculate_rms_level(self, audio: np.ndarray) -> float:
         """Calculate RMS level in dBFS"""
-        return amplitude_to_db(np.sqrt(np.mean(audio**2)))
+        return rms_db(audio)
 
     def _calculate_plr(self, audio: np.ndarray) -> float:
         """Calculate Peak-to-Loudness Ratio"""
@@ -142,9 +142,9 @@ class DynamicRangeAnalyzer(DynamicsMetricsMixin, DRValueMixin):
 
         for i in range(0, len(audio) - self.rms_window_size, hop_size):
             window = audio[i:i + self.rms_window_size]
-            window_rms = np.sqrt(np.mean(window**2))
-            if window_rms > 0:  # silent windows are skipped, not recorded as -inf
-                rms_values.append(amplitude_to_db(window_rms))
+            window_db = rms_db(window)
+            if np.isfinite(window_db):  # silent (and NaN) windows are skipped, not recorded as -inf
+                rms_values.append(window_db)
 
         if not rms_values:
             return {

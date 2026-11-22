@@ -28,6 +28,7 @@ from ...dsp.utils.audio_info import to_mono
 from .feature_extractor_mfcc import _extract_mfcc, _extract_chroma, _extract_tonnetz
 from .feature_extractor_temporal import TemporalFeaturesMixin
 from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
+from auralis.dsp.basic import rms
 
 
 class FeatureExtractor(TemporalFeaturesMixin):
@@ -95,7 +96,7 @@ class FeatureExtractor(TemporalFeaturesMixin):
             mono_audio = padded
 
         # Basic acoustic features
-        rms_val = np.sqrt(np.mean(mono_audio ** 2))
+        rms_val = rms(mono_audio)
         peak_val = np.max(np.abs(mono_audio))
         # Use the padded mono signal like every sibling feature (#4138): the
         # original stereo array reflected inter-channel rather than temporal

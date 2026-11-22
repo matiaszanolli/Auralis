@@ -33,6 +33,7 @@ from .fingerprint.windows import FINGERPRINT_BODY_WINDOW_S, stereo_window
 from .fingerprint.metrics import AudioMetrics
 from ..io.formats import FFMPEG_FORMATS
 from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
+from auralis.dsp.basic import rms
 
 
 @dataclass
@@ -160,8 +161,7 @@ class MasteringFingerprint:
             # the quality arms could never reach their premium/professional/
             # commercial arms. Full scale is the correct reference here: the
             # fields are documented as dBFS.
-            rms = np.sqrt(np.mean(mono ** 2))
-            loudness_dbfs = AudioMetrics.rms_to_db(np.array([rms]), ref=1.0)[0]
+            loudness_dbfs = AudioMetrics.rms_to_db(np.array([rms(mono)]), ref=1.0)[0]
             peak = np.max(np.abs(mono))
             peak_dbfs = AudioMetrics.rms_to_db(np.array([peak]), ref=1.0)[0]
             crest_db = peak_dbfs - loudness_dbfs

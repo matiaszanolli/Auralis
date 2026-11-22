@@ -156,7 +156,7 @@ class SpectrumOperations(WeightingMixin):
         """
         # dB-relative input (values <= 0) as weights gave the LOUDEST band zero weight (#6328): use linear.
         if np.any(spectrum < 0):
-            spectrum = 10 ** (spectrum / 20)
+            spectrum = 10 ** (spectrum / 20)  # per-band array: db_to_amplitude is scalar
         denominator = np.sum(spectrum)
         if denominator == 0:
             return float(frequency_bins[len(frequency_bins) // 2])

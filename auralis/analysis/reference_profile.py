@@ -23,6 +23,8 @@ from scipy import signal
 from ..dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB
 from ..io.processing import downmix_to_stereo
 from .loudness_meter import LoudnessMeter, LUFSMeasurement
+from auralis.dsp.basic import rms
+from auralis.dsp.utils.conversion import amplitude_to_db
 
 #: Analysis bands (Hz) for tonal balance and stereo image.
 BAND_EDGES_HZ: tuple[int, ...] = (40, 80, 160, 315, 630, 1250, 2500, 5000, 10000)
@@ -51,7 +53,7 @@ class ReferenceProfile:
 
 
 def _db(value: float) -> float:
-    return float(20.0 * np.log10(value)) if value > 1e-6 else _SILENCE_DB
+    return amplitude_to_db(value) if value > 1e-6 else _SILENCE_DB
 
 
 def _stereo(audio: np.ndarray) -> np.ndarray:
@@ -76,9 +78,9 @@ def _windows(audio: np.ndarray, sr: int) -> tuple[float, float]:
     rms_db, crest_db = [], []
     for start in range(0, len(audio) - size + 1, size):
         w = audio[start:start + size]
-        rms = float(np.sqrt(np.mean(w ** 2)))
-        rms_db.append(_db(rms))
-        crest_db.append(_db(float(np.abs(w).max())) - _db(rms))
+        level = rms(w)
+        rms_db.append(_db(level))
+        crest_db.append(_db(float(np.abs(w).max())) - _db(level))
     if not rms_db:
         return 0.0, 0.0
     return float(np.median(crest_db)), float(np.percentile(rms_db, 95) - np.percentile(rms_db, 10))

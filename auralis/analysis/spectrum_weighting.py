@@ -41,7 +41,7 @@ class WeightingMixin:
         else:
             response_normalized = response
 
-        return cast(np.ndarray, 20 * np.log10(np.maximum(response_normalized, 1e-10)))
+        return cast(np.ndarray, 20 * np.log10(np.maximum(response_normalized, 1e-10)))  # array; floored, not +EPS
 
     @staticmethod
     def compute_c_weighting(frequencies: np.ndarray) -> np.ndarray:
@@ -73,7 +73,7 @@ class WeightingMixin:
         else:
             response_normalized = response
 
-        return cast(np.ndarray, 20 * np.log10(np.maximum(response_normalized, 1e-10)))
+        return cast(np.ndarray, 20 * np.log10(np.maximum(response_normalized, 1e-10)))  # array; floored, not +EPS
 
     @staticmethod
     def get_weighting_curve(frequencies: np.ndarray,
