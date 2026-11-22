@@ -100,9 +100,9 @@ export default defineConfig({
       // removed rather than left decorative.
       //
       // `.github/workflows/frontend-test.yml` now runs the suite on every PR,
-      // ratcheted against `test-baseline.json`. Restore thresholds here (and
-      // switch that workflow to `test:coverage`) once the known-failure
-      // baseline reaches zero and real coverage is measured.
+      // ratcheted against `test-baseline.json`, whose failure list has been
+      // empty since #6076. Restoring thresholds (and switching that workflow to
+      // `test:coverage`) still needs real coverage measured first.
       skipFull: false, // Report all files, even with 100% coverage
     },
 

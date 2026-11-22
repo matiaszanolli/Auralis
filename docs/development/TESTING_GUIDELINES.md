@@ -369,7 +369,9 @@ def test_corrupt_audio_file_is_skipped_during_scan():
 
 **Minimum Coverage Requirements:**
 - Backend: **85%** line coverage
-- Frontend: **85%** line / functions / statements, **80%** branches (enforced by `auralis-web/frontend/vitest.config.ts` — check there for the authoritative thresholds)
+- Frontend: **85%** line / functions / statements, **80%** branches as a target. Not enforced:
+  `auralis-web/frontend/vitest.config.ts` has no `thresholds` block (#4640); CI gates on the
+  failure baseline (`test-baseline.json`, empty since #6076), not on coverage
 - Critical paths: **100%** coverage (audio processing, database writes)
 
 **But coverage alone is meaningless!** Also track:
@@ -649,28 +651,16 @@ def test_real_time_processing_achieves_target_speed():
 ```python
 # tests/conftest.py
 import pytest
-from auralis.library.manager import LibraryManager
-from pathlib import Path
+from auralis.library.database import LibraryDatabase
 
 @pytest.fixture
-def test_db(tmp_path):
-    """Provide clean test database"""
-    db_path = tmp_path / "test.db"
-    return str(db_path)
-
-@pytest.fixture
-def library_manager(test_db):
-    """Provide library manager with test database.
-
-    Note (2026-07-08): LibraryManager's constructor takes `database_path`,
-    not `db_path` — this example previously used the wrong kwarg and would
-    raise TypeError. LibraryManager is also deprecated in favor of
-    RepositoryFactory for new code (see auralis/library/manager.py's own
-    docstring) — prefer RepositoryFactory-based fixtures where practical.
-    """
-    manager = LibraryManager(database_path=test_db)
-    yield manager
-    manager.close()
+def library_db(tmp_path):
+    """A throwaway library database. Never LibraryDatabase() with no path: that opens the
+    developer's real ~/.auralis/library.db (use the shared _isolated_library_db fixture when a
+    test must go through the default path, #6654)."""
+    db = LibraryDatabase(database_path=str(tmp_path / "library.db"))
+    yield db
+    db.shutdown()
 
 @pytest.fixture
 def test_audio():
@@ -687,33 +677,37 @@ def test_audio():
 # tests/backend/test_library.py
 import pytest
 
+from auralis.library.scanner import LibraryScanner
+
 class TestLibraryScanning:
     """Test library scanning functionality"""
 
-    def test_scan_empty_folder_returns_zero_tracks(self, library_manager, tmp_path):
+    def test_scan_empty_folder_returns_zero_tracks(self, library_db, tmp_path):
         """Scanning empty folder should return 0 tracks"""
-        library_manager.scan_folder(str(tmp_path))
-        assert library_manager.get_track_count() == 0
+        LibraryScanner(library_db).scan_single_directory(str(tmp_path))
+        _, total = library_db.tracks.get_all()
+        assert total == 0
 
-    def test_scan_folder_with_flac_files(self, library_manager, tmp_path):
+    def test_scan_folder_with_flac_files(self, library_db, tmp_path):
         """Scanning folder with FLAC files imports them"""
-        # Create test files
         create_test_flac(tmp_path / "track1.flac")
         create_test_flac(tmp_path / "track2.flac")
 
-        library_manager.scan_folder(str(tmp_path))
+        LibraryScanner(library_db).scan_single_directory(str(tmp_path))
 
-        assert library_manager.get_track_count() == 2
+        _, total = library_db.tracks.get_all()
+        assert total == 2
 
-    def test_scan_ignores_non_audio_files(self, library_manager, tmp_path):
+    def test_scan_ignores_non_audio_files(self, library_db, tmp_path):
         """Scanning folder ignores non-audio files"""
         (tmp_path / "readme.txt").write_text("Not audio")
         (tmp_path / "image.jpg").write_bytes(b"fake image")
         create_test_flac(tmp_path / "track.flac")
 
-        library_manager.scan_folder(str(tmp_path))
+        LibraryScanner(library_db).scan_single_directory(str(tmp_path))
 
-        assert library_manager.get_track_count() == 1
+        _, total = library_db.tracks.get_all()
+        assert total == 1
 ```
 
 #### Parametrized Tests
@@ -1089,10 +1083,10 @@ jobs:
           node-version: '24'
 
       - name: Install dependencies
-        run: cd auralis-web/frontend && npm ci
+        run: pnpm --dir auralis-web/frontend install --frozen-lockfile
 
       - name: Run tests
-        run: cd auralis-web/frontend && npm run test:coverage
+        run: pnpm --dir auralis-web/frontend run test:coverage
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
@@ -1163,27 +1157,19 @@ def test_library_scan():
 
 **✅ RIGHT** (illustrative — see note below on what's changed vs. the original example):
 ```python
-def test_library_scan(test_db):
+def test_library_scan(library_db, tmp_path):
     """GOOD: Use real dependencies, test real behavior"""
-    # Create real test file
-    track_path = create_test_flac("test.flac")
+    create_test_flac(tmp_path / "test.flac")
 
-    # Real scanner: the class is LibraryScanner (auralis/library/scanner/scanner.py),
-    # not "Scanner", and its constructor takes a library_manager instance, not a
-    # db_path string.
-    manager = LibraryManager(database_path=test_db)
-    scanner = LibraryScanner(library_manager=manager)
-    scanner.scan_folder(os.path.dirname(track_path))
+    # The real scanner on the real database: LibraryScanner takes a LibraryDatabase.
+    LibraryScanner(library_db).scan_single_directory(str(tmp_path))
 
-    # Verify real outcome via the library manager, not the scanner —
-    # LibraryScanner has no get_tracks() method. get_all_tracks() returns
-    # (list[Track], total_count), not just a list.
-    tracks, total = manager.get_all_tracks()
-    assert len(tracks) == 1
+    # Verify the outcome through the repository; get_all() returns (tracks, total).
+    tracks, total = library_db.tracks.get_all()
+    assert total == 1
     assert tracks[0].title == "Test Track"
 ```
 
-> **Note (2026-07-08)**: The original example here used a nonexistent `Scanner` class with a `db_path` kwarg and a `scanner.get_tracks()` method that doesn't exist on `LibraryScanner`. Verify the exact query method signature against current code before relying on this snippet verbatim — `get_all_tracks()`'s return shape above was checked, but the surrounding scan-then-query flow was not run end-to-end.
 
 ### Pitfall 3: Flaky Tests
 
