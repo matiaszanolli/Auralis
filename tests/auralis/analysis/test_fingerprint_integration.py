@@ -17,7 +17,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -98,15 +97,11 @@ def generate_test_signals(sample_rate=44100, duration=10):
 
 def test_fingerprint_extraction():
     """Test that ContentAnalyzer extracts 25D fingerprints."""
-    print("=" * 80)
-    print("TEST 1: Fingerprint Extraction")
-    print("=" * 80)
 
     analyzer = ContentAnalyzer(sample_rate=44100, use_fingerprint_analysis=True)
     signals = generate_test_signals()
 
     for signal_name, audio in signals.items():
-        print(f"\n--- Testing: {signal_name} ---")
         profile = analyzer.analyze_content(audio)
 
         # Check that fingerprint was extracted
@@ -138,22 +133,10 @@ def test_fingerprint_extraction():
             assert key in fingerprint, f"Missing dimension: {key}"
 
         # Print some key fingerprint features
-        print(f"  Frequency: Bass={fingerprint['bass_pct']:.1f}%, Mid={fingerprint['mid_pct']:.1f}%, "
-              f"Presence={fingerprint['presence_pct']:.1f}%")
-        print(f"  Dynamics: LUFS={fingerprint['lufs']:.1f}dB, Crest={fingerprint['crest_db']:.1f}dB")
-        print(f"  Temporal: Tempo={fingerprint['tempo_bpm']:.0f}BPM, Transients={fingerprint['transient_density']:.2f}")
-        print(f"  Stereo: Width={fingerprint['stereo_width']:.2f}, Phase={fingerprint['phase_correlation']:.2f}")
-        print(f"  ✅ All 25 dimensions extracted successfully")
-
-    print(f"\n✅ TEST 1 PASSED: Fingerprint extraction working")
-    return True
 
 
 def test_target_generation():
     """Test that AdaptiveTargetGenerator uses fingerprint data."""
-    print("\n" + "=" * 80)
-    print("TEST 2: Fingerprint-Driven Target Generation")
-    print("=" * 80)
 
     config = UnifiedConfig()
     config.set_processing_mode("adaptive")
@@ -163,7 +146,6 @@ def test_target_generation():
     signals = generate_test_signals()
 
     for signal_name, audio in signals.items():
-        print(f"\n--- Testing: {signal_name} ---")
 
         # Analyze content
         profile = analyzer.analyze_content(audio)
@@ -176,42 +158,16 @@ def test_target_generation():
         # Generate targets WITH fingerprint
         targets_enhanced = target_gen.generate_targets(profile)
 
-        # Verify fingerprint metadata is present
-        assert targets_enhanced.get("fingerprint_driven") == True, \
+        # The fingerprint is what makes the targets fingerprint-driven.
+        assert targets_enhanced.get("fingerprint_driven") is True, \
             f"Fingerprint-driven flag missing for {signal_name}"
+        assert targets_baseline.get("fingerprint_driven") is not True, \
+            f"Targets claim to be fingerprint-driven without a fingerprint for {signal_name}"
 
-        # Compare targets
-        print(f"  Baseline targets:")
-        print(f"    Bass boost: {targets_baseline.get('bass_boost_db', 0):.1f}dB")
-        print(f"    Compression: {targets_baseline.get('compression_ratio', 0):.1f}:1")
-        print(f"    Stereo width: {targets_baseline.get('stereo_width', 0):.2f}")
-
-        print(f"  Fingerprint-enhanced targets:")
-        print(f"    Bass boost: {targets_enhanced.get('bass_boost_db', 0):.1f}dB")
-        print(f"    Compression: {targets_enhanced.get('compression_ratio', 0):.1f}:1")
-        print(f"    Stereo width: {targets_enhanced.get('stereo_width', 0):.2f}")
-
-        # Check that targets changed (fingerprint had an effect)
-        targets_differ = (
-            abs(targets_baseline.get('bass_boost_db', 0) - targets_enhanced.get('bass_boost_db', 0)) > 0.01 or
-            abs(targets_baseline.get('compression_ratio', 0) - targets_enhanced.get('compression_ratio', 0)) > 0.01 or
-            abs(targets_baseline.get('stereo_width', 0) - targets_enhanced.get('stereo_width', 0)) > 0.01
-        )
-
-        if targets_differ:
-            print(f"  ✅ Fingerprint affected target generation (good!)")
-        else:
-            print(f"  ⚠️  Targets unchanged (fingerprint may not be impacting this signal type)")
-
-    print(f"\n✅ TEST 2 PASSED: Fingerprint-driven target generation working")
-    return True
 
 
 def test_end_to_end_processing():
     """Test end-to-end processing with fingerprint integration."""
-    print("\n" + "=" * 80)
-    print("TEST 3: End-to-End Processing with Fingerprints")
-    print("=" * 80)
 
     config = UnifiedConfig()
     config.set_processing_mode("adaptive")
@@ -220,58 +176,21 @@ def test_end_to_end_processing():
     signals = generate_test_signals()
 
     for signal_name, audio in list(signals.items())[:2]:  # Test first 2 to save time
-        print(f"\n--- Processing: {signal_name} ---")
 
-        try:
-            # Process audio
-            processed = processor.process(audio)
+        processed = processor.process(audio)
 
-            # Verify output
-            assert processed is not None, f"Processing failed for {signal_name}"
-            assert processed.shape == audio.shape, f"Shape mismatch for {signal_name}"
-            assert not np.isnan(processed).any(), f"NaN values in output for {signal_name}"
-            assert not np.isinf(processed).any(), f"Inf values in output for {signal_name}"
-
-            # Check that processing actually changed the audio
-            diff = np.mean(np.abs(audio - processed))
-            print(f"  Mean absolute difference: {diff:.4f}")
-
-            if diff > 0.001:
-                print(f"  ✅ Audio was processed (difference detected)")
-            else:
-                print(f"  ⚠️  Minimal processing detected")
-
-            # Check that last_content_profile has fingerprint
-            if hasattr(processor, 'last_content_profile'):
-                profile = processor.last_content_profile
-                if "fingerprint" in profile and profile["fingerprint"] is not None:
-                    print(f"  ✅ Fingerprint was used in processing pipeline")
-                else:
-                    print(f"  ⚠️  Fingerprint not found in processing pipeline")
-
-        except Exception as e:
-            print(f"  ❌ Processing failed: {e}")
-            raise
-
-    print(f"\n✅ TEST 3 PASSED: End-to-end processing working")
-    return True
+        assert processed.shape == audio.shape, f"Shape mismatch for {signal_name}"
+        assert not np.isnan(processed).any(), f"NaN values in output for {signal_name}"
+        assert not np.isinf(processed).any(), f"Inf values in output for {signal_name}"
 
 
 def test_real_audio(test_audio_files):
     """Test with real audio file."""
-    # Get the first available audio file from the fixture
-    if not test_audio_files:
-        pytest.skip("No test audio files available")
-
+    # The fixture synthesises its files, so there is always one (#6660).
     audio_path = next(iter(test_audio_files.values()))
-
-    print("\n" + "=" * 80)
-    print(f"TEST 4: Real Audio File - {audio_path}")
-    print("=" * 80)
 
     # Load audio
     audio, sr = load_audio(audio_path)
-    print(f"Loaded: {audio.shape} samples @ {sr}Hz")
 
     # Analyze
     analyzer = ContentAnalyzer(sample_rate=sr, use_fingerprint_analysis=True)
@@ -279,102 +198,8 @@ def test_real_audio(test_audio_files):
 
     # Verify fingerprint
     assert "fingerprint" in profile, "Fingerprint missing"
-    fingerprint = profile["fingerprint"]
+    assert {"sub_bass_pct", "lufs", "crest_db", "stereo_width"} <= profile["fingerprint"].keys()
 
-    print("\n25D Audio Fingerprint:")
-    print("-" * 80)
-    print(f"Frequency Distribution:")
-    print(f"  Sub-bass (20-60Hz):    {fingerprint['sub_bass_pct']:6.1f}%")
-    print(f"  Bass (60-250Hz):       {fingerprint['bass_pct']:6.1f}%")
-    print(f"  Low-mid (250-500Hz):   {fingerprint['low_mid_pct']:6.1f}%")
-    print(f"  Mid (500-2kHz):        {fingerprint['mid_pct']:6.1f}%")
-    print(f"  Upper-mid (2-4kHz):    {fingerprint['upper_mid_pct']:6.1f}%")
-    print(f"  Presence (4-6kHz):     {fingerprint['presence_pct']:6.1f}%")
-    print(f"  Air (6-20kHz):         {fingerprint['air_pct']:6.1f}%")
-
-    print(f"\nDynamics:")
-    print(f"  LUFS:                  {fingerprint['lufs']:6.1f} dB")
-    print(f"  Crest Factor:          {fingerprint['crest_db']:6.1f} dB")
-    print(f"  Bass/Mid Ratio:        {fingerprint['bass_mid_ratio']:6.1f} dB")
-
-    print(f"\nTemporal:")
-    print(f"  Tempo:                 {fingerprint['tempo_bpm']:6.0f} BPM")
-    print(f"  Rhythm Stability:      {fingerprint['rhythm_stability']:6.2f}")
-    print(f"  Transient Density:     {fingerprint['transient_density']:6.2f}")
-    print(f"  Silence Ratio:         {fingerprint['silence_ratio']:6.2f}")
-
-    print(f"\nSpectral:")
-    print(f"  Centroid:              {fingerprint['spectral_centroid']:6.2f}")
-    print(f"  Rolloff:               {fingerprint['spectral_rolloff']:6.2f}")
-    print(f"  Flatness:              {fingerprint['spectral_flatness']:6.2f}")
-
-    print(f"\nHarmonic:")
-    print(f"  Harmonic Ratio:        {fingerprint['harmonic_ratio']:6.2f}")
-    print(f"  Pitch Stability:       {fingerprint['pitch_stability']:6.2f}")
-    print(f"  Chroma Energy:         {fingerprint['chroma_energy']:6.2f}")
-
-    print(f"\nVariation:")
-    print(f"  Dynamic Range Var:     {fingerprint['dynamic_range_variation']:6.2f}")
-    print(f"  Loudness Var (std):    {fingerprint['loudness_variation_std']:6.2f}")
-    print(f"  Peak Consistency:      {fingerprint['peak_consistency']:6.2f}")
-
-    print(f"\nStereo:")
-    print(f"  Stereo Width:          {fingerprint['stereo_width']:6.2f}")
-    print(f"  Phase Correlation:     {fingerprint['phase_correlation']:6.2f}")
-
-    # Generate targets
-    config = UnifiedConfig()
-    target_gen = AdaptiveTargetGenerator(config)
-    targets = target_gen.generate_targets(profile)
-
-    print("\nGenerated Processing Targets:")
-    print("-" * 80)
-    print(f"  Target LUFS:           {targets.get('target_lufs', 0):6.1f} dB")
-    print(f"  Bass Boost:            {targets.get('bass_boost_db', 0):6.1f} dB")
-    print(f"  Mid Clarity:           {targets.get('midrange_clarity_db', 0):6.1f} dB")
-    print(f"  Treble Enhancement:    {targets.get('treble_enhancement_db', 0):6.1f} dB")
-    print(f"  Compression Ratio:     {targets.get('compression_ratio', 0):6.1f}:1")
-    print(f"  Stereo Width:          {targets.get('stereo_width', 0):6.2f}")
-    print(f"  Mastering Intensity:   {targets.get('mastering_intensity', 0):6.2f}")
-    print(f"  Fingerprint-driven:    {targets.get('fingerprint_driven', False)}")
-
-    print(f"\n✅ TEST 4 PASSED: Real audio analysis complete")
-
-
-def main():
-    """Run all tests."""
-    print("╔" + "═" * 78 + "╗")
-    print("║" + " " * 15 + "25D FINGERPRINT INTEGRATION TEST SUITE" + " " * 25 + "║")
-    print("╚" + "═" * 78 + "╝")
-
-    try:
-        # Run synthetic tests
-        test_fingerprint_extraction()
-        test_target_generation()
-        test_end_to_end_processing()
-
-        # Run real audio test if provided
-        if len(sys.argv) > 1:
-            audio_path = sys.argv[1]
-            if Path(audio_path).exists():
-                test_real_audio(audio_path)
-            else:
-                print(f"\n⚠️  Audio file not found: {audio_path}")
-
-        print("\n" + "=" * 80)
-        print("✅ ALL TESTS PASSED - 25D FINGERPRINT INTEGRATION WORKING")
-        print("=" * 80)
-
-        return 0
-
-    except Exception as e:
-        print(f"\n" + "=" * 80)
-        print(f"❌ TEST FAILED: {e}")
-        print("=" * 80)
-        import traceback
-        traceback.print_exc()
-        return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    # Generate targets from it
+    targets = AdaptiveTargetGenerator(UnifiedConfig()).generate_targets(profile)
+    assert targets.get("fingerprint_driven") is True
