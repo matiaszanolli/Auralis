@@ -4,9 +4,9 @@ Auralis Database Migration System
 
 Handles database schema versioning and migrations
 
-The lock, the backup/restore helpers and the per-step SQL execution live in
-sibling modules since the #4511 split; they are re-exported below so every
-existing import of this module keeps working.
+The lock (migration_lock), the backup/restore helpers (migration_backup) and
+the per-step SQL execution (migration_steps) live in sibling modules (#4511);
+import them from there.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -22,13 +22,9 @@ from sqlalchemy.orm import sessionmaker
 from auralis.__version__ import __db_schema_version__
 from auralis.library.models import Base
 
-from .migration_backup import (  # re-exported (#4511)
-    backup_database,
-    restore_database,
-    restore_pre_migration_backup,
-)
+from .migration_backup import restore_pre_migration_backup
 from .migration_engine import create_migration_engine
-from .migration_lock import migration_lock  # re-exported (#4511)
+from .migration_lock import migration_lock
 from .migration_steps import run_migration_step
 from .migration_versions import SchemaVersionStoreMixin
 from .pre_migration_backup import backup_before_migration, prune_old_backups
@@ -39,9 +35,6 @@ __all__ = [
     'MigrationError',
     'MigrationManager',
     'check_and_migrate_database',
-    'migration_lock',
-    'backup_database',
-    'restore_database',
 ]
 
 

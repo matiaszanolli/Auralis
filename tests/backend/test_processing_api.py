@@ -19,7 +19,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from fastapi import FastAPI
 from routers.processing_api import create_processing_router
-from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
+from core.job_models import ProcessingStatus
+from core.processing_engine import ProcessingEngine
 
 
 @pytest.fixture

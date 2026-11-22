@@ -17,7 +17,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
+from core.job_models import ProcessingJob, ProcessingStatus
+from core.processing_engine import ProcessingEngine
 
 
 def _make_engine() -> ProcessingEngine:

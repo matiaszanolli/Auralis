@@ -15,7 +15,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from auralis.io.unified_loader import FFMPEG_FORMATS, SUPPORTED_FORMATS, load_audio
+from auralis.io.formats import FFMPEG_FORMATS, SUPPORTED_FORMATS
+from auralis.io.unified_loader import load_audio
 from auralis.utils.logging import Code, ModuleError
 
 

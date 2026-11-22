@@ -34,10 +34,6 @@ from security.path_security import validate_file_path
 
 logger = logging.getLogger(__name__)
 
-# Re-exported from stream_normal_chunks, which owns the read loop it bounds
-# (#5032/#5082).
-from .stream_normal_chunks import MAX_CONSECUTIVE_READ_TIMEOUTS  # noqa: E402,F401
-
 
 async def stream_normal_audio(
     controller: '_asc.AudioStreamController',

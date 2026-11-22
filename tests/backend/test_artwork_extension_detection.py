@@ -15,10 +15,9 @@ _BACKEND = Path(__file__).resolve().parents[2] / "auralis-web" / "backend"
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
-from services.artwork_downloader import (  # noqa: E402
-    ArtworkDownloader,
-    _detect_image_extension,
-)
+from services.artwork_downloader import ArtworkDownloader  # noqa: E402
+
+from auralis.utils.artwork_security import detect_image_extension as _detect_image_extension  # noqa: E402
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
 _JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 16

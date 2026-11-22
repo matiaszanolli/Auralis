@@ -27,7 +27,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from core.processing_engine import ProcessingEngine, ProcessingStatus
+from core.job_models import ProcessingStatus
+from core.processing_engine import ProcessingEngine
 from security.path_security import PathValidationError, validate_file_path
 
 from .errors import BadRequestError, ServiceUnavailableError

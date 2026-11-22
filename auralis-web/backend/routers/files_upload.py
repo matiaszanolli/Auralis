@@ -13,7 +13,7 @@ from collections.abc import Callable
 from config.limits import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
 from config.limits import MAX_UPLOAD_DIR_BYTES, MAX_UPLOAD_REQUEST_BYTES
 from config.limits import MAX_UPLOAD_FILES as _MAX_UPLOAD_FILES
-from core.processing_engine import _safe_error_message
+from core.job_error_mapping import _safe_error_message
 from fastapi import Depends, File, HTTPException, UploadFile
 from pathlib import Path
 from typing import Any

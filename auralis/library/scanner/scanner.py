@@ -64,7 +64,7 @@ class LibraryScanner:
         `scan_directories` is fully synchronous and `asyncio.create_task` from
         its thread raised `RuntimeError: no running event loop`. See `routers/library_scan.py` and
         `LibraryAutoScanner._do_scan`, which both call
-        `services/scan_events.enqueue_scanned_for_fingerprinting` for the enqueue
+        `services/scan_fingerprint_enqueue.enqueue_scanned_for_fingerprinting` for the enqueue
         that actually runs.
 
         Args:

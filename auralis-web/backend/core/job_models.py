@@ -6,9 +6,7 @@ Processing job model + status enum
 
 Shared value types for the processing engine and its worker. Extracted from
 processing_engine.py (#4250) so job_worker.py can reference them without a
-circular import back into ProcessingEngine. Re-exported from
-processing_engine.py, so `from core.processing_engine import ProcessingJob,
-ProcessingStatus` keeps working.
+circular import back into ProcessingEngine. Import them from here.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

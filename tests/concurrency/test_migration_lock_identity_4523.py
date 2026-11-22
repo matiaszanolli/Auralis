@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from auralis.library.migration_manager import migration_lock
+from auralis.library.migration_lock import migration_lock
 
 
 def _lock_path(db_path: str) -> Path:

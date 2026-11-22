@@ -25,7 +25,7 @@ import numpy as np
 
 from ..utils.audio_validation import validate_audio_finite
 from ..utils.logging import debug, info
-from .analysis import AdaptiveTargetGenerator, ContentAnalyzer  # re-exported: tests/test_adaptive_processing.py
+from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
 from .config import UnifiedConfig
 from .hybrid_setup import apply_module_optimizations, build_hybrid_components
 from .hybrid_stage_dispatch import validate_and_normalize_input

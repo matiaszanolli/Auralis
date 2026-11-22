@@ -13,9 +13,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from auralis.io.formats import FFMPEG_FORMATS, SUPPORTED_FORMATS
 from auralis.io.unified_loader import (
-    FFMPEG_FORMATS,
-    SUPPORTED_FORMATS,
     get_supported_formats,
     load_audio,
     load_reference,

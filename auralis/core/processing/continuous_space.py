@@ -13,7 +13,7 @@ import math
 
 from ..utils.smooth_curves import CREST_CENTER_DB, CREST_SCALE_DB, smooth_unit
 
-from .continuous_space_types import ProcessingCoordinates, ProcessingParameters  # noqa: F401 (ProcessingParameters is re-exported)
+from .continuous_space_types import ProcessingCoordinates
 
 
 class ProcessingSpaceMapper:

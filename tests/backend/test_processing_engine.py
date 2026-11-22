@@ -17,12 +17,9 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.processing_engine import (
-    ProcessingEngine,
-    ProcessingJob,
-    ProcessingStatus,
-    _safe_error_message,
-)
+from core.job_error_mapping import _safe_error_message
+from core.job_models import ProcessingJob, ProcessingStatus
+from core.processing_engine import ProcessingEngine
 
 
 @pytest.fixture

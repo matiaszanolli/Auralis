@@ -36,7 +36,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core import stream_normal, stream_normal_reads
+from core import stream_normal, stream_normal_chunks, stream_normal_reads
 from core.audio_stream_controller import AudioStreamController
 
 SAMPLE_RATE = 8000
@@ -263,7 +263,7 @@ class TestNormalStreamReadTimeout:
 
         # Each failed iteration may arm at most one look-ahead read alongside
         # its inline read, so allow 2 per tolerated timeout.
-        limit = 2 * stream_normal.MAX_CONSECUTIVE_READ_TIMEOUTS
+        limit = 2 * stream_normal_chunks.MAX_CONSECUTIVE_READ_TIMEOUTS
         assert len(reads) <= limit, (
             f"kept re-arming reads on unreachable storage: {len(reads)} reads "
             f"for {TOTAL_CHUNKS} chunks (limit {limit})"

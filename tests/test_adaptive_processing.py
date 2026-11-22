@@ -21,11 +21,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from auralis.core.hybrid_processor import (
-    AdaptiveTargetGenerator,
-    ContentAnalyzer,
-    HybridProcessor,
-)
+from auralis.core.analysis import AdaptiveTargetGenerator, ContentAnalyzer
+from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.dsp.basic import rms
 from auralis.dsp.utils.spectral import crest_factor, spectral_centroid, spectral_rolloff, tempo_estimate

@@ -29,7 +29,7 @@ from .repositories import RepositoryFactory
 from .scan_coordinator import ScanCoordinator
 
 # #4523: the same-process thread lock that used to live here (#4232) moved into
-# `migration_manager.migration_lock`, which now acquires thread *and* process
+# `migration_lock.migration_lock`, which now acquires thread *and* process
 # exclusion together. Do not re-add a thread lock here: holding a second lock
 # in this constructor would deadlock against it, and any entry point that
 # bypasses this constructor would be left unserialized anyway.

@@ -27,18 +27,12 @@ from .artwork_providers.host_throttle import HostThrottle
 from .artwork_providers.itunes import try_itunes
 from .artwork_providers.musicbrainz import try_musicbrainz
 from auralis.utils.artwork_security import bound_artwork_dimensions as _bound_artwork_dimensions
-from auralis.utils.artwork_security import detect_image_extension as _detect_image_extension
+from auralis.utils.artwork_security import detect_image_extension
 from auralis.utils.atomic_write import write_bytes_atomic
 from auralis.utils.logging import sanitize_log_value
 
 logger = logging.getLogger(__name__)
 
-# _detect_image_extension used to be defined here; it now lives in
-# auralis.utils.artwork_security so library/artwork.py's embedded/folder
-# extractor can share it too (#4849) instead of re-trusting a tag's declared
-# MIME. Re-imported under the original name above so this module's own call
-# site and tests/backend/test_artwork_extension_detection.py's import both
-# keep working unchanged.
 
 
 # #4686: aiohttp's default ClientTimeout is total=300s, and the downloader
@@ -188,7 +182,7 @@ class ArtworkDownloader:
         """
         # Sniff the true format from magic bytes so a downloaded PNG/WebP is not
         # mislabelled .jpg and later served with the wrong Content-Type (#4419).
-        ext = _detect_image_extension(data, default=ext)
+        ext = detect_image_extension(data, default=ext)
 
         # Create unique filename based on album ID and data hash
         data_hash = hashlib.md5(data).hexdigest()[:8]

@@ -15,13 +15,14 @@ import sys
 import threading
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
+from core.job_models import ProcessingJob, ProcessingStatus
+from core.processing_engine import ProcessingEngine
 
 
 # ---------------------------------------------------------------------------

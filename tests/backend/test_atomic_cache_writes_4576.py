@@ -296,7 +296,7 @@ class TestEncodeAndSaveErrorClassification:
 
     def test_error_taxonomy_reports_encoding_failure_not_read_failure(self, tmp_path, monkeypatch):
         from core.encoding.wav_encoder import WAVEncoder
-        from core.processing_engine import _safe_error_message
+        from core.job_error_mapping import _safe_error_message
 
         encoder = WAVEncoder(tmp_path)
         audio = np.zeros((128, 2), dtype=np.float32)

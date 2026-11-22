@@ -37,7 +37,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
 from core.job_lifecycle import process_job as _job_lifecycle_process_job
-from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
+from core.job_models import ProcessingJob, ProcessingStatus
+from core.processing_engine import ProcessingEngine
 from core.processor_pool import ProcessorPool
 
 pytestmark = pytest.mark.asyncio

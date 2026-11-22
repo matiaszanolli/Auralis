@@ -20,7 +20,8 @@ from pathlib import Path
 from fastapi import Depends, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 
-from core.processing_engine import ProcessingEngine, ProcessingStatus
+from core.job_models import ProcessingStatus
+from core.processing_engine import ProcessingEngine
 
 from .errors import BadRequestError, ServiceUnavailableError
 from .files_validation import _has_valid_audio_magic

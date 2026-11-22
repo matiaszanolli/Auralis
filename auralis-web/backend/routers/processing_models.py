@@ -14,7 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 from schemas import BitDepth
 
-from core.processing_engine import ProcessingStatus
+from core.job_models import ProcessingStatus
 
 
 class ProcessingSettings(BaseModel):

@@ -13,7 +13,7 @@ from typing import Any
 from collections.abc import Callable
 
 from core.audio_stream_controller import AudioStreamController
-from core.processing_engine import _safe_error_message
+from core.job_error_mapping import _safe_error_message
 from fastapi import WebSocket
 from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET
 

@@ -22,8 +22,7 @@ from .loaders import load_with_ffmpeg, load_with_soundfile
 from .processing import peak_amplitude, resample_audio, validate_audio
 
 # Metadata probing (get_audio_info and its ffprobe/soundfile backends) lives in audio_probe.py (#6273).
-# SUPPORTED_FORMATS / FFMPEG_FORMATS live in auralis.io.formats (the single
-# source of truth) and are re-exported here for existing importers.
+# SUPPORTED_FORMATS / FFMPEG_FORMATS live in auralis.io.formats (the single source of truth).
 
 
 def load_audio(

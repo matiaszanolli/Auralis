@@ -34,9 +34,9 @@ class TestFormatListConsistency:
         assert SCAN == AUDIO_EXTENSIONS
 
     def test_loader_supported_matches_canonical(self):
-        from auralis.io.unified_loader import SUPPORTED_FORMATS as SF
+        from auralis.io.unified_loader import get_supported_formats
 
-        assert set(SF) == AUDIO_EXTENSIONS
+        assert set(get_supported_formats()) == AUDIO_EXTENSIONS
 
     def test_ffmpeg_formats_subset_of_supported(self):
         assert FFMPEG_FORMATS <= set(SUPPORTED_FORMATS)

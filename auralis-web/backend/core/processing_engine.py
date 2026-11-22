@@ -37,13 +37,9 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
 
-# ProcessingJob/ProcessingStatus/_safe_error_message re-exported here so
-# existing `from core.processing_engine import ...` callers keep working
-# (#4250 follow-up).
 from config.limits import PROCESSING_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME, create_secure_temp_dir
 from core.job_cleanup import cleanup_expired_jobs
 from core.job_config import create_processor_config
-from core.job_error_mapping import _safe_error_message
 
 # A test patches load_audio()/save() at 'core.job_execution.load_audio' /
 # '.save' — see that module's docstring (#4250 follow-up).
@@ -58,12 +54,7 @@ from core.job_worker import JobWorker
 from core.processor_pool import ProcessorPool
 from config.retention import COMPLETED_JOB_TTL_HOURS, JOB_CLEANUP_DEFAULT_AGE_HOURS
 
-__all__ = [
-    "ProcessingEngine",
-    "ProcessingJob",
-    "ProcessingStatus",
-    "_safe_error_message",
-]
+__all__ = ["ProcessingEngine"]
 
 
 logger = logging.getLogger(__name__)

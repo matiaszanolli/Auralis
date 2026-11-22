@@ -96,7 +96,8 @@ def test_queue_status_counts_interrupted_jobs_in_their_own_bucket_5496():
     """#5496: a restored/interrupted job inflated `total` without appearing in any bucket."""
     from collections import namedtuple
 
-    from core.processing_engine import ProcessingEngine, ProcessingStatus
+    from core.job_models import ProcessingStatus
+    from core.processing_engine import ProcessingEngine
 
     engine = ProcessingEngine.__new__(ProcessingEngine)
     Job = namedtuple("Job", "status")

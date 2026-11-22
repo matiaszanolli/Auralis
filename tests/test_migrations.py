@@ -8,7 +8,6 @@ import shutil
 import stat
 import tempfile
 import time
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,13 +16,9 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import __db_schema_version__
-from auralis.library.migration_manager import (
-    MigrationManager,
-    backup_database,
-    check_and_migrate_database,
-    migration_lock,
-    restore_database,
-)
+from auralis.library.migration_backup import backup_database, restore_database
+from auralis.library.migration_lock import migration_lock
+from auralis.library.migration_manager import MigrationManager, check_and_migrate_database
 from auralis.library.models import Base, SchemaVersion, Track
 
 

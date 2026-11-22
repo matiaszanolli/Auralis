@@ -9,10 +9,9 @@ Tier-1 (DB) fingerprint lookup, plus the once-per-process warning latch that
 reports a misresolved component registry. Extracted from chunked_processor.py
 (#4245) — this is registry plumbing, not a chunk-streaming concern.
 
-``_default_get_fingerprints_repository`` / ``_reset_registry_miss_warning`` are
-re-exported from ``core.chunked_processor`` (its historical home) so existing
-imports — several ``tests/backend/test_*`` files — keep working unchanged.
-``core/mastering_target_service.py`` imports it from here directly (#5085).
+``core/mastering_target_service.py`` and the registry tests import
+``_default_get_fingerprints_repository`` / ``_reset_registry_miss_warning``
+from here (#5085).
 
 The module logger is deliberately named ``core.chunked_processor`` rather than
 ``__name__`` (see :mod:`core.chunked_processor` module docstring note): several

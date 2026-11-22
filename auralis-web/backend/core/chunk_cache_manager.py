@@ -22,10 +22,10 @@ from pathlib import Path
 from typing import Any
 
 from core.encoding.atomic_io import is_wav_complete
-from core.intensity_key import INTENSITY_KEY_DECIMALS, intensity_cache_key  # noqa: F401  (re-exported)
+from core.intensity_key import intensity_cache_key
 from core.targets_hash import NO_TARGETS
 
-from .chunk_disk_prune import (  # noqa: F401
+from .chunk_disk_prune import (
     MAX_CHUNK_DISK_BYTES,
     PRUNE_EVERY_N_WRITES,
     ChunkDiskPruneMixin,

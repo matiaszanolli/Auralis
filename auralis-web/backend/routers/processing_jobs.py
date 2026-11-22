@@ -17,7 +17,8 @@ from typing import Any
 from fastapi import Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from core.processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
+from core.job_models import ProcessingJob, ProcessingStatus
+from core.processing_engine import ProcessingEngine
 
 from .dependencies import require_processing_engine, with_error_handling
 from .errors import BadRequestError, NotFoundError

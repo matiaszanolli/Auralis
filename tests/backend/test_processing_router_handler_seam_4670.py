@@ -20,7 +20,7 @@ from fastapi import HTTPException
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from core.processing_engine import ProcessingStatus  # noqa: E402
+from core.job_models import ProcessingStatus  # noqa: E402
 from routers.processing_api import (  # noqa: E402
     ProcessRequest,
     ProcessingSettings,

@@ -20,7 +20,6 @@ from helpers import log_task_exception, scan_progress_percentage
 from websocket.outbound.library import ScanCompletePayload, ScanFailurePayload
 from websocket.outbound_messages import broadcast_typed
 
-from .scan_fingerprint_enqueue import enqueue_scanned_for_fingerprinting  # noqa: F401 — re-exported: the two scan sites import everything scan-related from here
 
 logger = logging.getLogger(__name__)
 

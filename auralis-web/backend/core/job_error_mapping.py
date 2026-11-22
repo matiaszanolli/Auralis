@@ -9,10 +9,7 @@ set of user-safe category strings. Extracted from processing_engine.py
 (#4250 follow-up: the mechanical pool/worker/process_job split landed in
 3b01a65e, but the engine module itself kept growing past the 300-line
 convention through unrelated bugfixes — this is the next safe slice out of
-it). The mapping tables and match order are unchanged; re-exported from
-processing_engine.py so `from core.processing_engine import
-_safe_error_message` keeps working for routers/tests that import it from
-there.
+it). Routers and tests import `_safe_error_message` from here.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
