@@ -24,7 +24,7 @@ pytestmark = pytest.mark.asyncio
 @pytest.fixture
 def two_thread_job_pool(monkeypatch):
     pool = ThreadPoolExecutor(max_workers=2)
-    monkeypatch.setattr(executors, "_job_executor", pool)
+    monkeypatch.setattr(executors._JOB, "executor", pool)
     yield pool
     pool.shutdown(wait=False, cancel_futures=True)
 

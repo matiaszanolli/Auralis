@@ -64,6 +64,7 @@ import logging
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from .env_config import get_int_env
@@ -110,14 +111,63 @@ IO_POOL_SIZE: int = min(_DB_POOL_CEILING, _requested_io_workers)
 # so more workers would only ever serve threads a timeout has abandoned.
 JOB_POOL_SIZE: int = get_int_env("AURALIS_JOB_POOL_WORKERS", 2)
 
-_stream_executor: ThreadPoolExecutor | None = None
-_io_executor: ThreadPoolExecutor | None = None
 # Transport engine calls (#6093). Serialised by the playback lock already, so more
 # than a couple of workers could only ever serve threads a stuck call abandoned.
 TRANSPORT_POOL_SIZE: int = get_int_env("AURALIS_TRANSPORT_POOL_WORKERS", 2)
 
-_job_executor: ThreadPoolExecutor | None = None
-_transport_executor: ThreadPoolExecutor | None = None
+
+@dataclass
+class _Pool:
+    """One named pool: how to size it, its thread-name prefix, and (once installed) the executor.
+
+    Every pool is built, run on and torn down the same way, so adding one is a
+    single `_Pool(...)` row in `_POOLS` plus its two public wrappers (#6697).
+    """
+
+    label: str
+    prefix: str
+    size: Callable[[], int]  # read at install time, so the *_POOL_SIZE globals stay patchable
+    executor: ThreadPoolExecutor | None = None
+
+    def start(self) -> int:
+        """Build the executor; returns its worker count for the install log."""
+        workers = self.size()
+        self.executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=self.prefix)
+        return workers
+
+    def stop(self, wait: bool) -> None:
+        executor, self.executor = self.executor, None
+        if executor is None:
+            return
+        try:
+            executor.shutdown(wait=wait, cancel_futures=True)
+        except Exception as e:
+            # Mirrors #4569's rule for shutdown steps: one failing step
+            # must not abort the rest of teardown.
+            logger.warning(f"Failed to shut down the {self.label} thread pool: {e}")
+
+    async def run(self, func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
+        """`asyncio.to_thread` on this pool, or on the default executor when not installed.
+
+        Like `to_thread`, the current context is propagated into the worker —
+        streaming reads `_stream_type_var` / `_track_id_var` contextvars, so
+        dropping that would change logging behaviour.
+        """
+        executor = self.executor
+        if executor is None:
+            return await asyncio.to_thread(func, *args, **kwargs)
+
+        loop = asyncio.get_running_loop()
+        ctx = contextvars.copy_context()
+        call = functools.partial(ctx.run, func, *args, **kwargs)
+        return await loop.run_in_executor(executor, call)
+
+
+_STREAM = _Pool("streaming", "auralis-stream", _stream_pool_size)
+_IO = _Pool("IO", "auralis-io", lambda: IO_POOL_SIZE)
+_JOB = _Pool("job", "auralis-job", lambda: JOB_POOL_SIZE)
+_TRANSPORT = _Pool("transport", "auralis-transport", lambda: TRANSPORT_POOL_SIZE)
+_POOLS: tuple[_Pool, ...] = (_STREAM, _IO, _JOB, _TRANSPORT)
 _lock = threading.Lock()
 
 
@@ -125,58 +175,31 @@ def get_stream_executor() -> ThreadPoolExecutor | None:
     """The streaming pool, or None if `install_executors()` has not run.
 
     Returning None rather than lazily creating one is deliberate: a pool
-    created outside the lifespan would never be shut down, and callers below
-    already treat None as "use the default executor", which is exactly the
-    pre-#5086 behaviour. Tests and scripts that drive streaming functions
+    created outside the lifespan would never be shut down, and the `run_in_*`
+    wrappers already treat None as "use the default executor", which is exactly
+    the pre-#5086 behaviour. Tests and scripts that drive streaming functions
     directly therefore keep working unchanged.
 
-    Exists for test introspection (`test_executor_sizing_5086.py`'s pool
-    identity/sizing assertions) rather than as a hot-path API: the hot path
-    itself, `run_in_stream_executor`, reads the module-private `_stream_executor`
-    global directly, which is deliberate (#5206) — not an oversight of this
-    getter's existence.
+    The getters exist for test introspection (pool identity/sizing assertions),
+    not as hot-path API: `run_in_stream_executor` reads the pool directly (#5206),
+    and production reaches the IO pool implicitly as the loop's default executor.
     """
-    return _stream_executor
+    return _STREAM.executor
 
 
 def get_io_executor() -> ThreadPoolExecutor | None:
-    """The general I/O pool, or None if `install_executors()` has not run.
-
-    Exists for test introspection (`test_executor_sizing_5086.py`'s pool
-    identity/sizing assertions), matching `get_stream_executor()`'s reasoning
-    (#5206) — production code installs this pool as the loop's default
-    executor (`install_executors()`) and reaches it implicitly through
-    `asyncio.to_thread`/`loop.run_in_executor`, not through this getter.
-    """
-    return _io_executor
+    """The general I/O pool (the loop's default), or None if not installed."""
+    return _IO.executor
 
 
 def get_job_executor() -> ThreadPoolExecutor | None:
     """The mastering-job pool, or None if `install_executors()` has not run."""
-    return _job_executor
+    return _JOB.executor
 
 
 def get_transport_executor() -> ThreadPoolExecutor | None:
     """The transport pool, or None if `install_executors()` has not run."""
-    return _transport_executor
-
-
-async def _run_in(
-    executor: ThreadPoolExecutor | None, func: Callable[..., T], /, *args: Any, **kwargs: Any
-) -> T:
-    """`asyncio.to_thread` on *executor*, or on the default one when None.
-
-    Like `to_thread`, the current context is propagated into the worker —
-    streaming reads `_stream_type_var` / `_track_id_var` contextvars, so
-    dropping that would change logging behaviour.
-    """
-    if executor is None:
-        return await asyncio.to_thread(func, *args, **kwargs)
-
-    loop = asyncio.get_running_loop()
-    ctx = contextvars.copy_context()
-    call = functools.partial(ctx.run, func, *args, **kwargs)
-    return await loop.run_in_executor(executor, call)
+    return _TRANSPORT.executor
 
 
 async def run_in_stream_executor(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
@@ -185,70 +208,40 @@ async def run_in_stream_executor(func: Callable[..., T], /, *args: Any, **kwargs
     Falls back to the default executor when no pool is installed, so this is a
     drop-in replacement for `asyncio.to_thread` at every call site.
     """
-    return await _run_in(_stream_executor, func, *args, **kwargs)
+    return await _STREAM.run(func, *args, **kwargs)
 
 
 async def run_in_job_executor(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
-    """`asyncio.to_thread`, but on the dedicated mastering-job pool (#5335).
-
-    Same fallback as `run_in_stream_executor` when no pool is installed.
-    """
-    return await _run_in(_job_executor, func, *args, **kwargs)
+    """`asyncio.to_thread` on the mastering-job pool (#5335); same fallback."""
+    return await _JOB.run(func, *args, **kwargs)
 
 
 async def run_in_transport_executor(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
-    """`asyncio.to_thread`, but on the dedicated transport pool (#6093).
-
-    Same fallback as `run_in_stream_executor` when no pool is installed.
-    """
-    return await _run_in(_transport_executor, func, *args, **kwargs)
+    """`asyncio.to_thread` on the transport pool (#6093); same fallback."""
+    return await _TRANSPORT.run(func, *args, **kwargs)
 
 
 def install_executors() -> tuple[ThreadPoolExecutor, ThreadPoolExecutor]:
     """Create the pools and install the I/O pool as the loop's default.
 
     Idempotent: calling twice returns the existing pools rather than orphaning
-    the first pair (the lifespan can run more than once in a test process).
+    the first set (the lifespan can run more than once in a test process).
 
     Must be called from inside the running event loop — `set_default_executor`
     is per-loop, and installing it against the wrong loop is the silent
     wiring failure #4810's WIRING check warns about.
     """
-    global _stream_executor, _io_executor, _job_executor, _transport_executor
-
     with _lock:
-        if (
-            _stream_executor is not None
-            and _io_executor is not None
-            and _job_executor is not None
-            and _transport_executor is not None
-        ):
-            return _stream_executor, _io_executor
-
-        stream_workers = _stream_pool_size()
-        _stream_executor = ThreadPoolExecutor(
-            max_workers=stream_workers, thread_name_prefix="auralis-stream"
-        )
-        _io_executor = ThreadPoolExecutor(
-            max_workers=IO_POOL_SIZE, thread_name_prefix="auralis-io"
-        )
-        _job_executor = ThreadPoolExecutor(
-            max_workers=JOB_POOL_SIZE, thread_name_prefix="auralis-job"
-        )
-
-        _transport_executor = ThreadPoolExecutor(
-            max_workers=TRANSPORT_POOL_SIZE, thread_name_prefix="auralis-transport"
-        )
-
-        asyncio.get_running_loop().set_default_executor(_io_executor)
-
-        logger.info(
-            f"Thread pools installed: streaming={stream_workers} workers "
-            f"(2 x MAX_CONCURRENT_STREAMS), default/IO={IO_POOL_SIZE} workers "
-            f"(<= the 10-connection DB pool), jobs={JOB_POOL_SIZE} workers, "
-            f"transport={TRANSPORT_POOL_SIZE} workers"
-        )
-        return _stream_executor, _io_executor
+        started = [f"{pool.label}={pool.start()}" for pool in _POOLS if pool.executor is None]
+        stream, io = _STREAM.executor, _IO.executor
+        assert stream is not None and io is not None  # every pool was just started or already was
+        if started:
+            asyncio.get_running_loop().set_default_executor(io)
+            logger.info(
+                f"Thread pools installed: {', '.join(started)} workers "
+                "(streaming = 2 x MAX_CONCURRENT_STREAMS; IO <= the 10-connection DB pool)"
+            )
+        return stream, io
 
 
 def shutdown_executors(wait: bool = False) -> None:
@@ -260,8 +253,6 @@ def shutdown_executors(wait: bool = False) -> None:
     that abandoned it. Python's interpreter shutdown joins non-daemon pool
     threads regardless; this just avoids blocking the lifespan on them.
     """
-    global _stream_executor, _io_executor, _job_executor, _transport_executor
-
     with _lock:
         # Detach the IO pool from the loop BEFORE shutting it down. Leaving a
         # shut-down executor installed as the default would make any later
@@ -277,7 +268,7 @@ def shutdown_executors(wait: bool = False) -> None:
         # crashing shutdown.
         try:
             loop = asyncio.get_running_loop()
-            if _io_executor is not None and getattr(loop, "_default_executor", None) is _io_executor:
+            if _IO.executor is not None and getattr(loop, "_default_executor", None) is _IO.executor:
                 loop._default_executor = None  # type: ignore[attr-defined]
         except RuntimeError:
             # No running loop (shutdown from a sync context) — nothing to detach.
@@ -285,22 +276,5 @@ def shutdown_executors(wait: bool = False) -> None:
         except Exception as e:
             logger.debug(f"Could not detach the default executor: {e}")
 
-        for name, executor in (
-            ("streaming", _stream_executor),
-            ("IO", _io_executor),
-            ("job", _job_executor),
-            ("transport", _transport_executor),
-        ):
-            if executor is None:
-                continue
-            try:
-                executor.shutdown(wait=wait, cancel_futures=True)
-            except Exception as e:
-                # Mirrors #4569's rule for shutdown steps: one failing step
-                # must not abort the rest of teardown.
-                logger.warning(f"Failed to shut down the {name} thread pool: {e}")
-
-        _stream_executor = None
-        _io_executor = None
-        _job_executor = None
-        _transport_executor = None
+        for pool in _POOLS:
+            pool.stop(wait)

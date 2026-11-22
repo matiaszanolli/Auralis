@@ -17,6 +17,7 @@
     "auralis-web/backend/core/chunked_processor.py": 278,
     "auralis-web/backend/core/converted_wav_registry.py": 247,
     "auralis-web/backend/core/encoding/wav_encoder.py": 241,
+    "auralis-web/backend/core/executors.py": 280,
     "auralis-web/backend/core/level_constants.py": 51,
     "auralis-web/backend/core/level_transition.py": 211,
     "auralis-web/backend/core/mastering_target_service.py": 248,
