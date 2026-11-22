@@ -8,7 +8,7 @@ Centralizes all magic numbers for easier tuning and A/B testing.
 
 The specialized correction-stage tuning tables (resonance notcher, transient
 shaper, clarity boost, vocal unmasking, sub-bass control, continuous
-loudness/crest response, progress reporting) live in ``mastering_presets.py``
+loudness/crest response) live in ``mastering_presets.py``
 (#4511) and are pulled in via inheritance below, so ``SimpleMasteringConfig``
 exposes every field as one flat attribute namespace.
 
@@ -66,7 +66,7 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
 
     Inherits the specialized correction-stage tuning tables (resonance
     notcher, transient shaper, clarity boost, vocal unmasking, sub-bass
-    control, continuous loudness/crest response, progress reporting) from
+    control, continuous loudness/crest response) from
     :class:`~auralis.core.mastering_presets.MasteringPresetDefaults`
     (#4511) — every field from both classes is a plain flat attribute here,
     so ``SimpleMasteringConfig()`` behaves exactly as it did as one module.
@@ -97,6 +97,9 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
     seam becomes an audible step. Enforced in __post_init__ below — change
     those constants together with this one, never in isolation. Must also stay
     below CHUNK_DURATION_SEC."""
+
+    PROGRESS_REPORT_INTERVAL_CHUNKS: int = 5
+    """Report progress every N chunks of the offline file-master loop (verbose only)."""
 
     QUALITY_EVALUATION_ENABLED: bool = True
     """Attach advisory before/after measurements to file-master results."""

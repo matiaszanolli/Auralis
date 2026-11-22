@@ -292,10 +292,3 @@ class MasteringPresetDefaults:
     of the two inputs to the chunk-seam safety ratio enforced in
     SimpleMasteringConfig.__post_init__ (#5339) — lengthen it only together
     with CROSSFADE_DURATION_SEC (mastering_config.py)."""
-
-    # =========================================================================
-    # Progress Reporting
-    # =========================================================================
-
-    PROGRESS_REPORT_INTERVAL_CHUNKS: int = 5
-    """Report progress every N chunks during processing"""

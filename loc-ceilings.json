@@ -116,6 +116,8 @@
     "auralis/core/analysis/target_preset_overrides.py": 125,
     "auralis/core/hybrid_processor.py": 282,
     "auralis/core/mastering_branches/continuous.py": 299,
+    "auralis/core/mastering_config.py": 284,
+    "auralis/core/mastering_presets.py": 294,
     "auralis/core/mastering_stage_delegates.py": 118,
     "auralis/core/processing/adaptive_normalization.py": 130,
     "auralis/core/processing/continuous_mode.py": 252,
