@@ -397,92 +397,54 @@ class TestArtworkMigration:
 
 @pytest.mark.regression
 class TestUserPreferencesMigration:
-    """Test user preferences migration."""
+    """A track's favorite flag and play statistics survive what rewrites the row.
 
-    def test_favorite_tracks_preserved(self, temp_db):
-        """
-        REGRESSION: Favorite track flags preserved.
-        Test: Favorites migrate correctly.
-        """
+    These used to pass favorite/play_count to TrackRepository.add() and read them
+    back. add() builds a track from a file, which has no play history, so it
+    ignores them; only the scanner calls it. The stats are set through
+    set_favorite()/record_play() and must survive a rescan and a metadata edit,
+    which both rewrite the same row (#6709 follow-up).
+    """
+
+    @staticmethod
+    def _played_favorite(temp_db):
         from auralis.library.repositories import TrackRepository
 
-        track_repo = TrackRepository(temp_db)
+        repo = TrackRepository(temp_db)
+        track = repo.add({
+            'filepath': '/tmp/favorite.flac', 'title': 'Old Title', 'artists': ['Old Artist'],
+            'genres': ['Rock'], 'format': 'FLAC', 'sample_rate': 44100, 'channels': 2,
+        })
+        assert track is not None
+        assert repo.set_favorite(track.id, True) is True
+        for _ in range(3):
+            repo.record_play(track.id)
+        before = repo.get_by_id(track.id)
+        assert (before.favorite, before.play_count) == (True, 3)
+        assert before.last_played is not None
+        return repo, before
 
-        # Add favorite track
-        track_info = {
-            'filepath': '/tmp/favorite.flac',
-            'title': 'Favorite Track',
-            'artists': ['Artist'],
-            'format': 'FLAC',
-            'sample_rate': 44100,
-            'channels': 2,
-            'favorite': True
-        }
+    def test_favorite_and_play_stats_survive_a_rescan(self, temp_db):
+        repo, before = self._played_favorite(temp_db)
 
-        track = track_repo.add(track_info)
+        # The scanner's whole-file re-read: new tags, absent keys cleared.
+        repo.update_by_filepath(
+            '/tmp/favorite.flac',
+            {'title': 'New Title', 'artists': ['New Artist'], 'format': 'FLAC',
+             'sample_rate': 44100, 'channels': 2},
+            replace_tags=True,
+        )
 
-        # Retrieve
-        retrieved = track_repo.get_by_id(track.id)
+        after = repo.get_by_id(before.id)
+        assert after.title == 'New Title'
+        assert [a.name for a in after.artists] == ['New Artist']
+        assert (after.favorite, after.play_count, after.last_played) == (True, 3, before.last_played)
 
-        assert retrieved.favorite is True, "Favorite flag should be preserved"
+    def test_favorite_and_play_stats_survive_a_metadata_edit(self, temp_db):
+        repo, before = self._played_favorite(temp_db)
 
-    def test_play_count_migration(self, temp_db):
-        """
-        REGRESSION: Play counts preserved in migration.
-        Test: Play count values migrate correctly.
-        """
-        from auralis.library.repositories import TrackRepository
+        repo.update(before.id, {'title': 'Edited', 'artists': ['Someone Else'], 'genres': ['Jazz']})
 
-        track_repo = TrackRepository(temp_db)
-
-        # Add track with play count
-        track_info = {
-            'filepath': '/tmp/played_track.flac',
-            'title': 'Played Track',
-            'artists': ['Artist'],
-            'format': 'FLAC',
-            'sample_rate': 44100,
-            'channels': 2,
-            'play_count': 42
-        }
-
-        track = track_repo.add(track_info)
-
-        # Retrieve
-        retrieved = track_repo.get_by_id(track.id)
-
-        assert retrieved.play_count == 42, "Play count should be preserved"
-
-    def test_last_played_timestamp_preserved(self, temp_db):
-        """
-        REGRESSION: Last played timestamps preserved.
-        Test: Timestamp values migrate correctly.
-        """
-        from datetime import datetime
-
-        from auralis.library.repositories import TrackRepository
-
-        track_repo = TrackRepository(temp_db)
-
-        now = datetime.now()
-
-        # Add track with last_played
-        track_info = {
-            'filepath': '/tmp/recent_track.flac',
-            'title': 'Recent Track',
-            'artists': ['Artist'],
-            'format': 'FLAC',
-            'sample_rate': 44100,
-            'channels': 2,
-            'last_played': now
-        }
-
-        track = track_repo.add(track_info)
-
-        # Retrieve
-        retrieved = track_repo.get_by_id(track.id)
-
-        # Timestamp should be preserved (allow small difference for DB conversion)
-        if retrieved.last_played:
-            time_diff = abs((retrieved.last_played - now).total_seconds())
-            assert time_diff < 2, "Last played timestamp should be preserved"
+        after = repo.get_by_id(before.id)
+        assert after.title == 'Edited'
+        assert (after.favorite, after.play_count, after.last_played) == (True, 3, before.last_played)
