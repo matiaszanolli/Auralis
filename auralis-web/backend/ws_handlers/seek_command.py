@@ -9,7 +9,6 @@ cancellation helper, which it imports back.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import logging
 import math
 from typing import Any
@@ -17,12 +16,13 @@ from typing import Any
 from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_protocol import safe_send_text
 from fastapi import WebSocket
-from schemas import DEFAULT_PRESET  # single source of truth (#4424, #4600)
+from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET  # single source of truth (#4424, #4600)
 from websocket.message_validation import send_error_response
 
 from .context import StreamState, WSDeps
-from .enhancement_params import DEFAULT_INTENSITY, resolve_enhancement_params
+from .enhancement_params import resolve_enhancement_params
 from .playback_commands import _cancel_prior_task
+from .stream_cancel import attach_stream
 
 logger = logging.getLogger(__name__)
 
@@ -118,27 +118,15 @@ async def handle_seek(
     if deps.get_enhancement_settings is not None:
         enhancement_enabled = deps.get_enhancement_settings().get("enabled", True)
 
-    # Reset pause/flow-control events AND register the new seek task
-    # atomically — fixes #3522 / BE-NEW-64 (prior code did the event
-    # replacement outside the lock, leaving a torn-state window).
-    async with state.active_tasks_lock:
-        pause_event = asyncio.Event()
-        pause_event.set()
-        state.pause_events[ws_id] = pause_event
-        flow_event = asyncio.Event()
-        flow_event.set()
-        state.flow_events[ws_id] = flow_event
-        task = asyncio.create_task(deps.stream_from_position(
-            websocket,
-            deps.get_repository_factory,
-            deps.get_enhancement_settings,
-            track_id=track_id,
-            preset=preset,
-            intensity=intensity,
-            position=position,
-            enhancement_enabled=enhancement_enabled,
-            ws_id=ws_id,
-        ))
-        state.active_tasks[ws_id] = task
-        state.active_track_ids[ws_id] = track_id
+    await attach_stream(state, ws_id, track_id, lambda: deps.stream_from_position(
+        websocket,
+        deps.get_repository_factory,
+        deps.get_enhancement_settings,
+        track_id=track_id,
+        preset=preset,
+        intensity=intensity,
+        position=position,
+        enhancement_enabled=enhancement_enabled,
+        ws_id=ws_id,
+    ))
     logger.info(f"Started seek streaming task for track {track_id} at {position}s")

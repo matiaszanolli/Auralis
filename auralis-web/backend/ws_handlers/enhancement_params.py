@@ -11,7 +11,6 @@ handlers. The command handlers import these; no re-exports.
 
 import logging
 import math
-from schemas import DEFAULT_INTENSITY  # noqa: F401  (re-exported: the ws handlers import it from here)
 from collections.abc import Mapping
 from typing import Any
 

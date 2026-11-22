@@ -30,11 +30,8 @@ if _BACKEND not in sys.path:
 from core.audio_stream_controller import ws_id as _ws_id  # noqa: E402
 from ws_handlers import playback_commands  # noqa: E402
 from ws_handlers.context import StreamState, WSDeps  # noqa: E402
-from schemas import DEFAULT_PRESET  # noqa: E402
-from ws_handlers.enhancement_params import (  # noqa: E402
-    DEFAULT_INTENSITY,
-    resolve_enhancement_params,
-)
+from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET  # noqa: E402
+from ws_handlers.enhancement_params import resolve_enhancement_params  # noqa: E402
 from ws_handlers import enhancement_params  # noqa: E402
 from ws_handlers.playback_commands import handle_play_enhanced  # noqa: E402
 from ws_handlers import playback_commands  # noqa: E402

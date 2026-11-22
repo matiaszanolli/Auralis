@@ -11,7 +11,6 @@ handler lives in seek_command.py (#6269).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import json
 import logging
 from typing import Any
@@ -20,18 +19,15 @@ from core.audio_stream_controller import ws_id as _ws_id
 from core.task_cancellation import await_cancelled_task
 from fastapi import WebSocket
 from schemas import (  # single source of truth (#4424, #4600)
+    DEFAULT_INTENSITY,
     DEFAULT_PRESET,
     VALID_PRESETS,
 )
 from websocket.message_validation import send_error_response
 
 from .context import StreamState, WSDeps
-from .stream_cancel import detach_stream, signal_cancel
-from .enhancement_params import (
-    DEFAULT_INTENSITY,
-    parse_play_request,
-    resolve_enhancement_params,
-)
+from .stream_cancel import attach_stream, detach_stream, signal_cancel
+from .enhancement_params import parse_play_request, resolve_enhancement_params
 
 logger = logging.getLogger(__name__)
 
@@ -159,28 +155,17 @@ async def handle_play_enhanced(
     # the active task instead of deduplicating solely by track_id (#4726).
     await _cancel_prior_task(ws_id, state)
 
-    async with state.active_tasks_lock:
-        # Create pause event for this stream — set = running (#2106)
-        pause_event = asyncio.Event()
-        pause_event.set()
-        state.pause_events[ws_id] = pause_event
-        # Create flow control event — set = flowing (not throttled)
-        flow_event = asyncio.Event()
-        flow_event.set()
-        state.flow_events[ws_id] = flow_event
-        task = asyncio.create_task(deps.stream_audio(
-            websocket,
-            deps.get_repository_factory,
-            deps.get_enhancement_settings,
-            track_id=track_id,
-            preset=preset,
-            intensity=intensity,
-            force=force,
-            start_position=start_position,
-            ws_id=ws_id,
-        ))
-        state.active_tasks[ws_id] = task
-        state.active_track_ids[ws_id] = track_id
+    await attach_stream(state, ws_id, track_id, lambda: deps.stream_audio(
+        websocket,
+        deps.get_repository_factory,
+        deps.get_enhancement_settings,
+        track_id=track_id,
+        preset=preset,
+        intensity=intensity,
+        force=force,
+        start_position=start_position,
+        ws_id=ws_id,
+    ))
     logger.info(f"Started background streaming task for track {track_id}")
 
 
@@ -202,26 +187,13 @@ async def handle_play_normal(
 
     await _cancel_prior_task(ws_id, state)
 
-    async with state.active_tasks_lock:
-        # Create pause event for this stream — set = running (#2106)
-        pause_event = asyncio.Event()
-        pause_event.set()
-        state.pause_events[ws_id] = pause_event
-        # Create flow control event — set = flowing (not throttled)
-        flow_event = asyncio.Event()
-        flow_event.set()
-        state.flow_events[ws_id] = flow_event
-        task = asyncio.create_task(deps.stream_normal(
-            websocket,
-            deps.get_repository_factory,
-            track_id=track_id,
-            start_position=start_position,
-            ws_id=ws_id,
-        ))
-        state.active_tasks[ws_id] = task
-        # Track which track is streaming so subsequent play_enhanced
-        # dedup checks see the truth (#3509 / BE-NEW-51).
-        state.active_track_ids[ws_id] = track_id
+    await attach_stream(state, ws_id, track_id, lambda: deps.stream_normal(
+        websocket,
+        deps.get_repository_factory,
+        track_id=track_id,
+        start_position=start_position,
+        ws_id=ws_id,
+    ))
     logger.info(f"Started background normal streaming task for track {track_id}")
 
 

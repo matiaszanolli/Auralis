@@ -1,4 +1,8 @@
-"""The two halves of tearing down one connection's stream, shared by the three sites (#6292).
+"""Registering one connection's stream, and the two halves of tearing it down (#6292, #6625).
+
+`attach_stream` is the one registration path for play_enhanced, play_normal and seek: it creates the
+task and records it with fresh pause/flow events in a single `active_tasks_lock` section (#3522).
+
 
 `playback_commands._cancel_prior_task` (play/seek), `playback_control.handle_stop` and
 `connection.teardown_connection` each did "pop the task and per-ws registries under the lock, set the
@@ -15,9 +19,34 @@ dying task's own cleanup, #3828; stop awaits outside the process-wide transition
 
 import asyncio
 import threading
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from .context import StreamState
+
+
+async def attach_stream(
+    state: StreamState,
+    ws_id: str,
+    track_id: int,
+    start: Callable[[], Coroutine[Any, Any, Any]],
+) -> None:
+    """Start ``start()`` as ``ws_id``'s stream task and register it; call after the prior task is gone.
+
+    The pause and flow events are replaced and the task created and recorded under one hold of
+    ``state.active_tasks_lock`` (#3522): an event swap outside it left a window in which a pause or a
+    flow toggle reached the dying stream's events instead of the new one's. Both start set (running,
+    flowing; #2106).
+    """
+    async with state.active_tasks_lock:
+        pause_event = asyncio.Event()
+        pause_event.set()
+        state.pause_events[ws_id] = pause_event
+        flow_event = asyncio.Event()
+        flow_event.set()
+        state.flow_events[ws_id] = flow_event
+        state.active_tasks[ws_id] = asyncio.create_task(start())
+        state.active_track_ids[ws_id] = track_id
 
 
 def detach_stream(

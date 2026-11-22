@@ -59,10 +59,11 @@ def test_no_module_above_core_spells_the_default_as_a_literal(rel):
 def test_default_intensity_is_one_definition_in_schemas_and_in_range():
     """The default intensity is `schemas.DEFAULT_INTENSITY` and valid (#5982)."""
     from schemas import DEFAULT_INTENSITY, INTENSITY_MAX
-    from ws_handlers import enhancement_params
+    from ws_handlers import playback_commands, seek_command
 
     assert 0.0 <= DEFAULT_INTENSITY <= INTENSITY_MAX
-    assert enhancement_params.DEFAULT_INTENSITY is DEFAULT_INTENSITY
+    assert playback_commands.DEFAULT_INTENSITY is DEFAULT_INTENSITY
+    assert seek_command.DEFAULT_INTENSITY is DEFAULT_INTENSITY
 
 
 @pytest.mark.parametrize(
