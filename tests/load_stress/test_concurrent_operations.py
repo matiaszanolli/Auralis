@@ -15,7 +15,6 @@ CONCURRENCY SCENARIOS:
 
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
 
@@ -415,7 +414,7 @@ class TestThreadSafety:
         assert len(results) == 50, \
             f"All operations should complete, got {len(results)}/50"
 
-        print(f"✓ 50 threads, no race conditions")
+        print("✓ 50 threads, no race conditions")
 
     def test_processor_thread_safety(self, test_audio_file):
         """
@@ -430,7 +429,7 @@ class TestThreadSafety:
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
-        audio, sr = load_audio(test_audio_file)
+        audio, _sr = load_audio(test_audio_file)
 
         errors = []
         results = []
@@ -439,7 +438,7 @@ class TestThreadSafety:
         def process_audio():
             """Process audio in thread."""
             try:
-                result = processor.process(test_audio_file)
+                result = processor.process(audio)
                 with lock:
                     results.append(len(result))
             except Exception as e:
@@ -457,11 +456,11 @@ class TestThreadSafety:
         for thread in threads:
             thread.join()
 
-        # Every thread must have reported exactly one outcome — a result
-        # length or an exception — with none lost by unsynchronized appends.
-        assert len(results) + len(errors) == 5, (
-            f"expected 5 outcomes, saw {len(results)} results + {len(errors)} errors"
-        )
+        # Every thread processed the audio and kept its length. This counted an
+        # exception as an outcome too, so it passed while each thread raised
+        # "must be a NumPy array" on the path it was handed.
+        assert errors == []
+        assert results == [len(audio)] * 5
 
         print(f"✓ Processor thread safety: {len(results)} successes, {len(errors)} errors")
 
@@ -475,7 +474,6 @@ class TestRaceConditions:
         STRESS: Concurrent favorite toggles shouldn't corrupt state.
         Target: Final state is consistent (all True or all False).
         """
-        from auralis.library.models import Track
         from auralis.library.repositories import TrackRepository
 
         tracks = large_track_dataset(10)

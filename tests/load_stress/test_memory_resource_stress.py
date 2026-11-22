@@ -20,6 +20,8 @@ import time
 
 import pytest
 
+from tests.audio_processing import process_file
+
 
 @pytest.mark.load
 @pytest.mark.slow
@@ -39,7 +41,7 @@ class TestMemoryLeaks:
 
         with resource_monitor() as monitor:
             for i in range(100):
-                result = processor.process(test_audio_file)
+                result = process_file(processor, test_audio_file)
                 del result  # Explicit cleanup
 
                 if i % 10 == 0:
@@ -150,7 +152,7 @@ class TestResourceCleanup:
         assert deleted_count == 100, \
             f"All files should be deletable, only deleted {deleted_count}/100"
 
-        print(f"✓ 100 file handles released properly")
+        print("✓ 100 file handles released properly")
 
     def test_temporary_file_cleanup(self):
         """
@@ -180,7 +182,7 @@ class TestResourceCleanup:
         assert remaining == 0, \
             f"All temp files should be cleaned up, {remaining} remaining"
 
-        print(f"✓ 100 temp files cleaned up")
+        print("✓ 100 temp files cleaned up")
 
     def test_database_connections_released(self, temp_db):
         """
@@ -230,7 +232,7 @@ class TestSustainedLoad:
             iterations = 0
 
             while time.time() - start_time < target_duration:
-                result = processor.process(test_audio_file)
+                result = process_file(processor, test_audio_file)
                 del result
                 iterations += 1
 
@@ -316,7 +318,7 @@ class TestPeakResourceUsage:
         audio, _sr = load_audio(filepath)
 
         with resource_monitor() as monitor:
-            result = processor.process(audio)
+            processor.process(audio)
             monitor.update()
 
             peak_memory = monitor.peak_memory_mb
@@ -392,7 +394,7 @@ class TestCPUUtilization:
         process.cpu_percent()  # Initialize
 
         # Process
-        result = processor.process(audio)
+        processor.process(audio)
 
         # Get CPU usage
         cpu_percent = process.cpu_percent(interval=0.1)

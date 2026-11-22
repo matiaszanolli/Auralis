@@ -33,6 +33,7 @@ from auralis.io.unified_loader import load_audio
 from auralis.library.database import LibraryDatabase
 from auralis.library.repositories import PlaylistRepository, TrackRepository
 from auralis.library.scanner import LibraryScanner
+from tests.audio_processing import process_file
 
 # ============================================================================
 # COMPLETE WORKFLOW TESTS (5 tests)
@@ -68,7 +69,7 @@ class TestCompleteWorkflows:
             # 2. Process all tracks
             processed = []
             for filepath in filepaths:
-                result = processor.process(filepath)
+                result = process_file(processor, filepath)
                 processed.append(result)
 
             # 3. Export processed tracks
@@ -130,7 +131,7 @@ class TestCompleteWorkflows:
         # Process batch
         with timer() as t:
             for filepath in filepaths:
-                result = processor.process(filepath)
+                result = process_file(processor, filepath)
                 del result  # Free memory
 
         batch_time = t.elapsed
@@ -165,7 +166,7 @@ class TestCompleteWorkflows:
 
         # Create playlist with all tracks
         with timer() as t:
-            playlist_id = playlist_repo.create({
+            playlist_repo.create({
                 'name': 'Test Playlist',
                 'track_ids': track_ids
             })
@@ -243,11 +244,8 @@ class TestTypicalUserOperations:
             else:
                 tracks = results
 
-            # Get first track (simulating play)
-            if tracks:
-                track = tracks[0]
-
         latency_ms = t.elapsed_ms
+        assert 'Track Title 500' in [track.title for track in tracks]
 
         # BENCHMARK: Should be < 100ms
         assert latency_ms < 100, f"Search+play took {latency_ms:.1f}ms, expected < 100ms"
@@ -346,7 +344,7 @@ class TestTypicalUserOperations:
 
         # Filter by genre (using search as proxy)
         with timer() as t:
-            results = track_repo.search('Rock', limit=50, offset=0)
+            track_repo.search('Rock', limit=50, offset=0)
 
         latency_ms = t.elapsed_ms
 
@@ -417,13 +415,10 @@ class TestMultiTrackAlbumProcessing:
         # Process with fixed targets (simulating album consistency)
         processor = HybridProcessor(config)
 
-        # First track: analyze and get targets
-        first_audio = load_audio(filepaths[0])[0]
-
         with timer() as t:
             # Process all tracks
             for filepath in filepaths:
-                result = processor.process(filepath)
+                result = process_file(processor, filepath)
                 del result
 
         album_time = t.elapsed
@@ -547,7 +542,7 @@ class TestStressScenarios:
             config.mastering_profile = preset
 
             with timer() as t:
-                processor = HybridProcessor(config)
+                HybridProcessor(config)
 
             switch_times.append(t.elapsed_ms)
 

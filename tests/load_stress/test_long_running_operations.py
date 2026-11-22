@@ -14,9 +14,12 @@ LONG-RUNNING SCENARIOS:
 """
 
 import gc
+import os
 import time
 
 import pytest
+
+from tests.audio_processing import process_file
 
 
 @pytest.mark.load
@@ -50,7 +53,7 @@ class TestBatchProcessing:
             processed_count = 0
 
             for i, filepath in enumerate(filepaths):
-                result = processor.process(filepath)
+                result = process_file(processor, filepath)
                 del result
                 processed_count += 1
 
@@ -151,7 +154,7 @@ class TestQueueProcessing:
 
             while queue:
                 filepath = queue.popleft()
-                result = processor.process(filepath)
+                result = process_file(processor, filepath)
                 del result
                 processed_count += 1
 
@@ -207,7 +210,7 @@ class TestQueueProcessing:
 
         while priority_queue:
             priority, filepath = heapq.heappop(priority_queue)
-            result = processor.process(filepath)
+            result = process_file(processor, filepath)
             del result
             processed_items.append(priority)
 
@@ -218,7 +221,7 @@ class TestQueueProcessing:
         assert processed_items == sorted(processed_items), \
             "Items should be processed in priority order"
 
-        print(f"✓ Priority queue processed 50 items in correct order")
+        print("✓ Priority queue processed 50 items in correct order")
 
 
 @pytest.mark.load
@@ -257,7 +260,7 @@ class TestBackgroundTasks:
         def background_worker():
             """Simulated background processing."""
             for filepath in filepaths:
-                result = processor.process(filepath)
+                result = process_file(processor, filepath)
                 del result
                 with lock:
                     background_completed['count'] += 1
@@ -420,7 +423,7 @@ class TestContinuousOperation:
                 # Varied operations
                 if iterations % 3 == 0:
                     # Processing
-                    result = processor.process(test_audio_file)
+                    result = process_file(processor, test_audio_file)
                     del result
 
                 if iterations % 2 == 0:
@@ -469,7 +472,7 @@ class TestProgressiveLoad:
 
                 # Measure query time
                 start = time.time()
-                result = track_repo.get_all(limit=50, offset=0)
+                track_repo.get_all(limit=50, offset=0)
                 query_time = time.time() - start
 
                 query_times.append(query_time)
@@ -487,6 +490,6 @@ class TestProgressiveLoad:
         assert degradation_factor < 3.0, \
             f"Query time degraded {degradation_factor:.1f}x, should be < 3x"
 
-        print(f"✓ Progressive growth: 1000 tracks added, " +
+        print("✓ Progressive growth: 1000 tracks added, " +
               f"query degradation: {degradation_factor:.2f}x, " +
               f"memory: {final_memory_growth:.1f}MB")
