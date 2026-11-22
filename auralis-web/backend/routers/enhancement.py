@@ -46,7 +46,7 @@ from .enhancement_controls import (
 
 logger = logging.getLogger(__name__)
 
-# EnhancementPresetLiteral is the single source of truth in schemas.py (#4424),
+# EnhancementPresetLiteral is the single source of truth in schemas/enhancement.py (#4424),
 # imported above. It drives OpenAPI so the preset constraint shows up in the docs,
 # not just as a free-form string (#3549 / BE-NEW-91).
 

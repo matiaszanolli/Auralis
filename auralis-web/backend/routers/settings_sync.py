@@ -34,7 +34,7 @@ async def _sync_enhancement_settings(deps: _SettingsDeps, settings: Any) -> None
     """Re-seed the live runtime dict from just-persisted settings and
     broadcast (#4587) — the DB-to-runtime half of keeping the Settings
     dialog and the Enhancement Panel in sync. Mirrors
-    config/startup.py's one-time seed at process start, using the exact
+    config/startup/components.py's one-time seed at process start, using the exact
     same `seed_enhancement_settings` helper so the two can never drift
     onto different mapping/validation logic.
 

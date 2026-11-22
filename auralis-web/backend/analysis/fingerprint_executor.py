@@ -70,7 +70,7 @@ async def shutdown_fingerprint_executor_bounded(
 ) -> None:
     """Bounded-wait shutdown for the FastAPI lifespan (#4756).
 
-    Every other pool in config/startup.py's _shutdown_components() is torn down there, in
+    Every other pool in config/startup/shutdown.py's _shutdown_components() is torn down there, in
     order relative to the library database; this executor was reachable only via atexit,
     which runs after the database is disposed and blocks exit until every in-flight
     fingerprint finishes. This waits (wait=True) so an in-flight computation cannot race

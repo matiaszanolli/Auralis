@@ -3,7 +3,7 @@ Background Worker Lifecycle
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Single source of truth for the set of long-running background workers and
-helpers to stop/start them. Both the lifespan shutdown (``startup.py``) and the
+helpers to stop/start them. Both the lifespan shutdown (``config/startup/shutdown.py``) and the
 destructive ``POST /api/library/reset`` handler (``routers/library.py``) operate
 on this same set so they can never drift apart (#4111, #3812).
 

@@ -72,7 +72,7 @@ class WorkerLifecycleMixin:
     def worker_task(self) -> asyncio.Task[None] | None:
         """The live background task, or None when not running (#4577).
 
-        Public accessor so lifecycle watchers (``config/startup.py``) don't
+        Public accessor so lifecycle watchers (``config/startup/workers.py``) don't
         reach into the private attribute.
         """
         return self._worker_task

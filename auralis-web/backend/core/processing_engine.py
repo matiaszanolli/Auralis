@@ -196,7 +196,7 @@ class ProcessingEngine:
 
     async def close_processor_pool(self) -> None:
         """Drain and close every cached processor on shutdown. Thin delegate;
-        see ProcessorPool.close_all() (#5061). Called from startup.py."""
+        see ProcessorPool.close_all() (#5061). Called from config/startup/shutdown.py."""
         await self._pool.close_all()
 
     async def _cleanup_processor(

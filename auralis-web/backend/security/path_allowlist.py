@@ -25,7 +25,7 @@ DEFAULT_ALLOWED_DIRS = [
     Path.home() / "Documents",  # Documents directory
 ]
 
-# Extra directories registered at runtime (populated by startup.py after
+# Extra directories registered at runtime (populated by config/startup/components.py after
 # reading user-configured scan folders from the database).
 _extra_allowed_dirs: list[Path] = []
 

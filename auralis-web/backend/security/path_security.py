@@ -137,7 +137,7 @@ def validate_file_path(
         # generic message regardless of what PathValidationError says, but
         # keeping the enumeration out of the exception itself removes the
         # fragility at its root instead of relying on every future caller
-        # remembering not to reflect it. Matches startup.py's existing
+        # remembering not to reflect it. Matches the existing
         # DEBUG-for-sensitive-paths convention (#3844/#4376).
         allowed_dirs_str = ", ".join(str(d) for d in allowed_base_dirs)
         logger.debug(

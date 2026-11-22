@@ -111,7 +111,7 @@ class _Conversion:
 
 def _remove_temp_dirs(temp_dirs: list[str]) -> None:
     # Log instead of swallowing (#3877): an EBUSY/EACCES holdout is swept and
-    # counted at next startup (config/startup.py).
+    # counted at next startup (config/startup/tempfiles.py).
     for temp_dir in temp_dirs:
         shutil.rmtree(
             temp_dir,

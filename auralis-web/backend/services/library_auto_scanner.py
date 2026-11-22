@@ -64,7 +64,7 @@ class LibraryAutoScanner(WatchdogMixin):
         self._fingerprint_queue = fingerprint_queue
         self._connection_manager = connection_manager
         # #3479: optional callback invoked at the end of each scan; receives
-        # the ScanResult. Wired by startup.py to refresh the reference cloud.
+        # the ScanResult. Wired by config/startup/components.py to refresh the reference cloud.
         self._on_scan_complete = on_scan_complete
 
         self._stop_event = asyncio.Event()

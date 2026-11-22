@@ -55,7 +55,7 @@ def _internal_error_response(user_message: str, exc: BaseException) -> HTTPExcep
 def require_similarity_system(get_similarity_system: Callable[[], T | None]) -> T:
     """Validate that the similarity system is available.
 
-    `config/startup.py` sets ``globals_dict['similarity_system'] = None`` when
+    `config/startup/fingerprint.py` sets ``globals_dict['similarity_system'] = None`` when
     initialisation fails, and the similarity router family is registered on the
     import-time ``HAS_SIMILARITY`` flag independently of whether that init
     succeeded — so ``None`` is reachable at request time. Dereferencing it

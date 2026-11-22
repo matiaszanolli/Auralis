@@ -106,7 +106,7 @@ if _requested_io_workers > _DB_POOL_CEILING:
 IO_POOL_SIZE: int = min(_DB_POOL_CEILING, _requested_io_workers)
 
 # Mastering-job DSP (#5335). Matches ProcessingEngine(max_concurrent_jobs=2) in
-# config/startup.py: the job semaphore already admits at most that many jobs,
+# config/startup/workers.py: the job semaphore already admits at most that many jobs,
 # so more workers would only ever serve threads a timeout has abandoned.
 JOB_POOL_SIZE: int = get_int_env("AURALIS_JOB_POOL_WORKERS", 2)
 
