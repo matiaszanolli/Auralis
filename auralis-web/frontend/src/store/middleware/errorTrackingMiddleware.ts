@@ -30,10 +30,10 @@ import {
   CONNECTION_RESET_ACTIONS,
   ErrorCategory,
   TRANSPORT_ERROR_ACTIONS,
-  categorizeError,
   generateErrorId,
   isAllowedErrorAction,
 } from './errorCategorization';
+import { buildTrackedError, detectActionError, notifyOnError, readActionShape } from './errorTrackingHelpers';
 
 export { ErrorCategory, generateErrorId, isAllowedErrorAction };
 
@@ -84,11 +84,6 @@ export interface ErrorTrackingConfig {
 }
 
 // ============================================================================
-// Error Detection and Categorization
-// ============================================================================
-
-
-// ============================================================================
 // Error Tracking Middleware Factory
 // ============================================================================
 
@@ -128,13 +123,8 @@ export function createErrorTrackingMiddleware(
         return next(action);
       }
 
-      // Runtime guards to safely access action properties without Record<string, any> cast (#3044)
-      const actionType = (action != null && typeof action === 'object' && 'type' in action && typeof (action as { type: unknown }).type === 'string')
-        ? (action as { type: string }).type
-        : undefined;
-      const actionPayload = (action != null && typeof action === 'object' && 'payload' in action)
-        ? (action as { payload: unknown }).payload
-        : undefined;
+      const shape = readActionShape(action);
+      const actionType = shape.type;
 
       try {
         const result = next(action);
@@ -143,125 +133,55 @@ export function createErrorTrackingMiddleware(
         // connection.lastError synchronously in the reducer. Bump the
         // generation so any forward already queued for a microtask is
         // discarded rather than landing after the reset.
-        if (CONNECTION_RESET_ACTIONS.has(actionType ?? '') && actionPayload === true) {
+        if (CONNECTION_RESET_ACTIONS.has(actionType ?? '') && shape.payload === true) {
           connectionGeneration++;
         }
 
-        // Check if action contains error
-        let shouldTrackError = false;
-        let errorMessage: string = 'Unknown error';
-        let errorContext: Record<string, unknown> | undefined;
-
-        // Case 1: Object payload with error indicators
-        if (actionPayload && typeof actionPayload === 'object') {
-          const payload = actionPayload as Record<string, unknown>;
-
-          if (payload.error || actionType?.includes('Error') || actionType?.includes('Failure')) {
-            shouldTrackError = true;
-            errorMessage = String(payload.error || payload.message || actionType || 'Unknown error');
-            errorContext = payload;
-          }
+        // #4662: the allowlist, if configured, narrows the heuristic and never
+        // widens it, so an unconfigured middleware behaves exactly as before.
+        const detected = detectActionError(shape);
+        if (!detected || !isAllowedErrorAction(actionType, finalConfig.errorActions)) {
+          return result;
         }
-        // Case 2: String payload for error actions (e.g., player/setError)
-        else if (
-          typeof actionPayload === 'string' &&
-          (actionType?.includes('Error') || actionType?.includes('Failure') || actionType?.includes('setError'))
+
+        const trackedError = buildTrackedError(detected.message, actionType, { context: detected.context });
+        if (finalConfig.logToConsole) {
+          console.error(`[Error Tracked] ${trackedError.category}: ${trackedError.message}`, {
+            action: actionType,
+            context: detected.context,
+          });
+        }
+        notifyOnError(finalConfig, trackedError);
+
+        // Network errors from a transport action trigger a reconnection
+        // attempt. Deferred to avoid re-entrant dispatch mid-action (#3023).
+        // #4430: gated on the originating action, not just the message
+        // keywords (a queue/cache/player failure whose text says "timeout" is
+        // not a connection problem), and on the connection generation captured
+        // now, so a reconnect before the flush discards this stale forward.
+        if (
+          trackedError.category === ErrorCategory.NETWORK &&
+          TRANSPORT_ERROR_ACTIONS.has(actionType ?? '')
         ) {
-          shouldTrackError = true;
-          errorMessage = actionPayload;
-          errorContext = { message: actionPayload };
-        }
-
-        // #4662: apply the allowlist, if one was configured. This narrows the
-        // heuristic above and never widens it, so an unconfigured middleware
-        // behaves exactly as before.
-        if (shouldTrackError && !isAllowedErrorAction(actionType, finalConfig.errorActions)) {
-          shouldTrackError = false;
-        }
-
-        if (shouldTrackError) {
-          const trackedError: TrackedError = {
-            id: generateErrorId(),
-            timestamp: Date.now(),
-            category: categorizeError(String(errorMessage)),
-            message: String(errorMessage),
-            action: actionType ?? 'unknown',
-            context: errorContext,
-            retryCount: 0,
-            maxRetries: 3,
-          };
-
-          // Log if enabled
-          if (finalConfig.logToConsole) {
-            console.error(`[Error Tracked] ${trackedError.category}: ${trackedError.message}`, {
-              action: actionType,
-              context: errorContext,
-            });
-          }
-
-          // Call error callback (wrap in try-catch to prevent callback errors from cascading)
-          try {
-            finalConfig.onError?.(trackedError);
-          } catch (callbackError) {
-            // Silently ignore errors in error callbacks to prevent infinite loops
-            if (finalConfig.logToConsole) {
-              console.error('[Error Tracking] onError callback threw:', callbackError);
-            }
-          }
-
-          // Attempt recovery based on category.
-          // Defer dispatch to avoid re-entrant dispatch mid-action-processing (#3023).
-          //
-          // #4430: gated on the originating action, not just the message
-          // keywords — a queue/cache/player failure whose text happens to say
-          // "timeout" is not a connection problem.
-          if (
-            trackedError.category === ErrorCategory.NETWORK &&
-            TRANSPORT_ERROR_ACTIONS.has(actionType ?? '')
-          ) {
-            // Network errors - trigger reconnection attempt (deferred).
-            // #4430: capture the connection generation so a reconnect that
-            // happens between scheduling and flushing discards this forward
-            // instead of having a stale error overwrite the cleared state.
-            const scheduledGeneration = connectionGeneration;
-            Promise.resolve().then(() => {
-              if (connectionGeneration !== scheduledGeneration) return;
-              store.dispatch(connectionActions.setError(trackedError.message));
-            });
-          }
+          const scheduledGeneration = connectionGeneration;
+          Promise.resolve().then(() => {
+            if (connectionGeneration !== scheduledGeneration) return;
+            store.dispatch(connectionActions.setError(trackedError.message));
+          });
         }
 
         return result;
       } catch (error) {
-        // Handle middleware errors
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-
-        const trackedError: TrackedError = {
-          id: generateErrorId(),
-          timestamp: Date.now(),
-          category: categorizeError(errorMessage),
-          message: errorMessage,
-          action: actionType ?? 'unknown',
-          stack: error instanceof Error ? error.stack : undefined,
-          retryCount: 0,
-          maxRetries: 3,
-        };
-
+        // A reducer or downstream middleware threw: track it, then rethrow.
+        const trackedError = buildTrackedError(
+          error instanceof Error ? error.message : String(error),
+          actionType,
+          { stack: error instanceof Error ? error.stack : undefined }
+        );
         if (finalConfig.logToConsole) {
           console.error(`[Middleware Error] ${trackedError.category}:`, error);
         }
-
-        // Call error callback (wrap in try-catch to prevent callback errors from cascading)
-        try {
-          finalConfig.onError?.(trackedError);
-        } catch (callbackError) {
-          // Silently ignore errors in error callbacks to prevent infinite loops
-          if (finalConfig.logToConsole) {
-            console.error('[Error Tracking] onError callback threw:', callbackError);
-          }
-        }
-
+        notifyOnError(finalConfig, trackedError);
         throw error;
       }
     };
@@ -272,10 +192,9 @@ export function createErrorTrackingMiddleware(
 // Exports
 // ============================================================================
 
-// #5213: categorizeError dropped from this list — nothing outside this module
-// imported it, and exporting it implied other code categorized errors the same
-// way. It stays a module-private function, still called at the two dispatch
-// sites above.
+// #5213: categorizeError is not re-exported — nothing outside these modules
+// imports it, and exporting it implied other code categorized errors the same
+// way. buildTrackedError (errorTrackingHelpers.ts) is its one caller.
 //
 // #5017: this middleware deliberately has no retry/stats/ErrorStore layer.
 // Tracked errors are logged and handed to onError at the point of detection;

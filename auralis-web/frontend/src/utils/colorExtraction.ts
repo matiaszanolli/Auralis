@@ -64,6 +64,92 @@ export interface ArtworkPalette {
 const BRAND_FALLBACK_RGB = hexToRgb(tokens.colors.accent.primary) ?? { r: 115, g: 102, b: 240 };
 
 
+/** Side of the square the artwork is downscaled to before sampling. */
+const SAMPLE_SIZE = 100;
+
+/**
+ * Opaque, non-background pixels of *img*, every *sampleRate*-th one, after
+ * downscaling to SAMPLE_SIZE square. Throws when no 2D canvas context exists.
+ */
+function sampleImagePixels(img: HTMLImageElement, sampleRate: number): RGBColor[] {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to get canvas context');
+  canvas.width = SAMPLE_SIZE;
+  canvas.height = SAMPLE_SIZE;
+  ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+
+  const { data } = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+  const pixels: RGBColor[] = [];
+  for (let i = 0; i < data.length; i += 4 * sampleRate) {
+    const [r, g, b, a] = [data[i], data[i + 1], data[i + 2], data[i + 3]];
+    // Skip transparent pixels and very dark/light pixels (likely background)
+    const brightness = (r + g + b) / 3;
+    if (a < 128 || brightness < 10 || brightness > 245) continue;
+    pixels.push({ r, g, b });
+  }
+  return pixels;
+}
+
+/**
+ * The brand-accent palette used when no pixel survives sampling. Derived from
+ * the token rather than a hand-written copy of its hex and channels, which
+ * would silently drift on a rebrand (#4463).
+ */
+function brandFallbackPalette(): ArtworkPalette {
+  const color: ExtractedColor = {
+    ...BRAND_FALLBACK_RGB,
+    hex: tokens.colors.accent.primary,
+    lightness: 67,
+    saturation: 82,
+    isVibrant: true,
+    isDark: false,
+    population: 100,
+  };
+  return { dominant: color, accent: color, vibrant: color, isDarkArtwork: false };
+}
+
+function toExtractedColor(color: RGBColor, population: number, vibrantThreshold: number): ExtractedColor {
+  const { r, g, b } = color;
+  const [, s, l] = rgbToHsl(r, g, b);
+  return {
+    r, g, b,
+    hex: rgbToHex(r, g, b),
+    lightness: l,
+    saturation: s,
+    isVibrant: s > vibrantThreshold,
+    isDark: l < 50,
+    population,
+  };
+}
+
+/** Pick the palette roles from colors sorted most populous first. */
+function rankPalette(colors: ExtractedColor[]): ArtworkPalette {
+  const totalPopulation = colors.reduce((sum, c) => sum + c.population, 0);
+  const avgLightness = colors.reduce((sum, c) => sum + c.lightness * c.population, 0) / totalPopulation;
+  const dominant = colors[0];
+  return {
+    dominant,
+    accent: colors[1] || dominant,
+    vibrant: colors.find((c) => c.isVibrant) || dominant,
+    muted: colors.find((c) => !c.isVibrant) || colors[1],
+    isDarkArtwork: avgLightness < 50,
+  };
+}
+
+/** Sample, cluster (k-means) and rank one loaded image's colors. */
+function paletteFromImage(
+  img: HTMLImageElement,
+  colorCount: number,
+  sampleRate: number,
+  vibrantThreshold: number
+): ArtworkPalette {
+  const pixels = sampleImagePixels(img, sampleRate);
+  if (pixels.length === 0) return brandFallbackPalette();
+  const clusters = kMeansClustering(pixels, colorCount).sort((a, b) => b.population - a.population);
+  return rankPalette(clusters.map((c) => toExtractedColor(c.color, c.population, vibrantThreshold)));
+}
+
 /**
  * Extract dominant colors from an image URL
  *
@@ -82,123 +168,21 @@ export async function extractArtworkColors(
     vibrantThreshold?: number;
   } = {}
 ): Promise<ArtworkPalette> {
-  const {
-    colorCount = 5,
-    sampleRate = 10,
-    vibrantThreshold = 40,
-  } = options;
+  const { colorCount = 5, sampleRate = 10, vibrantThreshold = 40 } = options;
 
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'Anonymous'; // Enable CORS for cross-origin images
-
     img.onload = () => {
       try {
-        // Create canvas and draw image
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
-          return;
-        }
-
-        // Resize image to 100x100 for faster processing
-        const size = 100;
-        canvas.width = size;
-        canvas.height = size;
-        ctx.drawImage(img, 0, 0, size, size);
-
-        // Extract pixel data
-        const imageData = ctx.getImageData(0, 0, size, size);
-        const pixels: RGBColor[] = [];
-
-        // Sample pixels (every Nth pixel for performance)
-        for (let i = 0; i < imageData.data.length; i += 4 * sampleRate) {
-          const r = imageData.data[i];
-          const g = imageData.data[i + 1];
-          const b = imageData.data[i + 2];
-          const a = imageData.data[i + 3];
-
-          // Skip transparent pixels and very dark/light pixels (likely background)
-          if (a < 128) continue;
-          const brightness = (r + g + b) / 3;
-          if (brightness < 10 || brightness > 245) continue;
-
-          pixels.push({ r, g, b });
-        }
-
-        if (pixels.length === 0) {
-          // Fallback to the brand accent. Was a hand-written copy of its hex
-          // and channel numbers, which would silently drift on a rebrand (#4463).
-          const defaultColor: ExtractedColor = {
-            ...BRAND_FALLBACK_RGB,
-            hex: tokens.colors.accent.primary,
-            lightness: 67,
-            saturation: 82,
-            isVibrant: true,
-            isDark: false,
-            population: 100,
-          };
-          resolve({
-            dominant: defaultColor,
-            accent: defaultColor,
-            vibrant: defaultColor,
-            isDarkArtwork: false,
-          });
-          return;
-        }
-
-        // Use k-means clustering to find dominant colors
-        const clusters = kMeansClustering(pixels, colorCount);
-
-        // Sort by population (most dominant first)
-        clusters.sort((a, b) => b.population - a.population);
-
-        // Convert to ExtractedColor format
-        const extractedColors: ExtractedColor[] = clusters.map((cluster) => {
-          const { r, g, b } = cluster.color;
-          const [_h, s, l] = rgbToHsl(r, g, b);
-          return {
-            r,
-            g,
-            b,
-            hex: rgbToHex(r, g, b),
-            lightness: l,
-            saturation: s,
-            isVibrant: s > vibrantThreshold,
-            isDark: l < 50,
-            population: cluster.population,
-          };
-        });
-
-        // Determine if artwork is overall dark
-        const avgLightness =
-          extractedColors.reduce((sum, c) => sum + c.lightness * c.population, 0) /
-          extractedColors.reduce((sum, c) => sum + c.population, 0);
-        const isDarkArtwork = avgLightness < 50;
-
-        // Find dominant, vibrant, and muted colors
-        const dominant = extractedColors[0]; // Most populous color
-        const vibrant = extractedColors.find((c) => c.isVibrant) || dominant;
-        const muted = extractedColors.find((c) => !c.isVibrant) || extractedColors[1];
-        const accent = extractedColors[1] || dominant; // Second most populous
-
-        resolve({
-          dominant,
-          accent,
-          vibrant,
-          muted,
-          isDarkArtwork,
-        });
+        resolve(paletteFromImage(img, colorCount, sampleRate, vibrantThreshold));
       } catch (err) {
         reject(err);
       }
     };
-
     img.onerror = () => {
       reject(new Error(`Failed to load image: ${imageUrl}`));
     };
-
     img.src = imageUrl;
   });
 }
