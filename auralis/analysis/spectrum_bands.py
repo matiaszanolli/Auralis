@@ -9,14 +9,17 @@ that needs to know which bands the FFT actually resolved.
 import numpy as np
 
 
-def band_masks(frequencies: np.ndarray, frequency_bins: np.ndarray) -> list[np.ndarray]:
-    """One boolean mask over ``frequencies`` per band.
+def band_index(frequencies: np.ndarray, frequency_bins: np.ndarray) -> np.ndarray:
+    """The band each of ``frequencies`` falls in, or -1 below the first band.
 
     Band ``i`` covers ``[frequency_bins[i], frequency_bins[i + 1])``; the last
-    band is open-ended upward.
+    band is open-ended upward. ``frequency_bins`` must be ascending.
+
+    One ``searchsorted`` pass instead of a boolean mask per band: band mapping
+    runs once per analysis frame, and building 64-128 masks over every FFT bin
+    each frame was most of ``SpectrumAnalyzer``'s cost.
     """
-    edges = np.append(frequency_bins, np.inf)
-    return [(frequencies >= edges[i]) & (frequencies < edges[i + 1]) for i in range(len(frequency_bins))]
+    return np.searchsorted(frequency_bins, frequencies, side='right') - 1
 
 
 def populated_band_mask(frequencies: np.ndarray, frequency_bins: np.ndarray) -> np.ndarray:
@@ -26,4 +29,5 @@ def populated_band_mask(frequencies: np.ndarray, frequency_bins: np.ndarray) -> 
     5.4 Hz resolution against bands ~1 Hz wide at 20 Hz). Such a band measures
     nothing, so it must not be scored (#5745).
     """
-    return np.array([bool(np.any(m)) for m in band_masks(frequencies, frequency_bins)], dtype=bool)
+    index = band_index(frequencies, frequency_bins)
+    return np.bincount(index[index >= 0], minlength=len(frequency_bins)) > 0
