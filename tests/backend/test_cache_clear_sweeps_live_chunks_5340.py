@@ -17,7 +17,8 @@ import pytest
 from cache.manager import StreamlinedCacheManager
 from core.cache_cleanup import clear_all_caches
 from core.encoding.atomic_io import PARTIAL_SUFFIX
-from core.encoding.wav_encoder import WAVEncoder, delete_chunk_files
+from core.cache_cleanup import delete_chunk_files
+from core.encoding.wav_encoder import WAVEncoder
 
 
 @pytest.fixture

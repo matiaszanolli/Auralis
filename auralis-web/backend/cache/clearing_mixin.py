@@ -15,7 +15,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-from core.encoding.wav_encoder import delete_chunk_files
+from core.cache_cleanup import delete_chunk_files
 
 from .models import CachedChunk, TrackCacheStatus
 

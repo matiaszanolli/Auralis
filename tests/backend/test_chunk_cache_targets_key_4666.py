@@ -32,7 +32,8 @@ if _BACKEND not in sys.path:
 
 from core.chunk_cache_manager import ChunkCacheManager  # noqa: E402
 from core.chunk_path_cache import ChunkPathCache  # noqa: E402
-from core.encoding.wav_encoder import WAVEncoder, delete_chunk_files  # noqa: E402
+from core.cache_cleanup import delete_chunk_files  # noqa: E402
+from core.encoding.wav_encoder import WAVEncoder  # noqa: E402
 from core.processor_factory import ProcessorFactory  # noqa: E402
 from core.targets_hash import NO_TARGETS, get_targets_hash  # noqa: E402
 

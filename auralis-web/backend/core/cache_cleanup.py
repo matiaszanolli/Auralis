@@ -1,6 +1,7 @@
 """Unified lifecycle boundary for every backend cache tier (#5257)."""
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -9,12 +10,14 @@ from config.limits import chunk_cache_dir
 
 from auralis.analysis.fingerprint.fingerprint_store_maintenance import clear_all_entries, sweep_orphans
 
-from core.encoding.wav_encoder import delete_chunk_files
+from core.encoding.atomic_io import is_partial_path
 from core.mastering_target_service import (
     clear_global_mastering_target_cache,
     clear_global_mastering_target_entry,
 )
 from core.thumbnail_cache import clear_artwork_cache
+
+logger = logging.getLogger(__name__)
 
 
 class ClearableChunkCache(Protocol):
@@ -34,6 +37,59 @@ class CacheClearResult:
     analysis_cache_cleared: bool
     chunk_files_removed: int = 0
     fingerprint_files_removed: int = 0
+
+
+def delete_chunk_files(
+    chunk_dir: Path,
+    track_id: int | None = None,
+    file_signature: str | None = None,
+) -> int:
+    """Delete published chunk WAVs from *chunk_dir* (#5340).
+
+    The on-disk chunk cache is found by name alone (``get_chunk_path`` +
+    ``Path.exists()``), whoever wrote the file — live playback, the streamlined
+    worker or pre-warm — so clearing it means sweeping the directory, not just
+    the paths a cache tier recorded. Scoped to one track (optionally one file
+    signature) or, with ``track_id`` None, every chunk.
+
+    In-progress staged writes (#4576) are left alone: deleting one would make
+    its writer's ``os.replace()`` fail mid-stream. A missing directory is
+    simply nothing to delete.
+
+    Returns:
+        Number of files deleted
+    """
+    if track_id is None:
+        patterns = ["*.wav"]
+    else:
+        # The trailing "_" keeps track 1 from matching track 12's files.
+        signature = f"{file_signature}_" if file_signature is not None else ""
+        patterns = [
+            f"track_{track_id}_{signature}*.wav",  # Pre-versioning format
+            f"v*_track_{track_id}_{signature}*.wav",  # Versioned format
+        ]
+    files = {
+        f
+        for pattern in patterns
+        for f in chunk_dir.glob(pattern)
+        if not is_partial_path(f)
+    }
+
+    deleted_count = 0
+    for f in files:
+        try:
+            f.unlink()
+            deleted_count += 1
+        except FileNotFoundError:
+            pass  # Removed concurrently (another clear, or the size pruner)
+        except OSError as e:
+            logger.warning(f"Failed to delete chunk file {f}: {e}")
+
+    if deleted_count > 0:
+        scope = "all tracks" if track_id is None else f"track {track_id}"
+        logger.info(f"Cleaned up {deleted_count} chunk file(s) for {scope}")
+
+    return deleted_count
 
 
 async def clear_track_caches(
