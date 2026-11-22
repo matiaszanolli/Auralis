@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 
 from core.audio_processing_pipeline import AudioProcessingPipeline
-from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL
+from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL, silence_fallback
 from core.chunk_file_loading import load_chunk_from_file
 from core.chunk_segment_extraction import extract_chunk_segment
 
@@ -66,6 +66,7 @@ def load_chunk(
         chunk_interval=CHUNK_INTERVAL,
         with_context=with_context,
         total_duration=processor.total_duration,
+        channels=processor.channels or 2,
     )
 
 
@@ -169,9 +170,8 @@ def process_chunk_core(
         logger.error(f"Chunk {chunk_index} is empty after context trimming. Returning silence.")
         processor._dsp_fallback = "empty after context trimming"
         num_channels = audio_chunk.shape[1] if audio_chunk.ndim > 1 else 2
-        # Preserve the input dtype rather than hardcoding float32 (#3831
-        # sibling) so the fallback matches a float64 pipeline if present.
-        processed_chunk = np.zeros((processor.sample_rate // 10, num_channels), dtype=audio_chunk.dtype)  # 100ms silence
+        # The input dtype, not a hardcoded float32 (#3831 sibling), so a float64 pipeline matches.
+        processed_chunk = silence_fallback(processor.sample_rate, num_channels, audio_chunk.dtype)
 
     # Extract the emitted segment (#5051). Serve-time smoothing ramps from sample
     # 0 of exactly these bytes, so the heard boundary is the one that is measured.

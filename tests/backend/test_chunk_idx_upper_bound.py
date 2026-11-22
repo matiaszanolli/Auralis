@@ -53,6 +53,21 @@ class TestLoadChunkFromFileBailsOutEarly:
         assert audio.dtype == np.float32
         assert len(audio) == int(0.1 * SR)
 
+    @pytest.mark.parametrize("channels", [1, 2, 6])
+    def test_out_of_range_silence_takes_the_source_channel_count(self, channels):
+        """#6639: this fallback was hard-coded to 2 channels, so a mono or 5.1 source got a
+        wrong-shaped buffer from it while every other fallback followed the source."""
+        audio, _start, _end = load_chunk_from_file(
+            filepath="/tmp/whatever.wav",
+            chunk_index=10_000,
+            sample_rate=SR,
+            total_duration=120.0,
+            channels=channels,
+        )
+
+        assert audio.shape == (int(0.1 * SR), channels)
+        assert not audio.any()
+
     def test_in_range_chunk_index_still_reads_normally(self):
         """Sanity: a legitimate chunk_index must NOT hit the early bail-out."""
         with patch("soundfile.SoundFile") as mock_soundfile:

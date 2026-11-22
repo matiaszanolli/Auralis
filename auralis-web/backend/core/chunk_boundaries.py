@@ -53,6 +53,17 @@ def normal_chunk_count(total_frames: int, sample_rate: int) -> int:
     return max(1, int(np.ceil(total_frames / int(NORMAL_CHUNK_STRIDE * sample_rate))))
 
 
+# How much silence a chunk that could not be loaded or rendered emits in its place (#6639). Far
+# shorter than a chunk, so the emitted timeline is shorter by the difference; the render path marks
+# such a chunk as a fallback so it is not cached as a real render (#6444).
+FALLBACK_SILENCE_SECONDS = 0.1
+
+
+def silence_fallback(sample_rate: int, channels: int, dtype: "np.typing.DTypeLike" = np.float32) -> np.ndarray:
+    """``FALLBACK_SILENCE_SECONDS`` of silence shaped ``(frames, channels)`` for a failed chunk."""
+    return np.zeros((int(FALLBACK_SILENCE_SECONDS * sample_rate), channels), dtype=dtype)
+
+
 # Minimum amount of new audio the first chunk of a seek must still carry.
 # Below this, the seek advances to the next chunk instead: an immediate
 # buffer underrun is worse than starting a fraction of a second late.

@@ -24,6 +24,7 @@ from core.chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
     CONTEXT_DURATION,
+    silence_fallback,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,8 @@ def load_chunk_from_file(
     chunk_duration: float = CHUNK_DURATION,
     chunk_interval: float = CHUNK_INTERVAL,
     with_context: bool = True,
-    total_duration: float | None = None
+    total_duration: float | None = None,
+    channels: int = 2,
 ) -> tuple[np.ndarray, float, float]:
     """
     Load a single chunk from audio file with optional context.
@@ -56,6 +58,7 @@ def load_chunk_from_file(
         chunk_interval: Interval between chunk starts (for overlap model).
             Only used when total_duration is None — see below.
         with_context: Include context before/after for better processing
+        channels: Channel count of the silence returned for an out-of-range chunk.
         total_duration: Total duration of audio, if known. When provided,
             boundaries are derived from ChunkBoundaryManager — the same
             authority trim_context() uses — instead of being re-derived
@@ -105,8 +108,7 @@ def load_chunk_from_file(
             f"Chunk {chunk_index} window is empty/inverted "
             f"(start={load_start:.1f}s, end={load_end:.1f}s) — out of range, returning silence"
         )
-        silence = np.zeros((int(0.1 * sample_rate), 2), dtype=np.float32)
-        return silence, chunk_start, chunk_end
+        return silence_fallback(sample_rate, channels), chunk_start, chunk_end
 
     # Load audio segment
     try:
@@ -153,9 +155,8 @@ def load_chunk_from_file(
             f"Chunk {chunk_index} resulted in empty audio "
             f"(start={load_start:.1f}s, end={load_end:.1f}s)"
         )
-        # Return minimal silence instead of empty array
         num_channels = audio.shape[1] if audio.ndim > 1 else 1
-        audio = np.zeros((int(0.1 * sample_rate), num_channels), dtype=np.float32)
-        logger.warning(f"Returning 100ms of silence for chunk {chunk_index}")
+        audio = silence_fallback(sample_rate, num_channels)
+        logger.warning(f"Returning fallback silence for chunk {chunk_index}")
 
     return audio, chunk_start, chunk_end
