@@ -1,7 +1,8 @@
 
-import { useLayoutEffect, useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { Table, TableBody, TableRow, TableCell, Typography } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useAppScrollElement } from '@/components/library/Items/utilities/useGridVirtualizer';
 import { TracksTableContainer } from '@/components/library/Styles/ArtistDetail.styles';
 import { usePlaybackState } from '@/components/library/usePlaybackState';
 import TracksTableHeader from './TracksTableHeader';
@@ -41,15 +42,9 @@ export const TracksTab = ({
   const { currentTrackId, isPlaying } = usePlaybackState();
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollElementRef = useRef<HTMLElement | null>(null);
-  const [scrollReady, setScrollReady] = useState(false);
+  const scrollElement = useAppScrollElement();
   const [rowHeight, setRowHeight] = useState(ESTIMATED_ROW_HEIGHT);
   const count = tracks?.length ?? 0;
-
-  useLayoutEffect(() => {
-    scrollElementRef.current = document.getElementById('app-main-content-scroll');
-    setScrollReady(scrollElementRef.current !== null);
-  }, []);
 
   // One measured row stands for all of them; a spacer error is only a scroll-bar jitter.
   const measureRow = useCallback((element: HTMLTableRowElement | null) => {
@@ -59,7 +54,7 @@ export const TracksTab = ({
 
   const virtualizer = useVirtualizer({
     count,
-    getScrollElement: () => scrollElementRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => rowHeight,
     overscan: OVERSCAN_ROWS,
     scrollMargin: containerRef.current?.offsetTop ?? 0,
@@ -79,7 +74,7 @@ export const TracksTab = ({
     );
   }
 
-  const windowed = scrollReady ? virtualizer.getVirtualItems() : null;
+  const windowed = scrollElement !== null ? virtualizer.getVirtualItems() : null;
   const firstIndex = windowed?.[0]?.index ?? 0;
   const lastIndex = windowed ? (windowed[windowed.length - 1]?.index ?? -1) : count - 1;
   const visible = tracks.slice(firstIndex, lastIndex + 1);

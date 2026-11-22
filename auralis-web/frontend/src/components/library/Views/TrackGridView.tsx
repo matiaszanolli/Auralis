@@ -1,10 +1,11 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { tokens } from '@/design-system';
 import { TrackCard } from '@/components/track/TrackCard';
 import {
   computeColumnsPerRow,
   useContainerWidth,
   useGridVirtualizer,
+  useAppScrollElement,
 } from '@/components/library/Items/utilities/useGridVirtualizer';
 import type { LibraryTrack as Track } from '@/types/domain';
 
@@ -48,18 +49,8 @@ export interface TrackGridViewProps {
  */
 export const TrackGridView = ({ tracks, onTrackPlay }: TrackGridViewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
-
-  // #5120: a layout effect, not a passive one. `useEffect` runs *after* paint,
-  // so the first committed frame took the `canVirtualize === false` branch and
-  // painted every track unwindowed before swapping to the structurally different
-  // virtualized tree — a visible flash plus a full mount/unmount of every card on
-  // each navigation. `useContainerWidth` already resolves pre-paint the same way.
-  useLayoutEffect(() => {
-    // Grid view is wrapped by the parent's <InfiniteScroll scrollableTarget=
-    // "app-main-content-scroll">, so that's always the real scroll container.
-    setScrollElement(document.getElementById('app-main-content-scroll'));
-  }, []);
+  // Grid view sits inside the parent's InfiniteScroll on the app scroll container.
+  const scrollElement = useAppScrollElement();
 
   const containerWidth = useContainerWidth(containerRef);
   const columns = computeColumnsPerRow(containerWidth, MIN_COLUMN_WIDTH, GAP_PX);

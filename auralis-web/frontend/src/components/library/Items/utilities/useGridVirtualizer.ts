@@ -14,6 +14,7 @@
 
 import { RefObject, useEffect, useLayoutEffect, useState } from 'react';
 import { useVirtualizer, Virtualizer } from '@tanstack/react-virtual';
+import { APP_MAIN_SCROLL_ID } from '@/components/core/appScroll';
 
 interface UseGridVirtualizerArgs {
   /** Total number of items to display. */
@@ -94,4 +95,21 @@ export function computeColumnsPerRow(
   if (containerWidth <= 0 || minColumnWidth <= 0) return 1;
   const cols = Math.floor((containerWidth + gap) / (minColumnWidth + gap));
   return Math.max(1, cols);
+}
+
+
+/**
+ * The app's scroll container (#6631), resolved in a layout effect.
+ *
+ * Null on the first render, then the element before paint (#5120): a passive effect runs after
+ * paint, so the first committed frame took each list's unvirtualized fallback and painted every row
+ * before swapping to the virtualized tree, a visible flash plus a full mount/unmount per navigation.
+ * Held in state so the re-render that follows hands the element to the virtualizer.
+ */
+export function useAppScrollElement(): HTMLElement | null {
+  const [element, setElement] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setElement(document.getElementById(APP_MAIN_SCROLL_ID));
+  }, []);
+  return element;
 }

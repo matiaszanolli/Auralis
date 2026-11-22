@@ -17,6 +17,7 @@
 
 import { MouseEvent } from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
+import { APP_MAIN_SCROLL_ID } from '@/components/core/appScroll';
 import { LibraryGridSkeleton, TrackRowSkeleton } from '@/components/shared/ui/loaders';
 import { ListLoadingContainer } from '@/components/library/Styles/Grid.styles';
 import GridLoadingState from '@/components/library/Items/utilities/GridLoadingState';
@@ -96,7 +97,7 @@ export const TrackListView = ({
         next={onLoadMore}
         hasMore={hasMore}
         loader={<GridLoadingState current={tracks.length} total={totalTracks} itemType="tracks" />}
-        scrollableTarget="app-main-content-scroll"
+        scrollableTarget={APP_MAIN_SCROLL_ID}
         scrollThreshold={0.8}
       >
         <TrackGridView tracks={tracks} onTrackPlay={onTrackPlay} />

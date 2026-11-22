@@ -8,13 +8,14 @@
  * to mapping every album so DOM-presence assertions keep working.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import { tokens } from '@/design-system';
 import {
   computeColumnsPerRow,
   useContainerWidth,
   useGridVirtualizer,
+  useAppScrollElement,
 } from '@/components/library/Items/utilities/useGridVirtualizer';
 import type { VirtualizedGridSharedProps } from './albumGridTypes';
 
@@ -37,18 +38,7 @@ export function VirtualizedAlbumGrid({
   onAlbumHoverEnd,
 }: VirtualizedAlbumGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollElementRef = useRef<HTMLElement | null>(null);
-  const [scrollReady, setScrollReady] = useState(false);
-
-  // #5120: a layout effect, not a passive one. `useEffect` runs *after* paint,
-  // so the first committed frame took the `canVirtualize === false` branch and
-  // painted every item unwindowed before swapping to the structurally different
-  // virtualized tree — a visible flash plus a full mount/unmount of every row on
-  // each navigation. `useContainerWidth` already resolves pre-paint the same way.
-  useLayoutEffect(() => {
-    scrollElementRef.current = document.getElementById('app-main-content-scroll');
-    setScrollReady(scrollElementRef.current !== null);
-  }, []);
+  const scrollElement = useAppScrollElement();
 
   const containerWidth = useContainerWidth(containerRef);
   const columns = computeColumnsPerRow(containerWidth, COZY_MIN_COLUMN, COZY_GAP_PX);
@@ -57,7 +47,7 @@ export function VirtualizedAlbumGrid({
     itemCount: albums.length,
     columnsPerRow: columns,
     rowHeight: COZY_ROW_HEIGHT,
-    getScrollElement: () => scrollElementRef.current,
+    getScrollElement: () => scrollElement,
     scrollMargin: containerRef.current?.offsetTop ?? 0,
   });
 
@@ -75,7 +65,7 @@ export function VirtualizedAlbumGrid({
   // Fallback mode needs its own IntersectionObserver-driven sentinel — the
   // virtualizer's near-end-row detector does not run when canVirtualize=false.
   const fallbackSentinelRef = useRef<HTMLDivElement>(null);
-  const canVirtualize = scrollReady && containerWidth > 0;
+  const canVirtualize = scrollElement !== null && containerWidth > 0;
 
   useEffect(() => {
     if (canVirtualize) return;

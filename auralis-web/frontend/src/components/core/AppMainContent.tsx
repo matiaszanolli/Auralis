@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { themeVars } from '@/theme/semanticTheme';
+import { APP_MAIN_SCROLL_ID } from './appScroll';
 
 /**
  * Props for the AppMainContent component.
@@ -63,7 +64,7 @@ export const AppMainContent = ({ children }: AppMainContentProps) => {
     >
       {/* Main scrollable content area */}
       <Box
-        id="app-main-content-scroll"
+        id={APP_MAIN_SCROLL_ID}
         sx={{
           flex: 1,
           overflow: 'auto',

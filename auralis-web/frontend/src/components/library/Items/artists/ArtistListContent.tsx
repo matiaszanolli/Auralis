@@ -1,6 +1,7 @@
-import { MouseEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Typography } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useAppScrollElement } from '@/components/library/Items/utilities/useGridVirtualizer';
 import { ContextMenu, ContextMenuAction } from '@/components/shared/ContextMenu';
 import { LoadMoreError } from '@/components/shared/ui/feedback';
 import { ArtistListLoadingIndicator } from './ArtistListLoadingIndicator';
@@ -99,18 +100,7 @@ export const ArtistListContent = ({
 
   // Virtualize against the shared scroll container (external scroll pattern).
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollElementRef = useRef<HTMLElement | null>(null);
-  const [scrollReady, setScrollReady] = useState(false);
-
-  // #5120: a layout effect, not a passive one. `useEffect` runs *after* paint,
-  // so the first committed frame took the `canVirtualize === false` branch and
-  // painted every item unwindowed before swapping to the structurally different
-  // virtualized tree — a visible flash plus a full mount/unmount of every row on
-  // each navigation. `useContainerWidth` already resolves pre-paint the same way.
-  useLayoutEffect(() => {
-    scrollElementRef.current = document.getElementById('app-main-content-scroll');
-    setScrollReady(scrollElementRef.current !== null);
-  }, []);
+  const scrollElement = useAppScrollElement();
 
   // getItemKey must keep its identity between renders. virtual-core re-renders
   // (notify -> onChange) from inside getVirtualItems() whenever getItemKey
@@ -125,7 +115,7 @@ export const ArtistListContent = ({
 
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => scrollElementRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize,
     overscan: 8,
     scrollMargin: containerRef.current?.offsetTop ?? 0,
@@ -160,7 +150,7 @@ export const ArtistListContent = ({
     );
 
   // jsdom / unmeasurable layout: virtualizer can't position rows — render all.
-  const canVirtualize = scrollReady;
+  const canVirtualize = scrollElement !== null;
 
   return (
     <ArtistListContainer>

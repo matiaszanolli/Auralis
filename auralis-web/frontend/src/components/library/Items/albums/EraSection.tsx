@@ -12,7 +12,7 @@
  * Falls back to mapping every album when layout is unmeasurable (jsdom).
  */
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
@@ -21,6 +21,7 @@ import {
   computeColumnsPerRow,
   useContainerWidth,
   useGridVirtualizer,
+  useAppScrollElement,
 } from '@/components/library/Items/utilities/useGridVirtualizer';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -66,18 +67,7 @@ export const EraSection = ({
   onAlbumHoverEnd,
 }: EraSectionProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollElementRef = useRef<HTMLElement | null>(null);
-  const [scrollReady, setScrollReady] = useState(false);
-
-  // #5120: a layout effect, not a passive one. `useEffect` runs *after* paint,
-  // so the first committed frame took the `canVirtualize === false` branch and
-  // painted every item unwindowed before swapping to the structurally different
-  // virtualized tree — a visible flash plus a full mount/unmount of every row on
-  // each navigation. `useContainerWidth` already resolves pre-paint the same way.
-  useLayoutEffect(() => {
-    scrollElementRef.current = document.getElementById('app-main-content-scroll');
-    setScrollReady(scrollElementRef.current !== null);
-  }, []);
+  const scrollElement = useAppScrollElement();
 
   const containerWidth = useContainerWidth(containerRef);
   const columns = computeColumnsPerRow(containerWidth, ERA_COLUMN_WIDTH, ERA_GAP_PX);
@@ -86,7 +76,7 @@ export const EraSection = ({
     itemCount: albums.length,
     columnsPerRow: columns,
     rowHeight: ERA_ROW_HEIGHT,
-    getScrollElement: () => scrollElementRef.current,
+    getScrollElement: () => scrollElement,
     scrollMargin: containerRef.current?.offsetTop ?? 0,
   });
 
@@ -118,7 +108,7 @@ export const EraSection = ({
     );
   };
 
-  const canVirtualize = scrollReady && containerWidth > 0;
+  const canVirtualize = scrollElement !== null && containerWidth > 0;
   const virtualRows = virtualizer.getVirtualItems();
 
   return (

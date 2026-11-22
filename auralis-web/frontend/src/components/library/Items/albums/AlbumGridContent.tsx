@@ -10,6 +10,7 @@
  */
 
 import { RefObject, useLayoutEffect, useState } from 'react';
+import { APP_MAIN_SCROLL_ID } from '@/components/core/appScroll';
 import { tokens } from '@/design-system';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import { GridContainer } from '@/components/library/Styles/Grid.styles';
@@ -70,7 +71,7 @@ export const AlbumGridContent = ({
     if (container && container.scrollHeight > container.clientHeight) {
       setScrollElement(container);
     } else {
-      setScrollElement(document.getElementById('app-main-content-scroll'));
+      setScrollElement(document.getElementById(APP_MAIN_SCROLL_ID));
     }
   }, [containerRef]);
 

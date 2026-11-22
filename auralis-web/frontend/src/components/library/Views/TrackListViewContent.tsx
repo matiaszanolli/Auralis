@@ -1,5 +1,6 @@
 import { FocusEvent, KeyboardEvent, MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useAppScrollElement } from '@/components/library/Items/utilities/useGridVirtualizer';
 import SelectableTrackRow from '@/components/library/Items/tracks/SelectableTrackRow';
 import GridLoadingState from '@/components/library/Items/utilities/GridLoadingState';
 import EndOfListIndicator from '@/components/library/Items/utilities/EndOfListIndicator';
@@ -51,7 +52,6 @@ export const TrackListViewContent = ({
   onFindSimilar,
   onLoadMore,
 }: TrackListViewContentProps) => {
-  const scrollElementRef = useRef<HTMLElement | null>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
 
   // Roving tabindex (#5011, WAI-ARIA APG listbox pattern): exactly one row
@@ -71,14 +71,12 @@ export const TrackListViewContent = ({
     if (foundTrack) onTrackPlayRef.current(foundTrack);
   }, []);
 
-  // Attach to the app-level scroll container
-  useEffect(() => {
-    scrollElementRef.current = document.getElementById('app-main-content-scroll');
-  }, []);
+  // The app-level scroll container, resolved before paint so the virtualizer has it on mount.
+  const scrollElement = useAppScrollElement();
 
   const virtualizer = useVirtualizer({
     count: tracks.length,
-    getScrollElement: () => scrollElementRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
     scrollMargin: listContainerRef.current?.offsetTop ?? 0,

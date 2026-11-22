@@ -40,7 +40,7 @@ export const ViewContainer = ({
         minHeight: '100%',
       }}
     >
-      {/* Main content area — no overflow, scrolls within app-main-content-scroll */}
+      {/* Main content area — no overflow, scrolls within the app scroll container (APP_MAIN_SCROLL_ID) */}
       <Box
         sx={{
           flex: 1,
