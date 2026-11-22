@@ -75,7 +75,7 @@ async def run_enhanced_stream(
     _asc._stream_type_var.set("enhanced")  # per-task; safe for concurrent coroutines (#2493)
 
     if not controller.chunked_processor_class:
-        raise ValueError("ChunkedProcessor not available")
+        raise ValueError("ChunkedAudioProcessor not available")
     if not controller._get_repository_factory:
         raise ValueError("RepositoryFactory not available")
 

@@ -105,7 +105,7 @@ def next_stream_epoch() -> int:
     return next(_stream_epoch_counter)
 
 # Maximum number of concurrent audio streams (enhanced, normal, seek).
-# Each stream holds a ChunkedProcessor in memory; unbounded concurrency
+# Each stream holds a ChunkedAudioProcessor in memory; unbounded concurrency
 # causes OOM under load (issue #2185). Override via AURALIS_MAX_CONCURRENT_STREAMS
 # for deployments beyond the default single-user desktop scope (#3917) — see
 # auralis-web/backend/CONFIG.md.

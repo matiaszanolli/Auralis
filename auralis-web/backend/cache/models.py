@@ -23,8 +23,8 @@ from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 # Nominal per-chunk size estimate used only for tier-size eviction accounting
 # (CachedChunk stores a Path, not raw bytes, so there is no in-memory buffer
 # to measure directly). Cached chunks are persisted as 16-bit PCM WAV — see
-# WAVEncoder(default_subtype='PCM_16') / encode_to_wav() in
-# core/chunked_processor.py — NOT float32. The previous 1.5 MB literal
+# WAVEncoder(default_subtype='PCM_16') in core/encoding/wav_encoder.py —
+# NOT float32. The previous 1.5 MB literal
 # assumed float32 (4 bytes/sample) math and was ~3.4x too low relative to the
 # real ~2.5 MB PCM_16 chunk size at the nominal 44.1kHz stereo baseline,
 # letting actual disk usage run well past the documented tier budgets before

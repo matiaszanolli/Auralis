@@ -51,7 +51,7 @@ async def process_chunk_only(
     Args:
         controller: AudioStreamController instance
         chunk_index: Index of chunk to process (0-based)
-        processor: ChunkedProcessor instance
+        processor: ChunkedAudioProcessor instance
         websocket: Optional WebSocket for disconnect guard
 
     Returns:
@@ -146,7 +146,7 @@ async def stream_processed_chunk(
         controller: AudioStreamController instance
         pcm_samples: Processed PCM audio array
         chunk_index: Index of this chunk
-        processor: ChunkedProcessor instance (for metadata)
+        processor: ChunkedAudioProcessor instance (for metadata)
         websocket: WebSocket connection
 
     Returns:

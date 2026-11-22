@@ -12,7 +12,7 @@ warning — a malformed override never crashes startup (see
 
 | Variable | Default | Where | Purpose |
 |---|---|---|---|
-| `AURALIS_MAX_CONCURRENT_STREAMS` | `10` | `core/audio_stream_controller.py` | Hard cap on concurrent audio streams (enhanced/normal/seek). Each stream holds a `ChunkedProcessor` in memory; raising this without more RAM risks OOM under load (#2185). |
+| `AURALIS_MAX_CONCURRENT_STREAMS` | `10` | `core/audio_stream_controller.py` | Hard cap on concurrent audio streams (enhanced/normal/seek). Each stream holds a `ChunkedAudioProcessor` in memory; raising this without more RAM risks OOM under load (#2185). |
 | `AURALIS_SEND_QUEUE_MAXSIZE` | `4` | `core/stream_protocol.py` | Max encoded PCM frames queued ahead of the WebSocket sender per stream. Bounds Python-heap memory when a client is slower than the encoder. |
 | `AURALIS_PROCESSOR_CACHE_MAX` | `32` | `core/processor_factory.py` | LRU bound on cached `HybridProcessor` instances (EQ filter banks, compressor state, mastering targets — roughly 1-200 MB each). Amortises creation cost across rapid track switches and A/B preset comparisons (#3515). |
 | `AURALIS_FINGERPRINT_WORKERS` | `max(1, min(2, cpu_count // 2))` | `analysis/fingerprint_generator.py` | Thread pool size for fingerprint extraction (PyO3 Rust releases the GIL, so threads give true parallelism). |

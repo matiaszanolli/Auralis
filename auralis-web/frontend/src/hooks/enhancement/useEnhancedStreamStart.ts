@@ -178,8 +178,8 @@ export function useEnhancedStreamStart({
         // Create new AudioContext with matching sample rate.
         // #4623: no `|| window.webkitAudioContext` fallback — this is an
         // Electron-only app and its Chromium has shipped unprefixed
-        // AudioContext for a decade. Kept identical to usePlayNormal.ts, which
-        // these two hooks have historically drifted apart on (#4425, #4431).
+        // AudioContext for a decade. One context path for both stream types now; the
+        // separate enhanced/normal hooks used to drift apart on it (#4425, #4431).
         core.audioContextRef.current = new AudioContext({ sampleRate: sourceSampleRate });
         DEBUG && console.log('[usePlayEnhanced] Created AudioContext with sample rate:', sourceSampleRate);
       }

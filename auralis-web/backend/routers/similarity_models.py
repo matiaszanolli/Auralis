@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 
 # Upper bound for `top_n` on the explain route. Derived from the dimension list
-# the explanation actually slices — `DistanceCalculator.get_dimension_contributions()`
+# the explanation actually slices — `FingerprintDistance.get_dimension_contributions()`
 # enumerates `FingerprintNormalizer.DIMENSION_NAMES` — rather than hard-coded to
 # today's count, so extending the fingerprint vector cannot leave the API
 # silently refusing dimensions that exist (#4630).

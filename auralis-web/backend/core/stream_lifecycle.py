@@ -33,7 +33,7 @@ class ChunkPumpResult:
 
     These three values are exactly what ``send_stream_completion`` needs to
     pick ``reason=stopped/errored/completed`` (#4790). Defined once here and
-    returned by all three pumps (stream_normal/enhanced/seek_chunks.py, #5403)
+    returned by both pumps (the normal and the enhanced/seek one; one shared loop, #6627)
     so a field added for that contract exists on every stream type.
     """
 
@@ -61,7 +61,7 @@ async def send_stream_start(
 
     When any of ``start_chunk`` / ``seek_position`` / ``seek_offset`` is
     provided, the message is emitted with ``is_seek: True`` so the client's
-    resume guard (`usePlayNormal` / `usePlayEnhanced` `handleStreamStart`)
+    resume guard (`usePlayEnhanced`'s `handleStreamStart`, both stream types)
     preserves the existing AudioContext + PCMStreamBuffer instead of
     recreating them — required for both WS reconnect resume (#3185, #3755)
     and within-track seeks (#3187).

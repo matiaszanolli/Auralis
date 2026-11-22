@@ -26,7 +26,8 @@
 //! path that never ran, while the canonical fingerprint here kept a simple
 //! energy-envelope `rhythm_stability` and a per-sample `silence_ratio` that
 //! both diverged from the Python reference. Moved here so the canonical 25D
-//! compute agrees with `TemporalOperations`.
+//! compute agrees with that librosa-based reference (the Python
+//! `TemporalOperations` it was checked against is gone; the fixtures below pin it).
 //!
 
 use rustfft::num_complex::Complex;
@@ -49,7 +50,7 @@ const TG_WIN: usize = 384; // tempogram window (frames) ≈ 8.9 s @ 512/44.1k
 // ---------------------------------------------------------------------------
 
 /// Rhythm stability in [0, 1]: `1 / (1 + CV(inter-beat intervals))`.
-/// Mirrors `TemporalOperations.calculate_rhythm_stability`. Returns 0.5 if the
+/// Ported from the librosa-based `calculate_rhythm_stability` reference. Returns 0.5 if the
 /// pipeline cannot produce an estimate (matches the Python except-fallback),
 /// 0.0 if fewer than 3 beats are detected.
 pub fn rhythm_stability(samples: &[f64], sample_rate: u32) -> f64 {
@@ -89,7 +90,7 @@ pub fn rhythm_stability(samples: &[f64], sample_rate: u32) -> f64 {
 }
 
 /// Silence ratio in [0, 1]: fraction of RMS frames more than 40 dB below the
-/// loudest frame. Mirrors `TemporalOperations.calculate_silence_ratio`
+/// loudest frame. Ported from the librosa-based `calculate_silence_ratio` reference
 /// (`librosa.amplitude_to_db(rms, ref=np.max) < -40`).
 pub fn silence_ratio(samples: &[f64]) -> f64 {
     let rms = framed_rms(samples);
@@ -617,8 +618,8 @@ mod tests {
 
     #[test]
     fn silence_ratio_matches_python() {
-        // Cross-path parity vs the Python fallback (librosa 0.11.0,
-        // TemporalOperations.calculate_silence_ratio). Tight tolerance: the
+        // Parity with the librosa 0.11.0 reference the port was checked against
+        // (calculate_silence_ratio; its expected values are frozen here). Tight tolerance: the
         // ported framing reproduces librosa to ~1e-4.
         let y120 = click_train(120.0, 10.0, 44100);
         assert!((silence_ratio(&y120) - 0.810905).abs() < 1e-3);

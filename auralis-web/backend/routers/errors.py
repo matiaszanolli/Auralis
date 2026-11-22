@@ -128,7 +128,7 @@ def handle_query_error(operation: str, error: Exception) -> NoReturn:
 
     Example:
         try:
-            tracks = library_database.get_all_tracks()
+            tracks, total = library_database.tracks.get_all()
         except Exception as e:
             raise handle_query_error("get tracks", e)
     """

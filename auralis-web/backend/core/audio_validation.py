@@ -96,7 +96,7 @@ def finite_or_fallback(
     """Guard the pipeline boundary against non-finite DSP output (#4672).
 
     np.clip does NOT sanitize NaN (np.clip(nan, -1, 1) is still nan), so an
-    unguarded NaN here reaches encode_to_wav's PCM_16 write as an undefined
+    unguarded NaN here reaches the WAVEncoder's PCM_16 write as an undefined
     sample AND poisons LevelManager.calculate_rms -> rms_history for every
     subsequent chunk in the track (np.sqrt(np.mean(audio**2)) on a NaN input
     is NaN, and nan comparisons are always False, so smoothing silently stops

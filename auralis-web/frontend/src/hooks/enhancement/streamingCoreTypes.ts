@@ -34,7 +34,7 @@ export interface StreamingCoreOptions {
   acceptNormalStream?: boolean;
   /** Key used for `wsContext.setResumePositionGetter` (e.g. 'play_normal'). */
   sendType: StreamCommand['type'];
-  /** Console log prefix, e.g. '[usePlayNormal]'. */
+  /** Console log prefix, e.g. '[usePlayEnhanced]'. */
   logPrefix: string;
   /** Buffered-sample threshold at which playback auto-starts. */
   getStartThreshold: (metadata: StreamingMetadata, engine: AudioPlaybackEngine) => number;

@@ -90,7 +90,7 @@ interface WebSocketContextValue {
   disconnect: () => void;
 
   // Stream resumption: register a callback that returns current playback position (#3185)
-  // Keyed by stream type to avoid race between usePlayEnhanced and usePlayNormal (#3373)
+  // Keyed by stream type so the enhanced and normal streams cannot race each other (#3373)
   setResumePositionGetter: SetResumePositionGetter;
 
   // #3759 + #3763: re-issue the active stream with updated config (preset,

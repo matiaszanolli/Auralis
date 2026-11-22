@@ -137,5 +137,4 @@ if __name__ == '__main__':
     config = generate_config(system_info)
     print_config(system_info, config)
 
-    print("\n📝 Configuration ready. To apply, run:")
-    print("   python apply_fingerprinting_optimization.py")
+    print("\n📝 Recommended configuration printed above; apply it by hand (there is no apply script).")

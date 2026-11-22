@@ -129,7 +129,7 @@ class AutoMasterProcessor:
         """
         Generate content-aware processing parameters from fingerprint.
 
-        Same logic as auto_master.py's generate_adaptive_parameters()
+        The realtime twin of the offline auto-master's parameter derivation.
         """
         # Extract key fingerprint metrics
         fp = FingerprintUnpacker.from_dict(fingerprint)

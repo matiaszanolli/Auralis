@@ -23,7 +23,7 @@ import { setCurrentTrack, setDuration } from '@/store/slices/playerSlice';
 /**
  * #3587: dispatch `setCurrentTrack(track)` AND align `queue.currentIndex`
  * to the track's position in the queue (when it is present). Local
- * track-change paths (usePlayNormal, usePlayEnhanced, Player.next/prev)
+ * track-change paths (usePlayEnhanced for enhanced and normal play, Player.next/prev)
  * previously updated only `player.currentTrack`, leaving consumers of
  * `selectCurrentQueueTrack` out of sync until the backend WebSocket
  * `player_state` confirmation arrived — or permanently, if it never did.
