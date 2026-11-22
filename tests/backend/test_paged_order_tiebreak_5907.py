@@ -32,9 +32,14 @@ class _CapturingSession:
 
 
 def _order_by_clauses(sql: str) -> list[str]:
-    """ORDER BY terms of a compiled statement, minus LIMIT/OFFSET."""
-    tail = sql.rsplit("ORDER BY", 1)[1]
-    tail = tail.split("LIMIT")[0]
+    """Terms of the ORDER BY that the LIMIT pages over.
+
+    With an eager join the paged SELECT becomes a subquery and the outer query
+    re-sorts, appending the joined collection's own order (Track.artists by
+    track_artist.position, #6714); only the inner ORDER BY decides the pages.
+    """
+    paged = sql.rsplit("LIMIT", 1)[0]
+    tail = paged.rsplit("ORDER BY", 1)[1]
     return [t.strip() for t in tail.split(",")]
 
 

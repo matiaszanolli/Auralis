@@ -10,7 +10,7 @@ Base classes, association tables, and mixins for database models
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, PrimaryKeyConstraint, Table, func
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, PrimaryKeyConstraint, Table, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -38,7 +38,7 @@ track_artist = Table(
     'track_artist', Base.metadata,
     Column('track_id', Integer, ForeignKey('tracks.id')),
     Column('artist_id', Integer, ForeignKey('artists.id')),
-    Column('position', Integer, nullable=False, default=0, server_default='0'),
+    Column('position', Integer, nullable=False, default=0, server_default=text('0')),
     Index('ix_track_artist_track_id', 'track_id'),
     Index('ix_track_artist_artist_id', 'artist_id'),
 )
