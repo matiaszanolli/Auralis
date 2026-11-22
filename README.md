@@ -97,7 +97,7 @@ Auralis is a **local music player** with professional audio enhancement built-in
 - 🎵 **Beautiful Music Player** - Clean, modern interface inspired by Spotify and iTunes
 - ✨ **Magical Audio Enhancement** - One-click toggle for professional audio mastering
 - 📁 **Library Management** - Scan folders, organize your collection, search instantly
-- 🎨 **Audio Visualizer** - Watch your music come alive with real-time visualization
+- 🌌 **Ambient Starfield** - An optional animated background (switchable in Settings)
 - 🖥️ **Desktop Application** - Electron releases for Linux, Windows, and macOS Apple Silicon
 - 🔒 **100% Private** - Your music, your computer, no cloud required
 - ⚡ **Blazing Fast** - 36.6x real-time audio processing, 740+ files/second scanning
@@ -193,12 +193,11 @@ Beautiful grid layout of your music collection with album artwork and metadata.
 - Use player controls at bottom
 - That's it!
 
-### 3. Enable Magic Enhancement
+### 3. Turn On Enhancement
 
-- While playing any song
-- Look at bottom-right of player
-- Toggle the **✨ Magic** switch
-- Hear instant audio enhancement!
+- Open an album: its side pane has an **Auto-Mastering** switch
+- Or open **Settings → Enhancement** and toggle **Auto-enhance playback**
+- Hear the enhancement apply to playback in real time
 
 **No settings, no presets, no complexity. Just better sound.**
 
@@ -231,18 +230,20 @@ Beautiful grid layout of your music collection with album artwork and metadata.
 ## 🔧 Supported Audio Formats
 
 ### Input (Playback)
-WAV, FLAC, MP3, OGG, M4A, AAC, WMA
+WAV, FLAC, AIFF, AU (via libsndfile); MP3, M4A, AAC, OGG, WMA, Opus (via FFmpeg).
+The authoritative list is `SUPPORTED_FORMATS` in `auralis/io/formats.py`.
 
-### Output (Export)
-WAV (16-bit/24-bit PCM), FLAC (16-bit/24-bit PCM)
+### Output
+Playback enhancement is real-time only; exporting enhanced audio is not available yet (see the
+roadmap below).
 
 ---
 
 ## 🏗️ Architecture
 
-### Simple Two-Tab Interface
-1. **Your Music** - Library browser with search and grid/list view
-2. **Visualizer** - Real-time audio visualization
+### Interface
+- **Library** - Songs, Albums, Artists, Favourites and Playlists in the sidebar, with search
+- **Player bar** - transport controls and the play queue
 
 ### Technology Stack
 
@@ -275,10 +276,10 @@ auralis/                    # Core audio processing engine
 auralis-web/               # Shared desktop renderer + local backend
 ├── backend/               # FastAPI server (REST + WebSocket, :8765)
 │   ├── main.py           # App entry point
-│   └── routers/          # 18 route handlers
+│   └── routers/          # 20 registered routers
 └── frontend/              # React app
     └── src/
-        ├── components/    # UI components (library, player, visualizer)
+        ├── components/    # UI components (library, player, playlist, settings, ...)
         ├── hooks/         # Domain hooks (player, library, enhancement, websocket)
         ├── store/         # Redux slices
         └── design-system/ # Design tokens (single source of truth)
@@ -293,8 +294,8 @@ desktop/                   # Electron wrapper
 
 ## 🧪 Testing & Quality
 
-Neither complete suite is currently green. CI judges each run against a checked-in
-baseline of known failures (see [CLAUDE.md](CLAUDE.md#ci-gates-and-the-failure-baselines));
+CI judges each run against a checked-in baseline of known failures; the frontend list has been
+empty since #6076, so any frontend failure is new (see [CLAUDE.md](CLAUDE.md#ci-gates-and-the-failure-baselines));
 use that, the recovery audit, and the release checklist to distinguish trustworthy gates
 from known harness drift. For current test counts, run `python scripts/check_doc_counts.py`.
 
@@ -420,7 +421,7 @@ See **[MASTER_ROADMAP.md §5](docs/MASTER_ROADMAP.md#5-open-backlog-real-tracked
 ### Q: Does it work offline?
 **A:** Yes, 100% local. No internet required after installation.
 
-### Q: What does "Magic" enhancement do?
+### Q: What does enhancement (Auto-Mastering) do?
 **A:** Professional audio mastering - balances levels, enhances dynamics, improves clarity. All automatic.
 
 ### Q: Will it modify my original files?
