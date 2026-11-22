@@ -20,6 +20,7 @@ from scipy.ndimage import maximum_filter1d
 from ..utils.loudness_targets import LIMITER_LOOKAHEAD_MS, LIMITER_RELEASE_MS
 from .limiter_ramp import ramp_gain_reduction
 from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
+from auralis.dsp.utils.conversion import db_to_amplitude
 
 
 @dataclass
@@ -77,8 +78,7 @@ class BrickWallLimiter:
         )
         self.release_samples = int(settings.release_ms * self.sample_rate / 1000)
 
-        # Threshold in linear scale
-        self.threshold_linear = 10 ** (settings.threshold_db / 20)
+        self.threshold_linear = db_to_amplitude(settings.threshold_db)
 
         # Look-ahead buffer (ring buffer for efficiency)
         self.buffer_size = self.lookahead_samples * 2

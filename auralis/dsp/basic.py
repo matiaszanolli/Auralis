@@ -12,6 +12,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 
 
 import numpy as np
+from auralis.dsp.utils.conversion import db_to_amplitude
 
 
 def rms(audio: np.ndarray) -> float:
@@ -57,8 +58,7 @@ def amplify(audio: np.ndarray, gain_db: float) -> np.ndarray:
         Amplified audio signal (new array)
     """
     audio = audio.copy()
-    gain_linear = 10 ** (gain_db / 20)
-    audio *= gain_linear
+    audio *= db_to_amplitude(gain_db)
     return audio
 
 

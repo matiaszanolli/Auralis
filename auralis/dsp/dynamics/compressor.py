@@ -8,7 +8,7 @@ Content-aware compressor with a linked peak envelope
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db_array
+from auralis.dsp.utils.conversion import amplitude_to_db_array, db_to_amplitude
 import numpy as np
 
 from ...utils.logging import debug
@@ -124,7 +124,7 @@ class AdaptiveCompressor:
         gain_envelope = np.power(10.0, smoothed_gain_reduction / 20.0)
 
         # Apply makeup gain
-        makeup_gain = 10 ** (self.settings.makeup_gain_db / 20)
+        makeup_gain = db_to_amplitude(self.settings.makeup_gain_db)
         gain_envelope = gain_envelope * makeup_gain
 
         # Apply per-sample gain to audio

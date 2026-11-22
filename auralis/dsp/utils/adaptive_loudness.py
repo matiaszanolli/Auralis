@@ -12,9 +12,9 @@ based on source loudness characteristics.
 """
 
 
-import numpy as np
 
 from .loudness_targets import LOUD_MASTER_TARGET_LUFS, LOUD_THRESHOLD_LUFS, STREAMING_TARGET_LUFS
+from auralis.dsp.utils.conversion import amplitude_to_db
 
 
 class AdaptiveLoudnessControl:
@@ -134,4 +134,4 @@ class AdaptiveLoudnessControl:
             quietness, -cls.MODERATELY_LOUD_THRESHOLD - half, -cls.MODERATELY_LOUD_THRESHOLD + half
         )
         target_peak = 0.85 + (0.88 - 0.85) * to_moderate + (0.90 - 0.88) * to_quiet
-        return target_peak, 20 * np.log10(target_peak)
+        return target_peak, amplitude_to_db(target_peak)

@@ -8,7 +8,7 @@ One measurement-driven processing path for every source.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import db_to_amplitude
+from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -208,7 +208,7 @@ class ContinuousMasteringBranch:
         clip_transparency = smooth_unit(unpacker.crest_db, 18.0, 1.5)
         threshold_db *= 1.0 - clip_transparency
         ceiling += clip_transparency * (0.97 - ceiling)
-        threshold_linear = 10 ** (threshold_db / 20.0)
+        threshold_linear = db_to_amplitude(threshold_db)
         if verbose:
             print(f"   Soft clip: {threshold_db:.1f} dB, ceiling {ceiling*100:.0f}%")
         processed = soft_clip(processed, threshold=threshold_linear, ceiling=ceiling)
@@ -268,7 +268,7 @@ class ContinuousMasteringBranch:
         if verbose:
             if file_gain is not None:
                 print(
-                    f"   Normalize: file-level gain {20 * np.log10(max(file_gain, 1e-9)):+.1f} dB "
+                    f"   Normalize: file-level gain {amplitude_to_db(max(file_gain, 1e-9)):+.1f} dB "
                     "(true-peak headroom, crest-preserving, macro-dynamics preserved)"
                 )
             else:

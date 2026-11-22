@@ -96,7 +96,7 @@ def apply_eq_mono(audio_mono: np.ndarray,
     # PsychoacousticEQ preferred).
     num_bins = fft_size // 2 + 1
     gain_curve = np.ones(num_bins)
-    gains_linear = 10 ** (np.asarray(gains) / 20)
+    gains_linear = 10 ** (np.asarray(gains) / 20)  # per-band array: db_to_amplitude is scalar
     for i, gain_linear in enumerate(gains_linear):
         gain_curve[freq_to_band_map == i] = gain_linear
 

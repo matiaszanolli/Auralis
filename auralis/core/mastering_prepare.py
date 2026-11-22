@@ -26,6 +26,7 @@ from .dsp import ResonanceNotcher
 from .mastering_notch_context import contextualize_notches
 from ..dsp.utils.audio_info import to_mono
 from ..dsp.utils.conversion import SILENCE_FLOOR_DB, amplitude_to_db
+from auralis.dsp.basic import rms
 
 if TYPE_CHECKING:
     from .simple_mastering import SimpleMasteringPipeline
@@ -75,9 +76,9 @@ def measure_window_loudness(
             return None, None
 
         mono = to_mono(window)
-        rms = float(np.sqrt(np.mean(mono.astype(np.float64) ** 2)))
+        level = rms(mono.astype(np.float64))
         peak = float(np.max(np.abs(mono)))
-        crest = (20.0 * np.log10(peak / rms)) if rms > 1e-9 and peak > 0 else None
+        crest = amplitude_to_db(peak / level) if level > 1e-9 and peak > 0 else None
         return float(lufs), crest
     except Exception:
         return None, None

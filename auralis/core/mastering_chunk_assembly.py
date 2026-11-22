@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from ..dsp.utils.conversion import db_to_amplitude
+from ..dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 from ..utils.logging import warning
 
 # Measured 4x-oversample reconstruction overshoot over the sample peak (#4970;
@@ -209,7 +209,7 @@ def two_pass_correction_gain(
     )
     if verbose and correction_gain < 1.0:
         print(
-            f"   Two-pass peak correction: {20 * np.log10(correction_gain):+.2f} dB "
+            f"   Two-pass peak correction: {amplitude_to_db(correction_gain):+.2f} dB "
             f"(measured sample peak {measured_sample_peak:.3f}, "
             f"true peak {measured_true_peak:.3f})"
         )

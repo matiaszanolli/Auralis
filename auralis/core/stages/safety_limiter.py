@@ -3,6 +3,7 @@
 import numpy as np
 
 from ...dsp.dynamics.soft_clipper import soft_clip
+from auralis.dsp.utils.conversion import amplitude_to_db
 
 
 def apply(
@@ -39,7 +40,7 @@ def apply(
     processed = soft_clip(audio, threshold=threshold, ceiling=ceiling)
 
     if verbose:
-        reduction_db = 20 * np.log10(ceiling / current_peak)
+        reduction_db = amplitude_to_db(ceiling / current_peak)
         print(f"   Safety limiter: {reduction_db:.1f} dB reduction")
 
     return processed

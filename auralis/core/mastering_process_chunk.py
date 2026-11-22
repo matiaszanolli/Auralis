@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from ..dsp.dynamics.soft_clipper import soft_clip
-from ..dsp.utils.conversion import SILENCE_FLOOR_DB, peak_db
+from ..dsp.utils.conversion import SILENCE_FLOOR_DB, db_to_amplitude, peak_db
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
 from .mastering_branches import ContinuousMasteringBranch
 from .utils import FingerprintUnpacker, SmoothCurveUtilities
@@ -58,7 +58,7 @@ def reduce_peaks(
         # Copy on bypass, matching stages.no_op()'s contract (#5107).
         return audio.copy(), current_db
 
-    threshold = 10 ** (target_db / 20.0)
+    threshold = db_to_amplitude(target_db)
     processed = soft_clip(audio, threshold=threshold, ceiling=min(0.99, threshold * 1.05))
     return processed, compute_peak_db(processed)
 

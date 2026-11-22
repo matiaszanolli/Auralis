@@ -15,6 +15,7 @@ from scipy import signal
 
 from ..utils.filters import normalized_corner, sosfiltfilt_safe
 from .soft_clipper import soft_clip
+from auralis.dsp.basic import rms
 
 
 class LowMidTransientEnhancer:
@@ -153,7 +154,7 @@ class LowMidTransientEnhancer:
             # Apply gentle expansion to low-mid in this window
             # Expansion: boost quieter parts more, preserve loud parts
             low_mid_window = low_mid[start:end]
-            rms_level = np.sqrt(np.mean(low_mid_window ** 2))
+            rms_level = rms(low_mid_window)
 
             if rms_level <= 1e-6:  # Avoid division by very small numbers
                 continue

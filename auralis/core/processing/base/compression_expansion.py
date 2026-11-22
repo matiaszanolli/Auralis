@@ -14,6 +14,7 @@ import numpy as np
 
 from ....dsp.dynamics.soft_clipper import soft_clip
 from .audio_measurement import MeasurementUtilities
+from auralis.dsp.utils.conversion import db_to_amplitude
 
 # The keys the clip-blend compressor indexes with `[...]` — i.e. the ones whose
 # absence is a KeyError, not a defaulted value.
@@ -66,7 +67,7 @@ class CompressionStrategies:
         # Simple soft clipping: reduce peaks while preserving RMS
         target_crest = before.crest - target_crest_reduction
         clip_threshold_db = before.rms_db + target_crest
-        clip_threshold_linear = 10 ** (clip_threshold_db / 20)
+        clip_threshold_linear = db_to_amplitude(clip_threshold_db)
 
         # Apply soft clipping
         audio_abs = np.abs(audio)
@@ -204,7 +205,7 @@ class ExpansionStrategies:
 
         # Expansion threshold: 3 dB above RMS
         expansion_threshold_db = before.rms_db + 3.0
-        expansion_threshold_linear = 10 ** (expansion_threshold_db / 20)
+        expansion_threshold_linear = db_to_amplitude(expansion_threshold_db)
 
         # Apply expansion on samples above threshold
         audio_abs = np.abs(audio)
@@ -215,7 +216,8 @@ class ExpansionStrategies:
             expansion_ratio = 1.0 + expansion_amount  # 1.1 to 1.7
             excess = audio_abs[above_threshold] - expansion_threshold_linear
 
-            # Convert to dB, apply expansion, convert back
+            # Convert to dB, apply expansion, convert back. Inline on purpose: these are
+            # per-sample arrays (>= 1 inside the log), which the scalar helpers do not take.
             excess_db = 20 * np.log10(excess / expansion_threshold_linear + 1.0)
             expanded_excess_db = excess_db * expansion_ratio
             expanded_excess_linear = (10 ** (expanded_excess_db / 20) - 1.0) * expansion_threshold_linear

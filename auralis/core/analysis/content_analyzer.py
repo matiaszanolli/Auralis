@@ -21,7 +21,7 @@ from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.logging import debug
 from .genre_classification import GenreClassificationMixin
 from ...dsp.utils.audio_info import to_mono
-from ...dsp.utils.conversion import level_stats
+from ...dsp.utils.conversion import amplitude_to_db, level_stats
 from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
@@ -265,7 +265,7 @@ class ContentAnalyzer(GenreClassificationMixin):
 
         for i in range(0, len(audio) - window_size, window_size // 2):
             window = audio[i:i + window_size]
-            window_rms = np.sqrt(np.mean(to_mono(window) ** 2))
+            window_rms = rms(to_mono(window))
             rms_values.append(window_rms)
 
         if len(rms_values) < 2:
@@ -282,7 +282,7 @@ class ContentAnalyzer(GenreClassificationMixin):
         quiet_level = np.percentile(rms_values_array, 10)
 
         if quiet_level > 0:
-            dynamic_range = 20 * np.log10(loud_level / quiet_level)
+            dynamic_range = amplitude_to_db(loud_level / quiet_level)
             return float(np.clip(dynamic_range, 0, 60))
         else:
             return 20.0
