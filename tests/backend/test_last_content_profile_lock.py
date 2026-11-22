@@ -29,6 +29,24 @@ def _create_test_audio(duration_seconds: float, sample_rate: int = 44100) -> np.
     return np.column_stack([audio, audio])
 
 
+@pytest.fixture(autouse=True)
+def _isolated_profiles():
+    """Start every test from an empty module-global dict and restore it after.
+
+    The dict outlives a test: a 'punchy' entry stored by one test was still
+    there when the concurrent test's reader ran before its own writer, and
+    read as a partial value (#6709)."""
+    import core.chunk_content_profile as ccp
+
+    with ccp._last_content_profiles_lock:
+        saved = dict(ccp._last_content_profiles)
+        ccp._last_content_profiles.clear()
+    yield
+    with ccp._last_content_profiles_lock:
+        ccp._last_content_profiles.clear()
+        ccp._last_content_profiles.update(saved)
+
+
 class TestLockExists:
     def test_last_content_profiles_lock_is_a_threading_lock(self):
         import core.chunk_content_profile as ccp
