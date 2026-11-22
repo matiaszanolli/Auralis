@@ -292,10 +292,14 @@ class TestSustainedLoad:
 class TestPeakResourceUsage:
     """Test peak resource usage under extreme load."""
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="#6717: whole-track process() peaks at ~28x the input (2.8 GB here); "
+               "this passed only while RSS was read after process() returned",
+    )
     def test_peak_memory_with_large_audio(self, temp_audio_dir, resource_monitor):
         """
-        STRESS: Process very large audio file.
-        Target: Peak memory < 1GB.
+        STRESS: Process a 10-minute file with peak memory growth < 2GB.
         """
         import numpy as np
         import soundfile as sf
@@ -318,14 +322,13 @@ class TestPeakResourceUsage:
         audio, _sr = load_audio(filepath)
 
         with resource_monitor() as monitor:
-            processor.process(audio)
-            monitor.update()
-
-            peak_memory = monitor.peak_memory_mb
+            processed = processor.process(audio)
             final_memory = monitor.memory_growth_mb
 
+        assert len(processed) == len(audio)
+        peak_memory = monitor.peak_growth_mb
         assert peak_memory < 2048, \
-            f"Peak memory {peak_memory:.1f}MB should be < 2GB"
+            f"Peak memory growth {peak_memory:.1f}MB should be < 2GB"
 
         print(f"✓ Large file processing: peak {peak_memory:.1f}MB, " +
               f"growth {final_memory:.1f}MB")
@@ -353,18 +356,19 @@ class TestPeakResourceUsage:
 
         with resource_monitor() as monitor:
             results, errors = concurrent_executor(tasks, max_workers=5)
-            monitor.update()
 
-            peak_memory = monitor.peak_memory_mb
+        assert errors == []
+        assert sorted(r for _, r in results) == [len(audio)] * 5
 
-        successes = [r for success, r in results if success]
-        assert len(successes) == 5, \
-            f"All processing should succeed, got {len(successes)}/5"
+        # Growth, not absolute RSS: in the nightly run this test inherits
+        # whatever the earlier tests in the process left resident (1.25 GB
+        # absolute there), which says nothing about this workload.
+        peak_growth = monitor.peak_growth_mb
+        assert peak_growth < 1024, \
+            f"Peak memory growth {peak_growth:.1f}MB should be < 1GB"
 
-        assert peak_memory < 1024, \
-            f"Peak memory {peak_memory:.1f}MB should be < 1GB"
-
-        print(f"✓ 5 concurrent processings: peak {peak_memory:.1f}MB")
+        print(f"✓ 5 concurrent processings: peak growth {peak_growth:.1f}MB "
+              f"(absolute {monitor.peak_memory_mb:.1f}MB)")
 
 
 @pytest.mark.load

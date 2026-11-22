@@ -13,7 +13,6 @@ BENCHMARKS MEASURED:
 """
 
 import time
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -22,8 +21,6 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.unified_loader import load_audio
 from auralis.library.repositories import (
-    AlbumRepository,
-    ArtistRepository,
     TrackRepository,
 )
 
@@ -196,24 +193,26 @@ class TestAudioLoadingLatency:
 
     def test_large_file_loading_latency(self, large_audio_file, timer, benchmark_results):
         """
-        BENCHMARK: Loading 3-minute audio file latency measurement.
-        """
-        # First load (cold)
-        with timer() as t:
-            audio, sr = load_audio(large_audio_file)
+        BENCHMARK: Loading a 3-minute WAV takes < 500ms, first load and repeat.
 
-        assert audio is not None
+        Neither load is cold: the fixture has just written the file, so it is
+        in the page cache before the first read, and dropping that cache
+        needs root. "Warm faster than cold" therefore compared two equal
+        numbers and failed on scheduler noise. ~40ms locally.
+        """
+        with timer() as t:
+            first, sr = load_audio(large_audio_file)
         cold_latency_ms = t.elapsed_ms
 
-        # Second load (warm cache)
         with timer() as t:
-            audio, sr = load_audio(large_audio_file)
-
+            again, sr_again = load_audio(large_audio_file)
         warm_latency_ms = t.elapsed_ms
 
-        # BENCHMARK: Warm load should be faster than cold
-        assert warm_latency_ms < cold_latency_ms, \
-            "Warm load should be faster than cold load"
+        assert sr == sr_again == 44100
+        assert first.shape == (int(180.0 * 44100), 2)
+        assert np.array_equal(first, again)
+        assert cold_latency_ms < 500, f"First load took {cold_latency_ms:.0f}ms, expected < 500ms"
+        assert warm_latency_ms < 500, f"Repeat load took {warm_latency_ms:.0f}ms, expected < 500ms"
 
         benchmark_results['audio_load_3min_cold_ms'] = cold_latency_ms
         benchmark_results['audio_load_3min_warm_ms'] = warm_latency_ms

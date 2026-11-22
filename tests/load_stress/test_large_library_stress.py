@@ -43,8 +43,13 @@ class TestLargeLibraryLoading:
 
     def test_load_10k_tracks(self, large_track_dataset, resource_monitor):
         """
-        LOAD: Load 10,000 tracks into library.
-        Target: < 30 seconds, < 500MB memory.
+        LOAD: 10,000 add() calls in < 100s (10ms per track), < 1GB growth.
+
+        ~27s locally (2.7ms per track: a duplicate lookup, artist/album
+        resolution, two flushes, a commit and two refreshes). CI runners are
+        about twice as slow, which put the old 60s limit within noise of the
+        expected time. Whether the cost per track stays flat as the library
+        grows is test_add_cost_flat_up_to_50k_tracks's job.
         """
         with resource_monitor() as monitor:
             tracks = large_track_dataset(10000)
@@ -53,41 +58,68 @@ class TestLargeLibraryLoading:
             memory_growth = monitor.memory_growth_mb
 
         assert len(tracks) == 10000, "Should create 10k tracks"
-        assert elapsed < 60, f"Should complete in < 60s, took {elapsed:.2f}s"
+        assert len({t.id for t in tracks}) == 10000
+        assert elapsed < 100, f"Should complete in < 100s, took {elapsed:.2f}s"
         assert memory_growth < 1000, f"Memory growth {memory_growth:.1f}MB should be < 1000MB"
 
         print(f"✓ Loaded 10k tracks in {elapsed:.2f}s, {memory_growth:.1f}MB")
 
-    @pytest.mark.slow
-    def test_load_50k_tracks(self, large_track_dataset, resource_monitor, load_test_config):
+    def test_add_cost_flat_up_to_50k_tracks(self, large_track_dataset, temp_db, load_test_config):
         """
-        STRESS: Load 50,000 tracks into library.
-        Target: < 5 minutes, < 2GB memory.
+        STRESS: add() costs the same in a 50k-track library as in an empty one.
+
+        add() starts with a filepath lookup that carries the standard eager
+        loads. While Track.artists was joinedload-ed, that lookup scanned all
+        of track_artist, which made building a library quadratic: 50k tracks
+        hit the 300s per-test timeout on CI. Even at a linear 2.7ms per track,
+        50k add() calls take ~5 min on CI, so the middle of the library is
+        bulk-inserted and add() is timed at the empty end and the full end.
         """
-        target_size = load_test_config['large_library']
+        from sqlalchemy import insert, select
 
-        with resource_monitor() as monitor:
-            # Create in batches to monitor progress
-            batch_size = 10000
-            all_tracks = []
+        from auralis.library.models import Artist, Track, track_artist
+        from auralis.library.path_key import make_filepath_key
+        from auralis.library.repositories import TrackRepository
 
-            for i in range(0, target_size, batch_size):
-                current_batch = min(batch_size, target_size - i)
-                batch_tracks = large_track_dataset(current_batch)
-                all_tracks.extend(batch_tracks)
+        target = load_test_config['large_library']
+        sample = 2000
 
-                monitor.update()
-                print(f"  Progress: {len(all_tracks)}/{target_size} tracks, "
-                      f"Memory: {monitor.peak_memory_mb:.1f}MB")
+        def seconds_per_add() -> float:
+            start = time.perf_counter()
+            batch = large_track_dataset(sample)
+            elapsed = time.perf_counter() - start
+            assert len({t.id for t in batch}) == sample
+            return elapsed / sample
 
-            elapsed = monitor.elapsed_seconds
-            memory_growth = monitor.memory_growth_mb
+        empty_cost = seconds_per_add()
 
-        assert len(all_tracks) == target_size, f"Should create {target_size} tracks"
-        assert elapsed < 300, f"Should complete in < 5min, took {elapsed:.2f}s"
-        assert memory_growth < 2048, f"Memory growth {memory_growth:.1f}MB should be < 2GB"
+        session = temp_db()
+        artist_ids = session.execute(select(Artist.id)).scalars().all()
+        paths = [f'/tmp/seeded_track_{i}.flac' for i in range(target - 2 * sample)]
+        track_ids = session.scalars(
+            insert(Track).returning(Track.id),
+            [{'title': f'Seeded Track {i}', 'filepath': path, 'filepath_key': make_filepath_key(path),
+              'format': 'FLAC', 'sample_rate': 44100, 'channels': 2, 'duration': 180.0}
+             for i, path in enumerate(paths)],
+        ).all()
+        session.execute(
+            insert(track_artist),
+            [{'track_id': track_id, 'artist_id': artist_ids[i % len(artist_ids)], 'position': 0}
+             for i, track_id in enumerate(track_ids)],
+        )
+        session.commit()
+        session.close()
 
-        print(f"✓ Loaded {target_size} tracks in {elapsed:.2f}s, {memory_growth:.1f}MB")
+        full_cost = seconds_per_add()
+
+        assert TrackRepository(temp_db).get_all(limit=1)[1] == target
+        assert full_cost < 2 * empty_cost, (
+            f"add() took {full_cost * 1000:.2f}ms per track at {target} tracks vs "
+            f"{empty_cost * 1000:.2f}ms on an empty library"
+        )
+
+        print(f"✓ add(): {empty_cost * 1000:.2f}ms/track empty, "
+              f"{full_cost * 1000:.2f}ms/track at {target} tracks")
 
 
 @pytest.mark.load
@@ -276,10 +308,9 @@ class TestLargePlaylistOperations:
         LOAD: Create playlist with 1000 tracks.
         Target: < 5 seconds.
         """
-        from auralis.library.repositories import PlaylistRepository, TrackRepository
+        from auralis.library.repositories import PlaylistRepository
 
         tracks = large_track_dataset(1000)
-        track_repo = TrackRepository(temp_db)
         playlist_repo = PlaylistRepository(temp_db)
 
         start = time.time()
@@ -326,65 +357,66 @@ class TestLargePlaylistOperations:
 
 
 @pytest.mark.load
-class TestCachePerformanceAtScale:
-    """Test cache performance with large libraries."""
+class TestRepeatedQueriesAtScale:
+    """Repeated reads and a write between them on a large library.
 
-    def test_cache_hit_rate_with_10k_library(self, large_track_dataset, temp_db):
+    These were TestCachePerformanceAtScale, but the repositories have no
+    query cache: every get_all() goes to SQLite. What they measure is
+    uncached page latency, so they are named and budgeted for that.
+    """
+
+    def test_repeated_page_queries_with_10k_library(self, large_track_dataset, temp_db):
         """
-        LOAD: Cache should maintain high hit rate with 10k library.
-        Target: > 80% cache hit rate on repeated queries.
+        LOAD: 100 x get_all(limit=100) on a 10k library in < 1s.
+
+        Each call is a COUNT(*) plus the page and its selectin loads,
+        ~3.7ms locally. While Track.artists was joinedload-ed, the page
+        query materialized all of track_artist per call (~18ms on CI).
         """
         from auralis.library.repositories import TrackRepository
 
         large_track_dataset(10000)
         track_repo = TrackRepository(temp_db)
+        first_page, total = track_repo.get_all(limit=100, offset=0)
+        assert total == 10000
+        assert len(first_page) == 100
 
-        # First queries (cache miss)
-        for _ in range(10):
-            track_repo.get_all(limit=100, offset=0)
-
-        # Get initial cache stats
-        # (Note: This assumes LibraryManager has cache stats,
-        #  may need to adapt based on actual implementation)
-
-        # Second queries (should hit cache)
         start = time.time()
         for _ in range(100):
-            track_repo.get_all(limit=100, offset=0)
+            page, _ = track_repo.get_all(limit=100, offset=0)
         elapsed = time.time() - start
 
-        # Should be very fast due to caching
+        assert [t.id for t in page] == [t.id for t in first_page]
         assert elapsed < 1.0, \
-            f"100 cached queries should complete in < 1s, took {elapsed:.2f}s"
+            f"100 page queries should complete in < 1s, took {elapsed:.2f}s"
 
-        print(f"✓ 100 cached queries in {elapsed*1000:.1f}ms ({elapsed*10:.2f}ms avg)")
+        print(f"✓ 100 page queries in {elapsed*1000:.1f}ms ({elapsed*10:.2f}ms avg)")
 
-    def test_cache_invalidation_performance(self, large_track_dataset, temp_db):
+    def test_update_between_page_reads(self, large_track_dataset, temp_db):
         """
-        LOAD: Cache invalidation shouldn't block queries.
-        Target: < 100ms invalidation time.
+        LOAD: An update after repeated reads takes < 1s and the next read sees it.
         """
         from auralis.library.repositories import TrackRepository
 
         tracks = large_track_dataset(1000)
         track_repo = TrackRepository(temp_db)
 
-        # Populate cache
         for _ in range(10):
             track_repo.get_all(limit=100, offset=0)
 
-        # Time cache invalidation
+        # update() writes metadata (title, year, artists, ...); favorites go
+        # through set_favorite(), so {'favorite': True} here was a no-op that
+        # nothing checked.
         start = time.time()
-
-        # Update a track (should invalidate caches)
-        track_repo.update(tracks[0].id, {'favorite': True})
-
+        updated = track_repo.update(tracks[0].id, {'title': 'Renamed Track'})
         elapsed = time.time() - start
 
+        assert updated is not None and updated.title == 'Renamed Track'
+        assert track_repo.get_by_id(tracks[0].id).title == 'Renamed Track'
         assert elapsed < 1.0, \
-            f"Cache invalidation should complete in < 1s, took {elapsed*1000:.1f}ms"
+            f"Update should complete in < 1s, took {elapsed*1000:.1f}ms"
 
-        print(f"✓ Cache invalidation: {elapsed*1000:.1f}ms")
+        print(f"✓ Update between reads: {elapsed*1000:.1f}ms")
 
 
 @pytest.mark.load

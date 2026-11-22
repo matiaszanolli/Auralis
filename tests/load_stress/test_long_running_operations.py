@@ -435,15 +435,17 @@ class TestContinuousOperation:
 
             elapsed = monitor.elapsed_seconds
             final_memory_growth = monitor.memory_growth_mb
-            peak_memory = monitor.peak_memory_mb
 
         rate = iterations / elapsed
+        # Growth over the RSS on entry, not absolute RSS, which counts what
+        # earlier tests in the nightly process left resident.
+        peak_memory = monitor.peak_growth_mb
 
         assert final_memory_growth < 500, \
             f"Memory growth {final_memory_growth:.1f}MB should be < 500MB"
 
         assert peak_memory < 1024, \
-            f"Peak memory {peak_memory:.1f}MB should be < 1GB"
+            f"Peak memory growth {peak_memory:.1f}MB should be < 1GB"
 
         print(f"✓ Continuous operation: {iterations} iterations in {elapsed:.1f}s, " +
               f"rate: {rate:.1f} iter/s, memory: {final_memory_growth:.1f}MB, " +

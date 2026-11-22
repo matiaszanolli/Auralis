@@ -426,12 +426,19 @@ class TestComponentPerformance:
 
     def test_spectrum_analysis_performance(self, performance_audio_file, timer, benchmark_results):
         """
-        BENCHMARK: Spectrum analysis should complete in < 50ms for 5s audio.
+        BENCHMARK: Steady-state spectrum analysis of 5s audio in < 100ms.
+
+        ~15ms locally, ~35ms on CI since band mapping became one bincount
+        pass per frame; the per-band mask loop it replaced took ~190ms on CI,
+        so the limit still catches that coming back.
         """
         from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
 
         audio, sr = load_audio(performance_audio_file)
         analyzer = SpectrumAnalyzer()
+        # The first call pays a one-off lazy import (librosa, via
+        # rms_to_db) of ~90ms: a process-start cost, not analysis.
+        analyzer.analyze_file(audio[:sr], sr)
 
         with timer() as t:
             spectrum = analyzer.analyze_file(audio, sr)
@@ -447,11 +454,17 @@ class TestComponentPerformance:
 
     def test_loudness_measurement_performance(self, performance_audio_file, timer, benchmark_results):
         """
-        BENCHMARK: LUFS measurement should complete in < 30ms for 5s audio.
+        BENCHMARK: measure_chunk() on 5s stereo audio in < 100ms (50x real time).
+
+        measure_chunk() also measures BS.1770 true peak, which oversamples the
+        signal 4x; that is ~80% of its cost (~47ms locally, ~52ms on CI). The
+        K-weighted loudness alone is ~6ms, which is where the old 30ms
+        limit came from.
         """
         from auralis.analysis.loudness_meter import LoudnessMeter
 
         audio, sr = load_audio(performance_audio_file)
+        LoudnessMeter(sr).measure_chunk(audio[:sr])  # warm-up: filter design, first-call imports
         meter = LoudnessMeter(sr)
 
         with timer() as t:
@@ -460,8 +473,7 @@ class TestComponentPerformance:
         assert lufs is not None
         latency_ms = t.elapsed_ms
 
-        # BENCHMARK: Should complete in < 30ms
-        assert latency_ms < 30, f"LUFS measurement took {latency_ms:.1f}ms, expected < 30ms"
+        assert latency_ms < 100, f"LUFS measurement took {latency_ms:.1f}ms, expected < 100ms"
 
         benchmark_results['lufs_measurement_ms'] = latency_ms
         print(f"\n✓ LUFS measurement: {latency_ms:.1f}ms")

@@ -31,6 +31,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from auralis.io.saver import save
+from auralis.library.database_engine import create_library_engine, create_schema
 from auralis.library.models import Base
 
 
@@ -41,8 +42,10 @@ def temp_db():
     temp_file.close()
     db_path = temp_file.name
 
-    engine = create_engine(f'sqlite:///{db_path}')
-    Base.metadata.create_all(engine)
+    # The app's own engine (WAL, synchronous=NORMAL), not a bare
+    # create_engine(): see tests/load_stress/conftest.py::temp_db.
+    engine = create_library_engine(db_path)
+    create_schema(engine)
     Session = sessionmaker(bind=engine)
 
     def get_session():

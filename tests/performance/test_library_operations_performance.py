@@ -569,9 +569,15 @@ class TestDatabaseQueryPerformance:
 class TestCachePerformance:
     """Measure cache hit/miss performance."""
 
-    def test_cache_hit_speedup(self, temp_db, timer, benchmark_results):
+    def test_repeat_page_read(self, temp_db, timer, benchmark_results):
         """
-        BENCHMARK: Cache hits should be >10x faster than cache miss.
+        BENCHMARK: A repeated get_all() page returns the same rows in < 50ms.
+
+        This was test_cache_hit_speedup, asserting the second read was 3x
+        faster than the first. The repositories have no query cache; the
+        "speedup" was SQLAlchemy compiling the statement on the first call
+        (2-3x, depending on how heavy the eager loads are), so it measured
+        compile cost, not a cache.
         """
         track_repo = TrackRepository(temp_db)
 
@@ -586,27 +592,19 @@ class TestCachePerformance:
                 'channels': 2
             })
 
-        # First query (cache miss)
-        with timer() as t_miss:
-            tracks1, _ = track_repo.get_all(limit=50, offset=0)
-        miss_time = t_miss.elapsed
-
-        # Second query (cache hit, if caching enabled)
-        with timer() as t_hit:
+        with timer() as t_first:
+            tracks1, total = track_repo.get_all(limit=50, offset=0)
+        with timer() as t_repeat:
             tracks2, _ = track_repo.get_all(limit=50, offset=0)
-        hit_time = t_hit.elapsed
 
-        speedup = miss_time / hit_time if hit_time > 0 else 1
+        assert total == 100
+        assert [t.id for t in tracks2] == [t.id for t in tracks1]
+        assert len(tracks1) == 50
+        assert t_repeat.elapsed_ms < 50, f"Repeat page read took {t_repeat.elapsed_ms:.1f}ms"
 
-        # BENCHMARK: Cache hit should be > 3x faster (or equal if no cache)
-        # This is a soft requirement since caching may be disabled
-        if speedup > 1:
-            assert speedup > 3, f"Cache speedup {speedup:.1f}x below 3x"
-            print(f"\n✓ Cache hit speedup: {speedup:.1f}x")
-        else:
-            print(f"\n⚠ Cache hit speedup: {speedup:.1f}x (caching may be disabled)")
-
-        benchmark_results['cache_speedup'] = speedup
+        benchmark_results['page_read_first_ms'] = t_first.elapsed_ms
+        benchmark_results['page_read_repeat_ms'] = t_repeat.elapsed_ms
+        print(f"\n✓ Page read: first {t_first.elapsed_ms:.1f}ms, repeat {t_repeat.elapsed_ms:.1f}ms")
 
     def test_cache_memory_overhead(self, tmp_path):
         """

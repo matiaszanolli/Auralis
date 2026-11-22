@@ -81,6 +81,7 @@ class TestAudioProcessingThroughput:
         with timer() as t:
             result = processor.process(audio)
 
+        assert len(result) == len(audio)
         samples_per_second = total_samples / t.elapsed
 
         # BENCHMARK: samples/sec. Recalibrated in #5486: the original > 1M/s
@@ -164,21 +165,30 @@ class TestDatabaseThroughput:
 
     def test_query_throughput(self, populated_db, timer, benchmark_results):
         """
-        BENCHMARK: Database should handle > 1000 queries/sec.
+        BENCHMARK: get_by_id() sustains > 500 calls/sec on a 1k library.
+
+        One call is a session, three indexed SELECTs (track + album joined,
+        artists and genres via selectin) and an expunge: ~1450/s locally.
+        The old 1000/s target predates the selectin loads and failed at
+        ~560/s on CI while artists were still joined, when every call also
+        scanned all of track_artist. That scan is now caught by
+        test_association_indexes_6103.py's query-plan check, which does
+        not depend on runner speed; this floor guards ORM overhead.
         """
         track_repo = TrackRepository(populated_db)
 
         num_queries = 1000
 
         with timer() as t:
-            for i in range(num_queries):
-                track_repo.get_by_id((i % 1000) + 1)
+            found = sum(
+                track_repo.get_by_id((i % 1000) + 1) is not None for i in range(num_queries)
+            )
 
         queries_per_second = num_queries / t.elapsed
 
-        # BENCHMARK: Should achieve > 1000 queries/sec
-        assert queries_per_second > 1000, \
-            f"Query rate {queries_per_second:.0f} ops/sec below 1000 ops/sec"
+        assert found == num_queries
+        assert queries_per_second > 500, \
+            f"Query rate {queries_per_second:.0f} ops/sec below 500 ops/sec"
 
         benchmark_results['queries_per_sec'] = queries_per_second
         print(f"\n✓ Query throughput: {queries_per_second:.0f} ops/sec")
@@ -187,8 +197,6 @@ class TestDatabaseThroughput:
         """
         BENCHMARK: Database should handle > 50 updates/sec.
         """
-        track_repo = TrackRepository(populated_db)
-
         num_updates = 100
 
         with timer() as t:
@@ -220,11 +228,16 @@ class TestDatabaseThroughput:
         num_searches = 100
         keywords = ['Track', 'Artist', 'Album', 'Performance']
 
+        hits = 0
         with timer() as t:
             for i in range(num_searches):
                 keyword = keywords[i % len(keywords)]
-                result = track_repo.search(keyword, limit=10, offset=0)
+                tracks, _total = track_repo.search(keyword, limit=10, offset=0)
+                hits += len(tracks)
 
+        # Every keyword matches the 'Performance Track N' / 'Artist N' /
+        # 'Album N' fixture rows, so each search fills its page of 10.
+        assert hits == num_searches * 10
         searches_per_second = num_searches / t.elapsed
 
         # BENCHMARK: Should achieve > 100 searches/sec

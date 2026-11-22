@@ -8,25 +8,29 @@ Shared fixtures for load and stress testing.
 import os
 import shutil
 import tempfile
-from pathlib import Path
 
 import numpy as np
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from auralis.library.models import Base
+from auralis.library.database_engine import create_library_engine, create_schema
 
 
 @pytest.fixture
 def temp_db():
-    """Create temporary database for testing."""
+    """Create temporary database for testing.
+
+    Built with the app's own engine (WAL, synchronous=NORMAL): a bare
+    create_engine() runs SQLite's rollback journal with synchronous=FULL, so
+    every commit was an fsync the app never pays, and building a 10k-track
+    library took ~95 s on CI before the test measured anything.
+    """
     temp_dir = tempfile.mkdtemp()
     db_path = os.path.join(temp_dir, 'test.db')
-    db_url = f'sqlite:///{db_path}'
 
-    engine = create_engine(db_url, echo=False)
-    Base.metadata.create_all(engine)
+    engine = create_library_engine(db_path)
+    create_schema(engine)
 
     Session = scoped_session(sessionmaker(bind=engine))
 
@@ -87,7 +91,7 @@ def large_track_dataset(temp_db):
     add()'s filepath dedup and returning the previous batch.
     """
     from auralis.library.models import Album, Artist
-    from auralis.library.repositories import AlbumRepository, TrackRepository
+    from auralis.library.repositories import TrackRepository
     from auralis.library.utils.artist_normalizer import normalize_artist_name
 
     call_counter = {'batch': 0}
@@ -169,29 +173,45 @@ def resource_monitor():
     """
     Monitor system resources during test execution.
 
-    Returns a context manager that tracks CPU, memory, and time.
+    Returns a context manager that tracks CPU, memory, and time. While it is
+    open a background thread samples RSS every 20 ms, so ``peak_memory_mb``
+    is the real peak rather than whatever was resident at the last
+    ``update()`` call.
     """
+    import threading
     import time
 
     import psutil
 
     class ResourceMonitor:
+        SAMPLE_INTERVAL_S = 0.02
+
         def __init__(self):
             self.process = psutil.Process()
             self.start_time = None
             self.start_memory = None
             self.start_cpu_percent = None
             self.peak_memory = 0
+            self._stop = threading.Event()
+            self._sampler = None
 
         def __enter__(self):
             self.start_time = time.time()
             self.start_memory = self.process.memory_info().rss / 1024 / 1024  # MB
             self.start_cpu_percent = self.process.cpu_percent()
             self.peak_memory = self.start_memory
+            self._sampler = threading.Thread(target=self._sample, daemon=True)
+            self._sampler.start()
             return self
 
         def __exit__(self, *args):
-            pass
+            self._stop.set()
+            self._sampler.join()
+            self.update()
+
+        def _sample(self):
+            while not self._stop.wait(self.SAMPLE_INTERVAL_S):
+                self.update()
 
         def update(self):
             """Update peak memory usage."""
@@ -211,8 +231,18 @@ def resource_monitor():
 
         @property
         def peak_memory_mb(self):
-            """Get peak memory usage in MB."""
+            """Get peak memory usage in MB (absolute process RSS)."""
             return self.peak_memory
+
+        @property
+        def peak_growth_mb(self):
+            """Peak RSS above what the process held on entry, in MB.
+
+            Absolute RSS includes everything earlier tests in the same
+            pytest process left resident, so a budget for one workload has
+            to be measured against this, not ``peak_memory_mb``.
+            """
+            return self.peak_memory - self.start_memory
 
     return ResourceMonitor
 
@@ -224,7 +254,6 @@ def concurrent_executor():
 
     Returns a function that executes tasks in parallel.
     """
-    import threading
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def _execute_concurrent(tasks, max_workers=10):
