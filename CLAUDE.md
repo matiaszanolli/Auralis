@@ -137,11 +137,12 @@ auralis/                          Core Python audio engine
 auralis-web/
 ├── backend/                      FastAPI REST + WebSocket (:8765)
 │   ├── main.py                     App entry point
-│   ├── routers/                    20 registered routers (player, library, albums,
-│   │                                 artists, playlists, enhancement, metadata,
-│   │                                 artwork, files, system, settings, cache,
-│   │                                 similarity, library_scan, fingerprint_status,
-│   │                                 fingerprint_queue, processing, health)
+│   ├── routers/                    20 registered routers (player, library, tracks,
+│   │                                 albums, artists, playlists, enhancement,
+│   │                                 metadata, artwork, files, system, settings,
+│   │                                 cache, similarity, similarity_graph, library_scan,
+│   │                                 fingerprint_status, fingerprint_queue,
+│   │                                 processing, health)
 │   ├── core/                       Engine-facing layer. NOT top-level (#4627):
 │   │   ├── processing_engine.py      Audio processing orchestration
 │   │   ├── chunked_processor.py      15s chunks rendered w/ context, emitted as
@@ -156,7 +157,7 @@ auralis-web/
     └── src/
         ├── components/               UI components
         ├── hooks/                    Domain hooks (player, library, enhancement,
-        │                               websocket, api, app, fingerprint, shared)
+        │                               websocket, api, app, audio, fingerprint, shared)
         ├── store/                    Redux state management
         ├── design-system/            Design tokens (single source of truth)
         ├── services/                 API clients

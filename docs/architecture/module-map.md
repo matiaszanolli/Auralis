@@ -16,7 +16,7 @@ matchering/
 │   └── frontend/         React + TypeScript + Vite + Redux
 ├── vendor/auralis-dsp/   Rust DSP via PyO3 (in-process fingerprint module)
 ├── desktop/              Electron wrapper
-├── tests/                ~7,000 test functions across 16 subdirs
+├── tests/                thousands of test functions across 16 subdirs (scripts/check_doc_counts.py has the live count)
 └── docs/                 This documentation
 ```
 
@@ -42,7 +42,7 @@ auralis/
 │   ├── dynamics/                 Compressor, brick-wall limiter, envelope, soft clipper
 │   ├── eq/                       PsychoacousticEQ (26 Bark bands, WOLA)
 │   └── utils/                    Loudness targets, filters, conversion, audio_info
-├── analysis/                   Largest module (59 files)
+├── analysis/                   Largest module
 │   ├── fingerprint/              25D fingerprint: schema, audio_fingerprint_analyzer,
 │   │                             rust_fingerprint, windowed_compute, metrics/,
 │   │                             normalizer, distance, similarity, knn_graph
@@ -89,7 +89,7 @@ backend/
 │   ├── startup/              Lifespan package (startup order, rollback, watchdog,
 │   │                         shutdown, workers)
 │   └── globals.py            ConnectionManager + globals_dict + WS origin allowlist
-├── routers/                75 modules, of which 20 are registered in config/routes.py
+├── routers/                the router modules, of which 20 are registered in config/routes.py
 │                             (player, library, albums, artists, playlists, enhancement,
 │                             metadata, artwork, similarity, library_scan, …; the rest
 │                             are per-router *_deps/*_models helper modules)
