@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from .loudness_filters import KWeightingMixin
+from .loudness_filters import KWeightingMixin, mean_square_to_lufs
 from .loudness_range import LoudnessRangeTracker
 from .loudness_true_peak import true_peak_linear
 from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
@@ -86,13 +86,7 @@ class LoudnessMeter(KWeightingMixin):
                 np.mean(k_weighted_audio[:, ch] ** 2) for ch in range(k_weighted_audio.shape[1])
             )
 
-        # Convert to LUFS
-        if mean_square > 0:
-            lufs = float(-0.691 + 10 * np.log10(mean_square))
-        else:
-            lufs = -np.inf
-
-        return float(lufs)
+        return mean_square_to_lufs(mean_square)
 
     def measure_chunk(self, audio_chunk: np.ndarray) -> dict[str, Any]:
         """

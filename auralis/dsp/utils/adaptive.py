@@ -10,6 +10,7 @@ Utilities for adaptive and intelligent audio processing
 
 import numpy as np
 
+from ...analysis.loudness_filters import mean_square_to_lufs
 from ...analysis.loudness_meter import LoudnessMeter
 from ...io.processing import downmix_to_stereo, requires_layout_aware_downmix
 from .audio_info import mono_to_stereo
@@ -123,7 +124,9 @@ def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
     # is ~0.07 ms against ~45 ms of filtering for a 15 s chunk, so it is not
     # worth caching behind a lock.
     meter = LoudnessMeter(sample_rate=sample_rate)
-    lufs = meter.calculate_block_loudness(meter.apply_k_weighting(audio))
+    # Channel by channel: the same value as calculate_block_loudness(apply_k_weighting(audio))
+    # without a full-length filtered copy, which whole-track jobs measure many times (#6717).
+    lufs = mean_square_to_lufs(meter.k_weighted_mean_square(audio))
 
     # Silence gives -inf; callers subtract from this value and feed it to tanh
     # curves, so hand back the same finite floor the old implementation used.
