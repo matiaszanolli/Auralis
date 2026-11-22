@@ -40,7 +40,7 @@ import {
   selectIsMuted,
   selectVolume,
 } from '@/store/slices/playerSlice';
-import type { EnhancementPreset } from '@/types/domain';
+import { DEFAULT_ENHANCEMENT_PRESET, type EnhancementPreset } from '@/types/domain';
 import { useAudioStreamingCore } from './useAudioStreamingCore';
 import { useFingerprintStatus, type FingerprintStatus } from './useFingerprintStatus';
 import { useEnhancedStreamStart, type CurrentTrackInfo } from './useEnhancedStreamStart';
@@ -190,7 +190,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     [startPlayback]
   );
   const playNormal = useCallback(
-    (trackId: number) => startPlayback(trackId, 'adaptive', 1.0, 'normal'),
+    (trackId: number) => startPlayback(trackId, DEFAULT_ENHANCEMENT_PRESET, 1.0, 'normal'),
     [startPlayback]
   );
 

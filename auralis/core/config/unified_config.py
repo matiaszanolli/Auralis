@@ -14,7 +14,7 @@ from typing import Any
 from ...dsp.constants import DEFAULT_FFT_SIZE
 from ...utils.logging import debug
 from .genre_profiles import create_default_genre_profiles, get_genre_profile
-from .preset_profiles import PresetProfile, get_preset_profile
+from .preset_profiles import DEFAULT_PRESET_NAME, PresetProfile, get_preset_profile
 from .settings import AdaptiveConfig, GenreProfile
 
 # The three processing modes, as one runtime-checkable source of truth.
@@ -71,7 +71,7 @@ class UnifiedConfig:
 
         # Mastering profile/preset (only 'adaptive' is valid; see
         # preset_profiles.create_preset_profiles)
-        self.mastering_profile = "adaptive"
+        self.mastering_profile = DEFAULT_PRESET_NAME
 
         # Cross-dimensional guard (Phase 8 - mastering quality framework)
         # When True, each processing stage is measured and cross-dimensional

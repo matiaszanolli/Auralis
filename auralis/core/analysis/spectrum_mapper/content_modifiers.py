@@ -10,12 +10,14 @@ Rules for adjusting processing parameters based on content characteristics
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.core.config.preset_profiles import DEFAULT_PRESET_NAME
+
 from .data_classes import SpectrumParameters, SpectrumPosition
 
 
 def apply_content_modifiers(params: SpectrumParameters,
                             position: SpectrumPosition,
-                            user_preset_hint: str = 'adaptive') -> SpectrumParameters:
+                            user_preset_hint: str = DEFAULT_PRESET_NAME) -> SpectrumParameters:
     """
     Apply content-specific modifiers to interpolated parameters.
     These are rules that apply across the spectrum.

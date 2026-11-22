@@ -50,6 +50,11 @@ class PresetProfile:
     peak_target_db: float = -0.35  # Peak normalization target in dBFS (default -0.35 dB)
 
 
+# The engine's default preset (#6632): the one profile that ships. Mirrors schemas.DEFAULT_PRESET,
+# which core may not import; tests/regression/test_default_preset_constants_6632.py holds them equal.
+DEFAULT_PRESET_NAME = "adaptive"
+
+
 def create_preset_profiles() -> dict[str, PresetProfile]:
     """
     Create all mastering preset profiles.
@@ -70,7 +75,7 @@ def create_preset_profiles() -> dict[str, PresetProfile]:
         Dictionary mapping preset names to PresetProfile objects
     """
     return {
-        "adaptive": PresetProfile(
+        DEFAULT_PRESET_NAME: PresetProfile(
             name="Adaptive",
             description="Intelligent content-aware mastering that adapts to your audio",
 

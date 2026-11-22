@@ -15,7 +15,7 @@
  */
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { EnhancementPreset, PlayerTrack } from '@/types/domain';
+import { DEFAULT_ENHANCEMENT_PRESET, type EnhancementPreset, type PlayerTrack } from '@/types/domain';
 import { initialStreamingInfo, streamingReducers } from './playerStreamingReducers';
 import type { StreamingInfo } from './playerStreamingReducers';
 
@@ -48,7 +48,7 @@ const initialState: PlayerState = {
   duration: 0,
   volume: 80,  // matches backend PlayerState default (issue #2251)
   isMuted: false,
-  preset: 'adaptive',
+  preset: DEFAULT_ENHANCEMENT_PRESET,
   lastUpdated: 0,
   streaming: {
     normal: { ...initialStreamingInfo },

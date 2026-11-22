@@ -52,6 +52,7 @@ from core.mastering_target_service import get_mastering_target_service  # Single
 from core.processor_registry import get_processor_factory  # Singleton (injected, not constructed here)
 
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
+from auralis.core.config.preset_profiles import DEFAULT_PRESET_NAME
 from auralis.analysis.mastering_recommendation import MasteringRecommendation
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
         self,
         track_id: int,
         filepath: str,
-        preset: str | None = "adaptive",
+        preset: str | None = DEFAULT_PRESET_NAME,
         intensity: float = 1.0,
         chunk_cache: dict[str, Any] | None = None,
         cancel_event: threading.Event | None = None,

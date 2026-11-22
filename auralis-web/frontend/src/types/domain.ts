@@ -112,6 +112,9 @@ export const ENHANCEMENT_PRESETS: EnhancementPreset[] = [
   'adaptive',
 ];
 
+/** The preset a fresh session, a reset and a plain play use (#6632); mirrors schemas.DEFAULT_PRESET. */
+export const DEFAULT_ENHANCEMENT_PRESET: EnhancementPreset = ENHANCEMENT_PRESETS[0];
+
 /**
  * Runtime guard for a preset off the wire, derived from ENHANCEMENT_PRESETS so
  * it cannot drift from the union (#5610). Every plain-string wire field

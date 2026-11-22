@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from ...dsp.basic import amplify
+from ..config.preset_profiles import DEFAULT_PRESET_NAME
 from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.conversion import level_stats, peak_db
 from ...dsp.utils.stereo import stereo_width_analysis
@@ -85,7 +86,7 @@ class AdaptiveMode:
 
         # Get user's preset as a hint (not a rigid rule)
         preset_profile = self.config.get_preset_profile()
-        preset_hint = preset_profile.name.lower() if preset_profile else 'adaptive'
+        preset_hint = preset_profile.name.lower() if preset_profile else DEFAULT_PRESET_NAME
 
         # Calculate processing parameters from spectrum position
         spectrum_params = self.spectrum_mapper.calculate_processing_parameters(

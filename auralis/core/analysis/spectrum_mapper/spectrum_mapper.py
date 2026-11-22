@@ -11,6 +11,7 @@ Presets act as anchor points rather than rigid configurations.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.core.config.preset_profiles import DEFAULT_PRESET_NAME
 from auralis.core.utils import fingerprint_default
 from typing import Any
 
@@ -81,7 +82,7 @@ class SpectrumMapper:
 
     def calculate_processing_parameters(self,
                                        spectrum_position: SpectrumPosition,
-                                       user_preset_hint: str = 'adaptive') -> SpectrumParameters:
+                                       user_preset_hint: str = DEFAULT_PRESET_NAME) -> SpectrumParameters:
         """
         Calculate processing parameters by interpolating on the spectrum.
 

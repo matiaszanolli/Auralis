@@ -8,6 +8,7 @@ import { InterfaceSettingsPanel } from './InterfaceSettingsPanel';
 import { EnhancementSettingsPanel } from './EnhancementSettingsPanel';
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { SETTINGS_PANEL_ID, settingsTabId } from './SettingsTabNav';
+import { DEFAULT_ENHANCEMENT_PRESET } from '@/types/domain';
 
 interface SettingsDialogContentProps {
   activeTab: number;
@@ -87,7 +88,7 @@ export const SettingsDialogContentComponent = ({
             // The intensity can still arrive as null (#5517), and nothing is loaded
             // before the first fetch: fall back to the defaults the panel's single
             // Select option implies, mirroring the scanFolders ?? [] guard above.
-            defaultPreset={getValue('default_preset') ?? 'adaptive'}
+            defaultPreset={getValue('default_preset') ?? DEFAULT_ENHANCEMENT_PRESET}
             autoEnhance={getValue('auto_enhance') ?? false}
             enhancementIntensity={getValue('enhancement_intensity') ?? 1.0}
             onSettingChange={onSettingChange}

@@ -20,11 +20,9 @@ from collections import OrderedDict
 from typing import Any
 
 from .env_config import get_int_env
-from .processor_cache_key import (
-    ProcessorCacheKey,
-    build_cache_key,
-    hash_config,
-)
+from auralis.core.config.preset_profiles import DEFAULT_PRESET_NAME
+
+from .processor_cache_key import ProcessorCacheKey, build_cache_key, hash_config
 from .processor_lease import ProcessorLeaseMixin
 from .processor_maintenance import ProcessorMaintenanceMixin
 from .targets_hash import get_targets_hash
@@ -61,7 +59,7 @@ class ProcessorFactory(ProcessorLeaseMixin, ProcessorMaintenanceMixin):
         factory = ProcessorFactory()
         processor = factory.get_or_create(
             track_id=123,
-            preset="adaptive",
+            preset=DEFAULT_PRESET_NAME,
             intensity=1.0,
             mastering_targets=targets
         )
@@ -118,7 +116,7 @@ class ProcessorFactory(ProcessorLeaseMixin, ProcessorMaintenanceMixin):
     def get_or_create(
         self,
         track_id: int = 0,
-        preset: str = "adaptive",
+        preset: str = DEFAULT_PRESET_NAME,
         intensity: float = 1.0,
         config: Any | None = None,
         mastering_targets: dict[str, Any] | None = None
