@@ -31,17 +31,16 @@ from config.app import create_app
 from config.bootstrap import install_log_sanitizer
 from config.fallback_routes import mount_frontend, register_fallback_routes
 from config.globals import set_component_registry
-from websocket.connection_manager import ConnectionManager
 from config.limits import SHUTDOWN_STEP_TIMEOUT_S, WS_MAX_MESSAGE_SIZE
 from config.middleware import setup_middleware
 from config.origins import BACKEND_PORT
 from config.routes import setup_routers
 from config.startup import create_lifespan
 from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET
+from websocket.connection_manager import ConnectionManager
 
 install_log_sanitizer()
 
-# Import state management
 from player_state import create_track_info
 
 # The engine, processing, cache and similarity packages are imported unguarded
