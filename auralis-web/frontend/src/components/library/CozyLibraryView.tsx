@@ -104,17 +104,17 @@ const CozyLibraryView = memo<CozyLibraryViewProps>(({
     autoLoad: playlistId === null,
   });
 
-  // Filtered tracks (search)
+  // Instant feedback only while the query debounces: once it settles, the server's page is the
+  // answer (it matches every artist and casefolds; this overlay sees artists[0] only, #6567).
   const filteredTracks = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return tracks;
-    }
+    const query = searchQuery.trim().toLowerCase();
+    if (!query || searchQuery === debouncedSearch) return tracks;
     return tracks.filter(track =>
-      track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      track.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (track.album ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+      track.title.toLowerCase().includes(query) ||
+      track.artist.toLowerCase().includes(query) ||
+      (track.album ?? '').toLowerCase().includes(query)
     );
-  }, [searchQuery, tracks]);
+  }, [searchQuery, debouncedSearch, tracks]);
 
   // Track selection for batch operations
   const {

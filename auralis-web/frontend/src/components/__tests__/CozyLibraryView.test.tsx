@@ -241,6 +241,38 @@ describe('CozyLibraryView', () => {
     });
   });
 
+  describe('Client search overlay vs the server result (#6567)', () => {
+    const featured = [
+      { id: 1, title: 'Under Pressure', artist: 'Queen', album: 'Hot Space', duration: 248 },
+      { id: 2, title: 'Strasse', artist: 'Kraftwerk', album: 'Trans', duration: 200 },
+    ];
+
+    it('keeps a row the server matched through a secondary artist once the query settles', () => {
+      // Server-searched "bowie": Under Pressure matched via artists[1]; the row's artist is Queen.
+      vi.mocked(useLibraryWithStats).mockReturnValue({ ...mockLibraryWithStats, tracks: featured } as any);
+
+      render(<CozyLibraryView searchQuery="bowie" />);
+
+      expect(screen.getByTestId('track-1')).toBeInTheDocument();
+      expect(screen.getByTestId('track-2')).toBeInTheDocument();
+    });
+
+    it('still filters the previous result instantly while a new query debounces', () => {
+      vi.useFakeTimers();
+      try {
+        vi.mocked(useLibraryWithStats).mockReturnValue({ ...mockLibraryWithStats, tracks: featured } as any);
+        const { rerender } = render(<CozyLibraryView searchQuery="" />);
+
+        rerender(<CozyLibraryView searchQuery="pressure" />);
+
+        expect(screen.getByTestId('track-1')).toBeInTheDocument();
+        expect(screen.queryByTestId('track-2')).not.toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('Playlist Detail Routing (#6007)', () => {
     it('routes playlist-<id> views to the playlist detail view', () => {
       render(<CozyLibraryView view="playlist-7" />);
@@ -323,6 +355,13 @@ describe('CozyLibraryView', () => {
     });
 
     it('announces no results for the query', async () => {
+      // The server answers a settled search; it found nothing (#6567: the overlay no longer
+      // re-filters a settled result, so the mock must return what the server would).
+      vi.mocked(useLibraryWithStats).mockReturnValue({
+        ...mockLibraryWithStats,
+        tracks: [],
+        totalTracks: 0,
+      } as any);
       render(<CozyLibraryView searchQuery="zzz no match" />);
 
       await act(async () => {
