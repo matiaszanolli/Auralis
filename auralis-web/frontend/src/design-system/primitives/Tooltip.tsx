@@ -7,7 +7,7 @@
  *   <Tooltip title="Click to play"><IconButton>...</IconButton></Tooltip>
  *   <Tooltip title="Info" placement="top">...</Tooltip>
  *
- * @see docs/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_STYLE_GUIDE.md
  */
 
 import { styled } from '@mui/material/styles';

@@ -9,7 +9,7 @@
  *   <IconButton variant="primary" size="lg"><FavoriteIcon /></IconButton>
  *   <IconButton tooltip="Add to playlist"><AddIcon /></IconButton>
  *
- * @see docs/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_STYLE_GUIDE.md
  */
 
 import { ComponentType, forwardRef } from 'react';

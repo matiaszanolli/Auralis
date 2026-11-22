@@ -8,7 +8,7 @@
  *   <Slider value={75} min={0} max={100} variant="gradient" />
  *   <Slider value={30} size="sm" showValue />
  *
- * @see docs/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_STYLE_GUIDE.md
  */
 
 import { styled } from '@mui/material/styles';

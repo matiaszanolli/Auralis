@@ -9,7 +9,7 @@
  *     <ListItem>Item 2</ListItem>
  *   </List>
  *
- * @see docs/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_STYLE_GUIDE.md
  */
 
 import MuiList, { ListProps as MuiListProps } from '@mui/material/List';

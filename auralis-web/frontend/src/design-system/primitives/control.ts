@@ -1,7 +1,7 @@
 /**
  * Control primitives — interactive inputs.
  *
- * @see docs/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_STYLE_GUIDE.md
  */
 
 export { Button } from './Button';

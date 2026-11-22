@@ -2,7 +2,7 @@
  * Surface primitives — cards, overlays, and status/indicator chrome
  * rendered on top of layout.
  *
- * @see docs/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_STYLE_GUIDE.md
  */
 
 export { Alert } from './Alert';

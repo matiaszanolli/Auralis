@@ -8,7 +8,7 @@
  *   <CircularProgress size={40} />
  *   <CircularProgress variant="determinate" value={75} />
  *
- * @see docs/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_STYLE_GUIDE.md
  */
 
 import MuiCircularProgress, {

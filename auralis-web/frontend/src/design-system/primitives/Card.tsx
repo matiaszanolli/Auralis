@@ -8,7 +8,7 @@
  *   <Card variant="elevated" hoverable>Elevated card</Card>
  *   <Card padding="lg">Large padding</Card>
  *
- * @see docs/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_STYLE_GUIDE.md
  */
 
 import { ComponentType } from 'react';

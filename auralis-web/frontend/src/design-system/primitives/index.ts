@@ -5,7 +5,7 @@
  * control. Each one has a production consumer; a primitive nothing imports does not
  * belong here (#6442).
  *
- * @see docs/UI_DESIGN_GUIDELINES.md
+ * @see docs/UI_STYLE_GUIDE.md
  */
 
 export { List } from './layout';
