@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import Path as PathParam
 from fastapi.responses import FileResponse, Response
 
+from auralis.utils.artwork_security import MAX_ARTWORK_DIMENSION
 from .dependencies import with_error_handling
 from . import artwork_thumbnails
 from .errors import NotFoundError
@@ -69,7 +70,7 @@ async def get_album_artwork(
     size: int | None = Query(
         None,
         ge=16,
-        le=2048,
+        le=MAX_ARTWORK_DIMENSION,
         description=(
             "Optional max dimension (px) for a downscaled thumbnail. Snaps "
             "up to a cache bucket; omit for the full-resolution image (#4447)."
@@ -100,8 +101,7 @@ async def get_album_artwork(
     if not artwork_path:
         raise NotFoundError("Artwork")
 
-    # Security: Validate artwork path is within allowed directory
-    # Define allowed artwork directory (shared with the purge path, #4532)
+    # Security: the path must sit in the artwork directory (shared with the purge path, #4532)
     artwork_dir, thumb_dir = artwork_thumbnails._artwork_dirs()
     # Off the event loop (#4653's CONSISTENCY sweep): this is inside async def.
     await asyncio.to_thread(artwork_dir.mkdir, parents=True, exist_ok=True)

@@ -26,12 +26,6 @@ from ..utils.logging import debug, error, info
 from .artwork_tags import TagArtworkReadersMixin
 from .folder_artwork import candidate_cover_files, read_folder_artwork
 
-# Cap the largest side of stored artwork (#4439). Embedded/folder covers can be
-# arbitrarily large (e.g. 6000x6000); bounding the source here keeps disk usage
-# and client-side decode cost in check while retaining more than enough
-# resolution for the largest served thumbnail bucket (1024px) and full-size
-# display. Matches the GET endpoint's maximum requestable size (le=2048).
-_MAX_ARTWORK_DIMENSION = 2048
 
 
 class ArtworkExtractor(TagArtworkReadersMixin):

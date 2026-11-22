@@ -15,7 +15,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from services.artwork_downloader import _MAX_ARTWORK_REDIRECTS, ArtworkDownloader
+from services.artwork_downloader import ArtworkDownloader
+from services.artwork_providers.trust import MAX_ARTWORK_REDIRECTS
 
 ITUNES_SEARCH = "https://itunes.apple.com/search"
 ITUNES_ART = "https://is1-ssl.mzstatic.com/image/600x600.jpg"
@@ -173,7 +174,7 @@ async def test_redirect_loop_is_bounded(tmp_path):
     downloader = _downloader(tmp_path, session)
 
     assert await downloader._try_musicbrainz("Artist", "Album", 1) is None
-    assert len(session.requested) - 1 == _MAX_ARTWORK_REDIRECTS + 1
+    assert len(session.requested) - 1 == MAX_ARTWORK_REDIRECTS + 1
 
 
 @pytest.mark.asyncio

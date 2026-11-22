@@ -278,7 +278,7 @@ class TestBoundDimensions:
 
     def test_oversized_image_is_downscaled(self):
         """A cover larger than the cap is downscaled so its largest side fits."""
-        from auralis.library.artwork import _MAX_ARTWORK_DIMENSION
+        from auralis.utils.artwork_security import MAX_ARTWORK_DIMENSION
 
         with tempfile.TemporaryDirectory() as tmpdir:
             extractor = ArtworkExtractor(tmpdir)
@@ -288,7 +288,7 @@ class TestBoundDimensions:
 
             assert saved is not None
             width, height = self._dimensions(Path(saved).read_bytes())
-            assert max(width, height) <= _MAX_ARTWORK_DIMENSION
+            assert max(width, height) <= MAX_ARTWORK_DIMENSION
             # Aspect ratio preserved (4:3)
             assert width > height
 
@@ -368,10 +368,10 @@ class TestSaveArtworkExtensionSniffing:
 
             assert result is not None
             assert result.endswith(".webp")
-            from auralis.library.artwork import _MAX_ARTWORK_DIMENSION
+            from auralis.utils.artwork_security import MAX_ARTWORK_DIMENSION
             with Image.open(result) as saved:
                 assert saved.format == "WEBP"
-                assert max(saved.size) <= _MAX_ARTWORK_DIMENSION
+                assert max(saved.size) <= MAX_ARTWORK_DIMENSION
 
 
 class TestDeleteArtwork:

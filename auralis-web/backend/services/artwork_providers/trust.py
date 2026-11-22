@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 # Cover Art Archive needs two hops (coverartarchive.org -> archive.org ->
 # an ia*.us.archive.org mirror); anything far past that is not a CDN.
-_MAX_ARTWORK_REDIRECTS = 5
+MAX_ARTWORK_REDIRECTS = 5
 
 
 @asynccontextmanager
@@ -43,7 +43,7 @@ async def _get_trusted_artwork(
     when a hop is untrusted, the chain is too long, or the final status is not
     200.
     """
-    for _ in range(_MAX_ARTWORK_REDIRECTS + 1):
+    for _ in range(MAX_ARTWORK_REDIRECTS + 1):
         if not _validate_artwork_url(url):
             logger.warning(f"Rejecting untrusted {source} artwork URL: {url!r}")
             break
@@ -59,6 +59,6 @@ async def _get_trusted_artwork(
         url = urljoin(url, location)
     else:
         logger.warning(
-            f"{source} artwork exceeded {_MAX_ARTWORK_REDIRECTS} redirects"
+            f"{source} artwork exceeded {MAX_ARTWORK_REDIRECTS} redirects"
         )
     yield None

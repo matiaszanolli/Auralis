@@ -49,10 +49,6 @@ logger = logging.getLogger(__name__)
 _ARTWORK_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=15, connect=5)
 _ARTWORK_LOOKUP_BUDGET_S = 45.0
 
-_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
-# Cover Art Archive needs two hops (coverartarchive.org -> archive.org ->
-# an ia*.us.archive.org mirror); anything far past that is not a CDN.
-_MAX_ARTWORK_REDIRECTS = 5
 
 
 class ArtworkDownloader:
