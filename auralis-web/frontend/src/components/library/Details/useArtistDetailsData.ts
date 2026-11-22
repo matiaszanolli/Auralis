@@ -18,6 +18,8 @@ export interface Album {
   year?: number;
   track_count: number;
   total_duration: number;
+  /** Present only when the album has artwork (#5925); AlbumsTab requests the cover from it. */
+  artwork_url?: string | null;
 }
 
 export interface Artist extends DomainArtist {
@@ -57,6 +59,7 @@ const fetchArtist = async (artistId: number, signal: AbortSignal): Promise<Artis
       year: a.year ?? undefined,
       track_count: a.track_count,
       total_duration: a.total_duration ?? 0,
+      artwork_url: a.artwork_url ?? null,
     })),
     tracks: (trackList?.tracks ?? []).map((t) => toDetailTrack(t, base.name)),
   };

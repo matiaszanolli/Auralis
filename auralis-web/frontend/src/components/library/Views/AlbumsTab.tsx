@@ -8,16 +8,7 @@ import Grid from '@mui/material/Grid';
 import { tokens } from '@/design-system';
 import AlbumCard from '@/components/album/AlbumCard/AlbumCard';
 import { themeVars } from '@/theme/semanticTheme';
-
-interface Album {
-  id: number;
-  title: string;
-  year?: number;
-  track_count: number;
-  total_duration: number;
-  /** Present only when the album has artwork (#5925). */
-  artwork_url?: string | null;
-}
+import type { Album } from '@/components/library/Details/useArtistDetailsData';
 
 interface AlbumsTabProps {
   albums: Album[];

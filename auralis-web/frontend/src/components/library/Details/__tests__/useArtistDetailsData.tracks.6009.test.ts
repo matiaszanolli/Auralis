@@ -68,3 +68,25 @@ describe('useArtistDetailsData tracks (#6009)', () => {
     expect(result.current.artist?.tracks).toEqual([]);
   });
 });
+
+describe('useArtistDetailsData album artwork (#6563)', () => {
+  beforeEach(() => {
+    mockGet.mockReset();
+  });
+
+  it('keeps each album\'s artwork_url, so AlbumsTab requests the cover', async () => {
+    const withArt = {
+      ...detail,
+      albums: [
+        { ...detail.albums[0], artwork_url: '/api/albums/10/artwork' },
+        { id: 11, title: 'Jazz', year: 1978, track_count: 1, total_duration: 300, artwork_url: null },
+      ],
+    };
+    mockGet.mockImplementation(async (url: string) => (url.endsWith('/tracks') ? tracksResponse : withArt));
+
+    const { result } = renderHook(() => useArtistDetailsData(7));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.artist?.albums?.map((a) => a.artwork_url)).toEqual(['/api/albums/10/artwork', null]);
+  });
+});
