@@ -460,23 +460,19 @@ class TestLongRunningOperations:
 
         Exercises the player's QueueController directly: AudioPlayer() without a
         repository factory raises, and the queue is all this measures.
-        """
-        import gc
 
+        The adds take ~2 ms. The loop used to gc.collect() every 100 adds, inside
+        the timer: in the nightly process, which holds every earlier test's live
+        objects, each full collection took ~0.45 s, so the test reported 4.45 s
+        and failed its 2 s limit on garbage collection, not on the queue.
+        """
         from auralis.player.queue_controller import QueueController
 
         queue = QueueController(get_repository_factory_callable)
 
-        # Add tracks incrementally to avoid memory spike
         start = time.time()
         for i in range(1000):
-            track_info = {"filepath": f"/test/track_{i:04d}.mp3", "title": f"Track {i}"}
-            queue.add_track(track_info)
-
-            # Periodic garbage collection to prevent memory buildup
-            if i % 100 == 0:
-                gc.collect()
-
+            queue.add_track({"filepath": f"/test/track_{i:04d}.mp3", "title": f"Track {i}"})
         queue_time = time.time() - start
 
         # Should handle large queue efficiently
