@@ -105,7 +105,7 @@ class TrackRepositoryMutationMixin(BaseRepository):
         Returns:
             Updated Track object if successful, None if failed
         """
-        with self._guarded("Failed to update track") as session:
+        with self._guarded("Failed to update track", write=True) as session:  # creates artists (#6564)
             track = session.execute(
                 select(Track).where(Track.filepath_key == make_filepath_key(filepath))
             ).scalars().first()
@@ -167,7 +167,7 @@ class TrackRepositoryMutationMixin(BaseRepository):
         Returns:
             Updated track or None if not found
         """
-        with self._guarded("Failed to update track") as session:
+        with self._guarded("Failed to update track", write=True) as session:  # creates artists (#6564)
             track = session.execute(select(Track).where(Track.id == track_id)).scalars().first()
             if not track:
                 return None

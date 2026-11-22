@@ -162,7 +162,9 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
             return None
         self._validate_and_normalize_track_info(track_info)
 
-        with self._guarded("Failed to add track") as session:
+        # Write lock before the artist/genre/album lookups, so a concurrent add of a spelling
+        # variant ("AC/DC" vs "ac/dc") waits and finds this one's row (#6564).
+        with self._guarded("Failed to add track", write=True) as session:
             # Check if track already exists
             existing = session.execute(
                 select(Track).options(
