@@ -64,25 +64,30 @@ describe('AlbumArt', () => {
   });
 
   describe('Image Display', () => {
-    it('should render image element when albumId provided', () => {
-      act(() => {
-        render(<AlbumArt albumId={1} />);
-      });
-      const img = screen.queryByRole('img');
-      // Image should be in DOM even if loading
-      if (img) {
-        expect(img).toBeInTheDocument();
+    // ProgressiveImage shows the <img> only after a preloading `new Image()` fires onload, which
+    // jsdom never does; these used to query for an <img> that never rendered and assert nothing
+    // behind an `if (img)` (#6659). An Image that loads at once lets them see the real element.
+    class LoadingImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_url: string) {
+        queueMicrotask(() => this.onload?.());
       }
+    }
+    beforeEach(() => vi.stubGlobal('Image', LoadingImage));
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('should render image element when albumId provided', async () => {
+      render(<AlbumArt albumId={1} />);
+
+      expect(await screen.findByRole('img', { name: 'Album 1 artwork' })).toBeInTheDocument();
     });
 
-    it('should use correct image URL pattern', () => {
-      act(() => {
-        render(<AlbumArt albumId={42} />);
-      });
-      const img = screen.queryByRole('img');
-      if (img && img instanceof HTMLImageElement) {
-        expect(img.src).toContain('42');
-      }
+    it('should use correct image URL pattern', async () => {
+      render(<AlbumArt albumId={42} />);
+
+      const img = (await screen.findByRole('img')) as HTMLImageElement;
+      expect(img.src).toMatch(/\/api\/albums\/42\/artwork(\?|$)/);
     });
   });
 

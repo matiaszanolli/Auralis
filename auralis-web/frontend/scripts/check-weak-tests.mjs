@@ -11,6 +11,10 @@
  *   weak    a test whose EVERY assertion is a presence check that passes for almost any value:
  *           toBeDefined, toBeTruthy, not.toBeNull, not.toBeUndefined. (A test that also asserts
  *           something specific is fine.)
+ *   conditional  a test with an assertion inside an `if` that has no `else` (#6659): when the
+ *           condition is false the behaviour the test is named for is never checked, and the
+ *           other two rules still see an expect() and pass it. Query with getBy* and assert
+ *           unconditionally instead.
  *
  * Offenders are listed as `path::test title`, never as a count, so strengthening one test and
  * weakening another cannot net out. The baseline may shrink, never grow.
@@ -73,12 +77,31 @@ function matcherChain(call) {
 function classify(body) {
   let assertions = 0;
   let strong = 0;
+  let conditional = false;
+  // Depth of `if` statements without an `else` enclosing the current node.
+  let unguardedIfDepth = 0;
   const visit = (node) => {
+    if (ts.isIfStatement(node) && !node.elseStatement) {
+      visit(node.expression);
+      unguardedIfDepth += 1;
+      visit(node.thenStatement);
+      unguardedIfDepth -= 1;
+      return;
+    }
+    if (ts.isFunctionLike(node) && node !== body) {
+      // A nested callback (waitFor, act, a helper) starts its own control flow.
+      const saved = unguardedIfDepth;
+      unguardedIfDepth = 0;
+      ts.forEachChild(node, visit);
+      unguardedIfDepth = saved;
+      return;
+    }
     if (ts.isCallExpression(node)) {
       const text = node.expression.getText();
       const chain = matcherChain(node);
       if (chain) {
         assertions += 1;
+        if (unguardedIfDepth > 0) conditional = true;
         const negated = chain[0] === 'not';
         const matcher = chain[chain.length - 1];
         const weak = negated ? WEAK_NEGATED_MATCHERS.has(matcher) : WEAK_MATCHERS.has(matcher);
@@ -95,11 +118,12 @@ function classify(body) {
   visit(body.body);
   if (assertions === 0 && body.getText().includes('@ts-expect-error')) return null;
   if (assertions === 0) return 'zero';
-  return strong === 0 ? 'weak' : null;
+  if (strong === 0) return 'weak';
+  return conditional ? 'conditional' : null;
 }
 
 export function scan(srcDir = SRC, base = ROOT) {
-  const offenders = { zero: [], weak: [] };
+  const offenders = { zero: [], weak: [], conditional: [] };
   for (const file of testFiles(srcDir)) {
     const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
     const rel = relative(base, file);
@@ -126,7 +150,10 @@ function main() {
   }
   if (mode === '--update') {
     writeFileSync(BASELINE_PATH, `${JSON.stringify(current, null, 2)}\n`);
-    console.log(`Baseline updated: ${current.zero.length} zero-assertion, ${current.weak.length} weak-only.`);
+    console.log(
+      `Baseline updated: ${current.zero.length} zero-assertion, ${current.weak.length} weak-only, ` +
+        `${current.conditional.length} conditional.`,
+    );
     return 0;
   }
   const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
@@ -137,7 +164,8 @@ function main() {
     const fixed = (baseline[kind] ?? []).filter((id) => !current[kind].includes(id));
     if (fresh.length) {
       failed = true;
-      console.error(`✖ ${fresh.length} new ${kind === 'zero' ? 'zero-assertion' : 'weak-only'} test(s):`);
+      const label = { zero: 'zero-assertion', weak: 'weak-only', conditional: 'conditional-assertion' }[kind];
+      console.error(`✖ ${fresh.length} new ${label} test(s):`);
       fresh.forEach((id) => console.error(`    ${id}`));
     }
     if (fixed.length) {
@@ -148,7 +176,10 @@ function main() {
     console.error('A test must assert something specific. Strengthen it; the baseline may only shrink.');
     return 1;
   }
-  console.log(`OK: no new weak tests (baseline: ${baseline.zero.length} zero, ${baseline.weak.length} weak-only).`);
+  console.log(
+    `OK: no new weak tests (baseline: ${baseline.zero.length} zero, ${baseline.weak.length} weak-only, ` +
+      `${(baseline.conditional ?? []).length} conditional).`,
+  );
   return 0;
 }
 

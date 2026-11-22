@@ -12,7 +12,7 @@
  */
 
 import { vi } from 'vitest';
-import { render, screen, waitFor } from '@/test/test-utils';
+import { render, screen, waitFor, within } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import AlbumDetailView from '../Details/AlbumDetailView';
 
@@ -23,6 +23,20 @@ vi.mock('@/hooks/player', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/player')>()),
   usePlayTrack: () => ({ playTrack: mockPlayTrack }),
 }));
+
+// The row's play/pause state comes from the local playback session (usePlaybackState reads
+// usePlaybackControls), not Redux player.isPlaying. A test that needs a playing session sets this.
+const session = vi.hoisted(() => ({ playing: false }));
+vi.mock('@/contexts/PlaybackSessionContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/contexts/PlaybackSessionContext')>();
+  return {
+    ...actual,
+    usePlaybackControls: () => ({
+      ...actual.usePlaybackControls(),
+      ...(session.playing ? { isPlaybackActive: true, isPaused: false } : {}),
+    }),
+  };
+});
 
 // Create mock fetch before test
 const mockFetch = vi.fn();
@@ -74,6 +88,7 @@ const transformedTrack = (raw: Record<string, any>) => ({
 
 describe('AlbumDetailView', () => {
   beforeEach(() => {
+    session.playing = false;
     vi.clearAllMocks();
     mockFetch.mockResolvedValue({
       ok: true,
@@ -307,18 +322,9 @@ describe('AlbumDetailView', () => {
         expect(screen.getByText('Abbey Road')).toBeInTheDocument();
       });
 
-      // Find play button by text content
-      try {
-        const playButton = screen.getByText(/play album/i);
-        const buttonParent = playButton.closest('button');
-        if (buttonParent) {
-          await user.click(buttonParent);
-          expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
-        }
-      } catch {
-        // Fallback: album rendered, button may not be clickable in test
-        expect(screen.getByText('Abbey Road')).toBeInTheDocument();
-      }
+      await user.click(screen.getByRole('button', { name: /play album/i }));
+
+      expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
     });
 
     it('should play track when track row clicked', async () => {
@@ -332,11 +338,9 @@ describe('AlbumDetailView', () => {
         expect(screen.getByText('Come Together')).toBeInTheDocument();
       });
 
-      const trackRow = screen.getByText('Come Together').closest('tr');
-      if (trackRow) {
-        await user.click(trackRow);
-        expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
-      }
+      await user.click(screen.getByRole('row', { name: /^Play Come Together/ }));
+
+      expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
     });
 
     it('should highlight current track', async () => {
@@ -357,6 +361,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should show pause icon for current playing track', async () => {
+      session.playing = true;
       render(
         <AlbumDetailView albumId={1} />,
         { preloadedState: { player: { currentTrack: { id: 1 } as any, isPlaying: true } } }
@@ -366,13 +371,10 @@ describe('AlbumDetailView', () => {
         expect(screen.getByText('Come Together')).toBeInTheDocument();
       });
 
-      // Should show pause icon in track row (or at least track is rendering)
-      try {
-        expect(screen.getByTestId('PauseIcon')).toBeInTheDocument();
-      } catch {
-        // Fallback: track rendered, pause icon may not have testId
-        expect(screen.getByText('Come Together')).toBeInTheDocument();
-      }
+      // TrackPlayIndicator draws Pause for the current track while it plays (#6659: this used to
+      // fall back to "the title renders" when the icon was missing, so it could never fail).
+      const currentRow = screen.getByRole('row', { name: 'Play Come Together (now playing)' });
+      expect(within(currentRow).getByTestId('PauseIcon')).toBeInTheDocument();
     });
 
     it('should show play icon on non-current track hover', async () => {
@@ -387,17 +389,12 @@ describe('AlbumDetailView', () => {
         expect(screen.getByText('Something')).toBeInTheDocument();
       });
 
-      const trackRow = screen.getByText('Something').closest('tr');
-      if (trackRow) {
-        await user.hover(trackRow);
-        // Play icon should be visible
-        const playIcon = trackRow.querySelector('[class*="play"]');
-        if (!playIcon) {
-          expect(trackRow.textContent).toContain('play');
-        } else {
-          expect(playIcon).toBeInTheDocument();
-        }
-      }
+      // A non-current row is a play control and carries the play icon its hover style reveals
+      // (#6659: these assertions sat behind `if (trackRow)` and an else that checked text instead).
+      const trackRow = screen.getByRole('row', { name: 'Play Something' });
+      await user.hover(trackRow);
+      expect(trackRow).not.toHaveAttribute('aria-current');
+      expect(within(trackRow).getByTestId('PlayArrowIcon')).toBeInTheDocument();
     });
 
     it('should change button text when album is playing', async () => {
@@ -882,18 +879,12 @@ describe('AlbumDetailView', () => {
       });
 
       // 2. User clicks play album
-      const playButton = screen.getByText(/play album/i).closest('button');
-      if (playButton) {
-        await user.click(playButton);
-        expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
-      }
+      await user.click(screen.getByRole('button', { name: /play album/i }));
+      expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[0]));
 
       // 3. User clicks on a different track
-      const secondTrack = screen.getByText('Something').closest('tr');
-      if (secondTrack) {
-        await user.click(secondTrack);
-        expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[1]));
-      }
+      await user.click(screen.getByRole('row', { name: /^Play Something/ }));
+      expect(mockPlayTrack).toHaveBeenCalledWith(transformedTrack(mockAlbumData.tracks[1]));
 
       // 4. User clicks back via the back IconButton (aria-label "Go back to albums library")
       const backButton = screen.getByLabelText(/go back/i);

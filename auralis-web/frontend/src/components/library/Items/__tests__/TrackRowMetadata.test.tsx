@@ -151,12 +151,8 @@ describe('TrackRowMetadata', () => {
       const titleElement = screen.getByText('Test Track');
       expect(titleElement).toBeInTheDocument();
 
-      // Check if current attribute is applied (iscurrent="true")
-      // Note: The component uses iscurrent prop for styling
-      const parentElement = titleElement.closest('[iscurrent]');
-      if (parentElement) {
-        expect(parentElement).toHaveAttribute('iscurrent', 'true');
-      }
+      // The title carries iscurrent, which drives its current-track styling.
+      expect(titleElement.closest('[iscurrent]')).toHaveAttribute('iscurrent', 'true');
     });
 
     it('should not apply current styling when isCurrent is false', () => {
@@ -172,11 +168,7 @@ describe('TrackRowMetadata', () => {
       const titleElement = screen.getByText('Test Track');
       expect(titleElement).toBeInTheDocument();
 
-      // Check if current attribute is not applied
-      const parentElement = titleElement.closest('[iscurrent]');
-      if (parentElement) {
-        expect(parentElement).toHaveAttribute('iscurrent', 'false');
-      }
+      expect(titleElement.closest('[iscurrent]')).toHaveAttribute('iscurrent', 'false');
     });
   });
 
@@ -308,11 +300,7 @@ describe('TrackRowMetadata', () => {
         />
       );
 
-      let titleElement = screen.getByText('Test Track');
-      let parentElement = titleElement.closest('[iscurrent]');
-      if (parentElement) {
-        expect(parentElement).toHaveAttribute('iscurrent', 'false');
-      }
+      expect(screen.getByText('Test Track').closest('[iscurrent]')).toHaveAttribute('iscurrent', 'false');
 
       // Update to current
       rerender(
@@ -324,11 +312,7 @@ describe('TrackRowMetadata', () => {
         />
       );
 
-      titleElement = screen.getByText('Test Track');
-      parentElement = titleElement.closest('[iscurrent]');
-      if (parentElement) {
-        expect(parentElement).toHaveAttribute('iscurrent', 'true');
-      }
+      expect(screen.getByText('Test Track').closest('[iscurrent]')).toHaveAttribute('iscurrent', 'true');
     });
 
     it('should add/remove album display on update', () => {

@@ -1,1 +1,11 @@
-{"zero":[],"weak":[]}
+{
+  "zero": [],
+  "weak": [],
+  "conditional": [
+    "src/components/library/__tests__/TrackRow.test.tsx::should highlight row on hover",
+    "src/components/player/__tests__/QueuePanel.test.tsx::should remove track from queue",
+    "src/components/settings/__tests__/SettingsDialog.test.tsx::should call onClose when close button is clicked",
+    "src/components/track/__tests__/TrackCard.test.tsx::should show visual feedback on hover",
+    "src/tests/integration/library-management/library-management.test.tsx::should bulk remove tracks from favorites"
+  ]
+}

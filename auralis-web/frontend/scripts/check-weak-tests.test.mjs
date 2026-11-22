@@ -35,7 +35,7 @@ test('a presence check next to a specific assertion is fine', () => {
       expect(x).toBeDefined();
       expect(x.id).toBe(3);
     });`);
-  assert.deepEqual(found, { zero: [], weak: [] });
+  assert.deepEqual(found, { zero: [], weak: [], conditional: [] });
 });
 
 test('helpers, expect.* and type-level specs count as assertions', () => {
@@ -46,5 +46,30 @@ test('helpers, expect.* and type-level specs count as assertions', () => {
       // @ts-expect-error -- must not compile
       post('/x', 'raw');
     });`);
-  assert.deepEqual(found, { zero: [], weak: [] });
+  assert.deepEqual(found, { zero: [], weak: [], conditional: [] });
+});
+
+test('flags an assertion that only runs when an if without an else holds (#6659)', () => {
+  const found = scanSpec(`
+    it('guarded', () => {
+      const el = screen.queryByRole('img');
+      if (el) {
+        expect(el).toHaveAttribute('src', 'x');
+      }
+    });`);
+  assert.deepEqual(found.conditional, ['a.test.ts::guarded']);
+});
+
+test('an if with an else, a guard in a nested callback, or an unconditional expect is fine', () => {
+  const found = scanSpec(`
+    it('both branches', () => {
+      if (a) { expect(a).toBe(1); } else { expect(b).toBe(2); }
+    });
+    it('inside a callback', async () => {
+      await waitFor(() => { expect(x).toBe(1); });
+    });
+    it('plain', () => {
+      expect(screen.getByRole('img')).toHaveAttribute('src', 'x');
+    });`);
+  assert.deepEqual(found, { zero: [], weak: [], conditional: [] });
 });
