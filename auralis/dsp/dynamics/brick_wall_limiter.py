@@ -119,18 +119,15 @@ class BrickWallLimiter:
         #
         # New approach: O(n) sliding-window maximum via scipy.ndimage.
         #
-        # Pad the abs signal so the filter sees zeros beyond the end of the
-        # block (matching the original zero-padding behaviour).
-        # #3658: pass dtype=audio.dtype so float32 input stays float32 — without
-        # this np.zeros defaults to float64 and the vstack/multiply chain
-        # silently promotes the entire pipeline output.
-        abs_padded = np.abs(
-            np.vstack(
-                [audio, np.zeros((self.lookahead_samples, num_channels), dtype=audio.dtype)]
-            )
-        )
-        # Collapse channels: take the per-sample maximum across all channels.
-        per_sample_max = abs_padded.max(axis=1)  # shape: (num_samples + lookahead,)
+        # Per-sample max |audio| across channels, then zero-padded so the filter
+        # sees zeros beyond the end of the block (matching the original
+        # zero-padding behaviour). Taking the channel max before padding keeps
+        # the full-size temporaries to one |audio| (#6717); the values are the
+        # same as max(|pad(audio)|). #3658: the pad shares audio.dtype so
+        # float32 input stays float32.
+        per_sample_max = np.concatenate(
+            [np.abs(audio).max(axis=1), np.zeros(self.lookahead_samples, dtype=audio.dtype)]
+        )  # shape: (num_samples + lookahead,)
 
         # maximum_filter1d origin convention (#5562): a POSITIVE origin shifts
         # the window toward EARLIER samples (a post-peak hold), a NEGATIVE one
@@ -147,12 +144,11 @@ class BrickWallLimiter:
 
         # Vectorized target-gain computation: threshold / peak where above
         # threshold, else 1.0.  Clamp denominator to avoid division by zero.
-        safe_envelope = np.maximum(peak_envelope, 1e-10)
-        target_gains = np.where(
-            peak_envelope > self.threshold_linear,
-            self.threshold_linear / safe_envelope,
-            1.0,
-        )
+        # The quotient is computed in place over the clamped envelope (#6717).
+        gain_where_over = np.maximum(peak_envelope, 1e-10)
+        np.divide(self.threshold_linear, gain_where_over, out=gain_where_over)
+        target_gains = np.where(peak_envelope > self.threshold_linear, gain_where_over, 1.0)
+        del gain_where_over
 
         # Ramp the reduction in over the look-ahead (#5699), then build the
         # exponential-release gain envelope.

@@ -52,12 +52,17 @@ def ramp_gain_reduction(
     # Trailing window [i - lookahead + 1, i]; a positive origin looks at
     # earlier samples.
     origin = (lookahead - 1) // 2
-    gains = target_gains.astype(np.float64)
-    ramped = uniform_filter1d(gains, size=lookahead, mode='nearest', origin=origin)
+    # Read-only below, so no copy when the gains are float64 already (#6717).
+    gains = target_gains.astype(np.float64, copy=False)
+    ramped: np.ndarray = uniform_filter1d(gains, size=lookahead, mode='nearest', origin=origin)
     no_limiting = minimum_filter1d(
         gains, size=lookahead, mode='nearest', origin=origin
     ) >= 1.0
     ramped[no_limiting] = 1.0
-    cap = threshold_linear / np.maximum(sample_peaks, 1e-10)
-    result: np.ndarray = np.minimum(ramped, np.minimum(cap, 1.0))
-    return result
+    del no_limiting
+    # Each sample's own cap, min(threshold / peak, 1), built in one buffer.
+    cap = np.maximum(sample_peaks, 1e-10)
+    np.divide(threshold_linear, cap, out=cap)
+    np.minimum(cap, 1.0, out=cap)
+    np.minimum(ramped, cap, out=ramped)
+    return ramped
