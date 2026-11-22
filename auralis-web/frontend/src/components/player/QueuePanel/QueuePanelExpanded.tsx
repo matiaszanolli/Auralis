@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { QueueTrack, RepeatMode, Track } from '@/types/domain';
 import type { ApiError } from '@/types/api';
@@ -8,6 +8,8 @@ import { ClearQueueDialog } from './ClearQueueDialog';
 import { useQueueAutoScroll } from './useQueueAutoScroll';
 import { useQueueKeyboardReorder } from './useQueueKeyboardReorder';
 import { useQueueRovingFocus } from './useQueueRovingFocus';
+import { useQueueActions } from './useQueueActions';
+import { useQueueRowKeys } from './useQueueRowKeys';
 import { styles, QUEUE_ITEM_HEIGHT } from './styles';
 
 interface QueuePanelExpandedProps {
@@ -52,31 +54,8 @@ export const QueuePanelExpanded = ({
 }: QueuePanelExpandedProps) => {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const dragTargetRef = useRef<number | null>(null);
-
-  // Stable per-row React keys (#4428).
-  //
-  // The key used to be `${track.id}-${index}`, which made position part of a
-  // row's identity: any reorder or mid-queue removal changed the key of every
-  // shifted row, so React unmounted and remounted them — precisely what
-  // QueueTrackItem's React.memo was added to avoid (#4177) — and each remount
-  // dropped the row's internal isFocused/hover state.
-  //
-  // Keying on `track.id` alone is not safe: the backend queue does not dedupe
-  // (QueueController.add_track appends unconditionally), so the same track can
-  // legitimately appear twice and would collide. Disambiguate duplicates by
-  // occurrence ordinal instead of array index — a queue of unique tracks then
-  // gets a fully position-independent key, and in a queue with duplicates only
-  // the duplicates' own relative order can change a key.
-  const rowKeys = useMemo(() => {
-    const seen = new Map<number, number>();
-    return queue.map((track) => {
-      const occurrence = seen.get(track.id) ?? 0;
-      seen.set(track.id, occurrence + 1);
-      return occurrence === 0 ? `qt-${track.id}` : `qt-${track.id}#${occurrence}`;
-    });
-  }, [queue]);
+  const rowKeys = useQueueRowKeys(queue);
 
   const queueScrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -115,34 +94,14 @@ export const QueuePanelExpanded = ({
     virtualizer,
   });
 
-  const handleToggleShuffle = useCallback(async () => {
-    try {
-      await toggleShuffle();
-    } catch (err) {
-      console.error('Failed to toggle shuffle:', err);
-    }
-  }, [toggleShuffle]);
-
-  const handleSetRepeatMode = useCallback(async (mode: RepeatMode) => {
-    try {
-      await setRepeatMode(mode);
-    } catch (err) {
-      console.error('Failed to set repeat mode:', err);
-    }
-  }, [setRepeatMode]);
-
-  const handleClearQueue = useCallback(() => {
-    setShowClearConfirm(true);
-  }, []);
-
-  const confirmClearQueue = useCallback(async () => {
-    setShowClearConfirm(false);
-    try {
-      await clearQueue();
-    } catch (err) {
-      console.error('Failed to clear queue:', err);
-    }
-  }, [clearQueue]);
+  const {
+    showClearConfirm,
+    handleToggleShuffle,
+    handleSetRepeatMode,
+    requestClearQueue,
+    cancelClearQueue,
+    confirmClearQueue,
+  } = useQueueActions({ toggleShuffle, setRepeatMode, clearQueue });
 
   // Stable callbacks for virtualized list items (avoid per-render recreation)
   const handleDragEnd = useCallback(() => {
@@ -191,7 +150,7 @@ export const QueuePanelExpanded = ({
         queueLength={queue.length}
         onToggleShuffle={handleToggleShuffle}
         onSetRepeatMode={handleSetRepeatMode}
-        onClearQueue={handleClearQueue}
+        onClearQueue={requestClearQueue}
       />
 
       {error && (
@@ -272,7 +231,7 @@ export const QueuePanelExpanded = ({
       {showClearConfirm && (
         <ClearQueueDialog
           onConfirm={confirmClearQueue}
-          onCancel={() => setShowClearConfirm(false)}
+          onCancel={cancelClearQueue}
         />
       )}
     </div>
