@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { render, screen, waitFor } from '@/test/test-utils';
-import { EmptyState, EmptyLibrary, NoSearchResults, EmptyQueue } from '../EmptyState';
+import { EmptyState, EmptyLibrary, NoSearchResults } from '../EmptyState';
 import { TrackRowSkeleton } from '@/components/shared/ui/loaders/TrackRowSkeleton';
 import { LibraryGridSkeleton } from '@/components/shared/ui/loaders/LibraryGridSkeleton';
 
@@ -24,12 +24,6 @@ describe('EmptyState status role (#5668)', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('No results found');
     expect(screen.getByRole('status')).toHaveTextContent('abba');
-  });
-
-  it('keeps role="status" on the queue variant', () => {
-    render(<EmptyQueue />);
-
-    expect(screen.getByRole('status')).toBeInTheDocument();
   });
 });
 

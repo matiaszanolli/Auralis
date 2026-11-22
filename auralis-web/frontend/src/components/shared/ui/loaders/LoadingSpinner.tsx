@@ -3,7 +3,6 @@ import { Box, styled } from '@mui/material';
 import { rotate, pulse } from '@/components/library/Styles/Animation.styles';
 import { tokens, CircularProgress } from '@/design-system';
 import { useId } from 'react';
-import { themeVars } from '@/theme/semanticTheme';
 
 interface LoadingSpinnerProps {
   size?: number;
@@ -65,41 +64,6 @@ export const LoadingSpinner = ({
         />
       </SpinnerWrapper>
     </SpinnerContainer>
-  );
-};
-
-// Centered loading spinner with optional text
-interface CenteredLoadingProps {
-  text?: string;
-  size?: number;
-}
-
-const CenteredContainer = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: tokens.spacing.md,
-  padding: tokens.spacing.xxxl,
-  minHeight: '200px',
-});
-
-const LoadingText = styled(Box)(({ theme: _theme }) => ({
-  fontSize: tokens.typography.fontSize.base,
-  color: themeVars.textSecondary,
-  fontWeight: tokens.typography.fontWeight.medium,
-  animation: `${pulse} ${tokens.animations.pulse.duration} ${tokens.animations.pulse.timing} ${tokens.animations.pulse.iteration}`,
-}));
-
-export const CenteredLoading = ({
-  text,
-  size = 48,
-}: CenteredLoadingProps) => {
-  return (
-    <CenteredContainer>
-      <LoadingSpinner size={size} />
-      {text && <LoadingText>{text}</LoadingText>}
-    </CenteredContainer>
   );
 };
 

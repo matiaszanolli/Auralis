@@ -5,7 +5,7 @@
  */
 
 // Loading Spinner
-export { LoadingSpinner, CenteredLoading } from './LoadingSpinner';
+export { LoadingSpinner } from './LoadingSpinner';
 
 // Skeleton Loaders
 export {

@@ -122,22 +122,4 @@ export const NoSearchResults = ({ query }: { query?: string }) => (
   />
 );
 
-export const EmptyPlaylist = ({ onAddTracks }: { onAddTracks?: () => void }) => (
-  <EmptyState
-    icon="playlist"
-    title="Empty playlist"
-    description="This playlist doesn't have any tracks yet. Add some music to get started."
-    actionLabel={onAddTracks ? "Add Tracks" : undefined}
-    onAction={onAddTracks}
-  />
-);
-
-export const EmptyQueue = () => (
-  <EmptyState
-    icon="playlist"
-    title="Queue is empty"
-    description="No tracks in the queue. Play a song to get started."
-  />
-);
-
 export default EmptyState;

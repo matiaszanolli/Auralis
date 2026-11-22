@@ -11,7 +11,7 @@ shared/ui/
 ├── ConfirmationDialog.tsx                   - confirm / cancel modal
 ├── feedback/                                - EmptyState and its variants (index.ts)
 ├── loaders/                                 - LoadingSpinner, Skeleton and the per-screen skeletons (index.ts)
-└── media/                                   - AlbumArtDisplay, ProgressiveImage (index.ts)
+└── media/                                   - ProgressiveImage (index.ts)
 ```
 
 ```tsx
