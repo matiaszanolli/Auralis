@@ -7,7 +7,6 @@ processing data from the continuous space system.
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -136,24 +135,22 @@ class TestProcessingParametersIntegration:
 
 
 class TestProcessingParametersDocumentation:
-    """Tests for API documentation"""
+    """Tests for API documentation.
+
+    Read from app.openapi(), which builds the schema whether or not it is served:
+    /openapi.json is gone, the schema is served only in dev mode at
+    /api/openapi.json (#2418, #4375), and whether it is served is pinned by
+    test_openapi_disabled_in_production.py, not here.
+    """
 
     def test_parameters_endpoint_in_openapi_schema(self, client):
         """Test that endpoint is documented in OpenAPI schema"""
-        response = client.get("/openapi.json")
-        assert response.status_code == 200
-
-        schema = response.json()
-        # Check endpoint exists in paths
-        assert "/api/processing/parameters" in schema.get("paths", {})
+        assert "get" in client.app.openapi()["paths"]["/api/processing/parameters"]
 
     def test_parameters_endpoint_has_description(self, client):
         """Test that endpoint has proper documentation"""
-        response = client.get("/openapi.json")
-        schema = response.json()
-
-        endpoint = schema["paths"]["/api/processing/parameters"]["get"]
-        assert "summary" in endpoint or "description" in endpoint
+        endpoint = client.app.openapi()["paths"]["/api/processing/parameters"]["get"]
+        assert endpoint.get("summary") or endpoint.get("description")
 
 
 if __name__ == "__main__":
