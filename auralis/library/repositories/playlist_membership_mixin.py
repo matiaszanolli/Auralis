@@ -100,7 +100,9 @@ class PlaylistMembershipMixin(BaseRepository):
             on lookup miss. A database failure propagates rather than
             reading as False (#5264).
         """
-        with self._session_scope() as session:
+        # Write lock from the first read: the re-position branch below reads the
+        # current position before writing (#6562).
+        with self._write_session_scope() as session:
             try:
                 # Verify playlist + track exist BEFORE the insert so FK
                 # violations surface as a clean False/log instead of an

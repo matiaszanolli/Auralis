@@ -46,10 +46,11 @@ class PlaylistOrderingMixin(BaseRepository):
 
         #3725: also compacts positions after a successful delete so the
         per-playlist invariant ``positions are contiguous 0..N-1``
-        holds. Without compaction, reorder_track's index validation
+        holds; the write lock is taken before the position read (#6562), so
+        two concurrent removals of neighbouring rows cannot leave a gap. Without compaction, reorder_track's index validation
         becomes ambiguous and add_track's MAX+1 path leaves gaps.
         """
-        with self._guarded("Failed to remove track from playlist") as session:
+        with self._guarded("Failed to remove track from playlist", write=True) as session:
             # Capture the deleted row's position first; we need it for
             # the position-shift UPDATE below.
             removed_position = session.scalar(
@@ -122,7 +123,9 @@ class PlaylistOrderingMixin(BaseRepository):
           3. UPDATE the moving row to to_index.
         This keeps the per-playlist position invariant
         (contiguous 0..N-1, no gaps, no duplicates) under concurrent
-        traffic — SQLite serializes writes within a transaction.
+        traffic because the transaction takes SQLite's write lock before
+        its first read (#6562), so a concurrent reorder waits and then reads
+        this one's committed order instead of overwriting it.
 
         Args:
             playlist_id: ID of playlist.
@@ -137,7 +140,7 @@ class PlaylistOrderingMixin(BaseRepository):
         if from_index == to_index:
             return True
 
-        with self._session_scope() as session:
+        with self._write_session_scope() as session:
             # #5581/#5573: resolve rows by LOGICAL index in position
             # order instead of matching position == from_index exactly.
             # Writers now keep positions contiguous, but playlists

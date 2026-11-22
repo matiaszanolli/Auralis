@@ -17,7 +17,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
 from typing import Any, TypeVar
 
-from sqlalchemy import ColumnElement, ScalarSelect, Select, String, collate, func, select
+from sqlalchemy import ColumnElement, ScalarSelect, Select, String, collate, func, select, text
 from sqlalchemy.orm import Session
 
 from ...utils.logging import error
@@ -154,7 +154,24 @@ class BaseRepository:
         finally:
             session.close()
 
-    def _guarded(self, failure_message: str) -> "_GuardedScope":
+    @contextmanager
+    def _write_session_scope(self) -> Iterator[Session]:
+        """:meth:`_session_scope` whose transaction holds SQLite's write lock from the start (#6562).
+
+        pysqlite's legacy mode begins a transaction at the first INSERT/UPDATE/
+        DELETE, so a method that reads rows and then writes from them computed
+        from a snapshot another writer could change before its own first write:
+        two concurrent playlist removals left a gap, and the later of two
+        reorders silently discarded the earlier one. ``BEGIN IMMEDIATE`` takes
+        the write lock before the reads, so concurrent writers queue on
+        ``busy_timeout`` and each reads the previous one's committed rows. Use it
+        for read-then-write methods only: it serialises against every writer.
+        """
+        with self._session_scope() as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            yield session
+
+    def _guarded(self, failure_message: str, *, write: bool = False) -> "_GuardedScope":
         """:meth:`_session_scope` that swallows a failure and logs it once.
 
         The write paths that report failure through their return value
@@ -186,7 +203,8 @@ class BaseRepository:
         is the existing contract (#5940 tracks changing it) and this helper
         deliberately preserves it.
         """
-        return _GuardedScope(self._session_scope(), failure_message)
+        scope = self._write_session_scope() if write else self._session_scope()
+        return _GuardedScope(scope, failure_message)
 
     def _first_detached(self, session: Session, stmt: Select[tuple[_T]]) -> _T | None:
         """First row of *stmt* (or None), detached together with everything
