@@ -84,7 +84,10 @@ class SimpleMasteringConfig(MasteringPresetDefaults):
     # =========================================================================
 
     CHUNK_DURATION_SEC: int = 30
-    """Duration of each processing chunk in seconds"""
+    """Duration of each offline file-master chunk in seconds. This is the sequential file-master
+    loop's own geometry (30 s core, CROSSFADE_DURATION_SEC seams); the *streaming* chunk model
+    (15 s rendered / 10 s emitted) is auralis-web/backend/core/chunk_boundaries.py's CHUNK_DURATION,
+    a different thing with a similar name (#6649)."""
 
     CROSSFADE_DURATION_SEC: float = 3.0
     """Duration of crossfade between chunks in seconds. CHUNK-SEAM COUPLING

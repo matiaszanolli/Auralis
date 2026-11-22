@@ -30,6 +30,10 @@ from ..dsp.utils.conversion import SILENCE_FLOOR_DB, amplitude_to_db
 if TYPE_CHECKING:
     from .simple_mastering import SimpleMasteringPipeline
 
+# How much of the file the song-wide peak scan reads at a time: bounds memory only, so it is its own
+# constant rather than the render chunk size it used to borrow (#6649).
+_PEAK_SCAN_BLOCK_SEC = 30
+
 
 def measure_window_loudness(
     window: np.ndarray, sample_rate: int
@@ -214,7 +218,7 @@ def prepare_file(
     # under-estimated.
     step_start = time.perf_counter()
     song_peak_linear = 0.0
-    scan_block_frames = sr * config.CHUNK_DURATION_SEC
+    scan_block_frames = sr * _PEAK_SCAN_BLOCK_SEC
     with sf.SoundFile(str(input_path)) as audio_file:
         while True:
             block = audio_file.read(scan_block_frames)
