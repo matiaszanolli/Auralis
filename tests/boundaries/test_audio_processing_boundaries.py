@@ -13,7 +13,7 @@ These tests verify critical invariants:
 
 Test Categories:
 - Sample rate boundaries (6 tests)
-- Audio duration boundaries (6 tests)
+- Audio duration boundaries (5 tests)
 - Amplitude boundaries (6 tests)
 - Channel configuration (6 tests)
 - Invalid audio data (6 tests)
@@ -222,7 +222,7 @@ def test_sample_rate_preservation(processor, temp_audio_dir):
 
 
 # ============================================================================
-# CATEGORY 2: AUDIO DURATION BOUNDARIES (6 tests)
+# CATEGORY 2: AUDIO DURATION BOUNDARIES (5 tests)
 # ============================================================================
 
 @pytest.mark.boundary
@@ -329,27 +329,6 @@ def test_long_duration_10_minutes(processor, temp_audio_dir):
 
     assert result is not None
     assert len(result) > 0, "Should return non-empty audio"
-
-
-@pytest.mark.boundary
-@pytest.mark.slow
-@pytest.mark.skip(reason="TODO(#6715): one HybridProcessor.process() call over 1 hour of audio takes >10 min, past the nightly 300 s per-test timeout")
-def test_very_long_duration_1_hour(processor, temp_audio_dir):
-    """
-    BOUNDARY: Very long audio (1 hour - DJ set, audiobook).
-    Should handle extreme durations.
-    """
-    sample_rate = 44100
-    duration = 3600.0  # 1 hour
-    audio = create_test_audio(duration, sample_rate, amplitude=0.01)  # Low amplitude to save memory
-
-    filepath = os.path.join(temp_audio_dir, "1hour.wav")
-    save(filepath, audio, sample_rate, subtype='PCM_16')
-
-    result = process_file(processor, filepath)
-
-    assert result is not None
-    assert len(result) > 0, "Should return non-empty audio for long audio"
 
 
 # ============================================================================

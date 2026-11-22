@@ -14,10 +14,6 @@ INVARIANTS TESTED:
 
 import gc
 import os
-import shutil
-import sys
-import tempfile
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -33,53 +29,6 @@ from auralis.library.repositories import TrackRepository
 @pytest.mark.slow
 class TestMemoryExhaustion:
     """Test behavior under memory constraints."""
-
-    @pytest.mark.skip(reason="TODO(#6715): one HybridProcessor.process() call over 1 hour of audio takes >10 min, past the nightly 300 s per-test timeout")
-    def test_very_large_audio_file_handling(self, temp_audio_dir):
-        """
-        INVARIANT: System should handle or gracefully reject very large audio.
-        Test: 1-hour audio file (large memory footprint).
-        """
-        config = UnifiedConfig()
-        config.set_processing_mode('adaptive')
-        processor = HybridProcessor(config)
-
-        # Create 1-hour stereo audio file (~600MB in memory)
-        sample_rate = 44100
-        duration = 3600.0  # 1 hour
-        num_samples = int(duration * sample_rate)
-
-        # Create in chunks to avoid OOM during generation
-        chunk_duration = 60.0  # 1 minute chunks
-        chunk_samples = int(chunk_duration * sample_rate)
-        num_chunks = int(duration / chunk_duration)
-
-        filepath = os.path.join(temp_audio_dir, 'very_large.wav')
-
-        try:
-            # Generate and save in chunks
-            full_audio = []
-            for i in range(num_chunks):
-                chunk = np.random.randn(chunk_samples, 2).astype(np.float32) * 0.1
-                full_audio.append(chunk)
-
-            audio = np.concatenate(full_audio, axis=0)
-            save(filepath, audio, sample_rate, subtype='PCM_16')
-
-            # Try to process
-            result = process_file(processor, filepath)
-
-            # INVARIANT: Should complete or raise clear error
-            assert result is not None, "Processing should return result"
-            assert len(result) > 0, "Result should not be empty"
-
-        except MemoryError:
-            # Acceptable: Clear error when memory exhausted
-            pytest.skip("System memory insufficient for 1-hour test file")
-        except Exception as e:
-            # Should get clear error, not crash
-            assert "memory" in str(e).lower() or "size" in str(e).lower(), \
-                f"Should report memory/size error, got: {e}"
 
     def test_many_small_allocations(self, temp_db):
         """

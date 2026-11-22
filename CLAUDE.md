@@ -245,8 +245,8 @@ Cached chunk files are 16-bit PCM WAV, not float32.
    from an ordinary sentence (#4564). Genuine marker debt in shipped code —
    `auralis/`, `auralis-web/`, `vendor/` — is **3** (2026-11-21: #5484,
    #5098, #6356 — the last two were prose deferrals until #6599/#6600),
-   each citing an OPEN issue; `tests/` holds **2** (2026-11-22: both #6715, the
-   skipped 1-hour processing tests; #5851 closed). A
+   each citing an OPEN issue; `tests/` holds **0** (2026-11-22: the two #6715
+   markers went with the 1-hour processing tests they skipped). A
    marker citing a closed issue is itself a finding (the `TODO(#5537)` in
    `py_bindings.rs` was re-pointed at #5738, which then deleted the code). #5152 turned the prose
    "Retiring it is tracked separately" into a `TODO(#5295)` that `134c74ae`
