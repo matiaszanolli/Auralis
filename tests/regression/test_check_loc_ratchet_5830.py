@@ -69,3 +69,45 @@ def test_player_and_chunked_processor_stay_under_300():
 
     assert sizes["auralis/player/enhanced_audio_player.py"] < 300
     assert sizes["auralis-web/backend/core/chunked_processor.py"] < 300
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("auralis/core/engine.py", True),
+        ("auralis-web/backend/core/job_worker.py", True),
+        ("auralis-web/frontend/src/components/Player.tsx", True),
+        ("auralis-web/frontend/src/test/mocks/handlers.ts", False),
+        ("auralis-web/frontend/src/components/__tests__/Player.test.tsx", False),
+        ("scripts/check_loc_ratchet.py", False),
+        ("tests/backend/test_big.py", False),
+        ("vendor/auralis-dsp/src/rhythm.rs", False),
+    ],
+)
+def test_product_scope_is_shipped_code_only(name, expected):
+    """#6701: the unlisted-file rule covers shipped code, not tests, scripts or the Rust crate."""
+    assert gate.is_product_file(name) is expected
+
+
+def test_unlisted_product_file_over_the_limit_is_reported(tmp_path):
+    """#6701: a closed split target nobody enrolled must not regrow past 300 silently."""
+    for name, count in {
+        "auralis/big.py": 301,
+        "auralis/at_limit.py": 300,
+        "auralis/listed_big.py": 320,
+        "scripts/tool.py": 900,
+    }.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        _write_lines(tmp_path / name, count)
+
+    offenders = gate.unlisted_offenders(
+        {"auralis/listed_big.py": 320},
+        ["auralis/big.py", "auralis/at_limit.py", "auralis/listed_big.py", "scripts/tool.py"],
+        root=tmp_path,
+    )
+
+    assert offenders == {"auralis/big.py": 301}
+
+
+def test_real_tree_has_no_unlisted_product_file_over_300():
+    assert gate.unlisted_offenders(gate.load_ceilings(), gate.tracked_files()) == {}

@@ -166,23 +166,14 @@ class JobWorker:
                     self._interrupt(job)
                     interrupted.append(job)
 
-        # #4543: wait for the cancelled tasks to actually unwind. Previously
-        # stop() cancelled and returned immediately, logging "worker stopped"
-        # while jobs were still mid-unwind — a job parked in
-        # asyncio.to_thread(processor.process, ...) kept a worker thread and a
-        # HybridProcessor alive past the point the lifespan tore down the
-        # library database. The worker-task cancel below already did this
-        # correctly; only the per-job tasks were fire-and-forget.
-        #
-        # Bounded so a task that refuses to unwind cannot hang shutdown. On
-        # timeout we log and proceed: blocking teardown forever is worse than
-        # a noisy exit, and silently swallowing it would recreate the bug.
-        #
-        # asyncio.wait — NOT wait_for(gather(...)). On timeout wait_for cancels
-        # the inner future and then *awaits* it, so a task that swallows
-        # CancelledError (a bare `except CancelledError: pass` around its work)
-        # would hang stop() forever — the very failure this fix exists to
-        # prevent. asyncio.wait leaves stragglers pending and returns.
+        # #4543: wait for the cancelled tasks to actually unwind, or a job parked
+        # in asyncio.to_thread(processor.process, ...) keeps a thread and a
+        # HybridProcessor alive past the lifespan's library-DB teardown. Bounded:
+        # on timeout log and proceed, since hanging teardown is worse than a
+        # noisy exit. asyncio.wait, NOT wait_for(gather(...)): on timeout
+        # wait_for cancels the inner future and then *awaits* it, so a task that
+        # swallows CancelledError would hang stop() forever; asyncio.wait leaves
+        # stragglers pending and returns.
         if cancelled:
             _, still_pending = await asyncio.wait(
                 cancelled, timeout=self.STOP_DRAIN_TIMEOUT_SECONDS

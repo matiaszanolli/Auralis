@@ -26,19 +26,33 @@ Usage:
     python scripts/check_loc_ratchet.py --update    # lower ceilings to current size
     python scripts/check_loc_ratchet.py --list      # print current sizes
 
-Exit codes: 0 = no listed file above its ceiling, 1 = a file grew (or the
-ceilings file could not be read).
+An unlisted shipped file (``PRODUCT_ROOTS``) over 300 lines fails too (#6701):
+split targets kept closing without an entry, and an unlisted file regrows
+silently.
+
+Exit codes: 0 = no listed file above its ceiling and no unlisted product file
+over 300, 1 = otherwise (or the ceilings file could not be read).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CEILINGS_PATH = REPO_ROOT / "loc-ceilings.json"
+
+# Shipped-code roots held to CLAUDE.md's 300-line rule even when unlisted (#6701):
+# an unlisted file that crosses 300 fails, so it must be split or enrolled at its
+# exact size as a documented not-yet-split offender. Tests, test mocks, scripts and
+# the Rust crate are out of scope.
+LOC_LIMIT = 300
+PRODUCT_ROOTS = ("auralis/", "auralis-web/backend/", "auralis-web/frontend/src/")
+PRODUCT_SUFFIXES = (".py", ".ts", ".tsx")
+EXCLUDED_PARTS = ("/__tests__/", ".test.", ".spec.", "auralis-web/frontend/src/test/")
 
 
 def count_lines(path: Path) -> int:
@@ -63,6 +77,34 @@ def measure(ceilings: dict[str, int], root: Path = REPO_ROOT) -> dict[str, int |
         target = root / name
         sizes[name] = count_lines(target) if target.is_file() else None
     return sizes
+
+
+def is_product_file(name: str) -> bool:
+    return (
+        name.startswith(PRODUCT_ROOTS)
+        and name.endswith(PRODUCT_SUFFIXES)
+        and not any(part in name for part in EXCLUDED_PARTS)
+    )
+
+
+def tracked_files(root: Path = REPO_ROOT) -> list[str]:
+    """Repo-relative paths git tracks (untracked scratch files never fail the gate)."""
+    out = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=root, capture_output=True, check=True
+    ).stdout
+    return [name for name in out.decode("utf-8").split("\0") if name]
+
+
+def unlisted_offenders(
+    ceilings: dict[str, int], files: list[str], root: Path = REPO_ROOT
+) -> dict[str, int]:
+    """Product files over LOC_LIMIT that no ceiling holds, with their sizes."""
+    sizes = {
+        name: count_lines(root / name)
+        for name in files
+        if name not in ceilings and is_product_file(name) and (root / name).is_file()
+    }
+    return {name: size for name, size in sorted(sizes.items()) if size > LOC_LIMIT}
 
 
 def write_ceilings(ceilings: dict[str, int], path: Path = CEILINGS_PATH) -> None:
@@ -93,7 +135,7 @@ def main() -> int:
 
     if args.update:
         lowered = {
-            name: min(limit, sizes[name]) if sizes[name] is not None else limit
+            name: limit if (size := sizes[name]) is None else min(limit, size)
             for name, limit in ceilings.items()
         }
         write_ceilings(lowered)
@@ -103,6 +145,8 @@ def main() -> int:
     over = {n: (s, ceilings[n]) for n, s in sizes.items() if s is not None and s > ceilings[n]}
     missing = sorted(n for n, s in sizes.items() if s is None)
     slack = {n: (s, ceilings[n]) for n, s in sizes.items() if s is not None and s < ceilings[n]}
+
+    unlisted = unlisted_offenders(ceilings, tracked_files())
 
     print(f"LOC ratchet: {len(sizes)} file(s) listed, {len(over)} over their ceiling.")
     if missing:
@@ -118,6 +162,12 @@ def main() -> int:
         for name, (size, limit) in sorted(over.items()):
             print(f"    {name}: {size} > {limit}")
         print("\n  Move the new code into a sibling module. The ceiling does not go up.")
+    if unlisted:
+        print(f"\nx {len(unlisted)} unlisted product file(s) over {LOC_LIMIT} lines:")
+        for name, size in unlisted.items():
+            print(f"    {name}: {size}")
+        print("\n  Split it, or enrol it in loc-ceilings.json at its exact size as a not-yet-split offender.")
+    if over or unlisted:
         return 1
 
     print("OK: no split target regrew.")
