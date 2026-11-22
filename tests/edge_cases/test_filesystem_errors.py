@@ -145,26 +145,18 @@ class TestMissingFiles:
         # INVARIANT: Should get file not found error
         assert failed, "Should fail to load non-existent file"
 
-    def test_process_nonexistent_file(self):
+    def test_process_rejects_a_path_with_a_clear_error(self):
         """
-        INVARIANT: Processing non-existent file should fail or return default audio.
-        Test: Process with invalid filepath.
+        INVARIANT: HybridProcessor.process() takes decoded audio, never a path.
+        A missing file is the loader's failure (test_load_nonexistent_file); a
+        path handed to the processor is refused up front, not opened or faked.
         """
         config = UnifiedConfig()
         config.set_processing_mode('adaptive')
         processor = HybridProcessor(config)
 
-        try:
-            result = processor.process('/tmp/nonexistent_audio_12345.flac')
-
-            # INVARIANT: If succeeds, should return valid audio (fallback behavior)
-            # This is acceptable - processor generates default audio for robustness
-            assert result is not None
-            assert len(result) > 0, "Should return non-empty result"
-
-        except (FileNotFoundError, OSError, RuntimeError, ModuleError):
-            # Also acceptable: Fail with clear error
-            pass
+        with pytest.raises(ValueError, match="must be a NumPy array"):
+            processor.process('/tmp/nonexistent_audio_12345.flac')  # type: ignore[arg-type]  # the point of the test
 
     def test_add_track_with_nonexistent_file(self, temp_db):
         """

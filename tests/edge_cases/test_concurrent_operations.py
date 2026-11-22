@@ -25,6 +25,7 @@ from sqlalchemy import select
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save
+from tests.audio_processing import process_file as decode_and_process
 from auralis.library.repositories import (
     AlbumRepository,
     ArtistRepository,
@@ -337,7 +338,7 @@ class TestConcurrentAudioProcessing:
 
         def process_file(filepath):
             try:
-                result = processor.process(filepath)
+                result = decode_and_process(processor, filepath)
                 results.append((filepath, len(result)))
             except Exception as e:
                 errors.append((filepath, e))
@@ -377,7 +378,7 @@ class TestConcurrentAudioProcessing:
 
         def process_file():
             try:
-                result = processor.process(filepath)
+                result = decode_and_process(processor, filepath)
                 results.append(len(result))
             except Exception as e:
                 errors.append(e)
@@ -425,7 +426,7 @@ class TestConcurrentAudioProcessing:
         def process_with_shared_processor(filepath):
             try:
                 # All threads use same processor instance
-                result = processor.process(filepath)
+                result = decode_and_process(processor, filepath)
                 results.append(len(result))
             except Exception as e:
                 errors.append(e)

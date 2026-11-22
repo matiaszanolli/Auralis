@@ -37,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis'))
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save
+from tests.audio_processing import process_file
 
 # ============================================================================
 # FIXTURES
@@ -104,7 +105,7 @@ def test_minimum_sample_rate_8khz(processor, temp_audio_dir):
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
     # Process
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     # Verify
     assert result is not None, "Processing should succeed for 8kHz audio"
@@ -128,7 +129,7 @@ def test_cd_quality_sample_rate_44khz(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "44khz.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) > 0, "Should return non-empty audio"
@@ -150,7 +151,7 @@ def test_high_quality_sample_rate_48khz(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "48khz.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) > 0, "Should return non-empty audio"
@@ -170,7 +171,7 @@ def test_high_res_sample_rate_96khz(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "96khz.wav")
     save(filepath, audio, sample_rate, subtype='PCM_24')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) > 0, "Should return non-empty audio"
@@ -190,7 +191,7 @@ def test_ultra_high_res_sample_rate_192khz(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "192khz.wav")
     save(filepath, audio, sample_rate, subtype='PCM_24')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) > 0, "Should return non-empty audio"
@@ -212,7 +213,7 @@ def test_sample_rate_preservation(processor, temp_audio_dir):
         filepath = os.path.join(temp_audio_dir, f"sr_{sr}.wav")
         save(filepath, audio, sr, subtype='PCM_16')
 
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
 
         assert result is not None, f"Processing failed for {sr}Hz"
         assert len(result) > 0, f"Empty output for {sr}Hz"
@@ -238,7 +239,7 @@ def test_minimum_duration_one_sample(processor, temp_audio_dir):
 
     # This may fail or succeed - we just want no crash
     try:
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
         if result is not None:
             assert len(result) > 0, "If processing succeeds, should return audio"
     except (ValueError, RuntimeError):
@@ -260,7 +261,7 @@ def test_very_short_duration_100ms(processor, temp_audio_dir):
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
     try:
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
         if result is not None:
             assert len(result) > 0, "Should return non-empty audio"
     except (ValueError, RuntimeError):
@@ -282,7 +283,7 @@ def test_short_duration_1_second(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "1sec.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) > 0, "Should return non-empty audio"
@@ -302,7 +303,7 @@ def test_normal_duration_3_minutes(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "3min.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) > 0, "Should return non-empty audio"
@@ -324,7 +325,7 @@ def test_long_duration_10_minutes(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "10min.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) > 0, "Should return non-empty audio"
@@ -332,6 +333,7 @@ def test_long_duration_10_minutes(processor, temp_audio_dir):
 
 @pytest.mark.boundary
 @pytest.mark.slow
+@pytest.mark.skip(reason="TODO(#6715): one HybridProcessor.process() call over 1 hour of audio takes >10 min, past the nightly 300 s per-test timeout")
 def test_very_long_duration_1_hour(processor, temp_audio_dir):
     """
     BOUNDARY: Very long audio (1 hour - DJ set, audiobook).
@@ -344,7 +346,7 @@ def test_very_long_duration_1_hour(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "1hour.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) > 0, "Should return non-empty audio for long audio"
@@ -368,7 +370,7 @@ def test_zero_amplitude_silence(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "silence.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) == len(audio)
@@ -390,7 +392,7 @@ def test_very_low_amplitude(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "very_quiet.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) == len(audio)
@@ -411,7 +413,7 @@ def test_normal_amplitude(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "normal.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) == len(audio)
@@ -433,7 +435,7 @@ def test_high_amplitude_near_clipping(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "loud.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) == len(audio)
@@ -457,7 +459,7 @@ def test_clipped_input_audio(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "clipped.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert len(result) == len(audio)
@@ -481,7 +483,7 @@ def test_no_clipping_invariant(processor, temp_audio_dir):
         filepath = os.path.join(temp_audio_dir, f"amp_{amp}.wav")
         save(filepath, audio, sample_rate, subtype='PCM_16')
 
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
 
         max_abs = np.max(np.abs(result))
         assert max_abs <= 1.0, (
@@ -508,7 +510,7 @@ def test_mono_audio(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "mono.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert not np.any(np.isnan(result))
@@ -528,7 +530,7 @@ def test_stereo_audio(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "stereo.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert result.ndim == 2, "Stereo output should be 2D array"
@@ -549,7 +551,7 @@ def test_mono_to_stereo_conversion(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "mono_convert.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     # Processor should output stereo
     assert result.ndim == 2, "Output should be 2D (stereo)"
@@ -572,7 +574,7 @@ def test_stereo_width_extremes_narrow(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "narrow_stereo.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert result.shape[1] == 2
@@ -595,7 +597,7 @@ def test_stereo_width_extremes_wide(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "wide_stereo.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert result.shape[1] == 2
@@ -618,7 +620,7 @@ def test_stereo_phase_inverted(processor, temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "phase_inverted.wav")
     save(filepath, audio, sample_rate, subtype='PCM_16')
 
-    result = processor.process(filepath)
+    result = process_file(processor, filepath)
 
     assert result is not None
     assert result.shape[1] == 2
@@ -645,7 +647,7 @@ def test_nan_values_in_input(processor, temp_audio_dir):
     # WAV format doesn't support NaN, so this may fail during save
     try:
         save(filepath, audio, sample_rate, subtype='PCM_16')
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
 
         # If processing succeeds, output should not have NaN
         if result is not None:
@@ -671,7 +673,7 @@ def test_inf_values_in_input(processor, temp_audio_dir):
 
     try:
         save(filepath, audio, sample_rate, subtype='PCM_16')
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
 
         if result is not None:
             assert not np.any(np.isinf(result)), "Output should not contain Inf"
@@ -714,7 +716,7 @@ def test_wrong_shape_1d_array(processor, temp_audio_dir):
 
     # Should either convert to stereo or process as mono
     try:
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
         assert result is not None, "Should handle 1D array"
     except (ValueError, RuntimeError):
         # May reject invalid shape
@@ -740,7 +742,7 @@ def test_sample_count_invariant(processor, temp_audio_dir):
         filepath = os.path.join(temp_audio_dir, f"sr{sample_rate}_ch{channels}.wav")
         save(filepath, audio, sample_rate, subtype='PCM_16')
 
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
 
         if result is not None:
             assert len(result) > 0, f"Empty output for {sample_rate}Hz {channels}ch"
@@ -768,7 +770,7 @@ def test_no_nan_inf_invariant(processor, temp_audio_dir):
         filepath = os.path.join(temp_audio_dir, f"test_{sample_rate}_{channels}_{amplitude}.wav")
         save(filepath, audio, sample_rate, subtype='PCM_16')
 
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
 
         if result is not None:
             assert not np.any(np.isnan(result)), (

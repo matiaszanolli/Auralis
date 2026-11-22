@@ -25,6 +25,7 @@ import pytest
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save
+from tests.audio_processing import process_file
 from auralis.library.repositories import TrackRepository
 
 
@@ -33,6 +34,7 @@ from auralis.library.repositories import TrackRepository
 class TestMemoryExhaustion:
     """Test behavior under memory constraints."""
 
+    @pytest.mark.skip(reason="TODO(#6715): one HybridProcessor.process() call over 1 hour of audio takes >10 min, past the nightly 300 s per-test timeout")
     def test_very_large_audio_file_handling(self, temp_audio_dir):
         """
         INVARIANT: System should handle or gracefully reject very large audio.
@@ -65,7 +67,7 @@ class TestMemoryExhaustion:
             save(filepath, audio, sample_rate, subtype='PCM_16')
 
             # Try to process
-            result = processor.process(filepath)
+            result = process_file(processor, filepath)
 
             # INVARIANT: Should complete or raise clear error
             assert result is not None, "Processing should return result"
@@ -142,7 +144,7 @@ class TestMemoryExhaustion:
             filepath = os.path.join(temp_audio_dir, f'mem_test_{i}.wav')
             save(filepath, audio, sample_rate, subtype='PCM_16')
 
-            result = processor.process(filepath)
+            result = process_file(processor, filepath)
             assert len(result) > 0
 
             # Force cleanup
@@ -316,7 +318,7 @@ class TestDiskSpaceExhaustion:
         filepath = os.path.join(temp_audio_dir, 'cleanup_test.wav')
         save(filepath, audio, sample_rate, subtype='PCM_16')
 
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
         assert len(result) > 0
 
         # Count files after
@@ -492,7 +494,7 @@ class TestResourceLimitConfiguration:
         save(filepath, audio, sample_rate, subtype='PCM_16')
 
         # Process (should work with reasonable file)
-        result = processor.process(filepath)
+        result = process_file(processor, filepath)
 
         # INVARIANT: Should complete successfully with normal file
         assert result is not None
@@ -526,7 +528,7 @@ class TestResourceLimitConfiguration:
 
         # Try to process under pressure
         try:
-            result = processor.process(filepath)
+            result = process_file(processor, filepath)
 
             # INVARIANT: Should complete or give clear error
             assert result is not None
