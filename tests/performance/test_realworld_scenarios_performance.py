@@ -44,7 +44,7 @@ from tests.audio_processing import process_file
 class TestCompleteWorkflows:
     """Measure complete end-to-end workflow performance."""
 
-    def test_import_analyze_process_export_workflow(self, temp_audio_dir, timer, benchmark_results):
+    def test_import_analyze_process_export_workflow(self, tmp_path, temp_audio_dir, timer, benchmark_results):
         """
         BENCHMARK: Complete workflow should complete in <30s for 10-track album.
         """
@@ -63,7 +63,7 @@ class TestCompleteWorkflows:
         # Complete workflow
         with timer() as t:
             # 1. Import to library
-            db = LibraryDatabase(database_path=':memory:')
+            db = LibraryDatabase(database_path=str(tmp_path / 'library.db'))
             LibraryScanner(db).scan_single_directory(temp_audio_dir)
 
             # 2. Process all tracks
@@ -87,7 +87,7 @@ class TestCompleteWorkflows:
         benchmark_results['complete_workflow_10_tracks_s'] = total_time
         print(f"\n✓ Complete workflow (10 tracks): {total_time:.1f}s")
 
-    def test_large_library_import_workflow(self, timer, benchmark_results):
+    def test_large_library_import_workflow(self, tmp_path, timer, benchmark_results):
         """
         BENCHMARK: Importing 1000-track library should complete in <60s.
         """
@@ -98,7 +98,7 @@ class TestCompleteWorkflows:
                 filepath = os.path.join(tmpdir, f'import_{i:04d}.wav')
                 save(filepath, audio, 44100, subtype='PCM_16')
 
-            db = LibraryDatabase(database_path=':memory:')
+            db = LibraryDatabase(database_path=str(tmp_path / 'library.db'))
             scanner = LibraryScanner(db)
 
             with timer() as t:
@@ -180,7 +180,7 @@ class TestCompleteWorkflows:
         benchmark_results['playlist_creation_100_tracks_ms'] = creation_time_ms
         print(f"\n✓ Playlist creation (100 tracks): {creation_time_ms:.1f}ms")
 
-    def test_library_rebuild_workflow(self, temp_audio_dir, timer):
+    def test_library_rebuild_workflow(self, tmp_path, temp_audio_dir, timer):
         """
         BENCHMARK: Rebuilding library index for 500 tracks should be <30s.
         """
@@ -190,7 +190,7 @@ class TestCompleteWorkflows:
             filepath = os.path.join(temp_audio_dir, f'rebuild_{i:03d}.wav')
             save(filepath, audio, 44100, subtype='PCM_16')
 
-        db = LibraryDatabase(database_path=':memory:')
+        db = LibraryDatabase(database_path=str(tmp_path / 'library.db'))
         scanner = LibraryScanner(db)
 
         # Initial scan
