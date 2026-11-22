@@ -70,11 +70,8 @@ export const useKeyboardShortcuts = (
 
   // Register shortcuts with the service when the shortcut *keys* change.
   //
-  // #4692: this used to be two registration paths with different gating,
-  // one of which re-registered on every render for the (now-deleted, #5231)
-  // config-object form because it built a fresh array each render. The
-  // trampoline below resolves both at once: registration happens once per
-  // structure change, and the handler it registers reads the latest closure
+  // #4692: the trampoline below registers once per shortcut-structure
+  // change (never on every render), and the handler it registers reads the latest closure
   // out of the ref at call time. Index lookup is safe because serializedKey
   // encodes every shortcut's key and modifiers in order, so any change that
   // could reorder or resize the array also changes the key and re-runs this

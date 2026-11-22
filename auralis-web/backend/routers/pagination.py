@@ -18,17 +18,14 @@ def compute_has_more(offset: int, item_count: int, total: int) -> bool:
     """
     Whether more items remain beyond the current page.
 
-    The single source of truth for this formula (#4902) — every paginated
-    router previously recomputed ``(offset + len(items)) < total`` inline
-    (5 call sites across albums.py, artists.py, tracks.py x2, playlists.py),
-    with no shared code to keep them in sync. All 5 now call this one
-    function directly; each router's response is keyed by its own domain
-    name ("albums"/"artists"/"tracks"/"playlists"), not a generic "items"
-    field, so a shared generic response *model* (deleted here — #5054,
-    residual scope of #4902 — see ``artists.py::ArtistsListResponse`` for
-    the per-router-model pattern the other 4 endpoints should eventually
-    adopt) would have been a breaking frontend contract change, not a
-    refactor.
+    The single source of truth for this formula (#4902): every paginated
+    router (albums, artists, tracks x2, playlists) calls it instead of
+    computing ``(offset + len(items)) < total`` inline. Each router's
+    response is keyed by its own domain name ("albums"/"artists"/"tracks"/
+    "playlists"), not a generic "items" field, so a shared generic response
+    model would be a breaking frontend contract change, not a refactor
+    (#5054); ``artists.py::ArtistsListResponse`` shows the per-router-model
+    pattern.
 
     Using ``item_count`` (the actual page length) rather than ``limit``
     handles partial last pages correctly.

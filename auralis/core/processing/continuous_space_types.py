@@ -17,8 +17,7 @@ class ProcessingCoordinates:
     """
     Position in 3D processing space.
 
-    The processing space has two axes derived from the 25D fingerprint (a third, energy level, was
-    removed in #6123: no parameter read it):
+    The processing space has two axes derived from the 25D fingerprint:
     - Spectral Balance: relative high-band to low-band energy
     - Dynamic Range: short-term peak/RMS and loudness variation
     """

@@ -176,9 +176,6 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
         self.mastering_recommendation: MasteringRecommendation | None = None
         self.adaptive_mastering_engine: AdaptiveMasteringEngine | None = None
 
-        # (#5056: `previous_chunk_tail` removed — assigned, never read; the
-        # crossfade/tail machinery it belonged to went with #4642/#3880.)
-
         logger.info(
             f"ChunkedAudioProcessor initialized: track_id={track_id}, "
             f"duration={self.total_duration:.1f}s, chunks={self.total_chunks}, "

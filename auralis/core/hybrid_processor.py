@@ -222,9 +222,8 @@ class HybridProcessor:
         """Reset the adaptive/continuous psychoacoustic EQ's gain-smoothing
         state (``current_gains``/``target_gains``, persisted across
         ``process()`` calls for intra-track continuity) at a track/job
-        boundary, so one master's EQ curve can't bleed into the next. The
-        separate real-time-EQ reset path (#2400) went with #4873, so this is
-        the only psychoacoustic-EQ reset left."""
+        boundary, so one master's EQ curve can't bleed into the next. This is
+        the only psychoacoustic-EQ reset."""
         with self._process_lock:
             self.psychoacoustic_eq.reset()
 

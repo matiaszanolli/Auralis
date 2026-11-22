@@ -14,7 +14,7 @@ Endpoints:
 - POST /api/library/reset                - Destructive full library reset
 
 Artist and album browse/detail endpoints live in routers/artists.py and
-routers/albums.py; the /api/library/* duplicates were removed (#3824).
+routers/albums.py, not under /api/library/* (#3824).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

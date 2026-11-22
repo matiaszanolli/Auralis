@@ -24,16 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class WAVEncoderError(Exception):
-    """Raised when WAV encoding fails.
-
-    #5147: previously defined in auralis-web/backend/encoding/wav_encoder.py,
-    a module that survived only to host this class — its encode_to_wav() had
-    no production callers. It was reached from here and from two core/ modules
-    via a bare ``from encoding.wav_encoder import ...``, an absolute import
-    that resolved only because pytest.ini and uvicorn happen to put
-    auralis-web/backend on sys.path. It now lives beside the WAVEncoder that
-    raises it and is re-exported from core.encoding.
-    """
+    """Raised when WAV encoding fails; re-exported from ``core.encoding`` (#5147)."""
 
 
 class WAVEncoder:

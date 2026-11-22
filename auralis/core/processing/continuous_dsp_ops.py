@@ -99,11 +99,9 @@ class ContinuousDSPOpsMixin:
 
         audio = self._apply_compression(audio, compression_params)
 
-        # #5561: the expansion stage (an RMS-reduction "expansion") was a
-        # scalar gain — peak and RMS moved together, so crest factor was
-        # invariant and the downstream LUFS normalization re-boosted the
-        # attenuation. Removed following #5309's precedent for the same
-        # class of placebo stage, and its parameters with it (#6650).
+        # No RMS-reduction "expansion" stage here: a scalar gain moves peak
+        # and RMS together, leaves crest factor unchanged, and the downstream
+        # LUFS normalization re-boosts the attenuation (#5561, #5309).
         return audio
 
     def _apply_compression(self, audio: np.ndarray, comp_params: dict[str, Any]) -> np.ndarray:

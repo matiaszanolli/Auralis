@@ -30,10 +30,8 @@ class ProcessorCacheKey(NamedTuple):
     OUTPUT (`core/audio_processing_pipeline.py`). Two calls differing only in
     intensity therefore built two byte-identical processors and consumed two of
     the 32 LRU slots, so an intensity slider sweep evicted genuinely distinct
-    (track, preset) processors and forced redundant 200-500 ms constructions,
-    each paying the full 200-500 ms HybridProcessor.__init__ (#3746 — which
-    also cited a 5-thread fingerprint executor per build; that executor is
-    gone, see #4744, but the construction cost is not).
+    (track, preset) processors and forced redundant constructions, each
+    paying the full 200-500 ms HybridProcessor.__init__ (#3746).
 
     Every field here is one the processor actually consumes, matching
     `ProcessorPool.cache_key`. Contrast `targets_hash`, which #3720 added

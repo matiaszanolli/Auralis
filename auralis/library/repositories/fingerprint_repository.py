@@ -13,11 +13,10 @@ Public facade (#4511) composing four per-concern mixins:
 - ``FingerprintSimilarityMixin`` — reference-cloud flags/weights and
   dimension-range pre-filtering for similarity search
 
-Status/stats/crash-recovery queries were already split out to
-``FingerprintStatsRepository``, and scheduler-claim queries to
-``FingerprintSchedulerRepository`` (#4108). The "so callers keep working"
-delegators that used to bridge the split are gone (#6264): callers hold
-``repository_factory.fingerprint_stats`` for those operations directly.
+Status/stats/crash-recovery queries live in ``FingerprintStatsRepository``
+and scheduler-claim queries in ``FingerprintSchedulerRepository`` (#4108);
+callers hold ``repository_factory.fingerprint_stats`` for those operations
+directly (#6264).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)

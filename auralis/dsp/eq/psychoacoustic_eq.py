@@ -133,9 +133,7 @@ class PsychoacousticEQ(SpectrumGainsMixin):
         """Reset EQ to flat response (#3747: locked).
 
         Zeroing both gain arrays is atomic with respect to a concurrent
-        `_smooth_gains` caller on the shared cached EQ instance. (The
-        learning-era processing history this used to clear alongside the
-        gains went with the #5763 engine removal, #6202.)"""
+        `_smooth_gains` caller on the shared cached EQ instance."""
         with self._state_lock:
             self.current_gains = np.zeros(len(self.critical_bands))
             self.target_gains = np.zeros(len(self.critical_bands))

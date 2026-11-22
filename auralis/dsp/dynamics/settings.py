@@ -18,9 +18,7 @@ from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 # constants (#5022) after two pairs were independently re-typed as identical
 # bare literals months apart with no cross-reference: CompressorSettings.ratio
 # / DynamicsSettings.gate_ratio and CompressorSettings.threshold_db /
-# DynamicsSettings.gate_threshold_db. (The third pair, CompressorSettings /
-# LimiterSettings lookahead_ms, went with AdaptiveLimiter in #4873; the
-# compressor's own lookahead went in #6611.) Fields whose valid range is not
+# DynamicsSettings.gate_threshold_db. Fields whose valid range is not
 # shared with another field keep their own inline bounds.
 THRESHOLD_DB_BOUNDS: tuple[float, float] = (-80.0, 0.0)
 RATIO_BOUNDS: tuple[float, float] = (1.0, 100.0)

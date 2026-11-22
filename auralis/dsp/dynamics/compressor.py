@@ -87,16 +87,10 @@ class AdaptiveCompressor:
         if len(audio) == 0:
             return audio.copy(), {}
 
-        # #4913: previously, when enable_lookahead was set, `sample_levels`
-        # (the gain computer's input) and the signal actually multiplied by
-        # the resulting gain envelope were the SAME delayed signal —
-        # self-consistent, but the delay bought nothing: the gain computer
-        # never saw material any earlier than the audio it gated, so
-        # lookahead was pure added output latency with zero gain-computer
-        # benefit. Compute levels from, and apply gain to, the same
-        # undelayed `audio` instead (this mirrored the same fix in the
-        # now-deleted AdaptiveLimiter — #4873). The compressor therefore has
-        # no lookahead delay at all (#6611).
+        # Levels are computed from, and gain applied to, the same undelayed
+        # `audio`. Delaying both would give the gain computer no earlier view
+        # of the material it gates — only added output latency — so the
+        # compressor has no lookahead delay at all (#4913, #6611).
 
         # Compute per-sample input levels for the gain envelope (#2214).
         # Mono: use absolute value; stereo: max across channels.

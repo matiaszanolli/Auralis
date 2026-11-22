@@ -90,9 +90,7 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         journal = PipelineJournal(self.config.internal_sample_rate)
         journal.snapshot(processed_audio, STAGE_INPUT)
 
-        # Ordered DSP stages (steps 5b-5e; 5a, an input-gain stage keyed on a
-        # `params.input_gain` that ProcessingParameters never had, was removed in
-        # #5576). Single source of truth for order.
+        # Ordered DSP stages (steps 5b-5e). Single source of truth for order.
         stages: list[Callable[[np.ndarray], np.ndarray]] = [
             lambda a: self._stage_eq(a, eq_processor, params, journal),
             lambda a: self._stage_dynamics(a, params, journal),

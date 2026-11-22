@@ -2,9 +2,10 @@
  * Convenience wrappers around useLibraryQuery.
  *
  * Split out of useLibraryQuery.ts (#5478) so the core hook file holds only
- * the shared query machinery. Only useArtistsQuery has a production caller
- * (CozyArtistList); the tracks/albums wrappers and useInfiniteScroll had none
- * and were removed (#6287) — use useLibraryQuery('tracks' | 'albums') directly.
+ * the shared query machinery. Only useArtistsQuery is
+ * wrapped (CozyArtistList calls it); for tracks or albums use
+ * useLibraryQuery('tracks' | 'albums') directly. Do not add a wrapper without
+ * a production caller (#6287).
  *
  * @module hooks/library/useLibraryQueries
  */

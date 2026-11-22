@@ -7,9 +7,7 @@
 /// - Frequency / spectral / variation / stereo analysis
 /// - Fingerprint: assembles the 25 dimensions
 ///
-/// Do not add modules without a production Python caller: HPSS, YIN, tempo,
-/// envelope follower, compressor, limiter, multiband EQ, onset detection and the
-/// chunk processor all lacked one and went (#5764, #5738).
+/// Do not add modules without a production Python caller (#5764, #5738).
 
 // Core DSP modules
 pub mod chroma;

@@ -84,3 +84,32 @@ def test_symbol_anchor_and_ratio_pass(tmp_path: Path) -> None:
         "RATIO = '4:1'  # compression ratio, not a file reference\n"
     )
     assert _run_with_file(tmp_path, body) == 0
+
+
+def test_wider_narration_forms_fail_the_gate(tmp_path: Path) -> None:
+    """#6680: past-tense narrations beyond 'was removed in #N'."""
+    for body in (
+        "# the reset path went with #4873\n",
+        "// the unused helper went in #5738\n",
+        "# the duplicates were removed (#3824)\n",
+        "# The standardized client is retired (#4693): its types survive\n",
+        "# mirrored the now-deleted AdaptiveLimiter — #4873\n",
+        "# that executor is gone, see #4744\n",
+        "# Removed following #5309's precedent\n",
+    ):
+        assert _run_with_file(tmp_path, body) == 1, body
+
+
+def test_line_wrapped_breadcrumb_fails_the_gate(tmp_path: Path) -> None:
+    """#6680: 'was' / 'removed in #N' split across two comment lines."""
+    body = "# a third axis was\n# removed in #6123: no parameter read it\nX = 1\n"
+    assert _run_with_file(tmp_path, body) == 1
+
+
+def test_runtime_gone_and_test_docstrings_pass(tmp_path: Path) -> None:
+    """'is gone (#N)' describes runtime state; tests may name a removal."""
+    assert _run_with_file(tmp_path, "# so the entry is gone (#5082)\n") == 0
+    tests_dir = tmp_path / "auralis" / "tests"
+    tests_dir.mkdir(parents=True)
+    (tests_dir / "test_guard.py").write_text('"""The helper went in #5738."""\n')
+    assert _run_with_file(tmp_path, "X = 1\n") == 0

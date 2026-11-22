@@ -92,7 +92,7 @@ export interface UpdatePlaylistRequest {
 // Create base CRUD service using factory
 //
 // TList = PlaylistsResponse: GET /api/playlists answers only the paginated
-// envelope (the bare-array legacy serializer tolerance went with #6260).
+// envelope, never a bare array (#6260).
 const crudService = createCrudService<PlaylistWire, CreatePlaylistRequest, number, PlaylistListParams, PlaylistsResponse>({
   list: (params) => {
     const search = new URLSearchParams({

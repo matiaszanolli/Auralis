@@ -8,26 +8,17 @@
  * - Timeout via AbortController, with a caller signal forwarded alongside
  * - Optional runtime shape validation at the boundary (`validate`, #4607)
  *
- * ## Target end state (#4693)
+ * ## The single transport (#4693)
  *
- * This module is the single transport. The app used to have three parallel
- * implementations of timeout, retry and error normalisation, which is why
- * #4442 was resolved by *synchronising a constant across all three* rather
- * than by converging them — and why #4467 (retry eligibility matched on error
- * message substrings instead of status codes) would otherwise need fixing in
- * three places.
+ * This module is the app's only transport, so timeout, retry and error
+ * normalisation each have one implementation (#4442, #4467). Cache telemetry
+ * types and shape guards live in `services/api/cacheShapeGuards.ts`.
+ * `hooks/api/useRestAPI.ts` holds only the React surface — loading/error
+ * state, per-hook AbortControllers, stale-request filtering — as a thin
+ * wrapper over the `fetchWithTimeout` / `buildUrl` exported here, with no
+ * fetch logic of its own (#6216).
  *
- * The standardized client is retired (#4693): its cache telemetry types
- * and shape guards survive as `services/api/cacheShapeGuards.ts`, and its
- * two endpoints come through here.
- *
- * The former duplicate is gone (#6216): `hooks/api/useRestAPI.ts` keeps only
- * its React surface — loading/error state, per-hook AbortControllers,
- * stale-request filtering — as a thin wrapper over the `fetchWithTimeout` /
- * `buildUrl` exported here, holding no fetch logic of its own.
- * `restApiTransport.ts` (its private copy of the transport) is deleted.
- *
- * Do not add a third transport. New endpoints go through this module, or
+ * Do not add a second transport. New endpoints go through this module, or
  * through `useRestAPI` when a component needs the React state surface.
  */
 
