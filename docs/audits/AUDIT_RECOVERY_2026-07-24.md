@@ -8,6 +8,11 @@
 
 **Revision audited**: `master` at `74f6dfc1`.
 
+> **Status 2026-11-22 (#6678):** REC-02 (#5530, `fdbeba651`), REC-03 (#5550 `e22499901`,
+> #6118 `f227aeb83`) and REC-04 (#4426, `ae18b2484`) are fixed and were re-verified; the
+> [release checklist](../releases/RELEASE_CHECKLIST_1_5_1.md) lists the tests. The findings
+> below are kept as written on 2026-07-24.
+
 ---
 
 ## Executive Verdict

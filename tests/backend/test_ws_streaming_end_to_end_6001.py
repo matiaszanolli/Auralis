@@ -127,3 +127,46 @@ def test_enhanced_stream_delivers_the_whole_track_through_the_real_processor(cli
     assert pcm.size == frames * 2, f"delivered {pcm.size // 2} frames of {frames}"
     assert np.all(np.isfinite(pcm))
     assert float(np.max(np.abs(pcm))) <= 1.0 + 1e-6
+
+
+@pytest.fixture
+def mono_track(client, tmp_path):
+    """A real one-channel library track (REC-03): a 440 Hz tone, mono on disk."""
+    from main import globals_dict
+
+    frames = SAMPLE_RATE * SECONDS
+    tone = (0.25 * np.sin(2 * np.pi * 440 * np.arange(frames) / SAMPLE_RATE)).astype(np.float32)
+    path = tmp_path / "mono.wav"
+    sf.write(str(path), tone, SAMPLE_RATE, subtype="FLOAT")
+
+    tracks = globals_dict["library_database"].tracks
+    track = tracks.add({
+        "title": "Mono Track", "filepath": str(path), "artists": ["E2E"], "album": "E2E",
+        "format": "WAV", "sample_rate": SAMPLE_RATE, "channels": 1, "duration": float(SECONDS),
+    })
+    assert track is not None
+    yield track, frames
+    tracks.delete(track.id)
+
+
+@pytest.mark.parametrize(
+    "command, extra",
+    [
+        ("play_normal", {}),
+        ("play_enhanced", {"preset": "adaptive", "intensity": 1.0, "force": True}),
+    ],
+)
+def test_mono_track_plays_whole_and_finite_in_both_modes(client, mono_track, command, extra):
+    """REC-03: a mono file streams in normal and enhanced mode with every frame and finite PCM."""
+    track, frames = mono_track
+
+    messages, pcm = _stream(
+        client, command, {"track_id": track.id, **extra},
+        {"audio_stream_end", "audio_stream_error", "error"}, max_frames=2000,
+    )
+
+    assert "audio_stream_error" not in _types(messages), messages
+    assert _types(messages)[-1] == "audio_stream_end"
+    assert pcm.size == frames, f"delivered {pcm.size} mono samples of {frames}"
+    assert np.all(np.isfinite(pcm))
+    assert float(np.max(np.abs(pcm))) <= 1.0 + 1e-6

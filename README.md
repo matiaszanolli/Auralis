@@ -20,9 +20,10 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 The [working-state recovery audit](docs/audits/AUDIT_RECOVERY_2026-07-24.md) found that the
 backend can boot and the frontend can build, but the supported full-app launch path and three
-core product flows still have release-blocking defects. The immediate goal is deliberately
-smaller than “finished”: one truthful launcher, a fresh library that persists fingerprints,
-mono-safe enhancement, and deterministic rapid track selection.
+core product flows had release-blocking defects. The three product defects (fingerprint
+persistence, mono enhancement, rapid track selection) are fixed and were re-verified on
+2026-11-22; the launcher and installed-artifact validation remain. The goal is deliberately
+smaller than “finished”: one truthful launcher on top of those repaired flows.
 
 ### Downloads
 
@@ -392,9 +393,9 @@ This section is a brief summary — **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md
 - [x] Version metadata aligned on 1.5.1
 - [x] Release notes and acceptance checklist prepared
 - [ ] Repair the canonical launcher and readiness checks
-- [ ] Repair fresh-database fingerprint persistence
-- [ ] Repair `(samples, 1)` mono enhancement
-- [ ] Prevent stale rapid track selections from winning
+- [x] Repair fresh-database fingerprint persistence (#5530; re-verified 2026-11-22)
+- [x] Repair `(samples, 1)` mono enhancement (#5550, #6118; re-verified 2026-11-22)
+- [x] Prevent stale rapid track selections from winning (#4426; re-verified 2026-11-22)
 - [ ] Pass the working-state smoke test and platform artifact checks
 
 ### 🔄 Open Backlog
@@ -450,9 +451,10 @@ See **[MASTER_ROADMAP.md §5](docs/MASTER_ROADMAP.md#5-open-backlog-real-tracked
 **Release blockers**
 
 - The installed Electron launch and shutdown checks remain part of release validation.
-- Fresh databases silently fail their first fingerprint inserts.
-- Adaptive enhancement crashes on two-dimensional mono input.
-- Rapid track selection can allow an older request to play after the newer request.
+
+The audit's three product blockers (REC-02 fingerprint persistence, REC-03 mono enhancement,
+REC-04 rapid selection) are fixed. The checklist records the tests that re-verified each one on
+2026-11-22.
 
 See the [recovery audit](docs/audits/AUDIT_RECOVERY_2026-07-24.md) for evidence and required
 fixes. The [release checklist](docs/releases/RELEASE_CHECKLIST_1_5_1.md) records current validation.

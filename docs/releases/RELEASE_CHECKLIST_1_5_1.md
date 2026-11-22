@@ -27,10 +27,24 @@ release validation passes.
 
 - [ ] **REC-01:** one documented launcher owns each required child, installs nothing at runtime,
   reports real readiness, propagates one port, and shuts down only its own processes.
-- [ ] **REC-02:** fresh and migrated databases both persist and reload fingerprints.
-- [ ] **REC-03:** one-dimensional and `(samples, 1)` mono fixtures play in normal and enhanced
+- [x] **REC-02:** fresh and migrated databases both persist and reload fingerprints.
+  *Verified 2026-11-22 (#6678). Fixed by #5530 (`fdbeba651`). Fresh schema:
+  `tests/auralis/library/test_fingerprint_fresh_install_defaults_5530.py` and
+  `tests/auralis/library/test_reference_cloud_v15.py`. Migrated schema: an insert and an update
+  `upsert()` each reloaded through `get_by_track_id()` on a copy of a migration-built v33
+  library. No committed test covers the migrated half yet.*
+- [x] **REC-03:** one-dimensional and `(samples, 1)` mono fixtures play in normal and enhanced
   modes without changing sample count or producing non-finite PCM.
-- [ ] **REC-04 / #4426:** two rapid selections deterministically leave the second track active.
+  *Verified 2026-11-22 (#6678). Fixed by #5550 (`e22499901`) and #6118 (`f227aeb83`).
+  Arrays: `tests/auralis/dsp/test_loudness_channel_counts_5550.py`,
+  `tests/auralis/core/test_hybrid_input_contract_6118.py`,
+  `tests/auralis/test_audio_processing_invariants.py`. Streams: a mono file plays whole and
+  finite through `play_normal` and `play_enhanced` in
+  `tests/backend/test_ws_streaming_end_to_end_6001.py`.*
+- [x] **REC-04 / #4426:** two rapid selections deterministically leave the second track active.
+  *Verified 2026-11-22 (#6678). Fixed in `ae18b2484`.
+  `auralis-web/frontend/src/hooks/player/__tests__/usePlayTrack.test.ts` resolves the older
+  request last and asserts only the second track starts.*
 - [x] `/api/ready` reports initialized engine and database state.
 - [x] The collected [source startup smoke](../../tests/integration/test_application_startup.py)
   exercises real backend and Vite processes with ephemeral ports and a temporary

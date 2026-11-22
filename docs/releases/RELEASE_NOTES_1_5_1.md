@@ -11,8 +11,8 @@
 v1.5.1 begins the working-state recovery. It does not claim the application is finished—or
 even working end to end yet. The repository has usable foundations: the FastAPI backend boots
 and serves real API requests, the React frontend creates a production bundle, and several
-high-risk regression slices pass. The supported launcher and four product-critical flows still
-block a release.
+high-risk regression slices pass. The supported launcher (REC-01) still blocks a release; the
+three product-flow defects found with it (REC-02 to REC-04) are fixed and re-verified.
 
 The complete evidence and implementation order are in the
 [working-state recovery audit](../audits/AUDIT_RECOVERY_2026-07-24.md).
@@ -37,7 +37,9 @@ The complete evidence and implementation order are in the
 - The production TypeScript gate is green after making the cache-health timestamp fallback
   match the backend's actual optional response field.
 
-No launcher, fingerprint, mono-processing, or rapid-selection product fix is included yet.
+Since preparation, the fingerprint (#5530), mono-processing (#5550, #6118) and rapid-selection
+(#4426) fixes have landed and were re-verified on 2026-11-22; see the
+[release checklist](RELEASE_CHECKLIST_1_5_1.md). The launcher (REC-01) remains open.
 
 ## Release blockers
 
@@ -45,11 +47,12 @@ No launcher, fingerprint, mono-processing, or rapid-selection product fix is inc
    after a path-only fix, root and Electron would race to own the backend. Cleanup can kill an
    unrelated process on port 8765.
 2. **REC-02 — fresh fingerprint persistence:** fresh schemas provide no server default for
-   `is_reference`; raw inserts omit it and silently fail.
+   `is_reference`; raw inserts omit it and silently fail. *Resolved: #5530, re-verified
+   2026-11-22.*
 3. **REC-03 — two-dimensional mono input:** `(samples, 1)` reaches loudness code that indexes
-   a nonexistent second channel.
+   a nonexistent second channel. *Resolved: #5550, #6118, re-verified 2026-11-22.*
 4. **REC-04 / #4426 — last intent loses:** two rapid track requests can leave the older track
-   active.
+   active. *Resolved: #4426, re-verified 2026-11-22.*
 
 The release must also replace optimistic liveness with real readiness and turn the existing
 full-stack script into a collected, isolated smoke test.
