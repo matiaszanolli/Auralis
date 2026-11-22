@@ -11,26 +11,19 @@ old enough not to be a live decode are removed.
 """
 
 import logging
-import time
 from pathlib import Path
 
 from auralis.io.loaders.decode_temp import DECODE_TEMP_PREFIX
+from core.dir_sweep import reap_older_than
 
 logger = logging.getLogger(__name__)
 
 
 def reclaim_leftover_decode_wavs(temp_root: Path, max_age_hours: float = 1.0) -> int:
     """Delete decode WAVs older than ``max_age_hours``; returns how many were removed."""
-    cutoff = time.time() - max_age_hours * 3600
-    reclaimed = 0
-    for leftover in temp_root.glob(f"{DECODE_TEMP_PREFIX}*"):
-        try:
-            if not leftover.is_file() or leftover.stat().st_mtime >= cutoff:
-                continue
-            leftover.unlink()
-            reclaimed += 1
-        except OSError as e:
-            logger.warning(f"Failed to remove leftover decode WAV {leftover.name}: {type(e).__name__}")
+    reclaimed = reap_older_than(
+        temp_root.glob(f"{DECODE_TEMP_PREFIX}*"), max_age_hours * 3600, label="leftover decode WAV", log=logger
+    )
     if reclaimed:
         logger.info(f"🧹 Reclaimed {reclaimed} orphaned FFmpeg decode WAV(s)")
     return reclaimed

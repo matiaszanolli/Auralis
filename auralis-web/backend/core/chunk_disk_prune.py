@@ -14,6 +14,7 @@ import logging
 import threading
 from pathlib import Path
 
+from core.dir_sweep import prune_directory_lru
 from schemas import ChunkDirectoryStats
 
 logger = logging.getLogger(__name__)
@@ -120,42 +121,4 @@ class ChunkDiskPruneMixin:
 
         Returns (files_deleted, bytes_reclaimed).
         """
-        try:
-            entries: list[tuple[float, int, Path]] = []
-            total = 0
-            for p in chunk_dir.iterdir():
-                if not p.is_file():
-                    continue
-                try:
-                    st = p.stat()
-                except OSError:
-                    continue
-                entries.append((st.st_mtime, st.st_size, p))
-                total += st.st_size
-        except OSError as e:
-            logger.debug(f"Chunk-dir prune skipped ({chunk_dir}): {e}")
-            return (0, 0)
-
-        if total <= max_bytes:
-            return (0, 0)
-
-        entries.sort(key=lambda e: e[0])  # oldest mtime first
-        deleted = 0
-        reclaimed = 0
-        for _mtime, size, p in entries:
-            if total <= max_bytes:
-                break
-            try:
-                p.unlink()
-                deleted += 1
-                reclaimed += size
-                total -= size
-            except OSError as e:
-                logger.warning(f"Could not prune cached chunk {p}: {e}")
-
-        if deleted:
-            logger.info(
-                f"Pruned {deleted} cached chunk file(s) from {chunk_dir}, "
-                f"reclaimed {reclaimed / 1024 / 1024:.1f} MB (cap {max_bytes / 1024 / 1024:.0f} MB)"
-            )
-        return (deleted, reclaimed)
+        return prune_directory_lru(chunk_dir, max_bytes, label="cached chunk", log=logger)

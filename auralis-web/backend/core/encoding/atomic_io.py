@@ -29,9 +29,10 @@ import logging
 import os
 import struct
 import tempfile
-import time
 from collections.abc import Callable
 from pathlib import Path
+
+from ..dir_sweep import reap_older_than
 
 logger = logging.getLogger(__name__)
 
@@ -158,19 +159,13 @@ def cleanup_partial_files(directory: Path, min_age_seconds: float = 0.0) -> int:
     ``Path.glob`` — unlike :mod:`glob` — does not treat a leading dot as
     special. Sweeping with the :mod:`glob` module here would silently no-op.
     """
-    removed = 0
-    cutoff = time.time() - min_age_seconds if min_age_seconds > 0 else None
-    try:
-        for candidate in directory.glob(f"*{PARTIAL_SUFFIX}*"):
-            try:
-                if cutoff is not None and candidate.stat().st_mtime >= cutoff:
-                    continue
-                candidate.unlink()
-                removed += 1
-            except OSError as e:  # pragma: no cover - best effort
-                logger.debug(f"Could not remove stale partial {candidate}: {e}")
-    except OSError as e:  # pragma: no cover - directory may not exist yet
-        logger.debug(f"Partial-file sweep skipped for {directory}: {e}")
+    removed = reap_older_than(
+        directory.glob(f"*{PARTIAL_SUFFIX}*"),
+        min_age_seconds,
+        label="stale partial",
+        log=logger,
+        failure_level=logging.DEBUG,
+    )
 
     if removed:
         logger.info(f"Removed {removed} stale partial write(s) from {directory}")

@@ -28,6 +28,7 @@ from config.limits import (
     create_secure_temp_dir,
     owning_pid_from_stream_temp_name,
 )
+from core.dir_sweep import reap_older_than
 from core.encoding.atomic_io import PARTIAL_MAX_AGE_SECONDS, cleanup_partial_files
 
 from .decode_temps import reclaim_leftover_decode_wavs
@@ -195,21 +196,9 @@ def reclaim_stale_temp_entries(dir_path: Path, max_age_hours: float) -> int:
     """
     if not dir_path.exists():
         return 0
-    reclaimed = 0
-    cutoff = time.time() - (max_age_hours * 3600)
-    for entry in dir_path.iterdir():
-        try:
-            if entry.stat().st_mtime >= cutoff:
-                continue
-            if entry.is_dir():
-                shutil.rmtree(entry)
-            else:
-                entry.unlink()
-            reclaimed += 1
-        except Exception as e:
-            logger.warning(
-                f"Failed to remove stale temp entry {entry.name}: {type(e).__name__}"
-            )
+    reclaimed = reap_older_than(
+        dir_path.iterdir(), max_age_hours * 3600, label="stale temp entry", remove_dirs=True, log=logger
+    )
     if reclaimed:
         logger.info(f"🧹 Reclaimed {reclaimed} stale entr{'y' if reclaimed == 1 else 'ies'} from {dir_path.name}")
     return reclaimed

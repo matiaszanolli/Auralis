@@ -22,10 +22,10 @@ without the repository layer having to touch the filesystem.
 
 import hashlib
 import logging
-import time
 from pathlib import Path
 
 from auralis.library.data_dir import artwork_dir
+from core.dir_sweep import prune_directory_lru, reap_older_than
 
 logger = logging.getLogger(__name__)
 
@@ -137,53 +137,14 @@ def prune_thumbnail_cache(
     Best-effort filesystem errors never fail the artwork request that triggered
     the sweep. Returns ``(files_deleted, bytes_reclaimed)``.
     """
-    if thumb_dir.is_symlink():
-        logger.warning("Refusing to prune symlinked thumbnail directory %s", thumb_dir)
-        return (0, 0)
-
-    try:
-        entries: list[tuple[float, int, Path]] = []
-        total = 0
-        for entry in thumb_dir.iterdir():
-            if entry.name.startswith(THUMB_TMP_PREFIX) or not entry.is_file():
-                continue
-            try:
-                stat = entry.stat()
-            except OSError:
-                continue
-            entries.append((stat.st_mtime, stat.st_size, entry))
-            total += stat.st_size
-    except OSError:
-        logger.debug("Thumbnail-cache prune skipped for %s", thumb_dir, exc_info=True)
-        return (0, 0)
-
-    if total <= max_bytes:
-        return (0, 0)
-
-    entries.sort(key=lambda item: item[0])
-    deleted = 0
-    reclaimed = 0
-    for _mtime, size, entry in entries:
-        if total <= max_bytes:
-            break
-        if keep is not None and entry == keep:
-            continue
-        try:
-            entry.unlink()
-            deleted += 1
-            reclaimed += size
-            total -= size
-        except OSError:
-            logger.warning("Could not prune cached thumbnail %s", entry, exc_info=True)
-
-    if deleted:
-        logger.info(
-            "Pruned %d thumbnail(s) from %s, reclaimed %.1f MiB",
-            deleted,
-            thumb_dir,
-            reclaimed / 1024 / 1024,
-        )
-    return (deleted, reclaimed)
+    return prune_directory_lru(
+        thumb_dir,
+        max_bytes,
+        label="thumbnail",
+        skip=lambda entry: entry.name.startswith(THUMB_TMP_PREFIX),
+        keep=keep,
+        log=logger,
+    )
 
 
 def clear_artwork_cache(artwork_dir: Path) -> tuple[int, int]:
@@ -257,18 +218,14 @@ def reap_orphan_temp_files(
     if not thumb_dir.is_dir():
         return 0
 
-    now = time.time()
-    removed = 0
-    for entry in thumb_dir.glob(f"{THUMB_TMP_PREFIX}*"):
-        try:
-            if now - entry.stat().st_mtime < max_age_seconds:
-                continue
-            entry.unlink()
-            removed += 1
-        except OSError:
-            # Includes the benign race where a live writer promoted or removed
-            # the file between glob and stat/unlink.
-            logger.debug("Could not reap temp thumbnail %s", entry, exc_info=True)
+    # A failure includes the benign race where a live writer promoted or removed the file.
+    removed = reap_older_than(
+        thumb_dir.glob(f"{THUMB_TMP_PREFIX}*"),
+        max_age_seconds,
+        label="temp thumbnail",
+        log=logger,
+        failure_level=logging.DEBUG,
+    )
 
     if removed:
         logger.info("Reaped %d orphaned thumbnail temp file(s) from %s", removed, thumb_dir)
