@@ -381,16 +381,12 @@ class TestEQCurveModifications:
         REGRESSION: EQ curve generation shouldn't crash.
         Test: EQ curves can be generated.
         """
-        try:
-            from auralis.dsp.eq import generate_genre_eq_curve
+        # No ImportError escape hatch: a rename must fail here, not pass silently.
+        from auralis.dsp.eq import generate_genre_eq_curve
 
-            # Try to generate a curve
-            curve = generate_genre_eq_curve("neutral")
+        curve = generate_genre_eq_curve("neutral")
 
-            assert curve is not None, "Should generate EQ curve"
-        except ImportError:
-            # Module may have moved
-            pass
+        assert len(curve) > 0 and np.all(np.isfinite(curve)), "Should generate a finite EQ curve"
 
 
 @pytest.mark.regression

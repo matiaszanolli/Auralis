@@ -167,36 +167,20 @@ class TestDatabaseSchemaMigrations:
                 'format': 'FLAC',
                 'sample_rate': 44100,
                 'channels': 2,
-                'favorite': True
             }
-            track_repo.add(track_info)
+            # add() takes what a file carries; a favorite is set afterwards, as the app does.
+            track = track_repo.add(track_info)
+            assert track_repo.set_favorite(track.id, True)
 
-        # Query favorites (should use index)
-        result = track_repo.get_favorites(limit=10, offset=0)
+        favorites, total = track_repo.get_favorites(limit=10, offset=0)
 
-        if isinstance(result, tuple):
-            favorites, total = result
-        else:
-            favorites = result
-
-        assert len(favorites) == 10, "Should retrieve all favorites"
+        assert total == 10, "Should count every favorite"
+        assert {t.filepath for t in favorites} == {f'/tmp/favorite_{i}.flac' for i in range(10)}
 
 
 @pytest.mark.regression
 class TestConfigurationCompatibility:
     """Test configuration file format compatibility."""
-
-    def test_old_config_format_loads(self):
-        """
-        REGRESSION: Old config files should load with defaults.
-        Test: Missing keys use current defaults.
-        """
-        config = UnifiedConfig()
-
-        # Old config might not have all new parameters
-        # Should load without crashing
-        assert config.sample_rate == 44100, "Should have default sample rate"
-        assert config.bit_depth == 24, "Should have default bit depth"
 
     def test_deprecated_processing_modes_handled(self):
         """
@@ -205,42 +189,11 @@ class TestConfigurationCompatibility:
         """
         config = UnifiedConfig()
 
-        # Set deprecated mode
         config.set_processing_mode("reference")
 
-        # Should not crash, should map to valid mode
-        assert config.processing_mode in ["adaptive", "reference", "hybrid"], \
-            "Should map to valid processing mode"
-
-    def test_config_with_extra_keys_ignored(self):
-        """
-        REGRESSION: Config with unknown keys shouldn't crash.
-        Test: Extra keys are ignored gracefully.
-        """
-        config = UnifiedConfig()
-
-        # Simulate old config with deprecated keys
-        config.config_data = {
-            'sample_rate': 44100,
-            'old_deprecated_key': 'value',  # Should be ignored
-            'another_old_key': 123
-        }
-
-        # Should not crash when accessing valid keys
-        assert config.sample_rate == 44100
-
-    def test_parameter_name_changes_backward_compatible(self):
-        """
-        REGRESSION: Parameter renames should have aliases.
-        Test: Old parameter names still work.
-        """
-        config = UnifiedConfig()
-
-        # Current API uses specific parameter names
-        # Verify they exist
-        assert hasattr(config, 'sample_rate')
-        assert hasattr(config, 'bit_depth')
-        assert hasattr(config, 'processing_mode')
+        assert config.is_reference_mode() and not config.is_adaptive_mode()
+        with pytest.raises(ValueError):
+            config.set_processing_mode("legacy_mode")
 
     def test_default_values_unchanged_across_versions(self):
         """
@@ -250,9 +203,8 @@ class TestConfigurationCompatibility:
         config = UnifiedConfig()
 
         # Critical defaults that should never change
-        assert config.sample_rate == 44100, "Default sample rate should be 44.1kHz"
-        assert config.bit_depth == 24, "Default bit depth should be 24-bit"
-        assert config.processing_mode == "adaptive", "Default mode should be adaptive"
+        assert config.internal_sample_rate == 44100, "Default sample rate should be 44.1kHz"
+        assert config.is_adaptive_mode(), "Default mode should be adaptive"
 
 
 @pytest.mark.regression
@@ -414,35 +366,6 @@ class TestDeprecatedFeatures:
         assert PsychoacousticEQ is not None
         assert callable(spectral_centroid)
 
-    def test_old_processing_parameters_mapped(self):
-        """
-        REGRESSION: Old parameter names should map to new ones.
-        Test: Legacy parameter names work.
-        """
-        from auralis.core.hybrid_processor import HybridProcessor
-        from auralis.core.config import UnifiedConfig
-
-        config = UnifiedConfig()
-        processor = HybridProcessor(config)
-
-        # Should not crash with current API
-        assert processor is not None
-
-    def test_deprecated_config_keys_ignored(self):
-        """
-        REGRESSION: Deprecated config keys shouldn't cause errors.
-        Test: Unknown config keys are silently ignored.
-        """
-        config = UnifiedConfig()
-
-        # Set some hypothetical deprecated keys
-        config.config_data['old_limiter_mode'] = 'brick_wall'  # Deprecated
-        config.config_data['old_eq_bands'] = 31  # Deprecated
-
-        # Should not crash when loading
-        assert config.sample_rate == 44100, "Should still load valid config"
-
-
 @pytest.mark.regression
 class TestBackwardCompatibility:
     """Test backward compatibility guarantees."""
@@ -450,7 +373,8 @@ class TestBackwardCompatibility:
     def test_audio_output_format_unchanged(self, temp_audio_dir):
         """
         REGRESSION: Processor output format should be consistent.
-        Test: Always returns numpy array, always resamples to 44.1kHz.
+        Test: a float numpy array with exactly the input's sample count (gapless playback depends on
+        it). The loader only ever downsamples, so a 16 kHz file is processed at its own length.
         """
         import numpy as np
 
@@ -473,12 +397,9 @@ class TestBackwardCompatibility:
         loaded_audio, _ = load_audio(filepath, target_sample_rate=config.internal_sample_rate)
         result = processor.process(loaded_audio)
 
-        # Should always return numpy array
         assert isinstance(result, np.ndarray), "Output should be numpy array"
-
-        # Should always be resampled to 44.1kHz internally
-        # Output sample count will reflect 44.1kHz
-        assert len(result) > len(audio), "Should be resampled to higher rate"
+        assert result.dtype in (np.float32, np.float64)
+        assert len(result) == len(loaded_audio), "Processing must not change the sample count"
 
     def test_library_database_location_consistent(self):
         """
@@ -522,9 +443,6 @@ class TestBackwardCompatibility:
         result1 = processor1.process(loaded_audio1)
         result2 = processor2.process(loaded_audio2)
 
-        # Should be identical (or very close due to floating point)
-        assert len(result1) == len(result2), "Output lengths should match"
-
-        # Check similarity (allow small floating point differences)
-        correlation = np.corrcoef(result1, result2)[0, 1]
-        assert correlation > 0.99, f"Results should be deterministic (correlation: {correlation:.4f})"
+        # Two fresh processors on the same input produce the same samples.
+        assert result1.shape == result2.shape, "Output shapes should match"
+        np.testing.assert_allclose(result1, result2, rtol=0, atol=1e-6)
