@@ -137,7 +137,7 @@ next broadcast. Handle these idempotently.
 
 **Client → server** (validated subset in `schemas/websocket.py::WebSocketMessageType`, inbound-only):
 `ping/pong/heartbeat`, `play_enhanced`, `play_normal`, `pause/resume/stop/seek`,
-`buffer_full/buffer_ready`, `processing_settings_update`, `ab_track_loaded`.
+`buffer_full/buffer_ready`.
 (`subscribe_job_progress` was retired in #5525 — no client ever sent it.)
 
 **Server → client streaming protocol:**
@@ -175,7 +175,7 @@ The full protocol reference is [`WEBSOCKET_API.md`](../../auralis-web/backend/WE
 
 ---
 
-## 5. Chunk orchestration — three paths
+## 5. Chunk orchestration — two paths
 
 Chunk geometry is sourced *only* from
 [`core/chunk_boundaries.py`](../../auralis-web/backend/core/chunk_boundaries.py):
@@ -189,11 +189,13 @@ seam model (no crossfade, #4642) and `ProcessorFactory` lifecycle.
 |------|-------|-----|
 | **WS streaming** | `ChunkedAudioProcessor` ([`core/chunked_processor.py`](../../auralis-web/backend/core/chunked_processor.py)) | Live playback. DSP offloaded via `asyncio.to_thread`, serialized by a `threading.Lock`, keeping the event loop free for heartbeats/pause/seek (#2388) |
 | **REST batch job** | `ProcessingEngine` ([`core/processing_engine.py`](../../auralis-web/backend/core/processing_engine.py)) | Full-file jobs. State machine QUEUED→PROCESSING→COMPLETED/FAILED/CANCELLED; each transition is written to the library's `processing_jobs` table (`core/job_store.py`), and on startup the engine reloads it, marking jobs left QUEUED/PROCESSING as INTERRUPTED (#5278); `processor.process()` wrapped in `asyncio.wait_for(asyncio.to_thread(...), timeout)` so a hung Rust DSP can't hold a slot (#2747). `max_concurrent_jobs=2` |
-| **REST WAV chunk** | *(removed)* | There is no longer a REST chunk endpoint: the router and its `GET /api/stream/{id}/chunk/{idx}` route were deleted, along with the `X-Sample-Rate` / `X-Total-Samples` / `X-Playable-Samples` / `X-Overlap-Samples` / `X-Start-Sample-Offset` placement headers. Chunk delivery is WebSocket-only |
 
-> **Default overlap is 5 s, everywhere.** Both the WS and REST WAV paths default to
-> `duration=15 / interval=10`. No-overlap happens only when a caller explicitly passes equal
-> duration/interval, or on short/final chunks.
+Chunk delivery is WebSocket-only: there is no REST chunk endpoint (the old
+`GET /api/stream/{id}/chunk/{idx}` route and its `X-*-Samples` placement headers are gone).
+
+> **Overlap.** The enhanced stream renders 15 s chunks every 10 s (`CHUNK_DURATION` /
+> `CHUNK_INTERVAL`) and emits non-overlapping 10 s segments. The normal (unprocessed) stream
+> reads 15 s chunks back to back with no overlap at all (`normal_chunk_count()`).
 
 Cached WAV chunks are **16-bit PCM WAV** (distinct from the float32 WS wire format) and the
 chunk dir is **wiped on every startup** to avoid serving stale-preset chunks.
@@ -222,7 +224,7 @@ types live in the frontend TS union — see [frontend.md](frontend.md).
 
 | State kind | Primitive | Examples |
 |------------|-----------|----------|
-| Async-loop state | `asyncio.Lock` | `ConnectionManager._lock`, `_active_streams_lock`, `RateLimitMiddleware._lock` |
+| Async-loop state | `asyncio.Lock` | `ConnectionManager._lock`, `StreamState.active_tasks_lock` (per-connection stream registries, `ws_handlers/context.py`), `RateLimitMiddleware._lock` |
 | Thread-pool / CPU state | `threading.RLock` / `Lock` | `ProcessorFactory._lock`, `ChunkedAudioProcessor._processor_lock` |
 | Per-task isolation | `contextvars.ContextVar` | `_stream_type_var`, `_frame_seq_var` |
 | Bounded concurrency | `Semaphore` | global stream semaphore (10), `ProcessingEngine` (2 jobs) |
