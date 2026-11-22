@@ -19,28 +19,16 @@ Features:
 
 import asyncio
 import logging
-import threading
-from collections import deque
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
 from collections.abc import Callable, Iterable
+from typing import Any, Literal
+
 from helpers import spawn_background_task
+
+from .fingerprint_queue_state import FingerprintQueueState
 
 logger = logging.getLogger(__name__)
 _IDLE_POLL_S = 0.5  # no track to fingerprint: look again after this (#6642)
 _ERROR_BACKOFF_S = 1.0  # after an unexpected worker error
-
-
-@dataclass
-class FingerprintQueueState:
-    """Internal state for the fingerprint queue."""
-    queue: deque[int] = field(default_factory=deque)
-    queued_set: set[int] = field(default_factory=set)  # For O(1) dedup lookup
-    processing: int | None = None
-    completed: int = 0
-    failed: int = 0
-    started_at: datetime | None = None
 
 
 class FingerprintQueue:
@@ -80,52 +68,38 @@ class FingerprintQueue:
         """
         self._generator = fingerprint_generator
         self._get_filepath = get_track_filepath
+        # Thread-safe on its own lock: enqueue() runs through asyncio.to_thread (#5261).
         self._state = FingerprintQueueState()
         self._worker_task: asyncio.Task[None] | None = None
         self._shutdown = False
-        # enqueue() is intentionally called through asyncio.to_thread by
-        # several routes so large batches do not monopolize the event loop.
-        # A real thread lock must therefore guard its check-then-mutate state
-        # together with the async worker's dequeue transition (#5261).
-        self._state_lock = threading.Lock()
 
     def enqueue(self, track_id: int) -> bool:
         """
         Add a track to the fingerprint queue.
 
-        Thread-safe. The check-then-mutate sequence shares ``_state_lock``
-        with the background worker's dequeue/processing transition.
-
-        Deduplicates (same track won't be queued twice).
+        Thread-safe: the check-then-mutate runs under the state lock the
+        background worker's dequeue also takes. Deduplicates (same track won't
+        be queued twice).
 
         Args:
             track_id: ID of the track to fingerprint
 
         Returns:
-            True if added to queue, False if already queued/processing
+            True if added to queue, False if already queued/processing or the queue is full
         """
-        with self._state_lock:
-            if track_id in self._state.queued_set:
-                logger.debug(f"Track {track_id} already in fingerprint queue, skipping")
-                return False
-
-            if track_id == self._state.processing:
-                logger.debug(f"Track {track_id} currently being fingerprinted, skipping")
-                return False
-
-            if len(self._state.queue) >= self.MAX_QUEUE_SIZE:
-                logger.warning(
-                    f"Fingerprint queue full ({self.MAX_QUEUE_SIZE} entries); "
-                    f"dropping track {track_id}. The worker will process queued tracks first."
-                )
-                return False
-
-            self._state.queue.append(track_id)
-            self._state.queued_set.add(track_id)
-            queue_size = len(self._state.queue)
-
-        logger.info(f"📋 Added track {track_id} to fingerprint queue (queue size: {queue_size})")
-        return True
+        outcome, queue_size = self._state.add(track_id, self.MAX_QUEUE_SIZE)
+        if outcome == "queued":
+            logger.debug(f"Track {track_id} already in fingerprint queue, skipping")
+        elif outcome == "processing":
+            logger.debug(f"Track {track_id} currently being fingerprinted, skipping")
+        elif outcome == "full":
+            logger.warning(
+                f"Fingerprint queue full ({self.MAX_QUEUE_SIZE} entries); "
+                f"dropping track {track_id}. The worker will process queued tracks first."
+            )
+        else:
+            logger.info(f"📋 Added track {track_id} to fingerprint queue (queue size: {queue_size})")
+        return outcome == "added"
 
     def enqueue_many(self, track_ids: Iterable[int]) -> tuple[int, int, int]:
         """Enqueue each track; returns (enqueued, already_pending, dropped_queue_full) (#5920).
@@ -145,8 +119,7 @@ class FingerprintQueue:
 
     def is_pending(self, track_id: int) -> bool:
         """True when the track is waiting in the queue or being fingerprinted right now."""
-        with self._state_lock:
-            return track_id in self._state.queued_set or track_id == self._state.processing
+        return self._state.is_pending(track_id)
 
     def get_stats(self) -> dict[str, Any]:
         """
@@ -155,16 +128,7 @@ class FingerprintQueue:
         Returns:
             Dict with queue stats (queued, processing, completed, failed)
         """
-        with self._state_lock:
-            stats = {
-                "queued": len(self._state.queue),
-                "processing": self._state.processing,
-                "completed": self._state.completed,
-                "failed": self._state.failed,
-                "started_at": (
-                    self._state.started_at.isoformat() if self._state.started_at else None
-                ),
-            }
+        stats = self._state.snapshot()
         return {
             **stats,
             "is_running": self._worker_task is not None and not self._worker_task.done(),
@@ -177,8 +141,7 @@ class FingerprintQueue:
             return
 
         self._shutdown = False
-        with self._state_lock:
-            self._state.started_at = datetime.now()
+        self._state.mark_started()
         self._worker_task = spawn_background_task(self._worker_loop(), name="fingerprint_queue._worker_loop")
         logger.info("🚀 Fingerprint queue background worker started")
 
@@ -199,81 +162,49 @@ class FingerprintQueue:
             except asyncio.CancelledError:
                 pass
             self._worker_task = None
-        with self._state_lock:
-            self._state.processing = None
-            self._state.queue.clear()
-            self._state.queued_set.clear()
+        self._state.drop_pending()
         logger.info("🛑 Fingerprint queue background worker stopped")
 
-    async def _generate_one(self, track_id: int, filepath: str) -> None:
-        """Generate one fingerprint and count the outcome as completed/failed."""
+    async def _generate_one(self, track_id: int, filepath: str) -> Literal["completed", "failed"]:
+        """Generate one fingerprint; returns how it ended for the state counters."""
         try:
             result = await self._generator.get_or_generate(track_id, filepath)
         except Exception as e:
-            with self._state_lock:
-                self._state.failed += 1
             logger.error(f"❌ Error generating fingerprint for track {track_id}: {e}")
-            return
+            return "failed"
 
-        if result is not None:
-            with self._state_lock:
-                self._state.completed += 1
-            logger.info(f"✅ Fingerprint generated for track {track_id}")
-        else:
-            with self._state_lock:
-                self._state.failed += 1
+        if result is None:
             logger.warning(f"⚠️  Fingerprint generation failed for track {track_id}")
+            return "failed"
+        logger.info(f"✅ Fingerprint generated for track {track_id}")
+        return "completed"
+
+    async def _process(self, track_id: int, remaining: int) -> None:
+        """Look up the track's file and fingerprint it, then release it from processing."""
+        logger.info(f"🎵 Processing fingerprint for track {track_id} (remaining: {remaining})")
+        # A synchronous repository query: off the event loop, which also
+        # carries WS control traffic (#5390).
+        filepath = await asyncio.to_thread(self._get_filepath, track_id)
+        if filepath is None:
+            logger.warning(f"⚠️  Track {track_id} not found or no filepath, skipping")
+            self._state.finish("failed")
+            return
+        self._state.finish(await self._generate_one(track_id, filepath))
 
     async def _worker_loop(self) -> None:
-        """
-        Background worker loop that processes queued tracks.
-
-        Runs continuously, processing one track at a time.
-        Sleeps when queue is empty.
-        """
+        """Process queued tracks one at a time until stopped; idles briefly when empty."""
         logger.info("🔄 Fingerprint queue worker loop starting")
 
         while not self._shutdown:
             try:
-                # Atomically move the next item from queued to processing so
-                # threaded enqueue() calls cannot observe it in neither state.
-                with self._state_lock:
-                    if self._state.queue:
-                        track_id = self._state.queue.popleft()
-                        self._state.queued_set.discard(track_id)
-                        self._state.processing = track_id
-                        remaining = len(self._state.queue)
-                    else:
-                        track_id = None
-                        remaining = 0
-
+                track_id, remaining = self._state.pop_next()
                 if track_id is None:
-                    # Sleep briefly and check again
                     await asyncio.sleep(_IDLE_POLL_S)
                     continue
-
-                logger.info(f"🎵 Processing fingerprint for track {track_id} (remaining: {remaining})")
-
-                # Get filepath for track
-                # A synchronous repository query: off the event loop, which also
-                # carries WS control traffic (#5390).
-                filepath = await asyncio.to_thread(self._get_filepath, track_id)
-                if filepath is None:
-                    logger.warning(f"⚠️  Track {track_id} not found or no filepath, skipping")
-                    with self._state_lock:
-                        self._state.failed += 1
-                        self._state.processing = None
-                    continue
-
-                await self._generate_one(track_id, filepath)
-
-                with self._state_lock:
-                    self._state.processing = None
-
+                await self._process(track_id, remaining)
             except asyncio.CancelledError:
                 logger.info("Fingerprint queue worker cancelled")
-                with self._state_lock:
-                    self._state.processing = None  # the cancelled track is no longer in flight
+                self._state.finish("cancelled")  # the cancelled track is no longer in flight
                 break
             except Exception as e:
                 logger.error(f"Unexpected error in fingerprint queue worker: {e}")
