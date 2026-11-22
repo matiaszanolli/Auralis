@@ -7,8 +7,7 @@ Worker-pool sizing and dynamic-scaling helper for
 processing semaphore, the ``AdaptiveResourceMonitor`` lifecycle, and the
 callbacks that apply the monitor's recommendations to the live pool.
 
-Split out of ``fingerprint_queue.py`` as a **pure move** — no signature,
-default, log message or exception type changed. The callbacks are a mixin
+Split out of ``fingerprint_queue.py`` (#5039). The callbacks are a mixin
 rather than free functions so ``self.processing_semaphore`` / ``self.stats``
 stay reachable and the monitor keeps receiving bound methods of the queue.
 
@@ -27,21 +26,31 @@ from ..library.resource_monitor import AdaptiveResourceMonitor, ResourceLimits
 from ..utils.logging import debug, info
 
 
+# Worker sizing (#6641): named once, read by resolve_worker_bounds and the monitor log.
+MIN_WORKERS_FLOOR = 4  # never start fewer workers than this
+WORKERS_PER_CORE_INITIAL = 0.5  # conservative start
+WORKERS_PER_CORE_CEILING = 2.0  # what the monitor may scale up to while RAM allows
+CPU_COUNT_FALLBACK = 16  # when os.cpu_count() cannot tell
+# Concurrent audio loads allowed at least, whatever the worker count. The semaphore and the
+# monitor's max_semaphore must agree (the #6140 bug was these two drifting), so both use this.
+MIN_PROCESSING_PERMITS = 8
+
+
 def resolve_worker_bounds(
     num_workers: int | None, max_workers: int | None
 ) -> tuple[int, int]:
     """Auto-detect optimal worker bounds based on CPU cores."""
-    cpu_count = os.cpu_count() or 16
-
-    # Set initial worker count if not specified (0.5x ratio - conservative)
+    cpu_count = os.cpu_count() or CPU_COUNT_FALLBACK
     if num_workers is None:
-        num_workers = max(4, int(cpu_count * 0.5))
-
-    # Set max worker ceiling if not specified (2.0x ratio - aggressive)
+        num_workers = max(MIN_WORKERS_FLOOR, int(cpu_count * WORKERS_PER_CORE_INITIAL))
     if max_workers is None:
-        max_workers = int(cpu_count * 2.0)
-
+        max_workers = int(cpu_count * WORKERS_PER_CORE_CEILING)
     return num_workers, max_workers
+
+
+def processing_permits(max_workers: int) -> int:
+    """Concurrent audio loads: one per worker, at least ``MIN_PROCESSING_PERMITS``."""
+    return max(MIN_PROCESSING_PERMITS, max_workers)
 
 
 def build_processing_semaphore(max_workers: int) -> ResizableSemaphore:
@@ -53,9 +62,7 @@ def build_processing_semaphore(max_workers: int) -> ResizableSemaphore:
     Python. Resizable so the adaptive monitor's recommendation can actually be
     applied at runtime (#4404), not just logged.
     """
-    return ResizableSemaphore(
-        max(8, max_workers)  # At least 8, up to max_workers
-    )
+    return ResizableSemaphore(processing_permits(max_workers))
 
 
 def build_resource_monitor(
@@ -64,15 +71,14 @@ def build_resource_monitor(
     on_worker_count_change: Callable[[int], None],
     on_semaphore_change: Callable[[int], None],
 ) -> AdaptiveResourceMonitor:
-    """Create adaptive monitor with 75% RAM limit and dynamic worker bounds."""
+    """Create the adaptive monitor over this queue's worker bounds.
+
+    The RAM thresholds and check interval are ``ResourceLimits``' own defaults.
+    """
     limits = ResourceLimits(
-        max_memory_percent=75.0,
-        min_workers=min_workers,  # Start at 0.5x ratio
-        max_workers=max_workers,  # Scale up to 2.0x ratio based on RAM
-        max_semaphore=max(8, max_workers),  # Allow full parallelism with Rust server
-        check_interval=2.0,
-        scale_up_threshold=50.0,  # Scale up if RAM < 50%
-        scale_down_threshold=80.0  # Scale down if RAM > 80%
+        min_workers=min_workers,
+        max_workers=max_workers,
+        max_semaphore=processing_permits(max_workers),
     )
     return AdaptiveResourceMonitor(
         limits=limits,
@@ -85,7 +91,11 @@ def start_resource_monitor(monitor: AdaptiveResourceMonitor | None) -> None:
     """Start adaptive resource monitor if enabled."""
     if monitor:
         monitor.start()
-        info("Adaptive resource monitor started (RAM threshold: 75%, workers: 4-32)")
+        limits = monitor.limits
+        info(
+            f"Adaptive resource monitor started (RAM threshold: {limits.max_memory_percent:.0f}%, "
+            f"workers: {limits.min_workers}-{limits.max_workers})"
+        )
 
 
 def stop_resource_monitor(monitor: AdaptiveResourceMonitor | None) -> None:

@@ -61,8 +61,7 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=extractor,
             library_database=lib_manager,
-            num_workers=16
-        )
+        )  # worker bounds default to the CPU-derived ones in fingerprint_queue_scaling
         await queue.start()
 
         # Workers automatically process all unfingerprinted tracks from database
