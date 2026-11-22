@@ -18,11 +18,14 @@ const query = vi.hoisted(() => ({
   current: {} as Record<string, unknown>,
 }));
 
-let deliver: ((message: unknown) => void) | undefined;
+// Keyed by message type: the test wrapper's providers subscribe too, and a
+// provider re-render after the list mounts must not replace its callback.
+const subscribers = new Map<string, (message: unknown) => void>();
+const deliver = (message: { type: string; data?: unknown }) => subscribers.get(message.type)?.(message);
 vi.mock('@/hooks/websocket/useWebSocketMessages', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/websocket/useWebSocketMessages')>()),
-  useWebSocketMessages: (_types: string[], callback: (msg: unknown) => void) => {
-    deliver = callback;
+  useWebSocketMessages: (types: string[], callback: (msg: unknown) => void) => {
+    types.forEach((type) => subscribers.set(type, callback));
   },
 }));
 
@@ -96,7 +99,7 @@ describe('CozyArtistList library changes (#5871)', () => {
     query.current = state({});
     render(<CozyArtistList />);
 
-    deliver?.({ type: 'library_updated', data: { action: 'scan' } });
+    deliver({ type: 'library_updated', data: { action: 'scan' } });
 
     expect(query.current.refresh).toHaveBeenCalledTimes(1);
     expect(query.current.refetch).not.toHaveBeenCalled();
