@@ -261,7 +261,6 @@ npx msw init public/ --save
 - `src/test/mocks/websocket.ts` - WebSocket mock
 
 **Templates:**
-- `src/test/TEMPLATE.example.tsx` - Test template (named so vitest's `*.test.tsx` glob does not collect it; rename to `<Component>.test.tsx` when copying)
 - `src/test/README.md` - Testing documentation
 
 ---

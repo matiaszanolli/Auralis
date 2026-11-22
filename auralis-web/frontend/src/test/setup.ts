@@ -49,18 +49,6 @@ vi.mock('../contexts/WebSocketContext', () => {
 });
 
 
-// Create jest global alias for Vitest compatibility
-// This allows jest.mock() calls to work in tests
-;(globalThis as any).jest = {
-  mock: vi.mock,
-  unmock: vi.unmock,
-  doMock: vi.doMock,
-  doUnmock: vi.doUnmock,
-  fn: vi.fn,
-  spyOn: vi.spyOn,
-  clearAllMocks: vi.clearAllMocks,
-}
-
 // Ensure React scheduler is idle before each test
 // This prevents "Should not already be working" errors from leaking between tests
 beforeEach(async () => {
@@ -79,7 +67,7 @@ afterEach(async () => {
   // 3. Clear all vi mocks
   vi.clearAllMocks()
 
-  // 4. Clear jest timer mocks
+  // 4. Back to real timers
   vi.useRealTimers()
 
   // 5. Force garbage collection if available (V8)
