@@ -2,7 +2,12 @@
  * Auralis Design System Tokens — see ./README or tokens barrel.
  * Split from the former monolithic tokens.ts (#4079). Do not add cross-category
  * references here; each category is self-contained and merged in the barrel.
+ * Within this file, the brand accent's rgba variants derive from its one hex (#6646).
  */
+
+import { withOpacity } from './with-opacity';
+
+const ACCENT_PRIMARY = '#7366F0';
 
 
   /**
@@ -32,7 +37,7 @@ export const colors = {
 
     // Brand colors (Soft Violet + Teal/Cyan + Warm Amber)
     accent: {
-      primary: '#7366F0',      // Soft Violet/Indigo - primary brand accent
+      primary: ACCENT_PRIMARY, // Soft Violet/Indigo - primary brand accent
       secondary: '#47D6FF',    // Teal/Cyan - audio state (Design Language §2.1)
       tertiary: '#C1C8EF',     // Lavender Smoke - secondary text
       energy: '#F59E0B',       // Warm Amber - transients/highlights (Design Language §2.1)
@@ -63,7 +68,7 @@ export const colors = {
      */
     audioSemantic: {
       // Indigo/Violet - Identity, focus, playback (primary brand)
-      identity: '#7366F0',
+      identity: ACCENT_PRIMARY,
 
       // Cyan/Teal - Spatial width, clarity, stereo field
       spatial: '#47D6FF',
@@ -100,10 +105,10 @@ export const colors = {
 
     // Border colors (using soft opacity + brand colors)
     border: {
-      light: 'rgba(115, 102, 240, 0.12)',   // Subtle borders (soft violet)
-      medium: 'rgba(115, 102, 240, 0.24)',  // Standard borders
-      heavy: 'rgba(115, 102, 240, 0.40)',   // Emphasized borders
-      accent: '#7366F0',                     // Accent borders (soft violet)
+      light: withOpacity(ACCENT_PRIMARY, '0.12'),   // Subtle borders (soft violet)
+      medium: withOpacity(ACCENT_PRIMARY, '0.24'),  // Standard borders
+      heavy: withOpacity(ACCENT_PRIMARY, '0.40'),   // Emphasized borders
+      accent: ACCENT_PRIMARY,                       // Accent borders (soft violet)
     },
 
     /**
@@ -114,17 +119,17 @@ export const colors = {
     opacityScale: {
       // Accent color (soft violet #7366F0) with opacity variants
       accent: {
-        minimal: 'rgba(115, 102, 240, 0.05)',    // Barely visible, disabled states
-        ultraLight: 'rgba(115, 102, 240, 0.08)', // Very subtle backgrounds
-        veryLight: 'rgba(115, 102, 240, 0.10)',  // Light borders, subtle backgrounds
-        light: 'rgba(115, 102, 240, 0.12)',      // Track current state, soft hover
-        lighter: 'rgba(115, 102, 240, 0.15)',    // Hover states, gentle glows
-        standard: 'rgba(115, 102, 240, 0.20)',   // Standard backgrounds
-        strong: 'rgba(115, 102, 240, 0.30)',     // Focus states, button shadows
-        veryStrong: 'rgba(115, 102, 240, 0.40)', // Strong glows, prominent shadows
-        intense: 'rgba(115, 102, 240, 0.60)',    // High emphasis
-        vivid: 'rgba(115, 102, 240, 0.80)',      // Near-solid
-        full: 'rgba(115, 102, 240, 1.0)',        // Solid accent
+        minimal: withOpacity(ACCENT_PRIMARY, '0.05'),    // Barely visible, disabled states
+        ultraLight: withOpacity(ACCENT_PRIMARY, '0.08'), // Very subtle backgrounds
+        veryLight: withOpacity(ACCENT_PRIMARY, '0.10'),  // Light borders, subtle backgrounds
+        light: withOpacity(ACCENT_PRIMARY, '0.12'),      // Track current state, soft hover
+        lighter: withOpacity(ACCENT_PRIMARY, '0.15'),    // Hover states, gentle glows
+        standard: withOpacity(ACCENT_PRIMARY, '0.20'),   // Standard backgrounds
+        strong: withOpacity(ACCENT_PRIMARY, '0.30'),     // Focus states, button shadows
+        veryStrong: withOpacity(ACCENT_PRIMARY, '0.40'), // Strong glows, prominent shadows
+        intense: withOpacity(ACCENT_PRIMARY, '0.60'),    // High emphasis
+        vivid: withOpacity(ACCENT_PRIMARY, '0.80'),      // Near-solid
+        full: withOpacity(ACCENT_PRIMARY, '1.0'),        // Solid accent
       },
 
       // White with opacity (for light overlays, glass effects)

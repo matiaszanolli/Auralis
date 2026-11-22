@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Box, Typography } from '@mui/material';
-import { tokens } from '@/design-system';
+import { energyGradient, tokens } from '@/design-system';
 import { energyDrift } from './animations';
 import { themeVars } from '@/theme/semanticTheme';
 
@@ -71,12 +71,8 @@ export const EnergyField = memo(({ energy, isAnimating, intensity }: EnergyField
           position: 'relative',
           height: '8px',
           borderRadius: tokens.borderRadius.full,
-          // Gradient from cool (calm) to warm (aggressive)
-          // Intensity modulates the alpha
-          background: `linear-gradient(to right,
-            hsla(210, 80%, 60%, ${0.25 + intensity * 0.15}) 0%,
-            hsla(45, 90%, 55%, ${0.25 + intensity * 0.15}) 50%,
-            hsla(15, 95%, 55%, ${0.25 + intensity * 0.15}) 100%)`,
+          // Cool (calm) to warm (aggressive); intensity modulates the alpha
+          background: energyGradient(0.25 + intensity * 0.15),
           transition: `all ${tokens.transitions.slow}`,
           // Subtle inner glow - lingers longer via glowIntensity
           boxShadow: glowIntensity > 0.1

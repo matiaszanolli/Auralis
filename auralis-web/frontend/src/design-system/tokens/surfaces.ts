@@ -1,8 +1,12 @@
 /**
  * Auralis Design System Tokens — see ./README or tokens barrel.
- * Split from the former monolithic tokens.ts (#4079). Do not add cross-category
- * references here; each category is self-contained and merged in the barrel.
+ * Split from the former monolithic tokens.ts (#4079). Each category is merged in the barrel; the
+ * glass backgrounds read the surface colour from the colors category instead of re-spelling its
+ * channels (#6646).
  */
+
+import { colors } from './colors';
+import { withOpacity } from './with-opacity';
 
 
   /**
@@ -43,21 +47,20 @@ export const gradients = {
    */
 export const glass = {
     // Starfield glass backgrounds (#3950 / DS-5): a SINGLE blue-black base
-    // (21,29,47 — the dominant shell tint) at the opacity steps the app shell
+    // (colors.bg.level2 — the dominant shell tint) at the opacity steps the app shell
     // uses, so glass surfaces (top bar, sidebar, player, container, cards,
     // artist rows) stay consistent and can be retuned from one place. Replaces
-    // five hand-picked blue-black tuples (21,29,47 / 16,23,41 / 11,16,32 /
-    // 27,35,46) that were scattered across components.
+    // five hand-picked blue-black tuples that were scattered across components.
     starfield: {
-      medium: 'rgba(21, 29, 47, 0.50)',
-      strong: 'rgba(21, 29, 47, 0.55)',
-      sharp: 'rgba(21, 29, 47, 0.70)',
+      medium: withOpacity(colors.bg.level2, '0.50'),
+      strong: withOpacity(colors.bg.level2, '0.55'),
+      sharp: withOpacity(colors.bg.level2, '0.70'),
     },
 
     // Subtle glass (calm overlays - for idle states)
     // Bevel: top light catch, bottom shadow for 3D glass effect
     subtle: {
-      background: 'rgba(21, 29, 47, 0.25)',
+      background: withOpacity(colors.bg.level2, '0.25'),
       backdropFilter: 'blur(6px) saturate(1.05)',
       border: 'none',
       // Bevel: outer shadow + top highlight + bottom shadow
@@ -76,7 +79,7 @@ export const glass = {
 
     // Strong glass (modals, prominent surfaces, player bar)
     strong: {
-      background: 'rgba(21, 29, 47, 0.55)',
+      background: withOpacity(colors.bg.level2, '0.55'),
       // #5641: 0.94 (was 0.85) — keeps secondary text >= 4.5:1 through the
       // dialog scrim in light mode.
       // (#5646: the dark-mode twin `backgroundDark` is gone with the unused
@@ -89,3 +92,14 @@ export const glass = {
     },
 
 } as const;
+
+/**
+ * The energy meter's cool (calm) to warm (aggressive) ramp at a given alpha (#6646). A function, not
+ * a string in ``gradients``, because the meter drives the alpha from the live intensity.
+ */
+export function energyGradient(alpha: number): string {
+  return `linear-gradient(to right,
+            hsla(210, 80%, 60%, ${alpha}) 0%,
+            hsla(45, 90%, 55%, ${alpha}) 50%,
+            hsla(15, 95%, 55%, ${alpha}) 100%)`;
+}

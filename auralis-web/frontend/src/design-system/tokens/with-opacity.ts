@@ -37,8 +37,11 @@ export function hexToRgb(color: string): RgbChannels | null {
  *
  * Non-hex input is returned unchanged, so a theme-aware CSS variable passed
  * here degrades to a fully opaque colour instead of an invalid one.
+ *
+ * ``opacity`` may be given as text when the exact spelling matters: the token files derive their
+ * rgba strings through here (#6646) and keep alphas such as ``'0.20'`` byte-identical.
  */
-export function withOpacity(color: string, opacity: number): string {
+export function withOpacity(color: string, opacity: number | string): string {
   const rgb = hexToRgb(color);
   if (!rgb) {
     return color;

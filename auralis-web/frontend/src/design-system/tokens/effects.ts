@@ -1,8 +1,11 @@
 /**
  * Auralis Design System Tokens — see ./README or tokens barrel.
- * Split from the former monolithic tokens.ts (#4079). Do not add cross-category
- * references here; each category is self-contained and merged in the barrel.
+ * Split from the former monolithic tokens.ts (#4079). Each category is merged in the barrel; the
+ * glows read their colour from the colors category instead of re-spelling its channels (#6646).
  */
+
+import { colors } from './colors';
+import { withOpacity } from './with-opacity';
 
 
   /**
@@ -20,8 +23,8 @@ export const shadows = {
     '2xl': '0 16px 40px rgba(0, 0, 0, 0.32)',    // Top-level (elevation 4)
 
     // Glow shadows (audio-reactive elements)
-    glowSoft: '0 0 16px rgba(115, 102, 240, 0.20)',      // Soft violet glow
-    glowMd: '0 0 24px rgba(115, 102, 240, 0.32)',        // Violet glow (medium)
+    glowSoft: `0 0 16px ${withOpacity(colors.accent.primary, '0.20')}`, // Soft violet glow
+    glowMd: `0 0 24px ${withOpacity(colors.accent.primary, '0.32')}`,   // Violet glow (medium)
 } as const;
 
   /**

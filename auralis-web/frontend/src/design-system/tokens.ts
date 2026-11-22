@@ -24,6 +24,7 @@ export const tokens = {
 } as const;
 
 export { mediaBelow } from './tokens/layout';
+export { energyGradient } from './tokens/surfaces';
 export { withOpacity, hexToRgb } from './tokens/with-opacity';
 export type { RgbChannels } from './tokens/with-opacity';
 
