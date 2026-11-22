@@ -16,11 +16,11 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Chunk configuration - SINGLE SOURCE OF TRUTH
+# Chunk configuration - SINGLE SOURCE OF TRUTH. Two inputs; the interval is derived from them (#6638).
 CHUNK_DURATION = 15.0  # seconds - actual chunk length
-CHUNK_INTERVAL = 10.0  # seconds - playback interval (CHUNK_DURATION - OVERLAP_DURATION)
-OVERLAP_DURATION = 5.0  # seconds - overlap for natural crossfades
-CONTEXT_DURATION = 5.0  # seconds of context for better processing quality
+OVERLAP_DURATION = 5.0  # seconds a chunk shares with its predecessor
+CHUNK_INTERVAL = CHUNK_DURATION - OVERLAP_DURATION  # seconds between chunk starts (10.0)
+CONTEXT_DURATION = 5.0  # seconds of context for better processing quality (independent)
 
 
 def content_chunk_count(total_duration: float) -> int:

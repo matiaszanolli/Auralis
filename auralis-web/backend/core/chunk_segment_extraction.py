@@ -19,7 +19,6 @@ import numpy as np
 from core.chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
-    OVERLAP_DURATION,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,6 @@ def extract_chunk_segment(
     sample_rate: int,
     chunk_duration: float = CHUNK_DURATION,
     chunk_interval: float = CHUNK_INTERVAL,
-    overlap_duration: float = OVERLAP_DURATION,
     total_chunks: int | None = None,
     total_duration: float | None = None
 ) -> np.ndarray:
@@ -54,7 +52,6 @@ def extract_chunk_segment(
         sample_rate: Sample rate
         chunk_duration: Duration of each chunk in seconds
         chunk_interval: Interval between chunk starts
-        overlap_duration: Overlap between consecutive chunks (= chunk_duration - chunk_interval)
         total_chunks: Total number of chunks (for last chunk detection)
         total_duration: Total duration (for last chunk calculation)
 
@@ -70,6 +67,7 @@ def extract_chunk_segment(
         )
 
     is_last = (total_chunks is not None) and (chunk_index == total_chunks - 1)
+    overlap_duration = chunk_duration - chunk_interval  # derived, never a third input (#6638)
     overlap_samples = int(round(overlap_duration * sample_rate))
 
     if chunk_index == 0:

@@ -33,12 +33,10 @@ sys.path.insert(0, str(backend_path))
 
 from core.chunk_boundary_manager import ChunkBoundaryManager
 from core.chunk_boundaries import content_chunk_count
-from core.chunk_file_loading import load_chunk_from_file
 from core.chunk_segment_extraction import extract_chunk_segment
 from core.chunk_boundaries import (
     CHUNK_DURATION,
     CHUNK_INTERVAL,
-    OVERLAP_DURATION,
 )
 
 SR = 1000  # low rate keeps arrays small; durations stay sample-exact at this rate
@@ -76,7 +74,6 @@ def _reconstruct_via_real_trim_context(total_duration: float) -> np.ndarray:
             sample_rate=SR,
             chunk_duration=CHUNK_DURATION,
             chunk_interval=CHUNK_INTERVAL,
-            overlap_duration=OVERLAP_DURATION,
             total_chunks=total_chunks,
             total_duration=total_duration,
         )
