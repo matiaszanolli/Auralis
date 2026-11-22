@@ -102,8 +102,7 @@ def test_a_real_flac_with_repeated_tags_is_stored_with_every_artist_and_genre_57
     track = library_database.tracks.add(info)
 
     assert track is not None
-    # Sorted: track_artist has no position column, so SQLite returns a track's
-    # artists in whatever order its plan reads them (["Artist Two", "Artist One"]
-    # here). What #5732 fixed is that every artist is linked.
-    assert sorted(a.name for a in track.artists) == ["Artist One", "Artist Two"]
+    # In tag order: track_artist.position keeps it (#6714; this read
+    # ["Artist Two", "Artist One"] before the column existed).
+    assert [a.name for a in track.artists] == ["Artist One", "Artist Two"]
     assert sorted(g.name for g in track.genres) == ["Pop", "Rock"]

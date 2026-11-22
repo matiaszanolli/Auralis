@@ -5,7 +5,7 @@ and fingerprint algorithm versions are independent and must only change with
 their respective formats.
 """
 
-__db_schema_version__ = 32  # tracks.filepath_key is unique on upgraded databases too (#6335)
+__db_schema_version__ = 33  # track_artist.position keeps a track's artists in tag order (#6714)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.
@@ -138,3 +138,6 @@ FINGERPRINT_ALGORITHM_VERSION = 16
 # Schema v28 - Drop the never-populated tracks.bit_depth/bitrate/peak_level/rms_level/lufs_level columns (#5755)
 # Schema v29 - Add track_fingerprints.fingerprint_blob for databases created before the column existed (#5718)
 # Schema v30 - Merge duplicate albums; unique (title, artist_id), and (title) for artist-less albums (#5595)
+# Schema v31 - Make the next scan re-read every track's tags (see migration_v030_to_v031.sql)
+# Schema v32 - tracks.filepath_key unique on upgraded databases; duplicate rows merged (#6335)
+# Schema v33 - track_artist.position: a track's artists keep their tag order (#6714)

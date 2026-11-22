@@ -110,7 +110,10 @@ class Track(Base, TimestampMixin):
 
     # Relationships
     album: Mapped[Album | None] = relationship("Album", back_populates="tracks")
-    artists: Mapped[list[Artist]] = relationship("Artist", secondary=track_artist, back_populates="tracks")
+    # Tag order, so artists[0] is the primary artist (#6714).
+    artists: Mapped[list[Artist]] = relationship(
+        "Artist", secondary=track_artist, back_populates="tracks", order_by=track_artist.c.position,
+    )
     genres: Mapped[list[Genre]] = relationship("Genre", secondary=track_genre, back_populates="tracks")
     playlists: Mapped[list[Playlist]] = relationship("Playlist", secondary=track_playlist, back_populates="tracks")
     # passive_deletes=True defers child removal to the DB's ondelete='CASCADE'

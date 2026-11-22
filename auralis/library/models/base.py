@@ -29,10 +29,16 @@ class Base(DeclarativeBase):
 # library track load while auto_reference_selection is on) took 20-40 s at
 # 50k tracks. Fresh create_all databases get these declarations;
 # migration v024→v025 adds them to databases upgraded from older versions.
+#
+# track_artist.position is the artist's index in the file's tag (#6714): without
+# it SQLite returned a track's artists in plan order, and every reader that takes
+# artists[0] as the primary artist could show a featured one. Written by
+# repositories/artist_links.link_artists(); added to upgraded databases by v032→v033.
 track_artist = Table(
     'track_artist', Base.metadata,
     Column('track_id', Integer, ForeignKey('tracks.id')),
     Column('artist_id', Integer, ForeignKey('artists.id')),
+    Column('position', Integer, nullable=False, default=0, server_default='0'),
     Index('ix_track_artist_track_id', 'track_id'),
     Index('ix_track_artist_artist_id', 'artist_id'),
 )

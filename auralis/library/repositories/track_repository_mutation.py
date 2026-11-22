@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from ...utils.logging import debug, error, info, warning
 from ..models import Album, Artist, Genre, Track, TrackFingerprint
 from ..path_key import make_filepath_key
+from .artist_links import link_artists
 from .base import BaseRepository
 from .orphan_pruning import prune_orphans
 from .track_audio_change import _audio_changed
@@ -61,8 +62,8 @@ class TrackRepositoryMutationMixin(BaseRepository):
     _album_owner_id: Callable[[Session, str | None, list[Artist]], int | None]
 
     def _update_artists(self, session: Session, track: Track, artist_names: list[str]) -> None:
-        """Update track artists using normalized name matching"""
-        track.artists = self._get_or_create_artists(session, artist_names)
+        """Update track artists using normalized name matching, in tag order (#6714)"""
+        link_artists(session, track, self._get_or_create_artists(session, artist_names))
 
     def _assign_album(self, session: Session, track: Track, track_info: dict[str, Any]) -> None:
         """Point the track at its album as ``add()`` does (#5457, #6332); call after any artist update.

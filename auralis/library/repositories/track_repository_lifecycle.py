@@ -27,6 +27,7 @@ from ..models import (
 )
 from ..path_key import make_filepath_key
 from ..utils.artist_normalizer import normalize_artist_name
+from .artist_links import link_artists
 from .base import BaseRepository
 from .track_deletion import delete_tracks_by_ids
 from .track_repository import _track_eager_options
@@ -217,11 +218,9 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
                 comments=track_info.get('comments'),
             )
 
-            # Add relationships
-            track.artists = artists
-            track.genres = genres
-
             session.add(track)
+            link_artists(session, track, artists)
+            track.genres = genres
             session.commit()
             session.refresh(track)
             session.refresh(album) if album else None
