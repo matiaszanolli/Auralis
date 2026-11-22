@@ -378,10 +378,16 @@ class TestComponentPerformance:
         # Target EQ curve - use array matching critical bands
         target_curve = np.zeros(len(eq.critical_bands))  # Flat EQ
 
+        # The realtime EQ takes one fft_size block per call (apply_eq_mono
+        # rejects longer input), so feed the file through it block by block.
+        fft_size = eq_settings.fft_size
         with timer() as t:
-            result = eq.process_realtime_chunk(audio, target_curve)
+            blocks = [
+                eq.process_realtime_chunk(audio[start:start + fft_size], target_curve)
+                for start in range(0, len(audio), fft_size)
+            ]
 
-        assert result is not None
+        assert sum(len(block) for block in blocks) == len(audio)
         rtf = duration / t.elapsed
 
         # BENCHMARK: EQ should achieve > 10x real-time

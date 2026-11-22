@@ -150,10 +150,11 @@ class TestDatabasePerformanceUnderLoad:
 
         # Search for tracks matching pattern (should use index)
         start = time.time()
-        results = repo.search("Track 0")  # Should match Track 0000-0099, 1000-1099, etc.
+        results, total = repo.search("Track 0")  # Should match Track 0000-0099, 1000-1099, etc.
         search_time = time.time() - start
 
         assert len(results) > 0
+        assert total >= len(results)
         assert search_time < 1.0, f"Search took {search_time:.3f}s (expected < 1.0s)"
 
         # Verify search results are correct
@@ -220,31 +221,30 @@ class TestDatabasePerformanceUnderLoad:
                 assert current_artist <= next_artist
         finally:
             session.close()
-    def test_concurrent_queries_large_library(self, very_large_library_db, thread_pool):
+    def test_concurrent_queries_large_library(self, very_large_library_db):
         """Test concurrent database queries on large library."""
-        from concurrent.futures import as_completed
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         from auralis.library.repositories import TrackRepository
 
-        session_maker = very_large_library_db
+        # The repository opens one session per call from the sessionmaker.
+        repo = TrackRepository(very_large_library_db)
 
         def query_tracks(offset):
-            session = session_maker()
-            try:
-                repo = TrackRepository(session)
-                return repo.get_all(limit=100, offset=offset)
-            finally:
-                session.close()
+            tracks, _total = repo.get_all(limit=100, offset=offset)
+            return [track.id for track in tracks]
 
         # Run 20 concurrent queries
-        futures = [thread_pool.submit(query_tracks, i * 100) for i in range(20)]
-
-        start = time.time()
-        results = [f.result() for f in as_completed(futures)]
-        total_time = time.time() - start
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            start = time.time()
+            futures = [pool.submit(query_tracks, i * 100) for i in range(20)]
+            results = [f.result() for f in as_completed(futures)]
+            total_time = time.time() - start
 
         assert len(results) == 20
-        assert all(len(r) == 100 for r in results)
+        assert all(len(ids) == 100 for ids in results)
+        # 20 disjoint pages: 2,000 distinct tracks, none repeated
+        assert len({track_id for ids in results for track_id in ids}) == 2000
         assert total_time < 5.0, f"20 concurrent queries took {total_time:.2f}s"
 
 

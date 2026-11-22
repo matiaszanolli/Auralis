@@ -68,7 +68,7 @@ class TestMemoryLeaks:
 
         with resource_monitor() as monitor:
             for i in range(500):
-                spectrum = analyzer.analyze(audio, sr)
+                spectrum = analyzer.analyze_file(audio, sr)
                 del spectrum
 
                 if i % 50 == 0:

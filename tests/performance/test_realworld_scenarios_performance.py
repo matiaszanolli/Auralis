@@ -467,44 +467,36 @@ class TestMultiTrackAlbumProcessing:
         """
         BENCHMARK: Updating metadata for all tracks in album should be <50ms.
         """
-        from auralis.library.repositories import AlbumRepository
-
         track_repo = TrackRepository(temp_db)
-        album_repo = AlbumRepository(temp_db)
 
-        # Create album with 15 tracks
-        album_id = album_repo.add({
-            'title': 'Test Album',
-            'artist': 'Test Artist',
-            'year': 2024
-        })
-
+        # Create album with 15 tracks (albums are created by adding tracks;
+        # AlbumRepository has no add)
         track_ids = []
         for i in range(15):
-            track_id = track_repo.add({
+            track = track_repo.add({
                 'filepath': f'/tmp/album_meta_{i}.flac',
                 'title': f'Track {i+1}',
                 'artists': ['Test Artist'],
-                'album_id': album_id,
+                'album': 'Test Album',
+                'year': 2024,
                 'track_number': i + 1,
                 'format': 'FLAC',
                 'sample_rate': 44100,
                 'channels': 2
             })
-            track_ids.append(track_id)
+            track_ids.append(track.id)
 
-        # Update all tracks in album
-        session = temp_db()
-        from auralis.library.models import Track
-
+        # Update every track in the album the way the batch metadata route
+        # does: one update_metadata_batch call, one transaction.
         with timer() as t:
-            for track_id in track_ids:
-                track = session.execute(select(Track).filter_by(id=track_id)).scalars().first()
-                track.album_artist = 'Updated Artist'
-            session.commit()
+            updated = track_repo.update_metadata_batch(
+                [(track_id, {'year': 2025}) for track_id in track_ids]
+            )
 
-        session.close()
         latency_ms = t.elapsed_ms
+
+        assert sorted(updated) == sorted(track_ids)
+        assert {track_repo.get_by_id(track_id).year for track_id in track_ids} == {2025}
 
         # BENCHMARK: Should be < 50ms
         assert latency_ms < 50, f"Album metadata update took {latency_ms:.1f}ms, expected < 50ms"
