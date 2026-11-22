@@ -21,7 +21,7 @@ Trace a user action through all 3 layers (frontend, backend, engine) with specif
 | `gapless` | Track ends naturally | Next track prebuffer, advance to the prebuffered track, tiling of emitted chunks (no boundary crossfade — see Retired Architecture in `_audit-common.md`) |
 | `queue` | Add/remove/reorder queue | Queue state update, playback engine sync (the live queue is not persisted) |
 | `artwork` | Album/artist artwork load | Artwork extraction, caching, image serving, frontend display |
-| `websocket` | WebSocket lifecycle | Connection and Origin check (no auth: desktop-only, loopback; the check is `ConnectionManager.connect` in `auralis-web/backend/config/globals.py`), message validation, routing, heartbeat, reconnection |
+| `websocket` | WebSocket lifecycle | Connection and Origin check (no auth: desktop-only, loopback; the check is `ConnectionManager.connect` in `auralis-web/backend/websocket/connection_manager.py`), message validation, routing, heartbeat, reconnection |
 
 If `$ARGUMENTS` doesn't match a named flow, treat it as a custom description and trace the described action.
 

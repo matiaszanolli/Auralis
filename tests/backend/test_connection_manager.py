@@ -7,7 +7,7 @@ broadcast() iterates self.active_connections while disconnect() can remove
 from that same list at an asyncio yield point (await send_text). Without a
 snapshot the loop raises RuntimeError: list changed size during iteration.
 
-All tests exercise the real ConnectionManager imported from config.globals.
+All tests exercise the real ConnectionManager imported from websocket.connection_manager.
 """
 
 import asyncio
@@ -21,7 +21,7 @@ import pytest
 # Add backend directory to path so we can import the module directly
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from config.globals import ConnectionManager, WebSocketOriginRejected
+from websocket.connection_manager import ConnectionManager, WebSocketOriginRejected
 
 
 def _make_ws(send_raises: Exception | None = None) -> MagicMock:
@@ -181,9 +181,9 @@ class TestBroadcastConcurrency:
     @pytest.mark.asyncio
     async def test_broadcast_costs_one_timeout_not_n(self, monkeypatch):
         """N wedged clients cost one timeout total, not N sequential timeouts."""
-        import config.globals as globals_module
+        import websocket.connection_manager as manager_module
 
-        monkeypatch.setattr(globals_module, "BROADCAST_SEND_TIMEOUT", 0.1)
+        monkeypatch.setattr(manager_module, "BROADCAST_SEND_TIMEOUT", 0.1)
 
         async def never_completes(*_args, **_kwargs):
             await asyncio.sleep(3600)
@@ -207,9 +207,9 @@ class TestBroadcastConcurrency:
     @pytest.mark.asyncio
     async def test_healthy_clients_survive_a_wedged_peer(self, monkeypatch):
         """Only the timed-out connection is evicted; healthy peers still get the frame."""
-        import config.globals as globals_module
+        import websocket.connection_manager as manager_module
 
-        monkeypatch.setattr(globals_module, "BROADCAST_SEND_TIMEOUT", 0.1)
+        monkeypatch.setattr(manager_module, "BROADCAST_SEND_TIMEOUT", 0.1)
 
         async def never_completes(*_args, **_kwargs):
             await asyncio.sleep(3600)
@@ -335,7 +335,7 @@ class TestConnectionLifecycleLogLevels:
         manager = ConnectionManager()
         ws = _make_connect_ws(origin="http://localhost:8765")
 
-        with caplog.at_level(logging.DEBUG, logger="config.globals"):
+        with caplog.at_level(logging.DEBUG, logger="websocket.connection_manager"):
             await manager.connect(ws)
 
         assert not [r for r in caplog.records if r.levelno >= logging.INFO], (
@@ -352,7 +352,7 @@ class TestConnectionLifecycleLogLevels:
         ws = _make_connect_ws(origin="http://localhost:8765")
         await manager.connect(ws)
 
-        with caplog.at_level(logging.DEBUG, logger="config.globals"):
+        with caplog.at_level(logging.DEBUG, logger="websocket.connection_manager"):
             await manager.disconnect(ws)
 
         assert not [r for r in caplog.records if r.levelno >= logging.INFO], (
@@ -370,7 +370,7 @@ class TestConnectionLifecycleLogLevels:
         manager = ConnectionManager()
         ws = _make_connect_ws(origin="https://evil.example.com")
 
-        with caplog.at_level(logging.DEBUG, logger="config.globals"):
+        with caplog.at_level(logging.DEBUG, logger="websocket.connection_manager"):
             with pytest.raises(WebSocketOriginRejected):
                 await manager.connect(ws)
 

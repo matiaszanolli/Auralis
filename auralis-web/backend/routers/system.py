@@ -11,7 +11,7 @@ import logging
 from typing import Any
 from collections.abc import Callable
 
-from config.globals import WebSocketOriginRejected
+from websocket.connection_manager import WebSocketOriginRejected
 from config.limits import WS_MAX_MESSAGES_PER_SECOND, WS_MAX_PINGS_PER_SECOND
 from config.log_throttle import warn_throttled
 from core.audio_stream_controller import ws_id as _ws_id

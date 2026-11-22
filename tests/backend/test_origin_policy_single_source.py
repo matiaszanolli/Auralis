@@ -27,7 +27,7 @@ _BACKEND = str(Path(__file__).resolve().parents[2] / "auralis-web" / "backend")
 if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
-from config.globals import build_ws_origins  # noqa: E402
+from websocket.connection_manager import build_ws_origins  # noqa: E402
 from config.middleware import cors_allowed_origins  # noqa: E402
 from config.origins import (  # noqa: E402
     LOOPBACK_ORIGIN_HOSTS,
@@ -131,12 +131,12 @@ class TestSingleSourceOfTruth:
 
     def test_the_three_consumers_all_import_from_origins(self):
         middleware = _middleware_source()
-        globals_src = (Path(_BACKEND) / "config" / "globals.py").read_text()
+        manager_src = (Path(_BACKEND) / "websocket" / "connection_manager.py").read_text()
 
-        # CSP + CORS live in config/middleware/, the WS allowlist in globals.py.
+        # CSP + CORS live in config/middleware/, the WS allowlist in connection_manager.py.
         assert "csp_connect_src" in middleware
         assert "origin_matrix" in middleware
-        assert "origin_matrix" in globals_src
+        assert "origin_matrix" in manager_src
 
     def test_middleware_no_longer_respells_the_host_pair(self):
         """Adding a host should be one edit in origins.py, not three."""
@@ -151,12 +151,12 @@ class TestSingleSourceOfTruth:
             "config/middleware re-spells the host list instead of using origin_matrix()"
         )
 
-    def test_globals_loopback_hosts_stays_a_distinct_concept(self):
-        """globals.LOOPBACK_HOSTS is NOT the origin host list and must not be
+    def test_manager_loopback_hosts_stays_a_distinct_concept(self):
+        """connection_manager.LOOPBACK_HOSTS is NOT the origin host list and must not be
         folded into it: it answers "is this peer address loopback" for the
         empty-Origin check (#3845), so it includes `::1`, which is not a valid
         origin host without brackets."""
-        from config.globals import LOOPBACK_HOSTS
+        from websocket.connection_manager import LOOPBACK_HOSTS
 
         assert "::1" in LOOPBACK_HOSTS
         assert "::1" not in LOOPBACK_ORIGIN_HOSTS

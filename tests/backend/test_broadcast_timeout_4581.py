@@ -23,7 +23,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
-from config.globals import BROADCAST_SEND_TIMEOUT, ConnectionManager  # noqa: E402
+from websocket.connection_manager import BROADCAST_SEND_TIMEOUT, ConnectionManager  # noqa: E402
 
 
 class _StalledClient:
@@ -49,7 +49,7 @@ class TestBroadcastBoundsEachSend:
 
     @pytest.mark.asyncio
     async def test_evicts_a_client_that_never_completes_its_send(self, monkeypatch):
-        monkeypatch.setattr("config.globals.BROADCAST_SEND_TIMEOUT", 0.05)
+        monkeypatch.setattr("websocket.connection_manager.BROADCAST_SEND_TIMEOUT", 0.05)
 
         mgr = ConnectionManager()
         stalled = _StalledClient()
@@ -64,7 +64,7 @@ class TestBroadcastBoundsEachSend:
 
     @pytest.mark.asyncio
     async def test_healthy_clients_still_receive_when_one_stalls(self, monkeypatch):
-        monkeypatch.setattr("config.globals.BROADCAST_SEND_TIMEOUT", 0.05)
+        monkeypatch.setattr("websocket.connection_manager.BROADCAST_SEND_TIMEOUT", 0.05)
 
         mgr = ConnectionManager()
         stalled = _StalledClient()

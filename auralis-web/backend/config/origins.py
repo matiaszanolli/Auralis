@@ -5,7 +5,7 @@ The single source of truth for *which hosts* the backend considers its own.
 Three allowlists express this one policy and had drifted apart:
 
   - ``middleware.cors_allowed_origins()`` — CORS ``Access-Control-Allow-Origin``
-  - ``globals.build_ws_origins()``        — WebSocket handshake ``Origin`` check
+  - ``connection_manager.build_ws_origins()``— WebSocket handshake ``Origin`` check
   - the CSP ``connect-src`` directive     — what the *page* is allowed to open
 
 #3539 fixed the first two to emit both ``localhost`` and ``127.0.0.1``, because
@@ -24,7 +24,7 @@ from core.env_config import get_int_env
 
 # Both spellings of loopback. Browsers treat `localhost` and `127.0.0.1` as
 # distinct origins, so every allowlist derived from this must carry both
-# (#3539). This is deliberately NOT globals.LOOPBACK_HOSTS, which answers a
+# (#3539). This is deliberately NOT connection_manager.LOOPBACK_HOSTS, which answers a
 # different question (is this *peer address* loopback, for the empty-Origin
 # check in #3845) and therefore includes `::1` — a bare IPv6 literal is not a
 # valid origin host without brackets.
@@ -49,7 +49,7 @@ def allowed_origin_ports() -> list[int]:
 
     Callers must not cache the result: is_dev_mode() is read fresh so tests can
     monkeypatch it, and `ALLOWED_WS_ORIGINS` freezes its own snapshot at import
-    time deliberately (see globals.py).
+    time deliberately (see websocket/connection_manager.py).
     """
     from .app import is_dev_mode
     if not is_dev_mode():

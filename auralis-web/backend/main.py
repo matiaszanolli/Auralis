@@ -30,7 +30,8 @@ configure_sys_path(_BACKEND_DIR)
 from config.app import create_app
 from config.bootstrap import install_log_sanitizer
 from config.fallback_routes import mount_frontend, register_fallback_routes
-from config.globals import ConnectionManager, set_component_registry
+from config.globals import set_component_registry
+from websocket.connection_manager import ConnectionManager
 from config.limits import SHUTDOWN_STEP_TIMEOUT_S, WS_MAX_MESSAGE_SIZE
 from config.middleware import setup_middleware
 from config.origins import BACKEND_PORT

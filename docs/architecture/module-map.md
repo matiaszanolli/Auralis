@@ -88,13 +88,14 @@ backend/
 │   │                         list of the 20 registered routers lives here
 │   ├── startup/              Lifespan package (startup order, rollback, watchdog,
 │   │                         shutdown, workers)
-│   └── globals.py            ConnectionManager + globals_dict + WS origin allowlist
+│   └── globals.py            Component registry (set/get_component_registry)
 ├── routers/                the router modules, of which 20 are registered in config/routes.py
 │                             (player, library, albums, artists, playlists, enhancement,
 │                             metadata, artwork, similarity, library_scan, …; the rest
 │                             are per-router *_deps/*_models helper modules)
 ├── ws_handlers/            WebSocket connection lifecycle + message dispatch
-├── websocket/              Outbound typed messages, protocol, security
+├── websocket/              ConnectionManager + WS origin allowlist, outbound typed
+│                             messages, protocol, rate limiting
 ├── core/                   Engine room
 │   ├── chunk_boundaries.py    Chunk geometry — SINGLE SOURCE OF TRUTH
 │   ├── chunked_processor.py   ChunkedAudioProcessor (WS chunk DSP)

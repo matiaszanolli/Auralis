@@ -26,6 +26,7 @@ hiddenimports = [
     'config',
     'config.app',
     'config.globals',
+    'websocket.connection_manager',
     'config.middleware',
     'config.routes',
     'config.startup',

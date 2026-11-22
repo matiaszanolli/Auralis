@@ -14,7 +14,7 @@ if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
 from config.middleware import cors_allowed_origins  # noqa: E402
-from config.globals import build_ws_origins  # noqa: E402
+from websocket.connection_manager import build_ws_origins  # noqa: E402
 
 
 def _prod(monkeypatch):

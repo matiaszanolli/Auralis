@@ -779,7 +779,7 @@ function MyComponent() {
 
 ## Connection Manager Implementation
 
-**Location**: [auralis-web/backend/config/globals.py](config/globals.py)
+**Location**: [auralis-web/backend/websocket/connection_manager.py](websocket/connection_manager.py)
 
 **Key Methods**:
 - `connect(websocket)` - Register new WebSocket connection

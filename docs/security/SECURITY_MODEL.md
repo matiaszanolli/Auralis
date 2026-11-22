@@ -47,14 +47,14 @@ Authentication is absent, but three boundaries constrain who can reach the API:
 2. **WebSocket Origin allowlist** — browser-originated WS upgrades must present
    an `Origin` in `ALLOWED_WS_ORIGINS` (loopback dev ports + `file://` for the
    Electron renderer). A cross-origin web page cannot hijack the socket.
-   ([config/globals.py:30-38](../../auralis-web/backend/config/globals.py#L30-L38),
+   ([websocket/connection_manager.py:38-56](../../auralis-web/backend/websocket/connection_manager.py#L38-L56),
    `ConnectionManager.connect`, fixes #2413.)
 
 3. **Empty-Origin loopback gate** — a non-browser process sends no `Origin`
    header. Such connections are accepted **only** from loopback hosts
    (`127.0.0.1`, `::1`, `localhost`), so a non-loopback client cannot bypass
    the Origin check by simply omitting the header.
-   ([config/globals.py:43](../../auralis-web/backend/config/globals.py#L43),
+   ([websocket/connection_manager.py:63](../../auralis-web/backend/websocket/connection_manager.py#L63),
    fixes #3845.)
 
 ## Residual risk (accepted)

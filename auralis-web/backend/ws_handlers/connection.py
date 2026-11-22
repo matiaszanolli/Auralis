@@ -115,8 +115,8 @@ async def setup_connection(
     """Accept the connection, start the heartbeat loop, and push initial
     sync frames (enhancement settings, player state) to the client."""
     # Origin check is delegated entirely to ConnectionManager.connect
-    # (config/globals.py) — see #3524 / BE-NEW-66. Single authoritative
-    # origin policy lives in config/globals.py.
+    # (websocket/connection_manager.py) — see #3524 / BE-NEW-66. Single authoritative
+    # origin policy lives in websocket/connection_manager.py.
     #
     # #4703: connect() RAISES WebSocketOriginRejected on a denied handshake
     # (it used to `return` after close(1008), and this call ignored the

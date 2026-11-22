@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from config import globals as g
+from websocket import connection_manager as g
 from config.limits import WS_MAX_CONNECTIONS
 
 

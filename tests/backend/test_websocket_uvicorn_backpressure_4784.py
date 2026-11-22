@@ -4,7 +4,7 @@ backpressure (#4784)
 
 Both the internal `_SEND_QUEUE_MAXSIZE` producer/consumer queue
 (stream_protocol.py) and `ConnectionManager.broadcast`'s
-`BROADCAST_SEND_TIMEOUT` guard (config/globals.py) only do anything useful
+`BROADCAST_SEND_TIMEOUT` guard (websocket/connection_manager.py) only do anything useful
 if uvicorn's WebSocket protocol genuinely suspends `send()` when the
 transport's write buffer fills — i.e. when a client stops draining its
 socket. Every uvicorn version through 0.52.0 sets an internal `writable`

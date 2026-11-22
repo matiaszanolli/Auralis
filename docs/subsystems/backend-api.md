@@ -86,7 +86,7 @@ This ordering is deliberate: a 429 from the rate limiter still gets security hea
 | **RateLimit** | Per-`{client_ip}:{path}` sliding window guarded by an `asyncio.Lock`. Limits: upload 5/60s, processing 10/60s, scan 2/60s, similarity 20/60s, mastering recommendation 20/60s. Returns 429 + `Retry-After` |
 
 > **Two separate origin allowlists.** WS upgrades are not covered by CORS, so there is a
-> distinct WS origin allowlist in `config/globals.py`. **Add new origins to both.**
+> distinct WS origin allowlist in `websocket/connection_manager.py`. **Add new origins to both.**
 
 ---
 
@@ -166,7 +166,7 @@ boundaries.
   task's error paths (#3829). Each task self-cleans idempotently under a lock.
 - **`AudioStreamController` is a god-file split** (#4071): its methods are thin delegates to
   `stream_*` submodules; the public/test surface is preserved.
-- **`ConnectionManager`** ([`config/globals.py::ConnectionManager`](../../auralis-web/backend/config/globals.py))
+- **`ConnectionManager`** ([`websocket/connection_manager.py::ConnectionManager`](../../auralis-web/backend/websocket/connection_manager.py))
   snapshots `active_connections` under an `asyncio.Lock`, sends outside the lock, and prunes
   stale connections. Origin enforcement on connect allows loopback + dev ports + `file://`
   (Electron).

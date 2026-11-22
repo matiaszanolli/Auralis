@@ -30,7 +30,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
 import config.globals as globals_mod  # noqa: E402
-from config.globals import ConnectionManager  # noqa: E402
+from websocket.connection_manager import ConnectionManager  # noqa: E402
 from core.chunk_fingerprint_registry import (
     _default_get_fingerprints_repository,
     _reset_registry_miss_warning,
@@ -51,16 +51,17 @@ def restore_registry():
 class TestNoDuplicateConstruction:
     """Acceptance criteria 1 and 2."""
 
-    def test_globals_module_constructs_nothing_at_import(self):
+    @pytest.mark.parametrize("module", ["config/globals.py", "websocket/connection_manager.py"])
+    def test_module_constructs_nothing_at_import(self, module):
         """No module-level side-effecting construction unreachable from production."""
-        source = (_BACKEND / "config" / "globals.py").read_text()
+        source = (_BACKEND / module).read_text()
 
         # Strip comments: the file documents the removed duplicate by name.
         code = "\n".join(
             line for line in source.splitlines() if not line.lstrip().startswith("#")
         )
         assert "ConnectionManager()" not in code, (
-            "config/globals.py constructs a ConnectionManager at import again — #4714"
+            f"{module} constructs a ConnectionManager at import again — #4714"
         )
         assert "create_globals_dict" not in code
 

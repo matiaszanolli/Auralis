@@ -42,7 +42,7 @@ const DEFAULT_WEBSOCKET_CONFIG: WebSocketErrorConfig = {
  * failure: the server refused this client and will refuse every retry, so
  * reconnecting cannot succeed (#5469). The backend closes with 1008 (Policy
  * Violation) for an untrusted or empty non-loopback Origin
- * (auralis-web/backend/config/globals.py). Transient codes (1000/1001/1006,
+ * (auralis-web/backend/websocket/connection_manager.py). Transient codes (1000/1001/1006,
  * server errors) keep the normal retry path.
  */
 const POLICY_CLOSE_CODES: ReadonlySet<number> = new Set([1008]);

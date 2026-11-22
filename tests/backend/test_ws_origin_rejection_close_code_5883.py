@@ -21,7 +21,7 @@ from fastapi import FastAPI, WebSocket
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from config.globals import ConnectionManager, WebSocketOriginRejected  # noqa: E402
+from websocket.connection_manager import ConnectionManager, WebSocketOriginRejected  # noqa: E402
 
 
 def _app(manager: ConnectionManager) -> FastAPI:

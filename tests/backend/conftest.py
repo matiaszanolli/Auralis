@@ -228,14 +228,14 @@ def client(_isolated_library_db):
         # #4781: this used to default to http://localhost:3000 (a Vite
         # dev-server origin), which build_ws_origins() only allows when
         # is_dev_mode() is true (#4350) -- and ALLOWED_WS_ORIGINS is
-        # frozen once at config.globals import time, so no per-test env
+        # frozen once at websocket.connection_manager import time, so no per-test env
         # var/monkeypatch can fix it up after the fact. Since pytest never
         # runs with --dev/AURALIS_DEV_MODE (#4802), every WebSocket-connecting test using
         # this fixture was rejected with "untrusted origin", not hanging
         # as such but failing before any real assertion ran. Port 8765
         # (the backend's own origin) is unconditionally allowlisted
         # regardless of dev/prod mode, so it works no matter when
-        # config.globals first got imported this session.
+        # websocket.connection_manager first got imported this session.
         _orig_ws_connect = test_client.websocket_connect
 
         def _ws_connect_with_origin(url: str, **kwargs):  # type: ignore[override]

@@ -36,7 +36,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
     input comes entirely from the URL path/query is exploitable blind via a
     hidden auto-submitting form or `navigator.sendBeacon()` from any page the
     user's browser happens to have open (#4893). This is the REST equivalent
-    of the check `config.globals.ConnectionManager.connect` already does for
+    of the check `websocket.connection_manager.ConnectionManager.connect` already does for
     WebSocket upgrades, which CORS does not cover at all.
 
     Applied to every state-changing method rather than only the currently
@@ -106,7 +106,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                 )
                 return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
             if request.method in self._STATE_CHANGING_METHODS and request.url.path.startswith("/api"):
-                from ..globals import LOOPBACK_HOSTS
+                from websocket.connection_manager import LOOPBACK_HOSTS
 
                 origin = request.headers.get("origin", "").lower()
                 if origin:

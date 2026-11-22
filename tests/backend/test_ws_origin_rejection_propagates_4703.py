@@ -28,7 +28,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from config.globals import ConnectionManager, WebSocketOriginRejected  # noqa: E402
+from websocket.connection_manager import ConnectionManager, WebSocketOriginRejected  # noqa: E402
 from ws_handlers import connection as ws_connection  # noqa: E402
 
 

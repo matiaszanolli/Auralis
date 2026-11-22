@@ -16,7 +16,7 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "auralis-web" / "backend"))
 
-from config.globals import ConnectionManager  # noqa: E402
+from websocket.connection_manager import ConnectionManager  # noqa: E402
 
 
 class _Client:
@@ -45,7 +45,7 @@ async def _drain_background_tasks() -> None:
 
 @pytest.fixture
 def fast_timeout(monkeypatch):
-    monkeypatch.setattr("config.globals.BROADCAST_SEND_TIMEOUT", 0.05)
+    monkeypatch.setattr("websocket.connection_manager.BROADCAST_SEND_TIMEOUT", 0.05)
 
 
 @pytest.mark.asyncio
