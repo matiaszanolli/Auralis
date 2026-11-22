@@ -41,10 +41,7 @@ from .base import (
     StereoWidthProcessor,
 )
 from .cross_dimensional_guard import smooth_gate
-
-
-# -0.3 dBFS ceiling preserves headroom for inter-sample peaks.
-SAFE_CEILING_DB = -0.3
+from ...dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB
 
 
 class ContinuousDSPOpsMixin:
@@ -260,11 +257,11 @@ class ContinuousDSPOpsMixin:
         # both renderings of the shared audio agree away from it. The constant
         # track-level gain of Step 1 (#5552) is left intact.
         final_peak_pre = amplitude_to_db(np.max(np.abs(audio)))
-        if final_peak_pre > SAFE_CEILING_DB:
+        if final_peak_pre > OUTPUT_PEAK_CEILING_DB:
             audio = create_brick_wall_limiter(
-                self.config.internal_sample_rate, threshold_db=SAFE_CEILING_DB
+                self.config.internal_sample_rate, threshold_db=OUTPUT_PEAK_CEILING_DB
             ).process(audio)
-            debug(f"[Peak Limiting] {final_peak_pre:.2f} → {SAFE_CEILING_DB:.2f} dB (sample-local limiter)")
+            debug(f"[Peak Limiting] {final_peak_pre:.2f} → {OUTPUT_PEAK_CEILING_DB:.2f} dB (sample-local limiter)")
         else:
             debug(f"[Peak Limiting] SKIPPED - audio peak at {final_peak_pre:.2f} dB is safe")
 

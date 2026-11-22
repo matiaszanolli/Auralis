@@ -31,6 +31,8 @@ import threading
 
 import numpy as np
 
+from auralis.dsp.utils.loudness_targets import LIMITER_LOOKAHEAD_MS, LIMITER_RELEASE_MS
+
 _TINY = 1e-12
 
 
@@ -38,7 +40,7 @@ class StreamingPeakCeiling:
     """Peak limiter with a gain envelope that persists across ``apply`` calls."""
 
     def __init__(self, sample_rate: int = 44100,
-                 lookahead_ms: float = 2.0, release_ms: float = 50.0) -> None:
+                 lookahead_ms: float = LIMITER_LOOKAHEAD_MS, release_ms: float = LIMITER_RELEASE_MS) -> None:
         self.lookahead_ms = lookahead_ms
         self.release_ms = release_ms
         self.current_gain = 1.0

@@ -32,10 +32,10 @@ class PlayerConfig:
         # #3754: realtime safety-limiter target peak (linear scale).
         # Hoisted out of the previously-hard-coded `0.95` in
         # RealtimeProcessor.process_chunk so it lives next to the other
-        # player knobs. Default aligned with HybridProcessor's
-        # brick-wall limiter at -0.3 dBFS (~0.9661 linear) so the two
-        # ceilings agree when both are in the chain. 0.95 (~-0.45 dBFS)
-        # is kept as the historical default since the realtime path is
+        # player knobs. HybridProcessor's brick-wall limiter sits at
+        # OUTPUT_PEAK_CEILING_DB (-0.3 dBFS, ~0.9661 linear; dsp/utils/
+        # loudness_targets). 0.95 (~-0.45 dBFS) is a deliberate exception,
+        # kept as the historical default since the realtime path is
         # not necessarily behind the brick-wall limiter — tightening
         # the default further would risk near-clip headroom regressions.
         realtime_safety_peak: float = 0.95,

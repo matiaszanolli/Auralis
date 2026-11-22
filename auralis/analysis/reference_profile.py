@@ -20,15 +20,13 @@ from typing import Any
 import numpy as np
 from scipy import signal
 
-from ..core.processing.continuous_dsp_ops import SAFE_CEILING_DB
+from ..dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB
 from ..io.processing import downmix_to_stereo
 from .loudness_meter import LoudnessMeter, LUFSMeasurement
 
 #: Analysis bands (Hz) for tonal balance and stereo image.
 BAND_EDGES_HZ: tuple[int, ...] = (40, 80, 160, 315, 630, 1250, 2500, 5000, 10000)
 
-#: The renderer's true-peak safety ceiling: the one constant, not a copy.
-SAFE_CEILING_DBFS = SAFE_CEILING_DB
 
 _BLOCK_S = 0.4          # BS.1770 block length
 _WINDOW_S = 3.0         # short-term window for crest and level spread
@@ -147,7 +145,7 @@ NEAR_IDENTITY_LIMITS: dict[str, float] = {
 def near_identity_violations(
     before: ReferenceProfile, after: ReferenceProfile,
     limits: dict[str, float] | None = None,
-    ceiling_dbfs: float = SAFE_CEILING_DBFS,
+    ceiling_dbfs: float = OUTPUT_PEAK_CEILING_DB,
 ) -> list[str]:
     """Ways ``after`` fails to leave ``before`` (a good master) essentially alone.
 

@@ -181,7 +181,10 @@ class TestSilence:
 
 
 def test_the_ceiling_is_the_renderers_constant():
-    from auralis.analysis import reference_profile
-    from auralis.core.processing.continuous_dsp_ops import SAFE_CEILING_DB
+    import inspect
 
-    assert reference_profile.SAFE_CEILING_DBFS == SAFE_CEILING_DB
+    from auralis.analysis import reference_profile
+    from auralis.dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB
+
+    default = inspect.signature(reference_profile.near_identity_violations).parameters["ceiling_dbfs"].default
+    assert default == OUTPUT_PEAK_CEILING_DB

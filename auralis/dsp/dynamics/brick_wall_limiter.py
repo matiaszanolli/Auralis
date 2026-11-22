@@ -17,15 +17,17 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.ndimage import maximum_filter1d
 
+from ..utils.loudness_targets import LIMITER_LOOKAHEAD_MS, LIMITER_RELEASE_MS
 from .limiter_ramp import ramp_gain_reduction
 
 
 @dataclass
 class BrickWallLimiterSettings:
     """Configuration for brick-wall limiter"""
+    # A generic default, deliberately not the output stage's OUTPUT_PEAK_CEILING_DB (#6635).
     threshold_db: float = -0.5      # Ceiling level (typically -0.1 to -1.0 dBFS)
-    lookahead_ms: float = 2.0        # Look-ahead time for peak detection (1-5ms typical)
-    release_ms: float = 50.0         # Release time for gain reduction envelope
+    lookahead_ms: float = LIMITER_LOOKAHEAD_MS  # Look-ahead for peak detection (1-5ms typical)
+    release_ms: float = LIMITER_RELEASE_MS  # Release time for the gain-reduction envelope
     sample_rate: int = 44100
 
 

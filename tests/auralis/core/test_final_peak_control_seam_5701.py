@@ -18,12 +18,12 @@ import numpy as np
 import pytest
 
 from auralis.core.config import UnifiedConfig
-from auralis.core.processing.continuous_dsp_ops import SAFE_CEILING_DB
+from auralis.dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB
 from auralis.core.processing.continuous_mode import ContinuousMode
 from auralis.dsp.utils.adaptive import calculate_loudness_units
 
 SR = 44100
-CEILING = 10 ** (SAFE_CEILING_DB / 20)
+CEILING = 10 ** (OUTPUT_PEAK_CEILING_DB / 20)
 # Constant track-level gain of +9 dB, exactly as the fixed-target path applies it.
 FIXED_GAIN_9DB = SimpleNamespace(target_lufs=-14.0, source_lufs=-23.0)
 

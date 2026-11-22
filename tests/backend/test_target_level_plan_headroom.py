@@ -16,7 +16,7 @@ if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 
 from auralis.dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB  # noqa: E402
-from auralis.core.processing.continuous_dsp_ops import SAFE_CEILING_DB  # noqa: E402
+from auralis.dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB  # noqa: E402
 from core.mastering_target_generation import (  # noqa: E402
     CREST_BUDGET_DB,
     channel_peak_offset_db,
@@ -124,7 +124,7 @@ class TestChannelPeakOffset:
 class TestWideMastersAreNotCreditedPhantomHeadroom:
     def test_a_decorrelated_master_is_capped_at_its_real_headroom(self):
         mono_peak = _WIDE["lufs"] + 0.691 + _WIDE["crest_db"]
-        real_headroom = SAFE_CEILING_DB - (mono_peak + channel_peak_offset_db(0.0))
+        real_headroom = OUTPUT_PEAK_CEILING_DB - (mono_peak + channel_peak_offset_db(0.0))
 
         target, _ = plan_level(_WIDE["lufs"], _WIDE["crest_db"], phase_correlation=0.0)
 
@@ -169,7 +169,7 @@ class TestWideMastersAreNotCreditedPhantomHeadroom:
             AudioFingerprintAnalyzer(), Path("/nonexistent"), audio=audio, sr=22050
         )
         assert fingerprint is not None
-        true_headroom = max(0.0, SAFE_CEILING_DB - 20 * np.log10(np.abs(audio).max()))
+        true_headroom = max(0.0, OUTPUT_PEAK_CEILING_DB - 20 * np.log10(np.abs(audio).max()))
 
         targets = generate_targets_from_fingerprint(fingerprint)
         planned = targets["target_lufs"] - targets["source_lufs"]

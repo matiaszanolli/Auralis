@@ -8,7 +8,7 @@ mastering_target_service.py, #5833). Pure functions of the fingerprint.
 
 import math
 
-from auralis.core.processing.continuous_dsp_ops import SAFE_CEILING_DB
+from auralis.dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB
 from auralis.dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB
 from auralis.core.processing.parameter_generator_eq import eq_curve_from_fingerprint
 from auralis.core.utils import fingerprint_default
@@ -122,6 +122,6 @@ def plan_level(
     """
     wanted_gain = (current_lufs * 0.4 + STREAMING_TARGET_LUFS * 0.6) - current_lufs
     peak_dbfs = current_lufs + _PROXY_OFFSET_DB + current_crest + channel_peak_offset_db(phase_correlation)
-    headroom = max(0.0, SAFE_CEILING_DB - peak_dbfs)
+    headroom = max(0.0, OUTPUT_PEAK_CEILING_DB - peak_dbfs)
     gain = min(wanted_gain, headroom + CREST_BUDGET_DB, MAX_NORMALIZATION_GAIN_DB)
     return current_lufs + gain, current_crest - max(0.0, gain - headroom)

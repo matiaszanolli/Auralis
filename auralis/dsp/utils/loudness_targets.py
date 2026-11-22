@@ -14,9 +14,27 @@ changing either meant a grep:
   the soft-clip ramp in ``mastering_branches/soft_clip_params.py`` must
   move together, so they all read this one constant.
 
-The first two are equal today, which is why they were never separated. They live in
-``dsp/utils`` (not ``core/config``) because ``dsp`` is the lower layer and must
-not import ``core``.
+The first two are equal today, which is why they were never separated.
+
+The output ceiling and the final limiter's timing live here too (#6635):
+
+* ``OUTPUT_PEAK_CEILING_DB`` -- how hot the rendered output may get (-0.3 dBFS,
+  headroom for inter-sample peaks): HybridProcessor's brick-wall limiter, the
+  continuous mode's final peak control, the reference-profile check and the
+  backend's target-level headroom all read it.
+* ``LIMITER_LOOKAHEAD_MS`` / ``LIMITER_RELEASE_MS`` -- that limiter's timing, also
+  the defaults of ``BrickWallLimiterSettings`` and the realtime
+  ``StreamingPeakCeiling``.
+
+Deliberately different, and left as they are: ``BrickWallLimiterSettings``'
+-0.5 dB threshold default (a generic limiter, not the output stage), the
+realtime ``PlayerConfig.realtime_safety_peak`` 0.95 (the realtime path is not
+necessarily behind the brick-wall limiter, see its comment), auto-master's
+0.98 makeup-gain cap, and ``LOUDNESS_LIMITER_CEILING_DB`` (-1.0, a separate
+stage in mastering_presets).
+
+They live in ``dsp/utils`` (not ``core/config``) because ``dsp`` is the lower
+layer and must not import ``core``.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -25,3 +43,7 @@ not import ``core``.
 DEFAULT_TARGET_LUFS = -14.0
 STREAMING_TARGET_LUFS = -14.0
 LOUD_MASTER_TARGET_LUFS = -11.0
+
+OUTPUT_PEAK_CEILING_DB = -0.3
+LIMITER_LOOKAHEAD_MS = 2.0
+LIMITER_RELEASE_MS = 50.0

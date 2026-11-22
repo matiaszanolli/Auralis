@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..dsp.dynamics import create_brick_wall_limiter
 from ..dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
+from ..dsp.utils.loudness_targets import LIMITER_LOOKAHEAD_MS, LIMITER_RELEASE_MS, OUTPUT_PEAK_CEILING_DB
 from ..optimization.performance_optimizer import get_performance_optimizer
 from ..utils.logging import debug, info
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
@@ -52,9 +53,9 @@ def build_hybrid_components(config: UnifiedConfig, processor: "HybridProcessor")
 
     # Initialize brick-wall limiter for final peak control
     processor.brick_wall_limiter = create_brick_wall_limiter(
-        threshold_db=-0.3,
-        lookahead_ms=2.0,
-        release_ms=50.0,
+        threshold_db=OUTPUT_PEAK_CEILING_DB,
+        lookahead_ms=LIMITER_LOOKAHEAD_MS,
+        release_ms=LIMITER_RELEASE_MS,
         sample_rate=config.internal_sample_rate
     )
 
