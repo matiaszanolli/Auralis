@@ -401,19 +401,24 @@ class TestBackwardCompatibility:
         assert result.dtype in (np.float32, np.float64)
         assert len(result) == len(loaded_audio), "Processing must not change the sample count"
 
-    def test_library_database_location_consistent(self):
+    def test_library_database_location_consistent(self, _isolated_library_db):
         """
         REGRESSION: Library database location should be stable.
-        Test: Default location is ~/.auralis/library.db.
+        Test: the default is ~/.auralis/library.db, and LibraryDatabase() with no path opens the
+        default. _isolated_library_db redirects that default to a temp file, so the developer's
+        real library is never opened, migrated or backed up by this test (#6654).
         """
+        import auralis.library.constants as constants
         from auralis.library.database import LibraryDatabase
 
-        db = LibraryDatabase()
+        source = Path(constants.__file__).read_text()
+        assert 'DEFAULT_DB_PATH = Path.home() / ".auralis" / "library.db"' in source
 
-        # Default database path should be in ~/.auralis/
-        db_path = db.database_path
-        assert '.auralis' in db_path or 'auralis' in db_path.lower(), \
-            "Database should be in .auralis directory"
+        db = LibraryDatabase()
+        try:
+            assert db.database_path == str(_isolated_library_db)
+        finally:
+            db.shutdown()
 
     def test_processing_result_deterministic(self, temp_audio_dir):
         """

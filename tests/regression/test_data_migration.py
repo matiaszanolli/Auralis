@@ -351,20 +351,20 @@ class TestPlaylistMigration:
 class TestArtworkMigration:
     """Test album artwork migration."""
 
-    def test_artwork_cache_directory_created(self, temp_db):
+    def test_artwork_cache_directory_created(self, tmp_path):
         """
-        REGRESSION: Artwork cache directory should be created.
-        Test: ~/.auralis/artwork/ exists.
+        REGRESSION: the artwork cache lives beside the open library database.
+        Test: a database opened elsewhere moves the cache root with it. Opened on a temp path,
+        never the developer's real ~/.auralis/library.db (#6654).
         """
+        from auralis.library.data_dir import artwork_dir
         from auralis.library.database import LibraryDatabase
 
-        db = LibraryDatabase()
-
-        # Artwork directory should exist or be creatable
-        artwork_dir = Path.home() / '.auralis' / 'artwork'
-
-        # Just verify we can determine the path (creation may happen on use)
-        assert artwork_dir is not None
+        db = LibraryDatabase(database_path=str(tmp_path / "library.db"))
+        try:
+            assert artwork_dir() == tmp_path.resolve() / "artwork"
+        finally:
+            db.shutdown()
 
     def test_missing_artwork_handled_gracefully(self, temp_db):
         """
