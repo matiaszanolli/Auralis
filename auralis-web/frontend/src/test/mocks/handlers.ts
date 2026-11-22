@@ -1237,7 +1237,6 @@ export const handlers = [
   http.get('*/api/settings', () =>
     HttpResponse.json({
       id: 1, scan_folders: [], file_types: ['mp3', 'flac'], auto_scan: false, scan_interval: 3600,
-      crossfade_enabled: false, crossfade_duration: 3, gapless_enabled: true, replay_gain_enabled: false,
       volume: 0.8, output_device: 'default', bit_depth: 16, sample_rate: 44100,
       theme: 'dark', language: 'en', show_visualizations: true, mini_player_on_close: false,
       default_preset: 'adaptive', auto_enhance: true, enhancement_intensity: 1.0,

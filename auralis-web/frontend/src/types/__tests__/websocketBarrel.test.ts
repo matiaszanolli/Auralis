@@ -60,7 +60,7 @@ describe('@/types/websocket barrel (#4081)', () => {
     });
     expect(camel.isPlaying).toBe(true);
     expect(camel.position).toBe(5);
-    expect(camel.crossfadeDuration).toBe(3.0); // default applied
+    expect(camel.duration).toBe(100);
   });
 
   it("accepts audio_stream_start.data.preset: 'none' (#4654)", () => {

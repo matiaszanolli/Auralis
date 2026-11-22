@@ -5,7 +5,7 @@ and fingerprint algorithm versions are independent and must only change with
 their respective formats.
 """
 
-__db_schema_version__ = 33  # track_artist.position keeps a track's artists in tag order (#6714)
+__db_schema_version__ = 34  # user_settings drops the unconsumed crossfade/gapless/replay-gain columns (#6683)
 
 # Fingerprint algorithm version — increment this whenever the 25D extraction
 # algorithm changes in a way that produces different values for the same audio.

@@ -124,8 +124,7 @@ class SettingsRepository(BaseRepository):
             # corruption via _sa_instance_state, id, created_at, etc. (fixes #2240)
             ALLOWED_SETTINGS_FIELDS = {
                 'auto_scan', 'scan_interval',
-                'crossfade_enabled', 'crossfade_duration', 'gapless_enabled',
-                'replay_gain_enabled', 'volume',
+                'volume',
                 'output_device', 'bit_depth', 'sample_rate',
                 'theme', 'language', 'show_visualizations', 'mini_player_on_close',
                 'default_preset', 'auto_enhance', 'enhancement_intensity',

@@ -29,10 +29,6 @@ class UserSettings(Base, TimestampMixin):
     scan_interval: Mapped[int] = mapped_column(Integer, default=3600)  # Seconds
 
     # Playback Settings
-    crossfade_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    crossfade_duration: Mapped[float] = mapped_column(Float, default=5.0)  # Seconds
-    gapless_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    replay_gain_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     volume: Mapped[float] = mapped_column(Float, default=0.8)  # 0.0-1.0
 
     # Audio Settings
@@ -80,10 +76,6 @@ class UserSettings(Base, TimestampMixin):
             'auto_scan': self.auto_scan,
             'scan_interval': self.scan_interval,
             # Playback
-            'crossfade_enabled': self.crossfade_enabled,
-            'crossfade_duration': self.crossfade_duration,
-            'gapless_enabled': self.gapless_enabled,
-            'replay_gain_enabled': self.replay_gain_enabled,
             'volume': self.volume,
             # Audio
             'output_device': self.output_device,

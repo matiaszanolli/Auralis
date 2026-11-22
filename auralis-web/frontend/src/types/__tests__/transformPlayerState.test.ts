@@ -26,9 +26,6 @@ describe('transformPlayerState (regression: #2650)', () => {
     repeat_mode: 'off',
     mastering_enabled: true,
     current_preset: 'adaptive',
-    gapless_enabled: false,
-    crossfade_enabled: false,
-    crossfade_duration: 5.0,
   };
 
   it('maps all snake_case fields to camelCase', () => {
@@ -41,12 +38,9 @@ describe('transformPlayerState (regression: #2650)', () => {
     expect(result.duration).toBe(180.0);
     expect(result.queue).toEqual([]);
     expect(result.queueIndex).toBe(3);
-    expect(result.gaplessEnabled).toBe(false);
-    expect(result.crossfadeEnabled).toBe(false);
-    expect(result.crossfadeDuration).toBe(5.0);
   });
 
-  it('provides sensible defaults for missing optional fields', () => {
+  it('emits only fields the backend sends, inventing no playback settings (#6683)', () => {
     const minimal: RawPlayerStateData = {
       state: 'stopped',
       is_playing: false,
@@ -63,14 +57,13 @@ describe('transformPlayerState (regression: #2650)', () => {
       repeat_mode: 'off',
       mastering_enabled: false,
       current_preset: 'adaptive',
-      // gapless_enabled, crossfade_enabled, crossfade_duration omitted
     };
 
     const result = transformPlayerState(minimal);
 
-    expect(result.gaplessEnabled).toBe(true);      // default
-    expect(result.crossfadeEnabled).toBe(true);     // default
-    expect(result.crossfadeDuration).toBe(3.0);     // default
+    expect(Object.keys(result).sort()).toEqual(
+      ['currentTrack', 'duration', 'isPlaying', 'position', 'queue', 'queueIndex', 'volume']
+    );
   });
 
   it('handles null current_track', () => {

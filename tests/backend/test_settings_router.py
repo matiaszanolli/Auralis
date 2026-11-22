@@ -35,10 +35,6 @@ _DEFAULT_SETTINGS = {
     "file_types": ["mp3", "flac"],
     "auto_scan": False,
     "scan_interval": 3600,
-    "crossfade_enabled": False,
-    "crossfade_duration": 5.0,
-    "gapless_enabled": True,
-    "replay_gain_enabled": False,
     "volume": 0.8,
     "output_device": "default",
     "bit_depth": 16,
@@ -160,12 +156,12 @@ def test_update_settings_accepts_multiple_known_fields(client: TestClient, tmp_p
     resolved = str(tmp_path.resolve())
     resp = client.put(
         "/api/settings",
-        json={"volume": 0.3, "crossfade_enabled": True, "scan_folders": [str(tmp_path)]},
+        json={"volume": 0.3, "auto_scan": True, "scan_folders": [str(tmp_path)]},
     )
     assert resp.status_code == 200
     assert client._repo.updated_with == {  # type: ignore[attr-defined]
         "volume": 0.3,
-        "crossfade_enabled": True,
+        "auto_scan": True,
         "scan_folders": [resolved],
     }
 

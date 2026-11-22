@@ -35,10 +35,6 @@ const mockSettings: UserSettings = {
   file_types: ['mp3', 'flac', 'wav'],
   auto_scan: true,
   scan_interval: 3600,
-  crossfade_enabled: true,
-  crossfade_duration: 2.0,
-  gapless_enabled: true,
-  replay_gain_enabled: false,
   volume: 0.8,
   output_device: 'default',
   bit_depth: 16,
@@ -157,19 +153,13 @@ describe('SettingsService', () => {
     });
 
     it('should update playback settings', async () => {
-      const updates: SettingsUpdate = {
-        crossfade_enabled: true,
-        crossfade_duration: 3.5,
-        gapless_enabled: false,
-        replay_gain_enabled: true,
-      };
+      const updates: SettingsUpdate = { volume: 0.35 };
       mockPut.mockResolvedValueOnce({ message: 'Updated', settings: mockSettings });
 
       await settingsService.updateSettings(updates);
 
       const callArg = mockPut.mock.calls[0][1];
-      expect(callArg.crossfade_enabled).toBe(true);
-      expect(callArg.crossfade_duration).toBe(3.5);
+      expect(callArg).toEqual({ volume: 0.35 });
     });
 
     it('should update enhancement settings', async () => {

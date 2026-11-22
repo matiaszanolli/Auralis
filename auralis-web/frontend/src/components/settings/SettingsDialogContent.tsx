@@ -57,10 +57,6 @@ export const SettingsDialogContentComponent = ({
 
         {activeTab === 1 && (
           <PlaybackSettingsPanel
-            gaplessEnabled={getValue('gapless_enabled') ?? false}
-            crossfadeEnabled={getValue('crossfade_enabled') ?? false}
-            crossfadeDuration={getValue('crossfade_duration') ?? 0}
-            replayGainEnabled={getValue('replay_gain_enabled') ?? false}
             volume={getValue('volume') ?? 0.8} // the backend's normalised default (settings.py)
             onSettingChange={onSettingChange}
           />

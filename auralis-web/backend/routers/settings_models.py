@@ -45,10 +45,6 @@ class SettingsUpdateRequest(BaseModel):
     auto_scan: bool | None = None
     scan_interval: int | None = Field(default=None, ge=MIN_SCAN_INTERVAL_S, le=MAX_SCAN_INTERVAL_S)
     # Playback
-    crossfade_enabled: bool | None = None
-    crossfade_duration: float | None = Field(default=None, ge=0)
-    gapless_enabled: bool | None = None
-    replay_gain_enabled: bool | None = None
     # 0.0-1.0, NOT the 0-100 scale used by SetVolumeRequest and PlayerState
     # (#4711). Two different scales share the field name across this API; the
     # persisted UserSettings.volume column is normalised (default 0.8), so the
@@ -115,10 +111,6 @@ class SettingsResponse(BaseModel):
     file_types: list[str] = Field(default_factory=list)
     auto_scan: bool | None = None
     scan_interval: int | None = None
-    crossfade_enabled: bool | None = None
-    crossfade_duration: float | None = None
-    gapless_enabled: bool | None = None
-    replay_gain_enabled: bool | None = None
     # Same normalised 0.0-1.0 scale as SettingsUpdateRequest.volume, and
     # bounded identically (#4711) — it was unconstrained `float | None`, so
     # the scale was enforced on the way in but not on the way out.

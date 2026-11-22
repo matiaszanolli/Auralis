@@ -60,19 +60,6 @@ export interface RawPlayerStateData {
   // isEnhancementPreset guard remains the runtime defence for legacy rows.
   current_preset: EnhancementPreset;
   analysis?: Record<string, unknown> | null;
-  // Enhancement/gapless fields (optional — not always present).
-  //
-  // #3778: the backend `PlayerState` schema does NOT currently emit
-  // these fields, so in practice `transformPlayerState` always falls
-  // through to the defaults below (gaplessEnabled=true,
-  // crossfadeEnabled=true, crossfadeDuration=3.0). Kept as `?` here so
-  // the contract can be filled in from the backend side without a
-  // breaking client-typing change. If you need to consume these in a
-  // component, add the corresponding fields to the backend
-  // PlayerState first — relying on the defaults is misleading.
-  gapless_enabled?: boolean;
-  crossfade_enabled?: boolean;
-  crossfade_duration?: number;
 }
 
 
@@ -88,9 +75,6 @@ export interface PlayerStateData {
   duration: number; // Seconds
   queue: TrackInfo[];
   queueIndex: number;
-  gaplessEnabled: boolean;
-  crossfadeEnabled: boolean;
-  crossfadeDuration: number; // Seconds
 }
 
 
@@ -106,9 +90,6 @@ export function transformPlayerState(raw: RawPlayerStateData): PlayerStateData {
     duration: raw.duration ?? 0,
     queue: raw.queue ?? [],
     queueIndex: raw.queue_index ?? -1,
-    gaplessEnabled: raw.gapless_enabled ?? true,
-    crossfadeEnabled: raw.crossfade_enabled ?? true,
-    crossfadeDuration: raw.crossfade_duration ?? 3.0,
   };
 }
 

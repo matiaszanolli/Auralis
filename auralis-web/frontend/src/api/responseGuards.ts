@@ -174,7 +174,7 @@ export function isUserSettingsShape(v: unknown): v is UserSettings {
   if (!o) return false;
   if (o.scan_folders !== undefined && !Array.isArray(o.scan_folders)) return false;
   if (o.auto_scan !== undefined && typeof o.auto_scan !== 'boolean') return false;
-  if (o.crossfade_enabled !== undefined && typeof o.crossfade_enabled !== 'boolean') return false;
+  if (o.volume !== undefined && typeof o.volume !== 'number') return false;
   return true;
 }
 

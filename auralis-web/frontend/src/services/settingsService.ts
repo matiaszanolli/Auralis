@@ -22,10 +22,6 @@ export interface UserSettings {
   auto_scan: boolean;
   scan_interval: number;
   // Playback
-  crossfade_enabled: boolean;
-  crossfade_duration: number;
-  gapless_enabled: boolean;
-  replay_gain_enabled: boolean;
   volume: number;
   // Audio
   // theme/language/output_device are nullable columns (SettingsResponse: str | None),
@@ -64,10 +60,6 @@ export interface SettingsUpdate {
   auto_scan?: boolean;
   scan_interval?: number;
   // Playback
-  crossfade_enabled?: boolean;
-  crossfade_duration?: number;
-  gapless_enabled?: boolean;
-  replay_gain_enabled?: boolean;
   volume?: number;
   // Audio
   output_device?: string;
