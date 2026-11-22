@@ -26,9 +26,7 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -464,15 +462,10 @@ def test_processing_at_standard_sample_rates(tmp_path, sample_rate):
     # Process
     processor = HybridProcessor(UnifiedConfig())
 
-    try:
-        result = processor.process(audio)
-        assert len(result) == len(audio), (
-            f"Sample count should be preserved at {sample_rate}Hz"
-        )
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        pytest.skip(f"Processing at {sample_rate}Hz not implemented: {e}")
+    result = processor.process(audio)
+    assert len(result) == len(audio), (
+        f"Sample count should be preserved at {sample_rate}Hz"
+    )
 
 
 # ============================================================================
@@ -520,14 +513,8 @@ def test_track_title_max_length(tmp_path):
         'artists': ['Artist'],
     }
 
-    try:
-        track = db.tracks.add(track_info)
-        assert track.title == long_title, "Should preserve long title"
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        # If rejected, document the limit
-        pytest.skip(f"Long title rejected: {e}")
+    track = db.tracks.add(track_info)
+    assert track.title == long_title, "Should preserve long title"
 
 
 # ============================================================================

@@ -28,11 +28,9 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import os
 
 # Import the modules under test
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -536,15 +534,9 @@ def test_zero_length_audio_array():
     empty_audio = np.zeros((0, 2))
 
     # Should not crash
-    try:
-        result = processor.process(empty_audio)
-        # Should return empty or handle gracefully
-        assert len(result) == 0, "Should return empty for empty input"
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        # Document expected behavior if it should raise
-        pytest.skip(f"Zero-length audio handling not implemented: {e}")
+    result = processor.process(empty_audio)
+    # Should return empty or handle gracefully
+    assert len(result) == 0, "Should return empty for empty input"
 
 
 # ============================================================================

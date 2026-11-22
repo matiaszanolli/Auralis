@@ -16,7 +16,6 @@ Categories:
 
 import os
 import tempfile
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -779,12 +778,6 @@ def test_single_sample_audio(temp_audio_dir):
     filepath = os.path.join(temp_audio_dir, "one_sample.wav")
     save_test_audio(filepath, audio, sample_rate)
 
-    try:
-        processor = create_processor(filepath)
-        # If this doesn't crash, that's a pass
-        assert processor.total_chunks >= 1
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        # Single sample may be too short, which is acceptable
-        pytest.skip(f"Single sample audio not supported: {e}")
+    processor = create_processor(filepath)
+    # If this doesn't crash, that's a pass
+    assert processor.total_chunks >= 1

@@ -181,13 +181,8 @@ def test_very_long_track_in_library(tmp_path):
         'duration': duration,
     }
 
-    try:
-        track = db.tracks.add(track_info)
-        assert track.duration == duration, "Duration should be preserved"
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        pytest.skip(f"Very long track not supported: {e}")
+    track = db.tracks.add(track_info)
+    assert track.duration == duration, "Duration should be preserved"
 
 
 # ============================================================================
@@ -208,15 +203,10 @@ def test_one_sample_audio():
     # 1 sample stereo
     audio = np.array([[0.5, 0.5]])
 
-    try:
-        result = processor.process(audio)
-        # If supported, output is an ndarray preserving the sample count (#4049).
-        assert isinstance(result, np.ndarray)
-        assert len(result) == len(audio)
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        pytest.skip(f"1-sample audio not supported: {e}")
+    result = processor.process(audio)
+    # If supported, output is an ndarray preserving the sample count (#4049).
+    assert isinstance(result, np.ndarray)
+    assert len(result) == len(audio)
 
 
 @pytest.mark.boundary
@@ -230,13 +220,8 @@ def test_ten_sample_audio():
 
     audio = np.random.randn(10, 2).astype(np.float32) * 0.1
 
-    try:
-        result = processor.process(audio)
-        assert len(result) == 10, "Should preserve sample count"
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        pytest.skip(f"10-sample audio not supported: {e}")
+    result = processor.process(audio)
+    assert len(result) == 10, "Should preserve sample count"
 
 
 @pytest.mark.boundary
@@ -253,13 +238,8 @@ def test_sub_frame_duration():
     # 256 samples (shorter than typical FFT window)
     audio = np.random.randn(256, 2).astype(np.float32) * 0.1
 
-    try:
-        result = processor.process(audio)
-        assert len(result) == 256, "Should handle sub-frame audio"
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        pytest.skip(f"Sub-frame audio not supported: {e}")
+    result = processor.process(audio)
+    assert len(result) == 256, "Should handle sub-frame audio"
 
 
 @pytest.mark.boundary
@@ -425,14 +405,9 @@ def test_alternating_polarity():
     # Alternating samples (maximum frequency content)
     audio = np.tile([[1.0, 1.0], [-1.0, -1.0]], (22050, 1)).astype(np.float32)
 
-    try:
-        result = processor.process(audio)
-        # Should not crash or produce artifacts
-        assert not np.isnan(result).any(), "Should handle Nyquist frequency"
-    except (AssertionError, ZeroDivisionError, IndexError):
-        raise  # never mask a real bug behind a skip (#4969)
-    except Exception as e:
-        pytest.skip(f"Nyquist frequency not supported: {e}")
+    result = processor.process(audio)
+    # Should not crash or produce artifacts
+    assert not np.isnan(result).any(), "Should handle Nyquist frequency"
 
 
 # ============================================================================
@@ -653,7 +628,7 @@ def test_very_long_track_title(tmp_path):
         'artists': ['Artist'],
     }
 
-    track = db.tracks.add(track_info)
+    db.tracks.add(track_info)
     retrieved_tracks, _ = db.tracks.get_all(limit=1)
     # `_validate_and_normalize_track_info` intentionally truncates title/album
     # to 500 chars (#2073) — asserting the full 1000 here was simply wrong,
@@ -687,7 +662,7 @@ def test_unicode_emoji_in_title(tmp_path):
         'artists': ['Artist'],
     }
 
-    track = db.tracks.add(track_info)
+    db.tracks.add(track_info)
     retrieved_tracks, _ = db.tracks.get_all(limit=1)
     assert retrieved_tracks[0].title == emoji_title, "Should preserve emojis"
 
@@ -719,7 +694,7 @@ def test_special_sql_characters_in_title(tmp_path):
         'artists': ['Artist'],
     }
 
-    track = db.tracks.add(track_info)
+    db.tracks.add(track_info)
     retrieved_tracks, _ = db.tracks.get_all(limit=1)
     assert retrieved_tracks[0].title == sql_title, "Should handle SQL special chars"
 
@@ -853,7 +828,7 @@ def test_mixed_rtl_ltr_text(tmp_path):
         'artists': ['Artist'],
     }
 
-    track = db.tracks.add(track_info)
+    db.tracks.add(track_info)
     retrieved_tracks, _ = db.tracks.get_all(limit=1)
     assert retrieved_tracks[0].title == mixed_title, "Should preserve mixed text"
 

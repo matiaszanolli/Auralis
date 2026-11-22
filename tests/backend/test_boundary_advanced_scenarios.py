@@ -26,14 +26,11 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import os
 
 # Import the modules under test
 import sys
-import tempfile
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -194,7 +191,8 @@ def test_batch_toggle_favorites(test_library_large):
 
     # Verify all favorited
     favorites, total = db.tracks.get_favorites(limit=100)
-    assert len(favorites) == 50, f"Expected 50 favorites, got {count}"
+    assert len(favorites) == 50, f"Expected 50 favorites, got {len(favorites)}"
+    assert total == 50
 
 
 @pytest.mark.boundary
@@ -230,10 +228,11 @@ def test_batch_operation_performance(test_library_large):
 
     time_20 = timeit.timeit(favorite_20, number=1)
 
-    # Should scale linearly (within tolerance)
+    # Must not scale worse than linearly. Only an upper bound: doing twice the work in less than
+    # 1.5x the time is not a bug, and a lower bound made the test flake on timing noise.
     ratio = time_20 / time_10 if time_10 > 0 else 0
-    assert 1.5 <= ratio <= 3.0, (
-        f"Batch operations not scaling linearly: {ratio}x for 2x data"
+    assert ratio <= 3.0, (
+        f"Batch operations scaling worse than linearly: {ratio}x for 2x data"
     )
 
 
@@ -487,9 +486,9 @@ def test_concurrent_writes(tmp_path):
     for t in threads:
         t.join()
 
-    # Check for errors (some DBs may not support concurrent writes)
-    if len(errors) > 0:
-        pytest.skip(f"Database doesn't support concurrent writes: {errors[0]}")
+    # SQLite in WAL mode with a busy timeout serialises these writes; an error is a bug, not an
+    # unsupported feature (#6658).
+    assert not errors, f"Concurrent writes failed: {errors[0]!r}"
 
     # Verify all added
     tracks, total = db.tracks.get_all(limit=20)
@@ -750,7 +749,7 @@ def test_database_connection_recovery(tmp_path):
     filepath = audio_dir / "track_1.wav"
     save_audio(str(filepath), audio, 44100, subtype='PCM_16')
 
-    track1 = db.tracks.add({
+    db.tracks.add({
         'filepath': str(filepath),
         'title': 'Track 1',
     })
