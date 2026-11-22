@@ -109,8 +109,7 @@ class SpectrumOperations(WeightingMixin):
         Returns:
             Spectrum mapped to frequency bands (in dB)
         """
-        # Average magnitude of the FFT bins in each band; a band no bin falls
-        # in stays 0.
+        # Average magnitude of the FFT bins in each band; an empty band stays 0.
         index = band_index(frequencies, frequency_bins)
         in_band = index >= 0
         num_bands = len(frequency_bins)
@@ -119,9 +118,7 @@ class SpectrumOperations(WeightingMixin):
         spectrum = np.divide(sums, counts, out=np.zeros(num_bands), where=counts > 0)
 
         # Convert to dB using safe log conversion
-        spectrum = AudioMetrics.rms_to_db(spectrum)
-
-        return spectrum
+        return AudioMetrics.rms_to_db(spectrum)
 
     @staticmethod
     def apply_smoothing(current_spectrum: np.ndarray,

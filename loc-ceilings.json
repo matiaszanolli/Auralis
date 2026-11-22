@@ -134,7 +134,7 @@
     "auralis/analysis/mastering_profile.py": 253,
     "auralis/analysis/mastering_profiles_builtin.py": 205,
     "auralis/analysis/mastering_recommendation.py": 114,
-    "auralis/analysis/spectrum_operations.py": 232,
+    "auralis/analysis/spectrum_operations.py": 231,
     "auralis/analysis/spectrum_weighting.py": 97,
     "auralis/core/analysis/content_analyzer.py": 288,
     "auralis/core/analysis/genre_classification.py": 122,
