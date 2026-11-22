@@ -1,9 +1,10 @@
 /**
  * Playback transport + position tracking for useAudioStreamingCore.
  *
- * stop/pause/resume/volume, the 10 Hz current-time poll, the resume-position
- * getter registration, the Redux isPlaying watch and the disconnect keepalive,
- * moved verbatim out of useAudioStreamingCore.ts (#5478). This is the
+ * stop/pause/resume/volume, plus the effects in playbackTransportEffects.ts
+ * (engine gain, the 10 Hz current-time poll, the Redux isPlaying watch, the
+ * resume-position getter registration and the disconnect keepalive), out of
+ * useAudioStreamingCore.ts (#5478, #6703). This is the
  * "position tracking / transport" piece of the buffering/watchdog/position
  * split that issue asks for; buffering arithmetic lives in audioChunkIngest,
  * the watchdog in useStreamStartWatchdog.
@@ -14,23 +15,22 @@
  * @module hooks/enhancement/usePlaybackTransport
  */
 
-const DEBUG = import.meta.env.DEV;
-
 import type { StreamCommand } from '@/types/ws/commands';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch } from '@/store';
 import { endActiveStream } from '@/hooks/websocket/websocketConnectionState';
 import type { useWebSocketContext } from '@/contexts/WebSocketContext';
-import {
-  resetStreaming,
-  selectIsPlaying,
-  selectIsMuted,
-  selectVolume,
-  engineGainFromPlayerState,
-} from '@/store/slices/playerSlice';
+import { resetStreaming, selectIsPlaying } from '@/store/slices/playerSlice';
 import type { AudioPlaybackEngine } from '@/services/audio/AudioPlaybackEngine';
 import type { StreamType } from './streamingCoreTypes';
+import {
+  useDisconnectKeepalive,
+  useEnginePlayingSync,
+  useEngineGainSync,
+  usePlaybackClock,
+  useResumePositionRegistration,
+} from './playbackTransportEffects';
 
 export interface PlaybackTransportDeps {
   wsContext: ReturnType<typeof useWebSocketContext>;
@@ -107,91 +107,15 @@ export function usePlaybackTransport(deps: PlaybackTransportDeps) {
     playbackEngineRef.current?.setVolume(Math.max(0, Math.min(1, volume)));
   }, [playbackEngineRef]);
 
-  // #5607: WS-sourced volume changes (volume_changed / player_state.volume)
-  // and mute toggles reach only Redux — the imperative slider path above is
-  // the only thing that touched the engine directly. Re-apply whenever the
-  // authoritative gain changes so the current engine always matches the UI,
-  // whatever the source. (Each NEW engine is seeded from the same
-  // engineGainFromPlayerState conversion in useEnhancedStreamStart.)
-  const playerVolume = useSelector(selectVolume);
-  const playerIsMuted = useSelector(selectIsMuted);
-  const engineGain = engineGainFromPlayerState({
-    volume: playerVolume,
-    isMuted: playerIsMuted,
-  });
-  useEffect(() => {
-    playbackEngineRef.current?.setVolume(engineGain);
-  }, [engineGain, playbackEngineRef]);
-
-  // Update playback time periodically. Gated on isPlaying so the 10Hz
-  // interval doesn't fire setCurrentTime gratuitously when idle (#3970).
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    const interval = setInterval(() => {
-      const time = playbackEngineRef.current?.getCurrentPlaybackTime() || 0;
-      setCurrentTime((prev) => (time === prev ? prev : time));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isPlaying, playbackEngineRef, setCurrentTime]);
-
-  // Watch Redux isPlaying state and control AudioPlaybackEngine accordingly,
-  // so a pause/stop command stops the engine immediately without waiting for
-  // buffered audio to drain (#2252).
-  //
-  // #3624: isPaused is read via a ref so it doesn't drive a re-run of this
-  // effect; including it in deps caused two pausePlayback() calls per
-  // transition because setIsPaused(true) re-fired the effect.
-  const isPausedRef = useRef(isPaused);
-  useEffect(() => {
-    isPausedRef.current = isPaused;
-  }, [isPaused]);
-
-  useEffect(() => {
-    if (!playbackEngineRef.current) return;
-
-    if (isPlaying) {
-      if (isPausedRef.current) {
-        resumePlayback();
-      }
-    } else {
-      playbackEngineRef.current.pausePlayback();
-      setIsPaused(true);
-    }
-    // resumePlayback is stable (its only dependency is a []-memoized callback).
-  }, [isPlaying, resumePlayback, playbackEngineRef, setIsPaused]);
-
-  // Register resume position getter for WS reconnect (#3185).
-  // Depends on setResumePositionGetter (stable, #3730), not the whole
-  // wsContext object — the object's identity changes on every WS status
-  // flicker, which used to unregister/re-register the getters for no reason
-  // (#4668's missed sibling, #5621).
-  useEffect(() => {
-    const { setResumePositionGetter } = wsContext;
-    const getPosition = () =>
-      playbackEngineRef.current?.getCurrentPlaybackTime() ?? 0;
-    setResumePositionGetter(sendType, getPosition);
-    if (acceptNormalStream) {
-      setResumePositionGetter('play_normal', getPosition);
-    }
-    return () => {
-      setResumePositionGetter(sendType, null);
-      if (acceptNormalStream) {
-        setResumePositionGetter('play_normal', null);
-      }
-    };
-  }, [wsContext.setResumePositionGetter, sendType, acceptNormalStream, playbackEngineRef]);
-
-  // On WS disconnect: preserve playback engine and buffer so buffered audio
-  // continues playing while reconnect happens (#3185, replaces #2847 teardown).
-  useEffect(() => {
-    if (!wsContext.isConnected && playbackEngineRef.current) {
-      DEBUG && console.log(`${logPrefix} WebSocket disconnected - keeping playback engine alive`);
-      onDisconnectExtra?.();
-      // DO NOT destroy engine/buffer/state — let buffered audio play through.
-    }
-  }, [wsContext.isConnected, logPrefix, onDisconnectExtra, playbackEngineRef]);
+  // Effect ORDER is behavior: these run in the order they were declared
+  // inline before #6703 (gain, clock, isPlaying sync, resume getter, keepalive).
+  useEngineGainSync(playbackEngineRef);
+  usePlaybackClock(isPlaying, playbackEngineRef, setCurrentTime);
+  useEnginePlayingSync(isPlaying, isPaused, playbackEngineRef, resumePlayback, setIsPaused);
+  useResumePositionRegistration(
+    wsContext.setResumePositionGetter, sendType, acceptNormalStream, playbackEngineRef
+  );
+  useDisconnectKeepalive(wsContext.isConnected, playbackEngineRef, logPrefix, onDisconnectExtra);
 
   return { stopPlayback, pausePlayback, resumePlayback, setVolume };
 }
