@@ -26,7 +26,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-soundfile = pytest.importorskip("soundfile")
+import soundfile
 
 from auralis.analysis.fingerprint.metrics.audio_metrics import AudioMetrics
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint

@@ -17,10 +17,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from auralis.library.metadata_editor import MUTAGEN_AVAILABLE, MetadataEditor, MetadataUpdate
+from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
 from auralis.library.metadata_editor import backup as backup_module
 
-pytestmark = pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 
 _MUTAGEN_FILE = "auralis.library.metadata_editor.metadata_editor.MutagenFile"
 

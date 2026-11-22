@@ -21,7 +21,6 @@ Target: 25 comprehensive performance tests
 import os
 import tempfile
 import time
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -59,7 +58,7 @@ class TestFolderScanningPerformance:
         scanner = LibraryScanner(db)
 
         with timer() as t:
-            results = scanner.scan_single_directory(temp_audio_dir)
+            scanner.scan_single_directory(temp_audio_dir)
 
         files_per_second = 100 / t.elapsed
 
@@ -85,7 +84,7 @@ class TestFolderScanningPerformance:
             scanner = LibraryScanner(db)
 
             with timer() as t:
-                results = scanner.scan_single_directory(tmpdir)
+                scanner.scan_single_directory(tmpdir)
 
             files_per_second = 1000 / t.elapsed
 
@@ -192,7 +191,7 @@ class TestFolderScanningPerformance:
         scanner = LibraryScanner(db)
 
         with timer() as t:
-            results = scanner.scan_single_directory(temp_audio_dir)
+            scanner.scan_single_directory(temp_audio_dir)
 
         scan_time = t.elapsed
         total_files = 150
@@ -334,7 +333,7 @@ class TestDatabaseQueryPerformance:
 
         # Measure
         with timer() as t:
-            results = track_repo.search('Track', limit=50, offset=0)
+            track_repo.search('Track', limit=50, offset=0)
 
         latency_ms = t.elapsed_ms
 
@@ -366,7 +365,7 @@ class TestDatabaseQueryPerformance:
 
         # Measure
         with timer() as t:
-            results = track_repo.search('Track', limit=50, offset=0)
+            track_repo.search('Track', limit=50, offset=0)
 
         latency_ms = t.elapsed_ms
 
@@ -605,10 +604,7 @@ class TestCachePerformance:
         #5225/#5486: uses a file database — LibraryDatabase's pooled engine
         rejects ':memory:' (SingletonThreadPool takes no max_overflow).
         """
-        try:
-            import psutil
-        except ImportError:
-            pytest.skip("psutil required for memory profiling")
+        import psutil
 
         import gc
 

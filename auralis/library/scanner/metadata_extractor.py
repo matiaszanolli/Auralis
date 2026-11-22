@@ -11,14 +11,9 @@ Music metadata extraction from audio files
 from pathlib import Path
 from typing import Any
 
-try:
-    from mutagen import File as MutagenFile
-    MUTAGEN_AVAILABLE = True
-except ImportError:
-    MUTAGEN_AVAILABLE = False
-    MutagenFile = None
+from mutagen import File as MutagenFile  # a required dependency (#6655)
 
-from ...utils.logging import debug, warning
+from ...utils.logging import debug
 from ..scan_models import AudioFileInfo
 from ..utils.artist_normalizer import parse_featured_artists
 
@@ -29,20 +24,6 @@ MAX_TAG_TEXT_CHARS = 1000
 # A track or disc number above this is a corrupt or hostile tag, not a position: a value past
 # SQLite's int64 raised OverflowError in the insert and blocked the track's ingest (#5732).
 MAX_TRACK_NUMBER = 99_999
-
-# #3757: log once at module import if mutagen is missing. Previously each
-# per-file extraction emitted a `debug()` line, so users investigating
-# "why is my library scan missing artist/title/album" couldn't easily
-# distinguish "this file has no tags" from "mutagen isn't installed".
-# Mutagen IS listed in `requirements.txt`, so the warning surfaces a
-# packaging-environment problem rather than expected behavior.
-if not MUTAGEN_AVAILABLE:
-    warning(
-        "mutagen package not available — metadata extraction disabled. "
-        "Library scans will not populate artist/title/album/year fields. "
-        "Install with `pip install mutagen` (already in requirements.txt)."
-    )
-
 
 # Tags whose several values are all kept (the track model holds lists of artists and genres, #5732).
 MULTI_VALUED_FIELDS = frozenset({'artist', 'genre'})
@@ -83,10 +64,6 @@ class MetadataExtractor:
         Returns:
             Dictionary of metadata fields or None if extraction fails
         """
-        if not MUTAGEN_AVAILABLE:
-            debug("Mutagen not available, skipping metadata extraction")
-            return None
-
         try:
             audio_file = MutagenFile(file_path)
             if audio_file:

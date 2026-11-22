@@ -11,28 +11,21 @@ Tests the audio file metadata editing system.
 import os
 import sys
 import tempfile
-from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import patch
 
 import pytest
 
 # Add auralis to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
+from mutagen import MutagenError
+
 from auralis.library.metadata_editor import (
-    MUTAGEN_AVAILABLE,
     MetadataEditor,
     MetadataUpdate,
     create_metadata_editor,
 )
-
-if MUTAGEN_AVAILABLE:
-    from mutagen import MutagenError
-else:  # pragma: no cover - the tests below are skipped without mutagen
-    class MutagenError(Exception):  # type: ignore[no-redef]
-        """Placeholder so narrowed except clauses still resolve (#5023)."""
-
 
 class TestMetadataUpdate:
     """Tests for MetadataUpdate dataclass"""
@@ -65,20 +58,12 @@ class TestMetadataUpdate:
 class TestMetadataEditorInit:
     """Tests for MetadataEditor initialization"""
 
-    @pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
     def test_initialization_with_mutagen(self):
-        """Test initialization when mutagen is available"""
+        """mutagen is a required dependency (#6655): the editor always builds, with its formats."""
         editor = MetadataEditor()
-        assert editor is not None
-
-    @pytest.mark.skipif(MUTAGEN_AVAILABLE, reason="mutagen is installed")
-    def test_initialization_without_mutagen(self):
-        """Test initialization fails when mutagen is not available"""
-        with pytest.raises(ImportError, match="mutagen library is required"):
-            MetadataEditor()
+        assert {'mp3', 'flac'} <= set(editor.get_supported_formats())
 
 
-@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestMetadataEditorConstants:
     """Tests for MetadataEditor constants"""
 
@@ -112,7 +97,6 @@ class TestMetadataEditorConstants:
             assert 'album' in tag_map
 
 
-@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestSupportedFormats:
     """Tests for supported format queries"""
 
@@ -166,7 +150,6 @@ class TestSupportedFormats:
         assert len(fields) > 0  # Should default to FLAC tags
 
 
-@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestReadMetadata:
     """Tests for reading metadata"""
 
@@ -199,7 +182,6 @@ class TestReadMetadata:
                     assert isinstance(metadata, dict)
 
 
-@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestWriteMetadata:
     """Tests for writing metadata"""
 
@@ -279,7 +261,6 @@ class TestWriteMetadata:
                     pass
 
 
-@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestBatchUpdate:
     """Tests for batch metadata updates"""
 
@@ -354,7 +335,6 @@ class TestBatchUpdate:
         assert results['rolled_back'] is False
 
 
-@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestBackupRestore:
     """Tests for backup and restore functionality"""
 
@@ -410,7 +390,6 @@ class TestBackupRestore:
             mock_replace.assert_not_called()
 
 
-@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestFactoryFunction:
     """Tests for create_metadata_editor factory"""
 
@@ -421,13 +400,12 @@ class TestFactoryFunction:
         assert isinstance(editor, MetadataEditor)
 
 
-@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestWavMetadataDispatch:
     """#4130 — WAV must dispatch to the ID3 reader/writer, not the no-op generic
     path that produced corrupt tag blocks."""
 
     def test_wav_title_round_trips_via_id3(self):
-        sf = pytest.importorskip("soundfile")
+        import soundfile as sf
         import numpy as np
 
         fd, path = tempfile.mkstemp(suffix=".wav")
@@ -445,7 +423,6 @@ class TestWavMetadataDispatch:
             os.unlink(path)
 
 
-@pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 class TestMp3CommentLanguageHandling:
     """#4133 — COMM/USLT frames carry a language code; reads must match any
     language and writes must replace (not accumulate) comment frames."""

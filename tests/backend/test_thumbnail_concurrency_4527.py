@@ -34,7 +34,7 @@ from routers.artwork_thumbnails import (  # noqa: E402
     _get_or_create_thumbnail,
 )
 
-Image = pytest.importorskip("PIL.Image")
+from PIL import Image
 
 
 @pytest.fixture

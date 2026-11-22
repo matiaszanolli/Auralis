@@ -14,7 +14,6 @@ BENCHMARKS MEASURED:
 
 import gc
 import os
-import sys
 
 import numpy as np
 import pytest
@@ -28,12 +27,9 @@ from auralis.library.repositories import TrackRepository
 
 def get_memory_usage_mb():
     """Get current process memory usage in MB."""
-    try:
-        import psutil
-        process = psutil.Process()
-        return process.memory_info().rss / (1024 * 1024)
-    except ImportError:
-        pytest.skip("psutil required for memory profiling")
+    import psutil
+
+    return psutil.Process().memory_info().rss / (1024 * 1024)
 
 
 @pytest.mark.performance
@@ -50,7 +46,7 @@ class TestMemoryUsage:
 
         config = UnifiedConfig()
         config.set_processing_mode('adaptive')
-        processor = HybridProcessor(config)
+        _processor = HybridProcessor(config)  # kept alive: its footprint is what is measured
 
         gc.collect()
         after_init_memory = get_memory_usage_mb()
@@ -79,7 +75,7 @@ class TestMemoryUsage:
         before_memory = get_memory_usage_mb()
 
         # Process
-        result = processor.process(target)
+        _result = processor.process(target)  # held across the measurement
 
         gc.collect()
         after_memory = get_memory_usage_mb()

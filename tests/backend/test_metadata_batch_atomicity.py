@@ -19,7 +19,6 @@ import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -51,10 +50,6 @@ def make_updates(n: int, backup: bool = True) -> list[MetadataUpdate]:
 # Unit tests: MetadataEditor.batch_update()
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(
-    not __import__('auralis.library.metadata_editor', fromlist=['MUTAGEN_AVAILABLE']).MUTAGEN_AVAILABLE,
-    reason="mutagen not installed"
-)
 class TestBatchUpdateAtomicity:
     """batch_update() atomic rollback contract."""
 

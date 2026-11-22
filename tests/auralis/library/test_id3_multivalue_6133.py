@@ -4,9 +4,7 @@
 Artist row with an embedded NUL.
 """
 
-import pytest
 
-pytest.importorskip("mutagen")
 from mutagen.id3 import TCON, TIT2, TPE1, TRCK  # noqa: E402
 
 from auralis.library.scanner.metadata_extractor import MetadataExtractor  # noqa: E402

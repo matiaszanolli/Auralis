@@ -45,12 +45,7 @@ from tests.app_isolation import _isolated_fingerprint_store, _isolated_library_d
 # ceiling in one step. Do not reintroduce a skip list here without first
 # checking that the files it names still exist.
 
-# Check for optional dependencies
-try:
-    import soundfile as sf
-    HAS_SOUNDFILE = True
-except ImportError:
-    HAS_SOUNDFILE = False
+import soundfile as sf  # a required dependency: a broken env fails here, not as skips (#6655)
 
 # Pytest fixtures
 
@@ -105,8 +100,6 @@ def white_noise():
 @pytest.fixture
 def test_audio_files(temp_dir):
     """Create standard test audio files"""
-    if not HAS_SOUNDFILE:
-        pytest.skip("soundfile not available")
 
     def create_test_audio(duration, sr, freq, amplitude, characteristics="normal"):
         samples = int(duration * sr)
@@ -566,14 +559,6 @@ def _warn_weak_assertions(items):
             stacklevel=1,
         )
 
-def pytest_runtest_setup(item):
-    """Setup hook called before each test"""
-    # Skip tests that require dependencies that aren't available
-    markers = [mark.name for mark in item.iter_markers()]
-
-    if "files" in markers and not HAS_SOUNDFILE:
-        pytest.skip("soundfile not available")
-
 def _ensure_portaudio():
     """Ensure PortAudio is properly initialized or disabled."""
     try:
@@ -634,7 +619,6 @@ def assert_rms_similar(audio1: np.ndarray, audio2: np.ndarray, tolerance=0.01):
 
 # Export utility functions for use in tests
 __all__ = [
-    'HAS_SOUNDFILE',
     'assert_audio_equal',
     'assert_rms_similar'
 ]

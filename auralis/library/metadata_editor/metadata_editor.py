@@ -11,19 +11,14 @@ Audio file metadata editing orchestrator
 from pathlib import Path
 from typing import Any
 
-try:
-    from mutagen import File as MutagenFile
-    from mutagen.aiff import AIFF
-    from mutagen.asf import ASF
-    from mutagen.flac import FLAC
-    from mutagen.mp4 import MP4
-    from mutagen.oggopus import OggOpus
-    from mutagen.oggvorbis import OggVorbis
-    from mutagen.wave import WAVE
-    MUTAGEN_AVAILABLE = True
-except ImportError:
-    MUTAGEN_AVAILABLE = False
-    MutagenFile = None
+from mutagen import File as MutagenFile
+from mutagen.aiff import AIFF
+from mutagen.asf import ASF
+from mutagen.flac import FLAC
+from mutagen.mp4 import MP4
+from mutagen.oggopus import OggOpus
+from mutagen.oggvorbis import OggVorbis
+from mutagen.wave import WAVE
 
 from ...utils.logging import debug, error, info
 from .backup import BackupManager, lock_files
@@ -59,9 +54,6 @@ class MetadataEditor(BatchUpdateMixin):
 
     def __init__(self) -> None:
         """Initialize metadata editor"""
-        if not MUTAGEN_AVAILABLE:
-            raise ImportError("mutagen library is required for metadata editing")
-
         self.readers = MetadataReaders()
         self.writers = MetadataWriters()
         self.backup_manager = BackupManager()

@@ -10,19 +10,15 @@ Audio file metadata editing and management
 
 from .errors import UnreadableAudioFileError
 from .factory import create_metadata_editor
-from .metadata_editor import MUTAGEN_AVAILABLE, MetadataEditor
+from .metadata_editor import MetadataEditor
 from .models import MetadataUpdate
 
-try:
-    from mutagen import File as MutagenFile
-except ImportError:
-    MutagenFile = None
+from mutagen import File as MutagenFile
 
 __all__ = [
     'MetadataUpdate',
     'MetadataEditor',
     'UnreadableAudioFileError',
     'create_metadata_editor',
-    'MUTAGEN_AVAILABLE',
     'MutagenFile',
 ]

@@ -520,7 +520,7 @@ class TestComponentPerformance:
         processor = HybridProcessor(config)
 
         with timer() as t_full:
-            result = processor.process(performance_audio_file)
+            processor.process(performance_audio_file)
 
         full_time = t_full.elapsed
 
@@ -546,10 +546,7 @@ class TestMemoryEfficiency:
         """
         BENCHMARK: Memory usage should be < 10MB per second of audio.
         """
-        try:
-            import psutil
-        except ImportError:
-            pytest.skip("psutil required for memory profiling")
+        import psutil
 
         import gc
         process = psutil.Process()
@@ -589,10 +586,7 @@ class TestMemoryEfficiency:
         """
         BENCHMARK: Processor initialization should use < 100MB.
         """
-        try:
-            import psutil
-        except ImportError:
-            pytest.skip("psutil required for memory profiling")
+        import psutil
 
         import gc
         process = psutil.Process()
@@ -602,7 +596,7 @@ class TestMemoryEfficiency:
 
         config = UnifiedConfig()
         config.set_processing_mode('adaptive')
-        processor = HybridProcessor(config)
+        _processor = HybridProcessor(config)  # kept alive: its footprint is what is measured
 
         gc.collect()
         mem_after = process.memory_info().rss / (1024 * 1024)
@@ -618,10 +612,7 @@ class TestMemoryEfficiency:
         """
         BENCHMARK: Audio buffer overhead should be < 2x audio data size.
         """
-        try:
-            import psutil
-        except ImportError:
-            pytest.skip("psutil required for memory profiling")
+        import psutil
 
         import gc
         process = psutil.Process()
@@ -685,10 +676,7 @@ class TestMemoryEfficiency:
         """
         BENCHMARK: Concurrent processors should not share memory leaks.
         """
-        try:
-            import psutil
-        except ImportError:
-            pytest.skip("psutil required for memory profiling")
+        import psutil
 
         import gc
         from concurrent.futures import ThreadPoolExecutor
@@ -713,7 +701,7 @@ class TestMemoryEfficiency:
 
         # Process concurrently
         with ThreadPoolExecutor(max_workers=3) as executor:
-            results = list(executor.map(process_file, files))
+            _results = list(executor.map(process_file, files))  # held across the measurement
 
         gc.collect()
         mem_after = process.memory_info().rss / (1024 * 1024)

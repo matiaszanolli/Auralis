@@ -23,13 +23,11 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from auralis.library.metadata_editor import MUTAGEN_AVAILABLE  # noqa: E402
 from security.path_allowlist import (  # noqa: E402
     register_allowed_directory,
     unregister_allowed_directory,
 )
 
-pytestmark = pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed")
 
 _DETAIL = "Unreadable or unsupported audio file"
 _EXTENSIONS = ["m4a", "ogg", "opus", "wma", "au", "flac", "mp3", "wav", "aiff"]

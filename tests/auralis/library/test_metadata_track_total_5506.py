@@ -18,10 +18,9 @@ from pathlib import Path
 
 import pytest
 
-from auralis.library.metadata_editor import MUTAGEN_AVAILABLE, MetadataEditor
+from auralis.library.metadata_editor import MetadataEditor
 
 pytestmark = [
-    pytest.mark.skipif(not MUTAGEN_AVAILABLE, reason="mutagen not installed"),
     pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed"),
 ]
 

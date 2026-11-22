@@ -14,7 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-mutagen = pytest.importorskip("mutagen")
+import mutagen
 from mutagen.flac import FLAC  # noqa: E402
 from mutagen.id3 import ID3, USLT  # noqa: E402
 from mutagen.mp4 import MP4  # noqa: E402

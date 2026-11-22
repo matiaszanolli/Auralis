@@ -9,7 +9,6 @@ import subprocess
 
 import pytest
 
-pytest.importorskip("mutagen")
 from mutagen.id3 import ID3  # noqa: E402
 
 from auralis.library.metadata_editor import MetadataEditor  # noqa: E402

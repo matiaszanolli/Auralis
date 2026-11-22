@@ -11,7 +11,6 @@ import subprocess
 
 import pytest
 
-pytest.importorskip("mutagen")
 from mutagen.mp4 import MP4, MP4FreeForm  # noqa: E402
 
 from auralis.library.metadata_editor import MetadataEditor  # noqa: E402

@@ -9,11 +9,10 @@ import io
 import sys
 from pathlib import Path
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-Image = pytest.importorskip("PIL.Image")
+from PIL import Image
 
 from routers.artwork_thumbnails import _render_thumbnail  # noqa: E402
 

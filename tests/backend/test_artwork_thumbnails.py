@@ -12,7 +12,6 @@ never-upscale behaviour, and graceful failure on a non-image source.
 
 from pathlib import Path
 
-import pytest
 
 from routers.artwork_thumbnails import (
     _bucket_size,
@@ -21,7 +20,7 @@ from routers.artwork_thumbnails import (
     _THUMB_BUCKETS,
 )
 
-PIL_Image = pytest.importorskip("PIL.Image")
+from PIL import Image as PIL_Image
 
 
 def _make_source_image(path: Path, width: int, height: int, fmt: str = "PNG") -> Path:
