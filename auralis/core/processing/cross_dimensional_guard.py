@@ -150,8 +150,7 @@ class CrossDimensionalGuard:
         return effects
 
     def check_normalization_side_effects(
-        self, pre_norm: StageSnapshot, post_norm: StageSnapshot,
-        post_dynamics: StageSnapshot | None = None,
+        self, pre_norm: StageSnapshot, post_norm: StageSnapshot
     ) -> list[SideEffect]:
         """Normalization + limiter should not crush crest beyond intent."""
         effects: list[SideEffect] = []
@@ -210,9 +209,7 @@ class CrossDimensionalGuard:
         if dynamics_snap and stereo_snap:
             all_effects.extend(self.check_stereo_side_effects(dynamics_snap, stereo_snap))
         if stereo_snap and norm_snap:
-            all_effects.extend(self.check_normalization_side_effects(
-                stereo_snap, norm_snap, post_dynamics=dynamics_snap
-            ))
+            all_effects.extend(self.check_normalization_side_effects(stereo_snap, norm_snap))
         if input_snap and norm_snap:
             all_effects.extend(self.check_full_pipeline(input_snap, norm_snap))
 

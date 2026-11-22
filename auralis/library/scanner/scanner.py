@@ -260,7 +260,7 @@ class LibraryScanner:
         """Convenience wrapper: scan_directories() for exactly one directory."""
         return self.scan_directories([directory], **kwargs)
 
-    def scan_folder(self, folder_path: str, recursive: bool = True, **kwargs: Any) -> list[dict[str, Any]]:
+    def scan_folder(self, folder_path: str, recursive: bool = True) -> list[dict[str, Any]]:
         """
         Discover audio files under a folder and return their metadata directly.
 
@@ -274,7 +274,6 @@ class LibraryScanner:
         Args:
             folder_path: Path to folder to scan
             recursive: Whether to scan subdirectories
-            **kwargs: Additional arguments for scan
 
         Returns:
             List of discovered files with metadata

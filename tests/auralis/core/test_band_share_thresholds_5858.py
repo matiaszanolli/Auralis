@@ -19,7 +19,7 @@ TYPICAL = {"bass_pct": 0.46, "mid_pct": 0.21, "presence_pct": 0.03, "air_pct": 0
 
 
 def _eq(fingerprint: dict[str, float]) -> tuple[float, float, float]:
-    out = apply_fingerprint_enhancements(None, dict(BASE), fingerprint)
+    out = apply_fingerprint_enhancements(dict(BASE), fingerprint)
     return out["bass_boost_db"], out["midrange_clarity_db"], out["treble_enhancement_db"]
 
 

@@ -17,8 +17,8 @@ from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
 from ...utils.logging import debug
 
 
-def apply_preset_overrides(generator, targets: dict[str, Any],
-                            preset_profile: Any, content_profile: dict[str, Any]) -> dict[str, Any]:
+def apply_preset_overrides(targets: dict[str, Any], preset_profile: Any,
+                           content_profile: dict[str, Any]) -> dict[str, Any]:
     """
     Apply preset-specific overrides to adaptive targets.
 

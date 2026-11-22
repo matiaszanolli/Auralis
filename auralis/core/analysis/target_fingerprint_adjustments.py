@@ -26,8 +26,8 @@ BAND_SHARE_TAILS = {"bass": (0.28, 0.58), "mid": (0.10, 0.35), "presence+air": (
 
 
 def apply_fingerprint_enhancements(
-    generator: Any, targets: dict[str, Any],
-                                   fingerprint: dict[str, float]) -> dict[str, Any]:
+    targets: dict[str, Any], fingerprint: dict[str, float]
+) -> dict[str, Any]:
     """
     Apply intelligent enhancements based on 25D audio fingerprint.
 

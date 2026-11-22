@@ -141,8 +141,8 @@ class AdaptiveTargetGenerator:
     def _apply_preset_overrides(self, targets: dict[str, Any],
                                  preset_profile: Any,
                                  content_profile: dict[str, Any]) -> dict[str, Any]:
-        return apply_preset_overrides(self, targets, preset_profile, content_profile)
+        return apply_preset_overrides(targets, preset_profile, content_profile)
 
     def _apply_fingerprint_enhancements(self, targets: dict[str, Any],
                                          fingerprint: dict[str, float]) -> dict[str, Any]:
-        return apply_fingerprint_enhancements(self, targets, fingerprint)
+        return apply_fingerprint_enhancements(targets, fingerprint)
