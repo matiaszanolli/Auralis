@@ -10,8 +10,6 @@ This test suite characterizes the actual audio in the library
 and provides data for building new detection boundaries.
 """
 
-import time
-from pathlib import Path
 
 import librosa
 import numpy as np
@@ -20,6 +18,7 @@ import pytest
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
+from tests.local_library import REMASTERS_ROOT
 
 
 # Personal-library characterization (#6242): runs only with AURALIS_LOCAL_LIBRARY_TESTS=1.
@@ -35,7 +34,7 @@ class TestPhase6LibraryCharacterization:
         return AudioFingerprintAnalyzer()
 
     # Library paths
-    REMASTERS_DIR = Path("/mnt/audio/Audio/Remasters")
+    REMASTERS_DIR = REMASTERS_ROOT
 
     @staticmethod
     def _assert_measurements_sane(measurements):
@@ -56,8 +55,6 @@ class TestPhase6LibraryCharacterization:
         """Analyze all available Deep Purple tracks in library."""
         dp_dir = self.REMASTERS_DIR / "Deep Purple - In Rock"
 
-        if not dp_dir.exists():
-            pytest.skip(f"Directory not found: {dp_dir}")
 
         flac_files = sorted(dp_dir.glob("*.flac"))[:5]  # First 5 tracks
 

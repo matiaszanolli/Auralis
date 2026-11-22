@@ -12,7 +12,6 @@ Captures detection results, confidence scores, and processing metrics.
 """
 
 import time
-from pathlib import Path
 
 import librosa
 import numpy as np
@@ -22,6 +21,7 @@ from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
 from auralis.core.recording_type_detector import RecordingType, RecordingTypeDetector
+from tests.local_library import REMASTERS_ROOT
 
 # Personal-library validation (#6242): runs only with AURALIS_LOCAL_LIBRARY_TESTS=1.
 pytestmark = pytest.mark.local_library
@@ -41,16 +41,14 @@ class TestPhase6RealWorldAudioValidation:
         return AudioFingerprintAnalyzer()
 
     # Path definitions for reference materials
-    DEEP_PURPLE_DIR = Path("/mnt/audio/Audio/Remasters/Deep Purple - In Rock")
-    IRON_MAIDEN_DIR = Path("/mnt/audio/Audio/Remasters/Iron Maiden - Wasted Years (S)")
-    PORCUPINE_TREE_DIR = Path("/mnt/audio/Audio/Remasters/Porcupine Tree - Rockpalast Live")
+    DEEP_PURPLE_DIR = REMASTERS_ROOT / "Deep Purple - In Rock"
+    IRON_MAIDEN_DIR = REMASTERS_ROOT / "Iron Maiden - Wasted Years (S)"
+    PORCUPINE_TREE_DIR = REMASTERS_ROOT / "Porcupine Tree - Rockpalast Live"
 
     def test_deep_purple_studio_detection(self, detector, fingerprint_analyzer):
         """Validate Deep Purple detection as STUDIO recording."""
         audio_file = self.DEEP_PURPLE_DIR / "01. Speed King.flac"
 
-        if not audio_file.exists():
-            pytest.skip(f"Audio file not found: {audio_file}")
 
         # Load audio
         audio, sr = librosa.load(str(audio_file), sr=44100, mono=False)
@@ -94,8 +92,6 @@ class TestPhase6RealWorldAudioValidation:
         """Validate Iron Maiden detection as METAL recording."""
         audio_file = self.IRON_MAIDEN_DIR / "01. Wasted Years.flac"
 
-        if not audio_file.exists():
-            pytest.skip(f"Audio file not found: {audio_file}")
 
         # Load audio
         audio, sr = librosa.load(str(audio_file), sr=44100, mono=False)
@@ -137,8 +133,6 @@ class TestPhase6RealWorldAudioValidation:
 
     def test_multiple_deep_purple_tracks(self, detector, fingerprint_analyzer):
         """Test consistency across multiple Deep Purple tracks."""
-        if not self.DEEP_PURPLE_DIR.exists():
-            pytest.skip(f"Directory not found: {self.DEEP_PURPLE_DIR}")
 
         flac_files = sorted(self.DEEP_PURPLE_DIR.glob("*.flac"))[:3]  # First 3 tracks
 
@@ -187,8 +181,6 @@ class TestPhase6RealWorldAudioValidation:
         """Verify Deep Purple has expected studio characteristics."""
         audio_file = self.DEEP_PURPLE_DIR / "01. Speed King.flac"
 
-        if not audio_file.exists():
-            pytest.skip(f"Audio file not found: {audio_file}")
 
         # Load audio
         audio, sr = librosa.load(str(audio_file), sr=44100, mono=False)
@@ -222,8 +214,6 @@ class TestPhase6RealWorldAudioValidation:
         """Verify Iron Maiden has expected metal characteristics."""
         audio_file = self.IRON_MAIDEN_DIR / "01. Wasted Years.flac"
 
-        if not audio_file.exists():
-            pytest.skip(f"Audio file not found: {audio_file}")
 
         # Load audio
         audio, sr = librosa.load(str(audio_file), sr=44100, mono=False)
@@ -257,8 +247,6 @@ class TestPhase6RealWorldAudioValidation:
         """Measure detection performance on real audio."""
         audio_file = self.DEEP_PURPLE_DIR / "01. Speed King.flac"
 
-        if not audio_file.exists():
-            pytest.skip(f"Audio file not found: {audio_file}")
 
         # Load audio
         audio, sr = librosa.load(str(audio_file), sr=44100, mono=False)
@@ -298,15 +286,13 @@ class TestPhase6AudioMetricsValidation:
         """Create fingerprint analyzer."""
         return AudioFingerprintAnalyzer()
 
-    DEEP_PURPLE_DIR = Path("/mnt/audio/Audio/Remasters/Deep Purple - In Rock")
-    IRON_MAIDEN_DIR = Path("/mnt/audio/Audio/Remasters/Iron Maiden - Wasted Years (S)")
+    DEEP_PURPLE_DIR = REMASTERS_ROOT / "Deep Purple - In Rock"
+    IRON_MAIDEN_DIR = REMASTERS_ROOT / "Iron Maiden - Wasted Years (S)"
 
     def test_spectral_metrics_consistency(self, fingerprint_analyzer):
         """Verify spectral metrics are consistent across measurements."""
         audio_file = self.DEEP_PURPLE_DIR / "01. Speed King.flac"
 
-        if not audio_file.exists():
-            pytest.skip(f"Audio file not found: {audio_file}")
 
         # Load audio
         audio, sr = librosa.load(str(audio_file), sr=44100, mono=False)

@@ -24,6 +24,10 @@ import pytest
 from scipy.fft import rfft, rfftfreq
 
 from auralis.core.simple_mastering import SimpleMasteringPipeline
+from tests.local_library import MUSIC_ROOT
+
+# The mastering regression suite runs against this developer's own library (#6242, #6656).
+pytestmark = pytest.mark.local_library
 
 
 def measure_spectral_bands(audio: np.ndarray, sr: int) -> dict[str, float]:
@@ -94,28 +98,28 @@ class TrackTestCase:
 TEST_CASES = [
     TrackTestCase(
         name="Iron Maiden - Holy Smoke (moderate bass, loud)",
-        path="/mnt/Musica/Musica/Iron Maiden/1990 - No Prayer For The Dying [FLAC 24-bit 44kHz]/02. Holy Smoke.flac",
+        path=str(MUSIC_ROOT / "Iron Maiden/1990 - No Prayer For The Dying [FLAC 24-bit 44kHz]/02. Holy Smoke.flac"),
         bass_pct_range=(0.30, 0.45),
         lufs_range=(-14.0, -10.0),
         crest_db_range=(9.0, 13.0),
     ),
     TrackTestCase(
         name="Porcupine Tree - Phase I (extreme bass, quiet)",
-        path="/mnt/Musica/Musica/Porcupine Tree/Voyage 34_ The Complete Trip [2000]/01. Phase I.flac",
+        path=str(MUSIC_ROOT / "Porcupine Tree/Voyage 34_ The Complete Trip [2000]/01. Phase I.flac"),
         bass_pct_range=(0.50, 0.70),
         lufs_range=(-20.0, -17.0),
         crest_db_range=(15.0, 20.0),
     ),
     TrackTestCase(
         name="Blind Guardian - Valhalla (moderate bass, dynamic)",
-        path="/mnt/Musica/Musica/Blind Guardian/1989 - Follow The Blind/08 Valhalla.flac",
+        path=str(MUSIC_ROOT / "Blind Guardian/1989 - Follow The Blind/08 Valhalla.flac"),
         bass_pct_range=(0.35, 0.55),
         lufs_range=(-21.0, -17.0),
         crest_db_range=(15.0, 20.0),
     ),
     TrackTestCase(
         name="Blind Guardian - Somewhere Far Beyond (moderate bass, dynamic)",
-        path="/mnt/Musica/Musica/Blind Guardian/1992 - Somewhere Far Beyond/10 Somewhere Far Beyond.flac",
+        path=str(MUSIC_ROOT / "Blind Guardian/1992 - Somewhere Far Beyond/10 Somewhere Far Beyond.flac"),
         bass_pct_range=(0.35, 0.55),
         lufs_range=(-19.0, -14.0),
         crest_db_range=(13.0, 18.0),
@@ -123,7 +127,7 @@ TEST_CASES = [
     # Stereo expansion test cases
     TrackTestCase(
         name="Rolling Stones - Rock and a Hard Place (narrow stereo, quiet)",
-        path="/mnt/Musica/Musica/The Rolling Stones/1989b - Steel Wheels/07 - Rock and a Hard Place.mp3",
+        path=str(MUSIC_ROOT / "The Rolling Stones/1989b - Steel Wheels/07 - Rock and a Hard Place.mp3"),
         bass_pct_range=(0.30, 0.45),
         lufs_range=(-20.0, -16.0),
         crest_db_range=(16.0, 20.0),
@@ -132,7 +136,7 @@ TEST_CASES = [
     ),
     TrackTestCase(
         name="Stratovarius - Eagleheart (narrow stereo, compressed loud, heavy bass)",
-        path="/mnt/Musica/Musica/Stratovarius/Stratovarius - 2003 - Elements Pt. 1 (Limited - Remastered)/01 Eagleheart.flac",
+        path=str(MUSIC_ROOT / "Stratovarius/Stratovarius - 2003 - Elements Pt. 1 (Limited - Remastered)/01 Eagleheart.flac"),
         bass_pct_range=(0.40, 0.55),
         lufs_range=(-13.0, -9.0),
         crest_db_range=(10.0, 13.0),
@@ -358,8 +362,6 @@ def regression_runner():
 @pytest.mark.parametrize("case", TEST_CASES, ids=[c.name for c in TEST_CASES])
 def test_mastering_regression(case: TrackTestCase, regression_runner):
     """Pytest-compatible regression test."""
-    if not Path(case.path).exists():
-        pytest.skip(f"Test file not found: {case.path}")
 
     result = regression_runner.run_test(case)
     assert result["passed"], f"Regression test failed: {result['errors']}"

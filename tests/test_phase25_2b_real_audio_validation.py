@@ -24,6 +24,7 @@ from pathlib import Path
 import librosa
 import numpy as np
 import pytest
+from tests.local_library import MUSIC_ROOT
 
 
 class RealAudioMetrics:
@@ -85,7 +86,7 @@ ALBUM_PAIRS = [
     ('2002 - A Night At The Opera', '2002 - A Night At The Opera (2018)'),
 ]
 
-BASE_PATH = Path('/mnt/Musica/Musica/Blind Guardian')
+BASE_PATH = MUSIC_ROOT / 'Blind Guardian'
 
 # Adjacent to #4251, and caught by its SIBLING sweep. This file does not report
 # a false PASS the way the two relocated scripts did -- it asserts
