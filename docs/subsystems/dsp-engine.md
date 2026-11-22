@@ -142,17 +142,25 @@ the named presets.
 
 ### The loudness maximizer (most-churned tuning area)
 
-In `QuietBranch`, the loudness maximizer is the load-bearing tuning surface. Constants in
-[`mastering_config.py`](../../auralis/core/mastering_config.py):
+On the continuous path the loudness maximizer
+([`stages/loudness_maximizer.py`](../../auralis/core/stages/loudness_maximizer.py)) is the
+load-bearing tuning surface. It lifts quiet, high-crest material by reducing crest factor (the
+only lever once peaks sit at the ceiling) through a pre-gained brick-wall limiter. Its response to
+the loudness gap is a smooth softplus around an anchor: there is no category boundary and no
+"no-op above X" cutoff. Constants in
+[`mastering_presets.py`](../../auralis/core/mastering_presets.py), except `TARGET_LUFS`, which is
+in [`mastering_config.py`](../../auralis/core/mastering_config.py) and reads
+`LOUD_MASTER_TARGET_LUFS` from `dsp/utils/loudness_targets.py`:
 
 | Constant | Value | Meaning |
 |----------|-------|---------|
-| `TARGET_LUFS` | −11.0 | Overall SimpleMastering target |
-| `LOUDNESS_COMPETITIVE_LUFS` | −14.0 | No-op at/above this |
-| `LOUDNESS_TARGET_LUFS` | −14.5 | Push anchor (recalibrated 2026-07-10 from −12.5 to fix overdrive) |
-| `LOUDNESS_GAP_CLOSURE_FACTOR` | 0.5 | Closes only ~50% of the source loudness gap |
-| `LOUDNESS_MIN_CREST_DB` | 11.0 | Crest floor |
-| `LOUDNESS_MAX_CREST_REDUCTION_DB` | 4.0 | Max crest reduction |
+| `TARGET_LUFS` | −11.0 | Overall SimpleMastering target (`LOUD_MASTER_TARGET_LUFS`) |
+| `LOUDNESS_TARGET_LUFS` | −14.5 | Anchor of the gap response (recalibrated 2026-07-10 from −12.5 to fix overdrive); not the output LUFS |
+| `LOUDNESS_RESPONSE_SOFTNESS_DB` | 0.75 | Width of the softplus transition around the anchor |
+| `LOUDNESS_GAP_CLOSURE_FACTOR` | 0.5 | Closes only ~50% of the smooth positive loudness gap |
+| `LOUDNESS_MIN_CREST_DB` | 11.0 | Crest floor the push may not go below |
+| `LOUDNESS_MAX_CREST_REDUCTION_DB` | 4.0 | Signal-safety cap on crest reduction |
+| `LOUDNESS_MAX_PUSH_DB` | 10.0 | Signal-safety cap on the push gain |
 
 > **Why gap-closure = 0.5:** quiet/vintage recordings should stay *relatively* quieter, not
 > converge to one target loudness. Closing only half the gap preserves era/recording
