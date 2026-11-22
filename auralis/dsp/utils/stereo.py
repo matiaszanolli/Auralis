@@ -186,30 +186,6 @@ def adjust_stereo_width_multiband(
     sos_highmid = butter(2, [freq_highmid_lo, freq_highmid_hi], btype='band', output='sos')
     sos_high = butter(2, freq_high, btype='high', output='sos')
 
-    # Extract bands (for width calculation only, not recombination).
-    #
-    # sosfiltfilt_safe both casts back to the input dtype — sosfiltfilt returns
-    # float64, and an unguarded call would silently promote a float32 signal
-    # through the final `stereo_audio + diff_*` add (#3468) — and returns the
-    # band unfiltered when the buffer is shorter than scipy's padlen instead of
-    # raising mid-DSP (#4520). At order 2 that threshold is 16 samples, so a
-    # buffer of 15 or fewer used to crash here for ANY width factor far enough
-    # from unity to reach this line.
-    # on_too_short="zeros", NOT passthrough: each result is one band's content,
-    # and the `diff_* = widened(band) - band` sums below add every band's
-    # contribution on top of the input. Empty bands give diff == 0, so audio too
-    # short to filter comes back unwidened; passing the full signal through as
-    # all three "bands" would instead widen it three times over.
-    band_lowmid = sosfiltfilt_safe(
-        sos_lowmid, stereo_audio, context="stereo width low-mid", on_too_short="zeros"
-    )
-    band_highmid = sosfiltfilt_safe(
-        sos_highmid, stereo_audio, context="stereo width high-mid", on_too_short="zeros"
-    )
-    band_high = sosfiltfilt_safe(
-        sos_high, stereo_audio, context="stereo width high", on_too_short="zeros"
-    )
-
     # Calculate expansion amount from base factor
     expansion = width_factor - 0.5  # 0 to 0.5 range
 
@@ -231,24 +207,38 @@ def adjust_stereo_width_multiband(
     width_highmid = 0.5 + expansion * expansion_factor(4000.0)  # ~0.75
     width_high = 0.5 + expansion * expansion_factor(11314.0)    # ~0.95
 
-    # Calculate widened versions of each band
-    band_lowmid_w = adjust_stereo_width(band_lowmid, width_lowmid)
-    band_highmid_w = adjust_stereo_width(band_highmid, width_highmid)
-    band_high_w = adjust_stereo_width(band_high, width_high)
+    # PARALLEL processing: add each band's WIDTH DIFFERENCE on top of the
+    # original, so nothing is split and recombined and no crossover notch
+    # appears. Widening a band only rescales its side channel:
+    # adjust_stereo_width() maps (mid, side) to (mid, side * 2w), so
+    # widened(band) - band is the band's side times (2w - 1), added to L and
+    # subtracted from R, with mid untouched. Filtering is linear and
+    # per-channel, so a band's side is the band-pass of the input's side.
+    # The bands are therefore extracted from the mono side signal alone. That
+    # matches widening three stereo band copies to rounding error, filters
+    # half as many samples, and keeps the peak at a few mono buffers where
+    # the stereo version held ~11 full-length stereo arrays at once (#6717).
+    #
+    # sosfiltfilt_safe casts back to the input dtype (sosfiltfilt returns
+    # float64, which would promote a float32 signal, #3468) and returns the
+    # band as silence when the buffer is shorter than scipy's padlen instead
+    # of raising mid-DSP (#4520; 16 samples at order 2). "zeros", NOT
+    # passthrough: each result is one band's content, so an empty band adds
+    # nothing and audio too short to filter comes back unwidened, whereas
+    # passing the full signal through as all three bands would widen it
+    # three times over.
+    _mid, side = mid_side_encode(stereo_audio)
+    added_side = np.zeros_like(side)
+    for sos, band_width, context in (
+        (sos_lowmid, width_lowmid, "stereo width low-mid"),
+        (sos_highmid, width_highmid, "stereo width high-mid"),
+        (sos_high, width_high, "stereo width high"),
+    ):
+        band_side = sosfiltfilt_safe(sos, side, context=context, on_too_short="zeros")
+        # float(): a numpy-scalar gain would promote a float32 side to float64 (#6117)
+        added_side += float(2.0 * band_width - 1.0) * band_side
 
-    # PARALLEL processing: add the WIDTH DIFFERENCE on top of original
-    # This avoids crossover notches because we never split and recombine
-    # diff = widened - original_band
-    # result = original + diff = original + (widened - band) = original with added width
-    diff_lowmid = band_lowmid_w - band_lowmid
-    diff_highmid = band_highmid_w - band_highmid
-    diff_high = band_high_w - band_high
-
-    # Cast the final sum back to the input dtype. Even with the band-level
-    # cast above, the per-band width factors are `np.float64` scalars (because
-    # `expansion_factor` calls `np.log`), so `adjust_stereo_width` ends up
-    # multiplying the side signal by a float64 scalar and promotes its
-    # output. Cast once at the end to preserve the project's float32
-    # invariant for downstream mastering stages (#3468).
-    result = stereo_audio + diff_lowmid + diff_highmid + diff_high
-    return np.asarray(result, dtype=stereo_audio.dtype)
+    result = stereo_audio.copy()
+    result[:, 0] += added_side
+    result[:, 1] -= added_side
+    return result
