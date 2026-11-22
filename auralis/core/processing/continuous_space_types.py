@@ -37,26 +37,19 @@ class ProcessingParameters:
     """
     Complete set of DSP processing parameters.
 
-    Generated from processing space coordinates.
-
-    Not every field reaches a DSP stage: ``REPORTING_ONLY_FIELDS`` (in
-    ``processing_parameter_readers``) names the display-only ones.
+    Generated from processing space coordinates. Every field is read by a ContinuousMode stage
+    (pinned by tests/auralis/core/test_processing_parameters_have_readers_5576.py); fields that
+    no stage read were deleted rather than kept for display (#6650).
     """
     # Loudness normalization
     target_lufs: float          # Target integrated loudness (LUFS)
-    peak_target_db: float       # Peak normalization target (dBFS)
 
     # EQ parameters
     eq_curve: dict[str, float]  # Frequency-specific gains and frequencies
     eq_blend: float             # EQ application strength (0.0 to 1.0)
 
     # Dynamics processing
-    compression_params: dict[str, float]  # Compression settings
-    expansion_params: dict[str, float]    # Expansion settings (de-mastering)
-    dynamics_blend: float                 # Dynamics processing strength (0.0 to 1.0)
-
-    # Limiting
-    limiter_params: dict[str, float]      # Limiter settings
+    compression_params: dict[str, float]  # ``ratio`` and ``amount`` for the clip-blend compressor
 
     # Stereo processing
     stereo_width_target: float            # Width FACTOR, 0.0-1.0 (0.5 = unity, 1.0 = max widening)
@@ -70,6 +63,5 @@ class ProcessingParameters:
     def __str__(self) -> str:
         return (f"ProcessingParameters("
                 f"LUFS={self.target_lufs:.1f}, "
-                f"peak={self.peak_target_db:.2f}dB, "
                 f"eq_blend={self.eq_blend:.2f}, "
-                f"dynamics_blend={self.dynamics_blend:.2f})")
+                f"compression={self.compression_params.get('amount', 0.0):.2f})")

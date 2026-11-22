@@ -497,11 +497,11 @@ class TestGetProcessingParameters:
         assert "dynamic_range" in data
         assert "energy_level" not in data  # the axis was removed: nothing read it (#6123)
         assert "target_lufs" in data
-        assert "peak_target_db" in data
+        assert "peak_target_db" not in data  # reporting-only, no stage read it (#6650)
         assert "bass_boost" in data
         assert "air_boost" in data
         assert "compression_amount" in data
-        assert "expansion_amount" in data
+        assert "expansion_amount" not in data  # the expansion stage and its params are gone (#5561, #6650)
         assert "stereo_width" in data
 
     def test_processing_parameters_field_types(self, client):

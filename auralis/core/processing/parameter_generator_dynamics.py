@@ -2,8 +2,9 @@
 Dynamics-Family Parameter Generation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Loudness targets, compression, expansion, dynamics blend and limiter
-parameters for the continuous processing space.
+The loudness target and the compression parameters for the continuous processing space. The
+expansion, dynamics-blend, limiter and peak-target generators are gone: no stage read their output
+(#6650).
 
 Split out of ``parameter_generator.py`` (#4511) so each parameter family
 lives in its own module behind the ``ContinuousParameterGenerator`` facade.
@@ -65,32 +66,6 @@ def calculate_target_lufs(
     return float(min(target_lufs, max(TARGET_LUFS_CEILING, input_lufs)))
 
 
-def calculate_peak_target(
-    coords: ProcessingCoordinates,
-) -> float:
-    """
-    Calculate peak normalization target.
-
-    Strategy:
-    - Dynamic material: More headroom (-1.0 to -0.7 dB)
-    - Compressed material: Less headroom (-0.5 to -0.2 dB)
-
-    Args:
-        coords: Processing space coordinates
-
-    Returns:
-        Peak target in dBFS (negative value)
-    """
-    dynamics = coords.dynamic_range
-
-    # More dynamics = more headroom
-    # Dynamic (1.0) → -1.0 dB
-    # Compressed (0.0) → -0.3 dB
-    base_peak = -1.0 + (1.0 - dynamics) * 0.7
-
-    # Clamp to safe range
-    return float(np.clip(base_peak, -1.5, -0.2))
-
 
 def generate_compression(
     coords: ProcessingCoordinates,
@@ -105,11 +80,9 @@ def generate_compression(
         coords: Processing space coordinates
 
     Returns:
-        Compression parameters dictionary. ``ratio`` and ``amount`` drive
-        ``CompressionStrategies.apply_clip_blend_compression``; ``threshold``
-        (dBFS), ``attack`` and ``release`` (ms) describe the intended
-        compressor character for reporting and are not read by the DSP (the
-        stage is an instantaneous, peak-relative waveshaper, #5576).
+        ``ratio`` and ``amount`` for ``CompressionStrategies.apply_clip_blend_compression``, an
+        instantaneous, peak-relative waveshaper: it has no threshold, attack or release, so none
+        is generated (#5576, #6650).
     """
     effective_dynamics = coords.dynamic_range
 
@@ -118,74 +91,7 @@ def generate_compression(
     )
     return {
         'ratio': float(1.0 + 0.8 * compression_response),
-        'threshold': float(-18.0 - 8.0 * effective_dynamics),
-        'attack': float(12.0 + 18.0 * effective_dynamics),
-        'release': float(120.0 + 130.0 * effective_dynamics),
         'amount': float(0.55 * compression_response),
     }
 
 
-def generate_expansion(
-    coords: ProcessingCoordinates,
-) -> dict[str, float]:
-    """
-    Generate expansion parameters (de-mastering).
-
-    Expansion strength decays continuously as measured dynamics increase.
-
-    Args:
-        coords: Processing space coordinates
-
-    Returns:
-        Expansion parameters dictionary
-    """
-    inverse_dynamics = 1.0 - coords.dynamic_range
-    return {
-        'target_crest_increase': float(3.0 * inverse_dynamics),
-        'amount': float(0.85 * inverse_dynamics ** 2),
-    }
-
-
-def calculate_dynamics_blend(
-    coords: ProcessingCoordinates,
-) -> float:
-    """
-    Calculate dynamics processing blend.
-
-    Args:
-        coords: Processing space coordinates
-
-    Returns:
-        Dynamics blend factor (0.0 to 1.0)
-    """
-    # Base blend from dynamic range
-    # Less dynamic = more processing
-    base_blend = 0.3 + ((1.0 - coords.dynamic_range) * 0.4)
-
-    return float(np.clip(base_blend, 0.2, 0.9))
-
-
-def generate_limiter(coords: ProcessingCoordinates) -> dict[str, float]:
-    """
-    Generate limiter parameters.
-
-    Strategy:
-    - Dynamic material: Gentler limiting (-3 to -2 dB threshold)
-    - Compressed material: Tighter limiting (-1.5 to -1 dB threshold)
-
-    Args:
-        coords: Processing space coordinates
-
-    Returns:
-        Limiter parameters dictionary
-    """
-    dynamics = coords.dynamic_range
-
-    # More dynamics = gentler limiting (more headroom)
-    threshold = -3.0 + ((1.0 - dynamics) * 1.5)  # -3 to -1.5 dB
-    release = 120.0 - (dynamics * 40.0)          # 120ms to 80ms
-
-    return {
-        'threshold': threshold,
-        'release': release,
-    }

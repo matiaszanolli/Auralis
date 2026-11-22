@@ -43,46 +43,19 @@ def convert_targets_to_parameters(targets: dict[str, Any]) -> ProcessingParamete
         for band in ('low_shelf_gain', 'low_mid_gain', 'mid_gain', 'high_mid_gain', 'high_shelf_gain')
     }
 
-    # Build compression parameters
+    # The clip-blend compressor reads only these two (COMPRESSION_REQUIRED_KEYS); it has no
+    # threshold, timing, knee or makeup, so none is invented here (#6650).
     compression = targets.get('compression', {})
     compression_params = {
-        'threshold_db': -20.0,  # Default
         'ratio': compression.get('ratio', 2.5),
-        'attack_ms': 10.0,
-        'release_ms': 100.0,
-        'knee_db': 6.0,
-        'makeup_db': 0.0,
-        'amount': compression.get('amount', 0.6)  # Compression amount/strength
-    }
-
-    # Expansion parameters (de-mastering). No stage applies them any more (#5561); they are
-    # reporting data, kept in the same schema as the fingerprint path's (EXPANSION_REQUIRED_KEYS in
-    # base/compression_expansion.py, #4856), with expansion disabled.
-    expansion_params = {
-        'threshold_db': -30.0,
-        'ratio': 1.5,
-        'attack_ms': 5.0,
-        'release_ms': 50.0,
-        'target_crest_increase': 0.0,
-        'amount': 0.0  # Disabled by default
-    }
-
-    # Build limiter parameters
-    limiter_params = {
-        'threshold_db': -1.0,
-        'attack_ms': 1.0,
-        'release_ms': 100.0
+        'amount': compression.get('amount', 0.6),
     }
 
     return ProcessingParameters(
         target_lufs=targets.get('target_lufs', DEFAULT_TARGET_LUFS),
-        peak_target_db=-1.0,  # Standard peak target
         eq_curve=eq_curve,
         eq_blend=0.7,  # Default blend
         compression_params=compression_params,
-        expansion_params=expansion_params,
-        dynamics_blend=compression.get('amount', 0.6),
-        limiter_params=limiter_params,
         # A width FACTOR (side-gain axis): WIDTH_FACTOR_UNITY (0.5) leaves the
         # image unchanged, 1.0 is the maximum widening (#5553).
         stereo_width_target=WIDTH_FACTOR_UNITY,

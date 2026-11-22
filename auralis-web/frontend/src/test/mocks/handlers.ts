@@ -449,11 +449,9 @@ export const handlers = [
       spectral_balance: 0.6,
       dynamic_range: 0.7,
       target_lufs: -14.0,
-      peak_target_db: -1.0,
       bass_boost: 2.5,
       air_boost: 1.8,
       compression_amount: 0.4,
-      expansion_amount: 0.2,
       stereo_width: 0.8
     });
   }),

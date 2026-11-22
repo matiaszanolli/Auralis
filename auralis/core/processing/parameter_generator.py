@@ -21,12 +21,8 @@ working exactly as before the split.
 
 from .continuous_space_types import ProcessingCoordinates, ProcessingParameters
 from .parameter_generator_dynamics import (
-    calculate_dynamics_blend as _calculate_dynamics_blend_impl,
-    calculate_peak_target as _calculate_peak_target_impl,
     calculate_target_lufs as _calculate_target_lufs_impl,
     generate_compression as _generate_compression_impl,
-    generate_expansion as _generate_expansion_impl,
-    generate_limiter as _generate_limiter_impl,
 )
 from .parameter_generator_eq import (
     calculate_eq_blend as _calculate_eq_blend_impl,
@@ -78,7 +74,6 @@ class ContinuousParameterGenerator:
         return ProcessingParameters(
             # Loudness targets
             target_lufs=self._calculate_target_lufs(coords),
-            peak_target_db=self._calculate_peak_target(coords),
 
             # EQ curve
             eq_curve=eq_curve,
@@ -86,11 +81,6 @@ class ContinuousParameterGenerator:
 
             # Dynamics
             compression_params=self._generate_compression(coords),
-            expansion_params=self._generate_expansion(coords),
-            dynamics_blend=self._calculate_dynamics_blend(coords),
-
-            # Limiting
-            limiter_params=self._generate_limiter(coords),
 
             # Stereo processing
             stereo_width_target=self._calculate_stereo_width(coords),
@@ -102,25 +92,9 @@ class ContinuousParameterGenerator:
         """Calculate target LUFS. See parameter_generator_dynamics.calculate_target_lufs."""
         return _calculate_target_lufs_impl(coords)
 
-    def _calculate_peak_target(self, coords: ProcessingCoordinates) -> float:
-        """Calculate peak normalization target. See parameter_generator_dynamics.calculate_peak_target."""
-        return _calculate_peak_target_impl(coords)
-
     def _generate_compression(self, coords: ProcessingCoordinates) -> dict[str, float]:
         """Generate compression parameters. See parameter_generator_dynamics.generate_compression."""
         return _generate_compression_impl(coords)
-
-    def _generate_expansion(self, coords: ProcessingCoordinates) -> dict[str, float]:
-        """Generate expansion parameters. See parameter_generator_dynamics.generate_expansion."""
-        return _generate_expansion_impl(coords)
-
-    def _calculate_dynamics_blend(self, coords: ProcessingCoordinates) -> float:
-        """Calculate dynamics processing blend. See parameter_generator_dynamics.calculate_dynamics_blend."""
-        return _calculate_dynamics_blend_impl(coords)
-
-    def _generate_limiter(self, coords: ProcessingCoordinates) -> dict[str, float]:
-        """Generate limiter parameters. See parameter_generator_dynamics.generate_limiter."""
-        return _generate_limiter_impl(coords)
 
     # -- EQ family (parameter_generator_eq.py) ------------------------------
 

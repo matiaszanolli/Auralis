@@ -33,11 +33,9 @@ _DEFAULT_PARAMETERS: dict[str, Any] = {
     "spectral_balance": 0.5,
     "dynamic_range": 0.5,
     "target_lufs": DEFAULT_TARGET_LUFS,
-    "peak_target_db": -1.0,
     "bass_boost": 0.0,
     "air_boost": 0.0,
     "compression_amount": 0.0,
-    "expansion_amount": 0.0,
     "stereo_width": 0.75,
 }
 
@@ -110,8 +108,8 @@ async def get_processing_parameters(
     ),
 ) -> dict[str, Any]:
     """
-    Get current processing parameters from the continuous space system.
-    This shows what the auto-mastering engine is doing in real-time.
+    Get current processing parameters from the continuous space system: the coordinates and the
+    parameters the ContinuousMode stages actually apply (reporting-only values were removed, #6650).
 
     Reads from the global content profile cache populated by ChunkedAudioProcessor
     during streaming playback.
@@ -168,11 +166,9 @@ async def get_processing_parameters(
             "spectral_balance": get_attr(coords, 'spectral_balance', 0.5),
             "dynamic_range": get_attr(coords, 'dynamic_range', 0.5),
             "target_lufs": get_attr(params, 'target_lufs', DEFAULT_TARGET_LUFS),
-            "peak_target_db": get_attr(params, 'peak_target_db', -1.0),
             "bass_boost": get_attr(params, 'eq_curve', {}).get('low_shelf_gain', 0.0),
             "air_boost": get_attr(params, 'eq_curve', {}).get('high_shelf_gain', 0.0),
             "compression_amount": get_attr(params, 'compression_params', {}).get('amount', 0.0),
-            "expansion_amount": get_attr(params, 'expansion_params', {}).get('amount', 0.0),
             "stereo_width": get_attr(params, 'stereo_width_target', 0.75)
         }
 

@@ -26,7 +26,7 @@ Categorize changed files by risk domain:
 
 | Domain | File Patterns | Maps to Audit |
 |--------|--------------|---------------|
-| Audio Core/DSP | `auralis/core/*`, `auralis/dsp/*` (`auralis/core/processing/processing_parameter_readers.py` names the `ProcessingParameters` fields no stage reads, #5576 — a new field needs a reader or an entry there) | `/audit-engine` |
+| Audio Core/DSP | `auralis/core/*`, `auralis/dsp/*` (every `ProcessingParameters` field must have a ContinuousMode reader, #5576/#6650) | `/audit-engine` |
 | Player | `auralis/player/*` | `/audit-engine`, `/audit-concurrency` |
 | Audio I/O | `auralis/io/*` (`auralis/io/loaders/ffmpeg_orphan_guard.py` / `ffmpeg_space.py` / `decode_temp.py` manage the FFmpeg child and its intermediate WAV, #5734) | `/audit-engine`; the child-process and temp-file handling also `/audit-concurrency` |
 | Chunked Mastering | `auralis/core/mastering_*.py` | `/audit-engine`, `/audit-concurrency` |

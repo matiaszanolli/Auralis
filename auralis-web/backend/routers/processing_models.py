@@ -149,11 +149,9 @@ class ProcessingParametersResponse(BaseModel):
     spectral_balance: float = Field(description="Spectral-balance coordinate (0–1)")
     dynamic_range: float = Field(description="Dynamic-range coordinate (0–1)")
     target_lufs: float = Field(description="Target integrated loudness (LUFS)")
-    peak_target_db: float = Field(description="Target true peak (dBFS)")
     bass_boost: float = Field(description="Low-shelf gain (dB)")
     air_boost: float = Field(description="High-shelf gain (dB)")
     compression_amount: float = Field(description="Compression amount (0–1)")
-    expansion_amount: float = Field(description="Expansion amount (0–1)")
     stereo_width: float = Field(description="Target stereo width")
 
 

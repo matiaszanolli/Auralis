@@ -103,8 +103,7 @@ class ContinuousDSPOpsMixin:
         # scalar gain — peak and RMS moved together, so crest factor was
         # invariant and the downstream LUFS normalization re-boosted the
         # attenuation. Removed following #5309's precedent for the same
-        # class of placebo stage; the generator's expansion_params remain
-        # available as reporting data.
+        # class of placebo stage, and its parameters with it (#6650).
         return audio
 
     def _apply_compression(self, audio: np.ndarray, comp_params: dict[str, Any]) -> np.ndarray:

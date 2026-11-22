@@ -15,19 +15,17 @@ import numpy as np
 from ....dsp.dynamics.soft_clipper import soft_clip
 from .audio_measurement import MeasurementUtilities
 
-# The keys each strategy below indexes with `[...]` — i.e. the ones whose
-# absence is a KeyError, not a defaulted value. EXPANSION_REQUIRED_KEYS now pins
-# only the reporting schema: the RMS-reduction expansion stage that read it is gone (#5561).
+# The keys the clip-blend compressor indexes with `[...]` — i.e. the ones whose
+# absence is a KeyError, not a defaulted value.
 #
-# Two independent producers build these dicts: the fixed-targets fast path in
+# Two independent producers build compression_params: the fixed-targets fast path in
 # `fixed_target_params.convert_targets_to_parameters` and the fingerprint path
 # in `ContinuousParameterGenerator`. Nothing tied their schemas together, so they
-# drifted: the fast path omitted `target_crest_increase` entirely and every
-# `.25d`-sidecar track crashed here (#4856). Declared next to the readers so a
-# contract test can assert every producer satisfies them —
-# tests/auralis/core/test_processing_params_contract_4856.py.
+# drifted: an expansion dict the fast path built without `target_crest_increase`
+# crashed every `.25d`-sidecar track (#4856; that stage and its params are gone, #5561,
+# #6650). Declared next to the reader so a contract test can assert every producer
+# satisfies it — tests/auralis/core/test_processing_params_contract_4856.py.
 COMPRESSION_REQUIRED_KEYS = frozenset({'ratio', 'amount'})
-EXPANSION_REQUIRED_KEYS = frozenset({'target_crest_increase', 'amount'})
 
 # Peaks below this are treated as silence by the clip-blend compressor.
 _SILENCE_PEAK = 1e-6

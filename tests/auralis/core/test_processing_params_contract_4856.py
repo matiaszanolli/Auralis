@@ -1,21 +1,17 @@
 """
-Contract tests for the ProcessingParameters dynamics dicts — issue #4856.
+Contract tests for the ProcessingParameters compression dict — issue #4856.
 
-Two independent producers build `compression_params` / `expansion_params`:
+Two independent producers build `compression_params`:
 
   * `fixed_target_params.convert_targets_to_parameters` — the fixed-targets fast
     path taken when a track has a `.25d` fingerprint sidecar, which skips
     fingerprint extraction entirely;
   * `ContinuousParameterGenerator` — the fingerprint path.
 
-Nothing tied their schemas together, so they drifted. The fast path omitted
-`target_crest_increase`, which the expansion stage (since removed, #5561)
-indexed unconditionally *before* it checked `amount`. Result: a deterministic
-KeyError on the primary chunked-streaming path for every sidecar-backed track.
-
-Compression survived the same drift only by coincidence — both producers happen
-to emit the two keys its reader indexes (`ratio`, `amount`) — so this pins both
-dicts, not just the one that crashed.
+Nothing tied their schemas together, so they drifted. The fast path's expansion dict omitted
+`target_crest_increase`, which the expansion stage indexed unconditionally: a deterministic
+KeyError for every sidecar-backed track. That stage (#5561) and its params (#6650) are gone;
+compression had survived the same drift only by coincidence, so its keys stay pinned here.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -26,7 +22,6 @@ import pytest
 
 from auralis.core.processing.base.compression_expansion import (
     COMPRESSION_REQUIRED_KEYS,
-    EXPANSION_REQUIRED_KEYS,
     CompressionStrategies,
 )
 from auralis.core.processing.fixed_target_params import convert_targets_to_parameters
@@ -65,11 +60,6 @@ def _audio(seed: int = 0) -> np.ndarray:
 class TestFixedTargetsSchema:
     """The fast path must satisfy every key its consumers index."""
 
-    def test_expansion_params_carry_every_required_key(self):
-        params = _fixed_target_params()
-        missing = EXPANSION_REQUIRED_KEYS - params.expansion_params.keys()
-        assert not missing, f"fixed-targets expansion_params missing {missing}"
-
     def test_compression_params_carry_every_required_key(self):
         params = _fixed_target_params()
         missing = COMPRESSION_REQUIRED_KEYS - params.compression_params.keys()
@@ -82,15 +72,6 @@ class TestFixedTargetsSchema:
         )
         assert isinstance(result, np.ndarray)
 
-
-class TestExpansionStaysDisabled:
-    """Adding the key must not switch expansion on for this path."""
-
-    def test_expansion_is_reported_disabled(self):
-        # The expansion stage itself is gone (#5561); the params remain reporting data.
-        params = _fixed_target_params()
-        assert params.expansion_params['amount'] == 0.0
-        assert params.expansion_params['target_crest_increase'] == 0.0
 
 class TestGeneratorPathSchema:
     """The fingerprint producer must satisfy the same contract."""
@@ -107,10 +88,6 @@ class TestGeneratorPathSchema:
             spectral_balance=0.5, dynamic_range=0.5, fingerprint=FINGERPRINT_25D
         )
         return gen.generate_parameters(coords)
-
-    def test_generator_expansion_carries_every_required_key(self, generator_params):
-        missing = EXPANSION_REQUIRED_KEYS - generator_params.expansion_params.keys()
-        assert not missing, f"generator expansion_params missing {missing}"
 
     def test_generator_compression_carries_every_required_key(self, generator_params):
         missing = COMPRESSION_REQUIRED_KEYS - generator_params.compression_params.keys()
@@ -143,5 +120,4 @@ class TestBothProducersAgree:
         ]
 
         for params in produced:
-            assert EXPANSION_REQUIRED_KEYS <= params.expansion_params.keys()
-            assert COMPRESSION_REQUIRED_KEYS <= params.compression_params.keys()
+            assert COMPRESSION_REQUIRED_KEYS == params.compression_params.keys()

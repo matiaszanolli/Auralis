@@ -43,12 +43,13 @@ class TestProcessingParametersEndpoint:
         assert "dynamic_range" in data
         assert "energy_level" not in data  # the axis was removed: nothing read it (#6123)
         assert "target_lufs" in data
-        assert "peak_target_db" in data
         assert "bass_boost" in data
         assert "air_boost" in data
         assert "compression_amount" in data
-        assert "expansion_amount" in data
         assert "stereo_width" in data
+        # Reporting-only values no stage read are no longer served as live engine state (#6650).
+        assert "peak_target_db" not in data
+        assert "expansion_amount" not in data
 
     def test_processing_parameters_field_types(self, client):
         """Test that all fields have correct types"""
@@ -61,11 +62,9 @@ class TestProcessingParametersEndpoint:
         
         # Processing parameters
         assert isinstance(data["target_lufs"], (int, float))
-        assert isinstance(data["peak_target_db"], (int, float))
         assert isinstance(data["bass_boost"], (int, float))
         assert isinstance(data["air_boost"], (int, float))
         assert isinstance(data["compression_amount"], (int, float))
-        assert isinstance(data["expansion_amount"], (int, float))
         assert isinstance(data["stereo_width"], (int, float))
 
     def test_processing_parameters_value_ranges(self, client):
@@ -77,14 +76,12 @@ class TestProcessingParametersEndpoint:
         assert 0.0 <= data["spectral_balance"] <= 1.0
         assert 0.0 <= data["dynamic_range"] <= 1.0
         
-        # Compression/expansion/stereo should be 0-1
+        # Compression/stereo should be 0-1
         assert 0.0 <= data["compression_amount"] <= 1.0
-        assert 0.0 <= data["expansion_amount"] <= 1.0
         assert 0.0 <= data["stereo_width"] <= 1.0
         
-        # LUFS and peak should be negative (dB values)
+        # LUFS is negative (dB)
         assert data["target_lufs"] < 0
-        assert data["peak_target_db"] <= 0
 
     def test_processing_parameters_endpoint_accepts_get_only(self, client):
         """Test that endpoint only accepts GET requests"""
