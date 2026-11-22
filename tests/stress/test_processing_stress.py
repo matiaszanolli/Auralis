@@ -11,11 +11,8 @@ Tests for high-volume processing, audio processing limits, and resource constrai
 """
 
 import gc
-import os
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 
 import numpy as np
 import psutil
@@ -98,28 +95,30 @@ class TestHighVolumeProcessing:
             results = [f.result() for f in as_completed(futures)]
             total_time = time.time() - start
 
-        cpu_stats = cpu_monitor.finish()
+        cpu_monitor.finish()
 
         assert len(results) == 20
         # Should complete in reasonable time
         assert total_time < 120, f"20 files took {total_time:.1f}s"
 
-    def test_processing_queue_overflow(self, tmp_path):
+    def test_processing_queue_overflow(self, get_repository_factory_callable):
         """Test handling of queue overflow gracefully."""
-        from auralis.player.enhanced_audio_player import AudioPlayer
+        from auralis.player.queue_controller import QueueController
 
-        player = AudioPlayer()
+        queue = QueueController(get_repository_factory_callable)
 
         # Add many files to queue rapidly
         for i in range(1000):
-            player.queue.add_track({"filepath": f"/test/track_{i:04d}.mp3"})
+            queue.add_track({"filepath": f"/test/track_{i:04d}.mp3"})
 
-        # Should handle gracefully without errors
-        assert player.queue.get_queue_size() == 1000
+        # Every track kept, in order
+        assert queue.get_queue_size() == 1000
+        assert [t["filepath"] for t in queue.get_queue()[:2]] == ["/test/track_0000.mp3", "/test/track_0001.mp3"]
+        assert queue.get_queue()[-1]["filepath"] == "/test/track_0999.mp3"
 
         # Clear queue
-        player.queue.clear_queue()
-        assert player.queue.get_queue_size() == 0
+        queue.clear_queue()
+        assert queue.get_queue_size() == 0
 
     def test_processing_sustained_load(self, tmp_path, stress_test_timeout):
         """Test sustained high load (simulated 1 hour)."""
@@ -136,7 +135,7 @@ class TestHighVolumeProcessing:
 
         for i in range(60):
             audio = np.random.randn(44100, 2).astype(np.float32) * 0.1
-            processed = processor.process(audio)
+            assert len(processor.process(audio)) == len(audio)
             processed_count += 1
 
             # Check timeout
@@ -189,33 +188,23 @@ class TestHighVolumeProcessing:
         # Should not be too fast (sanity check)
         assert elapsed > 0.1, "Processing suspiciously fast"
 
-    def test_processing_prioritization(self, tmp_path):
-        """Test priority queue under load."""
-        from auralis.player.enhanced_audio_player import AudioPlayer
+    def test_processing_prioritization(self, get_repository_factory_callable):
+        """Test priority queue under load: an urgent track moves to the front."""
+        from auralis.player.queue_controller import QueueController
 
-        player = AudioPlayer()
+        queue = QueueController(get_repository_factory_callable)
 
-        # Add tracks with different priorities
         for i in range(100):
-            player.queue.add_track({"filepath": f"/test/track_{i:03d}.mp3"})
+            queue.add_track({"filepath": f"/test/track_{i:03d}.mp3"})
+        queue.add_track({"filepath": "/test/urgent_track.mp3"})
 
-        # Move high-priority track to front
-        player.queue.add_track({"filepath": f"/test/urgent_track.mp3"})
+        # This used to append and stop, never moving anything to the front.
+        assert queue.move_track(100, 0)
 
-        # Should handle prioritization
-        assert player.queue.get_queue_size() == 101
-
-    def test_processing_cancellation_mass(self, tmp_path):
-        """Test cancelling 100 processing jobs."""
-        # Simulate cancelling many jobs
-        # In real implementation, would test actual job cancellation
-
-        cancelled_count = 0
-        for i in range(100):
-            # Simulate job cancellation
-            cancelled_count += 1
-
-        assert cancelled_count == 100
+        order = [t["filepath"] for t in queue.get_queue()]
+        assert len(order) == 101
+        assert order[0] == "/test/urgent_track.mp3"
+        assert order[1:] == [f"/test/track_{i:03d}.mp3" for i in range(100)]
 
     def test_processing_error_rate_under_load(self, tmp_path):
         """Test error handling at high volume."""
@@ -256,7 +245,6 @@ class TestAudioProcessingLimits:
 
     def test_process_very_long_audio(self, very_long_audio, tmp_path, memory_monitor):
         """Test processing 10-minute audio file."""
-        import gc
 
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.config import UnifiedConfig
@@ -468,7 +456,6 @@ class TestResourceLimits:
 
     def test_cpu_affinity(self):
         """Test respecting CPU affinity settings."""
-        import psutil
 
         process = psutil.Process()
 

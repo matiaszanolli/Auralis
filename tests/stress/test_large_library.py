@@ -13,7 +13,6 @@ with large music libraries (10k-50k tracks).
 
 import gc
 import time
-from pathlib import Path
 
 import numpy as np
 import psutil
@@ -399,11 +398,9 @@ class TestMemoryManagement:
 
         try:
             # Create many temporary objects
-            start = time.time()
             for i in range(100):
                 tracks, _ = repo.get_all(limit=100, offset=i * 100)
                 # Objects accumulate
-            no_gc_time = time.time() - start
 
             # Force GC
             gc_start = time.time()
@@ -458,19 +455,23 @@ class TestMemoryManagement:
 class TestLongRunningOperations:
     """Tests for long-running operations and durability."""
 
-    def test_1000_track_queue(self, tmp_path):
-        """Test queue with 1,000 tracks."""
+    def test_1000_track_queue(self, get_repository_factory_callable):
+        """Test queue with 1,000 tracks.
+
+        Exercises the player's QueueController directly: AudioPlayer() without a
+        repository factory raises, and the queue is all this measures.
+        """
         import gc
 
-        from auralis.player.enhanced_audio_player import AudioPlayer
+        from auralis.player.queue_controller import QueueController
 
-        player = AudioPlayer()
+        queue = QueueController(get_repository_factory_callable)
 
         # Add tracks incrementally to avoid memory spike
         start = time.time()
         for i in range(1000):
             track_info = {"filepath": f"/test/track_{i:04d}.mp3", "title": f"Track {i}"}
-            player.queue.add_track(track_info)
+            queue.add_track(track_info)
 
             # Periodic garbage collection to prevent memory buildup
             if i % 100 == 0:
@@ -480,17 +481,14 @@ class TestLongRunningOperations:
 
         # Should handle large queue efficiently
         assert queue_time < 2.0, f"Adding 1000 tracks took {queue_time:.2f}s"
-        assert player.queue.get_queue_size() == 1000
+        assert queue.get_queue_size() == 1000
 
-        # Test queue operations
-        player.queue.current_index = -1  # Reset to start
-        next_track = player.queue.next_track()
-        assert next_track is not None
-        assert player.queue.get_queue_size() == 1000  # Size doesn't change on next
+        # A fresh queue starts before the first track
+        assert queue.next_track()["filepath"] == "/test/track_0000.mp3"
+        assert queue.get_queue_size() == 1000  # Size doesn't change on next
 
-        # Cleanup
-        player.queue.clear_queue()
-        gc.collect()
+        queue.clear_queue()
+        assert queue.get_queue_size() == 0
 
     def test_library_rescan_durability(self, tmp_path, large_library_db):
         """Test multiple rescans without degradation."""
