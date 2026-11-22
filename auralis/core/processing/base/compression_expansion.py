@@ -123,7 +123,10 @@ class CompressionStrategies:
         Returns:
             Compressed audio array
         """
-        audio = audio.copy()
+        # No up-front copy (#6717): nothing below writes into `audio`, and an
+        # extra full-length copy held for the whole stage was pure peak memory
+        # on a whole-track call. The early returns copy instead, so the caller
+        # still never gets its own buffer back.
         before = MeasurementUtilities.measure_audio(audio)
 
         # Plain Python floats (a numpy scalar is strongly typed under NEP 50 and promotes a float32
@@ -136,7 +139,7 @@ class CompressionStrategies:
         if not np.isfinite(peak) or peak < _SILENCE_PEAK:
             # Silence (nothing to compress) or non-finite samples (not this
             # stage's to repair; soft_clip would only spread the NaN).
-            return audio
+            return audio.copy()
         reference = min(peak, 1.0)
 
         # Lower threshold = more compression, higher ratio = lower ceiling.
@@ -146,8 +149,17 @@ class CompressionStrategies:
 
         compressed = soft_clip(audio, threshold=threshold, ceiling=ceiling)
 
-        # Blend with original based on amount
-        audio = audio * (1.0 - amount) + compressed * amount
+        # Blend with original based on amount: compressed*amount + audio*(1-amount),
+        # the old expression's two terms summed in the other order (addition
+        # commutes exactly, so the result is bit-identical). Accumulating into
+        # the first product and dropping `compressed` before the second keeps
+        # two full-length arrays alive instead of four (#6717). soft_clip's
+        # result is never written in place, so this stays correct if it ever
+        # hands back its input unchanged.
+        blended = compressed * amount
+        del compressed
+        blended += audio * (1.0 - amount)
+        audio = blended
 
         after = MeasurementUtilities.measure_audio(audio)
 
