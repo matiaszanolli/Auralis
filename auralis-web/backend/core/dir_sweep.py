@@ -110,19 +110,24 @@ def reap_older_than(
     try:
         for entry in candidates:
             try:
-                st = entry.lstat()
-                if cutoff is not None and st.st_mtime >= cutoff:
-                    continue
-                if stat.S_ISDIR(st.st_mode):
-                    if not remove_dirs:
-                        continue
-                    shutil.rmtree(entry)
-                else:
-                    entry.unlink()
+                if _remove_if_older(entry, cutoff, remove_dirs):
+                    removed += 1
             except OSError as e:
                 log.log(failure_level, f"Could not remove {label} {entry.name}: {type(e).__name__}")
-                continue
-            removed += 1
     except OSError as e:
         log.debug(f"{label} sweep skipped: {e}")
     return removed
+
+
+def _remove_if_older(entry: Path, cutoff: float | None, remove_dirs: bool) -> bool:
+    """Remove *entry* if it predates *cutoff* (None: any age); True when removed. Raises OSError."""
+    st = entry.lstat()
+    if cutoff is not None and st.st_mtime >= cutoff:
+        return False
+    if not stat.S_ISDIR(st.st_mode):
+        entry.unlink()
+        return True
+    if not remove_dirs:
+        return False
+    shutil.rmtree(entry)
+    return True
