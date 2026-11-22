@@ -73,10 +73,10 @@ For EVERY boundary crossing (frontend->backend, backend->engine, etc.), document
 ```
 | Boundary | Sender | Receiver | Data Format | Transform | Error Handling |
 |----------|--------|----------|-------------|-----------|----------------|
-| FE -> BE | hook.ts::usePlayTrack | router.py::set_queue | POST JSON | camelCase->snake_case | try/catch -> toast |
-| BE -> Engine | router.py::set_queue | queue_controller.py::get_queue | Python dict | none | HTTPException(500) |
-| Engine -> BE | queue_controller.py::get_queue | router.py::set_queue | Python obj | model_dump() | raise -> HTTPException |
-| BE -> FE | router.py::set_queue | hook.ts::usePlayTrack | JSON response | snake_case->camelCase | status check |
+| FE -> BE | auralis-web/frontend/src/hooks/player/usePlayTrack.ts::usePlayTrack | auralis-web/backend/routers/player_queue.py::set_queue | POST JSON {tracks, start_index} | none (body already snake_case) | post() throws -> error toast |
+| BE -> Service | auralis-web/backend/routers/player_queue.py::set_queue | auralis-web/backend/services/queue_set_mixin.py::set_queue | track ids | ids -> library rows | ServiceError -> raise_for_service_error -> HTTPException |
+| Service -> Engine | auralis-web/backend/services/queue_set_mixin.py::set_queue | auralis/player/queue_loading.py::set_queue | list of filepaths + start_index | row -> filepath | engine call off-loop (asyncio.to_thread) |
+| BE -> FE | auralis-web/backend/routers/player_queue.py::set_queue | auralis-web/frontend/src/hooks/player/usePlayTrack.ts::usePlayTrack | JSON dict | none | non-2xx -> post() throws |
 ```
 
 ## Risk Identification
