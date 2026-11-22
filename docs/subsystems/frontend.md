@@ -2,7 +2,7 @@
 
 [`auralis-web/frontend/`](../../auralis-web/frontend/) is the Auralis desktop renderer:
 **React 18 +
-TypeScript 5.9 + Vite 7 + Redux Toolkit + MUI 9 + TanStack Query**, ~805 `.ts`/`.tsx` files.
+TypeScript 5.9 + Vite 8 + Redux Toolkit + MUI 9 + TanStack Query**.
 It renders the library, drives playback over WebSocket, and plays streamed PCM audio in the
 Electron Chromium process via the Web Audio API. The `@` alias maps to `./src`.
 
@@ -67,10 +67,12 @@ Electron Chromium process via the Web Audio API. The `@` alias maps to `./src`.
 - **TanStack Query** = server cache (library/albums fetching), staleTime 5 min.
 - **Local `useState`** = view mode, search query, dialog flags, sidebar collapse.
 
-Mutating reducers use the `{reducer, prepare}` form to stamp `meta.timestamp`.
-`updatePlaybackState` **deep-merges** `streaming` to avoid clobbering client-tracked progress
-(#2352/#3025) and re-clamps `currentTime ≤ duration` (#4191). The slice/selector shape is a
-contract — add fields in both places.
+Mutating reducers use the `{reducer, prepare}` form to stamp `meta.timestamp`. Each field has
+its own reducer (`setIsPlaying`, `setCurrentTime`, `setDuration`, …); `setCurrentTime` clamps to
+`duration` and `setDuration` re-clamps `currentTime` (#4191). The per-type `streaming` state has
+its own reducers in `playerStreamingReducers.ts`, so a playback update never clobbers
+client-tracked stream progress (#2352/#3025). The slice/selector shape is a contract — add
+fields in both places.
 
 ---
 
@@ -82,14 +84,14 @@ domain has a barrel `index.ts`.
 
 | Domain | Representative hooks |
 |--------|---------------------|
-| `player/` | `usePlaybackControl`, `usePlayTrack`, `usePlayerControls`, `usePlayerStateSync` (WS→Redux bridge) |
-| `enhancement/` | `usePlayEnhanced`, `usePlayNormal`, `useAudioStreamingCore` (shared core, #4019), `useEnhancementControl` (optimistic UI + rollback), `useMasteringRecommendation` |
-| `library/` | `useLibraryQuery`, `useAlbumsQuery`, `useInfiniteAlbums`, `useLibraryScan`, `useScanProgress` (TanStack Query-backed) |
-| `websocket/` | `useWebSocketSubscription`, `useWebSocketErrors` (#2874) |
-| `api/` | `useRestAPI` + `useQuery`/`useMutation` wrappers |
+| `player/` | `usePlayTrack`, `usePlayerStateSync` (WS→Redux bridge), `usePlaybackQueue`, `useQueueMutations` |
+| `enhancement/` | `usePlayEnhanced` (enhanced and normal play), `useAudioStreamingCore` (shared core, #4019), `useEnhancementControl` (optimistic UI + rollback) |
+| `library/` | `useLibraryQuery`, `useInfiniteAlbums`, `useLibraryScan`, `useScanProgress`, `useLibraryChangeSync` |
+| `websocket/` | `useWebSocketMessages` (+ `createSharedSubscription`), `useWebSocketConnection`, `useWebSocketErrors` (#2874) |
+| `api/` | `useRestAPI` |
 | `app/` | `useAppLayout`, `useKeyboardShortcuts`, `useArtworkPalette` |
 | `fingerprint/` | `useTrackFingerprint`, `useAlbumFingerprint`(+s), `useSimilarTracks` |
-| `shared/` | `useOptimisticUpdate`, `useReduxState`, `useAPIHealthPoll`, `useDialogAccessibility` |
+| `shared/` | `useAbortableResource`, `useAPIHealthPoll`, `useDialogAccessibility`, `useLatest` |
 
 ---
 
@@ -109,18 +111,21 @@ Two REST paths coexist:
    "404 means absent" endpoints (#6221).
 
 Domain service modules (`libraryService`, `playlistService`, `queueService`,
-`processingService`, `similarityService`, `artworkService`, …) wrap the endpoints.
-[`src/config/api.ts`](../../auralis-web/frontend/src/config/api.ts): `API_BASE_URL` is `''` in
-dev (Vite proxy) else `http://localhost:8765`; `WS_BASE_URL` is always
-`ws://localhost:8765`.
+`settingsService`, `artworkService`, `keyboardShortcutsService`) wrap the endpoints.
+[`src/config/api.ts`](../../auralis-web/frontend/src/config/api.ts): `API_BASE_URL` is relative
+(`''`) in both modes (the Vite proxy in dev, the backend's own origin in production);
+`WS_BASE_URL` is the page's own origin in production and `ws://localhost:<VITE_BACKEND_PORT>`
+in dev (`AURALIS_PORT`, default 8765). `VITE_API_URL` / `VITE_WS_URL` override both.
 
 ---
 
 ## 5. WebSocket client (`contexts/WebSocketContext.tsx`)
 
-A **single shared connection** built on **module-level singletons** (`singletonWSManager`,
-`singletonRefCount`, `singletonSubscriptions`, …) so it survives StrictMode double-mount and
-provider remounts. `resetWebSocketSingletons()` exists for tests.
+A **single shared connection** built on **module-level singletons** so it survives StrictMode
+double-mount and provider remounts: the connection state (manager, ref count, last stream
+command) lives in `hooks/websocket/websocketConnectionState.ts`, the subscription maps
+(`singletonSubscriptions`, `singletonGlobalHandlers`) in the context. `resetWebSocketSingletons()`
+resets both, for tests.
 
 - **Binary audio protocol:** the backend sends an `audio_chunk_meta` JSON text frame (stashed
   in `pendingAudioChunkMeta`), then a raw PCM **binary** frame. The manager merges `pcm_binary`
