@@ -11,16 +11,13 @@ Comprehensive tests for mastering preset functionality
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-from auralis.core.analysis import AdaptiveTargetGenerator
 from auralis.core.config import (
     PresetProfile,
     UnifiedConfig,
-    create_preset_profiles,
     get_available_presets,
     get_preset_profile,
 )
@@ -329,19 +326,36 @@ class TestPresetEdgeCases:
 
         assert result.shape == (0, 2)
 
+    @staticmethod
+    def _rms_db(audio):
+        return 20 * np.log10(np.sqrt(np.mean(audio ** 2)))
+
     def test_very_quiet_audio(self):
-        """Test processing very quiet audio"""
+        """Near-silent audio (-60 dB) is left at its level, not raised.
+
+        It sits below SILENCE_FLOOR_LUFS (-50), where loudness normalisation is
+        skipped on purpose: a quiet chunk used to be raised by up to +140 dB,
+        lifting noise floors (#5551). The test used to expect a lift here.
+        """
         config = UnifiedConfig()
         config.mastering_profile = 'adaptive'
-        processor = HybridProcessor(config)
+        quiet_audio = np.random.default_rng(0).standard_normal((44100, 2)) * 0.001
 
-        # Very quiet audio (-60 dB)
-        quiet_audio = np.random.randn(44100, 2) * 0.001
-        result = processor.process(quiet_audio)
+        result = HybridProcessor(config).process(quiet_audio)
 
-        # Should amplify but not clip
         assert np.max(np.abs(result)) < 1.0
-        assert np.sqrt(np.mean(result ** 2)) > np.sqrt(np.mean(quiet_audio ** 2))
+        assert abs(self._rms_db(result) - self._rms_db(quiet_audio)) < 0.5
+
+    def test_quiet_audio_above_the_silence_floor_is_lifted(self):
+        """Quiet programme above the floor (-40 dB) is still raised, without clipping."""
+        config = UnifiedConfig()
+        config.mastering_profile = 'adaptive'
+        quiet_audio = np.random.default_rng(0).standard_normal((44100, 2)) * 0.01
+
+        result = HybridProcessor(config).process(quiet_audio)
+
+        assert np.max(np.abs(result)) < 1.0
+        assert self._rms_db(result) > self._rms_db(quiet_audio) + 1.0
 
     def test_very_loud_audio(self):
         """Test processing already-loud audio"""

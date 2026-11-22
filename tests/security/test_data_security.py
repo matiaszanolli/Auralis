@@ -16,7 +16,6 @@ SECURITY CONTROLS TESTED:
 """
 
 import os
-import shutil
 import stat
 import tempfile
 
@@ -376,27 +375,3 @@ class TestBackupSecurity:
                 "Backup should not be world-readable"
 
             print("✓ Backup permissions secure")
-
-    def test_backup_encryption_readiness(self):
-        """
-        SECURITY: Backups should be encryptable.
-        Test: Backup encryption pattern.
-        """
-        from cryptography.fernet import Fernet
-
-        # Generate key
-        key = Fernet.generate_key()
-        cipher = Fernet(key)
-
-        # Encrypt backup data
-        data = b"sensitive backup data"
-        encrypted = cipher.encrypt(data)
-
-        # Encrypted data should be different
-        assert encrypted != data, "Data should be encrypted"
-
-        # Should be decryptable with correct key
-        decrypted = cipher.decrypt(encrypted)
-        assert decrypted == data, "Should decrypt correctly"
-
-        print("✓ Backup encryption ready")

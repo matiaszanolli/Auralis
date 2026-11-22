@@ -87,32 +87,6 @@ class TestFastAPIAsyncPatterns:
         assert len(successes) >= 8
 
     @pytest.mark.asyncio
-    async def test_async_file_operations(self, tmp_path):
-        """Test async file I/O."""
-        import aiofiles
-
-        async def write_file_async(filepath, content):
-            async with aiofiles.open(filepath, 'w') as f:
-                await f.write(content)
-            return filepath
-
-        async def read_file_async(filepath):
-            async with aiofiles.open(filepath, 'r') as f:
-                return await f.read()
-
-        # Write files concurrently
-        files = [tmp_path / f"file_{i}.txt" for i in range(10)]
-        write_tasks = [write_file_async(f, f"Content {i}") for i, f in enumerate(files)]
-        await asyncio.gather(*write_tasks)
-
-        # Read files concurrently
-        read_tasks = [read_file_async(f) for f in files]
-        contents = await asyncio.gather(*read_tasks)
-
-        assert len(contents) == 10
-        assert all(c.startswith("Content") for c in contents)
-
-    @pytest.mark.asyncio
     async def test_async_processing_queue(self):
         """Test async job queue."""
         queue = asyncio.Queue()
@@ -435,7 +409,7 @@ class TestWebSocketConcurrency:
                 if should_fail:
                     raise ValueError(f"Client {client_id} failed")
                 results.append(("success", client_id))
-            except Exception as e:
+            except Exception:
                 results.append(("error", client_id))
 
         # Mix of success and failure

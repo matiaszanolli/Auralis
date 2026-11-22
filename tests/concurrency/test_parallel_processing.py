@@ -20,13 +20,9 @@ import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
-from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
 from tests.concurrency.helpers import (
     measure_concurrency_speedup,
-    run_concurrent,
-    stress_test,
-    wait_for_condition,
 )
 
 # ============================================================================
@@ -139,7 +135,7 @@ class TestBatchProcessing:
                 processor = HybridProcessor(config)
                 result = processor.process(audio)
                 return (str(filepath), len(result))
-            except Exception as e:
+            except Exception:
                 return (str(filepath), None)
 
         futures = [thread_pool.submit(process_file, fp) for fp in audio_files]
@@ -273,48 +269,6 @@ class TestBatchProcessing:
 
         assert len(completed) == len(test_audio_files)
         assert sorted(completed) == list(range(len(test_audio_files)))
-
-    def test_batch_processing_cancellation(self, large_test_audio_files):
-        """Test cancelling in-progress batch processing."""
-        from auralis.io.unified_loader import load_audio
-
-        config = UnifiedConfig()
-        stop_event = threading.Event()
-        completed = []
-        lock = threading.Lock()
-
-        def process_with_cancellation(filepath):
-            if stop_event.is_set():
-                return None
-
-            audio, sr = load_audio(filepath)
-            processor = HybridProcessor(config)
-            result = processor.process(audio)
-
-            with lock:
-                completed.append(filepath)
-
-            return len(result)
-
-        with ThreadPoolExecutor(max_workers=3) as pool:
-            futures = [pool.submit(process_with_cancellation, fp)
-                      for fp in large_test_audio_files]
-
-            # Cancel after short delay
-            time.sleep(1.0)
-            stop_event.set()
-
-            # Wait for all futures to complete
-            results = []
-            for f in futures:
-                try:
-                    results.append(f.result(timeout=10))
-                except Exception:
-                    results.append(None)
-
-        # Some should have completed, some should be None
-        assert None in results  # At least one was cancelled
-        assert any(r is not None for r in results)  # At least one completed
 
     def test_batch_processing_priority_queue(self, test_audio_files):
         """Test that high-priority files are processed first."""

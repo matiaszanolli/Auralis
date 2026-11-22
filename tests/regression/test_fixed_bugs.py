@@ -28,7 +28,7 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
-from auralis.library.repositories import ArtistRepository, TrackRepository
+from auralis.library.repositories import TrackRepository
 
 
 @pytest.mark.regression
@@ -358,29 +358,26 @@ class TestLibraryBugs:
         """
         BUG: Album artwork caching issue.
         FIX: Cache invalidation on artwork update.
+
+        Every read after AlbumRepository.update_artwork() shows the new path,
+        through the album and through a track's album (it used to compare
+        track.album, an Album, with a title string and never touch artwork).
         """
+        from auralis.library.repositories import AlbumRepository
+
         track_repo = TrackRepository(temp_db)
-
-        # Add track with album
+        album_repo = AlbumRepository(temp_db)
         track = track_repo.add({
-            'filepath': '/tmp/artwork_test.flac',
-            'title': 'Test Track',
-            'artists': ['Artist'],
-            'album': 'Test Album',
-            'format': 'FLAC',
-            'sample_rate': 44100,
-            'channels': 2
+            'filepath': '/tmp/artwork_test.flac', 'title': 'Test Track', 'artists': ['Artist'],
+            'album': 'Test Album', 'format': 'FLAC', 'sample_rate': 44100, 'channels': 2,
         })
+        assert track is not None and track.album is not None
+        album_id = track.album.id
 
-        # Simulate artwork update
-        # (In real system, this would update artwork cache)
-        if track:
-            # Get track again (should reflect any caching updates)
-            retrieved = track_repo.get_by_id(track.id)
-            assert retrieved is not None
-            assert retrieved.album == 'Test Album'
-
-        print("✓ Album artwork caching working")
+        for path in ('/art/first.jpg', '/art/second.jpg'):
+            assert album_repo.update_artwork(album_id, path) is True
+            assert album_repo.get_by_id(album_id).artwork_path == path
+            assert track_repo.get_by_id(track.id).album.artwork_path == path
 
     def test_duplicate_filepath_prevention(self, temp_db):
         """
