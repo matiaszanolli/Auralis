@@ -47,6 +47,11 @@ logger = logging.getLogger(__name__)
 # auralis-web/backend/CONFIG.md.
 _SEND_QUEUE_MAXSIZE: int = get_int_env("AURALIS_SEND_QUEUE_MAXSIZE", 4)
 
+# Raw PCM bytes per binary WebSocket frame, kept well under the 1 MB frame limit (#6640). The
+# frontend's pending-frame cap (audioChunkIngest.MAX_PENDING_CHUNK_FRAMES) is sized in these frames.
+PCM_FRAME_TARGET_BYTES: int = 300 * 1024
+FLOAT32_BYTES: int = 4  # the wire sample format
+
 
 def is_websocket_connected(websocket: WebSocket) -> bool:
     """
@@ -172,16 +177,12 @@ async def send_pcm_chunk(
     # little-endian PCM frame downstream (#3875, sibling of #3556).
     pcm_samples = pcm_samples.astype(np.float32, copy=False)
 
-    # Split into smaller frames to avoid WebSocket 1MB frame limit.
-    # Each float32 sample = 4 bytes. Target ~300KB raw per binary frame.
-    #
+    # Split into PCM_FRAME_TARGET_BYTES frames to stay under the WebSocket frame limit.
     # Flatten to 1D first so that len() and slicing always operate on
     # individual float32 values rather than rows (fixes #2257: for stereo
     # 2D arrays len() returned frame-count, producing ~800KB frames).
-    TARGET_FRAME_BYTES: int = 300 * 1024  # 300 KB raw (was 400KB base64)
-    BYTES_PER_SAMPLE: int = 4  # float32
     pcm_flat: np.ndarray = pcm_samples.reshape(-1)
-    samples_per_frame: int = TARGET_FRAME_BYTES // BYTES_PER_SAMPLE
+    samples_per_frame: int = PCM_FRAME_TARGET_BYTES // FLOAT32_BYTES
 
     total_samples: int = len(pcm_flat)
     num_frames: int = (total_samples + samples_per_frame - 1) // samples_per_frame
