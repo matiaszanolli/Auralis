@@ -27,8 +27,6 @@ import { tokens, withOpacity } from '@/design-system';
 import { themeVars } from '@/theme/semanticTheme';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { computeAlbumCharacter } from '@/utils/albumCharacterDescriptors';
-import { EnhancementToggle } from '@/components/shared/EnhancementToggle';
-import { useEnhancementControl } from '@/hooks/enhancement/useEnhancementControl';
 import { playerSelectors } from '@/store/selectors';
 import { useTrackFingerprint } from '@/hooks/fingerprint';
 
@@ -41,6 +39,7 @@ import { GlowingArc } from './GlowingArc';
 import { CharacterTags } from './CharacterTags';
 import { EnergyField } from './EnergyField';
 import { RotatingDescription } from './RotatingDescription';
+import { AutoMasteringToggle } from './AutoMasteringToggle';
 import {
   EmptyStatePane,
   PendingStatePane,
@@ -69,9 +68,6 @@ export const AlbumCharacterPane = ({
   isLoading: albumLoading = false,
   showPlayingTrack = true,
 }: AlbumCharacterPaneProps) => {
-  // Enhancement state from unified hook (eliminates prop drilling, fixes #2765)
-  const { enabled: isEnhancementEnabled, setEnabled } = useEnhancementControl();
-
   const { isPlaybackActive, isPaused } = usePlaybackControls(); // not Redux isPlaying: backend-written only (#6015)
   const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
 
@@ -147,24 +143,7 @@ export const AlbumCharacterPane = ({
     flexDirection: 'column' as const,
   }), [glowIntensity]);
 
-  const enhancementSection = (
-    <Box
-      sx={{
-        pb: tokens.spacing.lg,
-        mb: tokens.spacing.lg,
-        borderBottom: `1px solid ${themeVars.borderSubtle}`,
-      }}
-    >
-      <EnhancementToggle
-        variant="switch"
-        isEnabled={isEnhancementEnabled}
-        onToggle={setEnabled}
-        label="Auto-Mastering"
-        description={isEnhancementEnabled ? 'Enhancing playback' : 'Original audio'}
-        showDescription
-      />
-    </Box>
-  );
+  const enhancementSection = <AutoMasteringToggle />;
 
   // State 1: No track playing and no album hovered
   if (!currentTrack?.id && !albumFingerprint && !isLoading) {
