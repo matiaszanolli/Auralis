@@ -44,25 +44,23 @@ def soft_clip(audio: np.ndarray, threshold: float = 0.9, ceiling: float = 0.99) 
     # Calculate the headroom above threshold
     headroom = ceiling - threshold
     if headroom <= 0.0:
-        return np.clip(audio, -ceiling, ceiling)
+        clipped: np.ndarray = np.clip(audio, -ceiling, ceiling)
+        return clipped
 
-    # Get absolute values and signs for processing
-    abs_audio = np.abs(audio)
-    sign = np.sign(audio)
-
-    # Create output array
-    output = np.empty_like(audio)
-
-    # Below threshold: pass through unchanged (linear region)
-    # This is CRITICAL - signals below threshold should not be distorted
-    below_mask = abs_audio <= threshold
-    output[below_mask] = audio[below_mask]
+    # Below threshold: pass through unchanged (linear region). This is
+    # CRITICAL - signals below threshold should not be distorted. Starting from
+    # a copy and touching only the samples over the threshold keeps the working
+    # set at the output plus one transient |audio|, where full-size abs, sign
+    # and below-threshold gather arrays used to coexist (#6717). `~(x <= t)`,
+    # not `x > t`, so a NaN still takes the saturation branch as it always has.
+    output = audio.copy(order='K')
+    above_mask = ~(np.abs(audio) <= threshold)
 
     # Above threshold: apply soft saturation only to the excess
     # The excess above threshold gets compressed via tanh
-    above_mask = ~below_mask
     if np.any(above_mask):
-        excess = abs_audio[above_mask] - threshold
+        over = audio[above_mask]
+        excess = np.abs(over) - threshold
 
         # Scale factor for tanh: controls how quickly we approach ceiling
         # Higher values = harder knee, lower = softer knee
@@ -74,9 +72,6 @@ def soft_clip(audio: np.ndarray, threshold: float = 0.9, ceiling: float = 0.99) 
         compressed_excess = headroom * np.tanh(excess / scale)
 
         # Final output: threshold + compressed excess, with original sign
-        output[above_mask] = sign[above_mask] * (threshold + compressed_excess)
+        output[above_mask] = np.sign(over) * (threshold + compressed_excess)
 
     return output
-
-
-__all__ = ['soft_clip']
