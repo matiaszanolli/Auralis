@@ -292,11 +292,6 @@ class TestSustainedLoad:
 class TestPeakResourceUsage:
     """Test peak resource usage under extreme load."""
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#6717: whole-track process() peaks at ~28x the input (2.8 GB here); "
-               "this passed only while RSS was read after process() returned",
-    )
     def test_peak_memory_with_large_audio(self, temp_audio_dir, resource_monitor):
         """
         STRESS: Process a 10-minute file with peak memory growth < 2GB.
