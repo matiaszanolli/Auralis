@@ -95,9 +95,9 @@ Beta 11.0 represents a **major quality milestone** with the completion of Phase 
 
 1. [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** test quality principles
 2. [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Path to 2,500+ tests
-3. [PHASE2_COMPLETE.md](docs/testing/PHASE2_COMPLETE.md) - Phase 2 comprehensive summary
+3. PHASE2_COMPLETE.md - Phase 2 comprehensive summary (never committed)
 4. [PHASE2_WEEK8_COMPLETE.md](docs/testing/PHASE2_WEEK8_COMPLETE.md) - Performance testing completion
-5. [SESSION_NOV9_PERFORMANCE_FIXES.md](docs/testing/SESSION_NOV9_PERFORMANCE_FIXES.md) - Final fixes session
+5. [SESSION_NOV9_PERFORMANCE_FIXES.md](../archive/testing/SESSION_NOV9_PERFORMANCE_FIXES.md) - Final fixes session
 6. Plus 5 more category-specific documents
 
 ---
@@ -257,9 +257,9 @@ All P0/P1 issues have been resolved:
 
 - [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** testing principles
 - [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Testing roadmap (Beta 9.0 → 11.0)
-- [PHASE2_COMPLETE.md](docs/testing/PHASE2_COMPLETE.md) - Phase 2 comprehensive summary
+- PHASE2_COMPLETE.md - Phase 2 comprehensive summary (never committed)
 - [PHASE2_WEEK8_COMPLETE.md](docs/testing/PHASE2_WEEK8_COMPLETE.md) - Performance testing completion
-- [SESSION_NOV9_PERFORMANCE_FIXES.md](docs/testing/SESSION_NOV9_PERFORMANCE_FIXES.md) - Final fixes session
+- [SESSION_NOV9_PERFORMANCE_FIXES.md](../archive/testing/SESSION_NOV9_PERFORMANCE_FIXES.md) - Final fixes session
 
 ### Development Documentation
 

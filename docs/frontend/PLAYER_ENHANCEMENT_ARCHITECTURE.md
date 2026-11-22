@@ -1,7 +1,7 @@
 # Player & Enhancement Pane Architecture (Current)
 
 **Status:** Current as of 2026-07-09
-**Supersedes:** `ARCHITECTURE_V3.md`, the former *analysis/PLAYER_COMPONENT_CONSOLIDATION_PLAN.md* (now under `docs/archive/frontend-history/`, #6255), `analysis/PLAYER_ANALYSIS_SUMMARY.md`, `components/player-bar/PLAYERBARV2_REFACTORING_COMPLETE.md`, `components/player-bar/PLAYERBARV2_REFACTORING_FIXES.md`
+**Supersedes:** the V3 architecture, player-consolidation and PlayerBarV2 refactoring docs, all now under `docs/archive/frontend-history/` (#6255, #6679)
 
 This is a short, code-verified description of the player and enhancement UI as it exists today, replacing the "V2"/"V3" planning docs that described components deleted in `67f82aa8` (#4089). No `-v2`/`-v3`-suffixed component, `player-bar-v2/` directory, or `usePlayer()`/`useLibrary()`/`useEnhancement()` hooks exist in the current tree.
 
@@ -26,7 +26,7 @@ Playback state comes from Redux (`store/slices/playerSlice`, `store/slices/queue
 
 The right-side pane is **not** `EnhancementPane` — it's `AlbumCharacterPane` (`components/library/AlbumCharacterPane/`), rendered by `CozyLibraryView.tsx` inside `ViewContainer`/`LibraryViewRouter` for every library view. It shows an aggregate fingerprint visualization, mood tags, and an energy field for the current album, with an `EnhancementToggle` (via `useEnhancementControl`) rather than the old per-track parameter sliders.
 
-`components/enhancement-pane/EnhancementPane.tsx` and `components/enhancement/EnhancementPane.tsx` (plus `EnhancedPlaybackControls.tsx`, a wrapper around the latter) still exist in the tree but are **not imported by any production code path** — only by tests. Treat them as legacy/unused rather than "in progress"; do not add new features to them without first confirming they're actually reachable from the app.
+There is no `EnhancementPane` component; enhancement on/off lives in `EnhancementToggle` (`components/shared/EnhancementToggle/`).
 
 ## Library
 

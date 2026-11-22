@@ -296,7 +296,7 @@ Before committing any component:
   - [ ] Unit test file exists
   - [ ] > 80% code coverage
   - [ ] Integration tests included
-  - [ ] `npm test` passes
+  - [ ] `pnpm run test:memory <dir>` passes
 
 - [ ] **Performance**
   - [ ] React.memo if expensive
@@ -430,8 +430,7 @@ useEffect(() => {
 
 **Roadmaps:**
 - ~~FRONTEND_REDESIGN_ROADMAP_2_0.md - Full specs~~ (removed in a 2025-12-27 docs cleanup, `866b7dae`)
-- [PHASE0_COMPLETE_SUMMARY.md](PHASE0_COMPLETE_SUMMARY.md) - What's done
-- [PHASE1_2_3_LAUNCH_CHECKLIST.md](PHASE1_2_3_LAUNCH_CHECKLIST.md) - Launch guide
+- [PHASE1_2_3_LAUNCH_CHECKLIST.md](../archive/frontend-history/PHASE1_2_3_LAUNCH_CHECKLIST.md) - Launch guide (archived)
 
 **Code:**
 - [src/types/](../../auralis-web/frontend/src/types/) - Type definitions
@@ -448,14 +447,13 @@ useEffect(() => {
 
 **Every Morning:**
 - [ ] `git pull` latest changes
-- [ ] `npm install` (if deps changed)
-- [ ] `npm run typecheck` - no errors
-- [ ] `npm test -- --watch` - tests pass
+- [ ] `pnpm install --frozen-lockfile` (if deps changed)
+- [ ] `pnpm run type-check` - no errors
+- [ ] `pnpm test` (watch mode) - tests pass
 
 **Before Commit:**
-- [ ] `npm run typecheck` passes
-- [ ] `npm test` passes
-- [ ] Code formatted (follow ESLint)
+- [ ] `pnpm run type-check` passes
+- [ ] `pnpm run test:memory <touched dirs>` passes
 - [ ] Components < 300 lines
 - [ ] Uses design tokens
 

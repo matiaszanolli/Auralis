@@ -1,33 +1,15 @@
 # Frontend Documentation
 
-React/TypeScript frontend development, components, and testing documentation.
+React/TypeScript frontend documentation. The maintained architecture
+reference is [`docs/subsystems/frontend.md`](../subsystems/frontend.md).
 
-## Testing
+- [testing/TESTING_COMMANDS.md](testing/TESTING_COMMANDS.md) — pnpm/Vitest commands and CI gates
+- [PLAYER_ENHANCEMENT_ARCHITECTURE.md](PLAYER_ENHANCEMENT_ARCHITECTURE.md) — player and enhancement pane as built
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) — 2025 redesign quick-reference card
 
-Frontend test guides, memory management strategies, and testing quickstart.
+Sprint-era analyses, implementation reports, component audits and memory-test
+guides live in [`docs/archive/frontend-history/`](../archive/frontend-history/).
 
-[View Testing Documentation](testing/)
+**Testing note**: use `pnpm run test:memory` for the full suite (2GB heap prevents OOM).
 
-## Analysis
-
-Component analysis, consolidation patterns, and architectural documentation.
-
-[View Component Analysis](analysis/)
-
-## Components
-
-Individual component documentation and implementation guides.
-
-[View Component Docs](components/)
-
-## Implementation
-
-Implementation guides, phase completions, and feature development docs.
-
-[View Implementation Guides](implementation/)
-
----
-
-**Testing Note**: Always use `npm run test:memory` for full suite (2GB heap prevents OOM).
-
-See parent [README.md](../README.md) for full documentation index.
+See parent [README.md](../README.md) for the full documentation index.

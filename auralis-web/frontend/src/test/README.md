@@ -6,22 +6,25 @@ Complete testing infrastructure for the Auralis web frontend using Vitest and Re
 
 ```bash
 # Run all tests in watch mode
-npm test
+pnpm test
 
-# Run tests once (CI mode)
-npm run test:run
+# Run tests once
+pnpm run test:run
+
+# Whole suite in one pass (2GB heap; the plain run can OOM)
+pnpm run test:memory
 
 # Run tests with UI
-npm run test:ui
+pnpm run test:ui
 
 # Run tests with coverage report
-npm run test:coverage
+pnpm run test:coverage
 
-# Run specific test file
-npm test -- Sidebar.test.tsx
+# Run specific test file (positional path filter)
+pnpm test Sidebar.test.tsx
 
-# Run tests matching a pattern
-npm test -- --grep "player"
+# Run tests whose name matches a pattern
+pnpm test -t "player"
 ```
 
 ## Test Structure
@@ -304,34 +307,27 @@ it('renders list of items', () => {
 
 ```bash
 # Run tests in debug mode
-npm test -- --inspect
+pnpm test --inspect
 
 # Run tests with verbose output
-npm test -- --reporter=verbose
+pnpm test --reporter=verbose
 
 # Run a single test file
-npm test -- Sidebar.test.tsx
+pnpm test Sidebar.test.tsx
 
 # Update snapshots
-npm test -- -u
+pnpm test -u
 
 # Clear cache and run tests
-npm test -- --clearCache && npm test
+pnpm exec vitest --clearCache && pnpm test
 ```
 
 ## CI/CD Integration
 
-```yaml
-# Example GitHub Actions workflow
-- name: Run tests
-  run: npm run test:run
-
-- name: Generate coverage
-  run: npm run test:coverage
-
-- name: Upload coverage
-  uses: codecov/codecov-action@v3
-```
+`.github/workflows/frontend-test.yml` runs `pnpm run test:ci`, then judges
+the report with `pnpm run test:baseline -- --strict-stale` against
+`test-baseline.json` (empty, so any failure is new) and runs the weak-assertion
+gate (`pnpm run test:weak`). See `docs/frontend/testing/TESTING_COMMANDS.md`.
 
 ## Resources
 
