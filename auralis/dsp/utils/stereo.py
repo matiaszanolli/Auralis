@@ -227,7 +227,12 @@ def adjust_stereo_width_multiband(
     # nothing and audio too short to filter comes back unwidened, whereas
     # passing the full signal through as all three bands would widen it
     # three times over.
-    _mid, side = mid_side_encode(stereo_audio)
+    #
+    # Only the side is built (mid_side_encode's arithmetic, without its unused
+    # mid), each band is scaled in place and freed before the next is filtered,
+    # and side is freed before the output is allocated: what stays alive next
+    # to sosfiltfilt's own buffers is side and the running sum (#6717).
+    side = (stereo_audio[:, 0] - stereo_audio[:, 1]) / 2
     added_side = np.zeros_like(side)
     for sos, band_width, context in (
         (sos_lowmid, width_lowmid, "stereo width low-mid"),
@@ -236,7 +241,10 @@ def adjust_stereo_width_multiband(
     ):
         band_side = sosfiltfilt_safe(sos, side, context=context, on_too_short="zeros")
         # float(): a numpy-scalar gain would promote a float32 side to float64 (#6117)
-        added_side += float(2.0 * band_width - 1.0) * band_side
+        band_side *= float(2.0 * band_width - 1.0)
+        added_side += band_side
+        del band_side
+    del side
 
     result = stereo_audio.copy()
     result[:, 0] += added_side
