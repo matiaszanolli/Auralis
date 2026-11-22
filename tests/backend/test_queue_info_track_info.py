@@ -209,3 +209,21 @@ async def test_index_on_a_dropped_entry_becomes_minus_one():
 
     assert info["current_index"] == -1
     assert info["track_count"] == 1
+
+
+@pytest.mark.parametrize(
+    ("resolved", "index", "expected"),
+    [
+        (["a", None, "c"], 2, 1),  # a dropped entry before the current one
+        (["a", None, "c"], 0, 0),  # nothing dropped before it
+        (["a", None, "c"], 1, -1),  # the current entry itself is dropped
+        (["a", None, "c"], 3, 3),  # out of range: unchanged
+        (["a", None, "c"], -1, -1),  # nothing selected: unchanged
+        (["a", None, "c"], None, None),  # not an int: unchanged
+    ],
+)
+def test_rebase_index(resolved, index, expected):
+    """#6628: the queue read and the queue_changed broadcast share one re-basing rule."""
+    from services.queue_enrichment import rebase_index
+
+    assert rebase_index(resolved, index) == expected

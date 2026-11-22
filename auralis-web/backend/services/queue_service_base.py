@@ -25,7 +25,7 @@ from websocket.outbound.queue import (
 from websocket.outbound_messages import broadcast_typed
 
 from .errors import ServiceUnavailable
-from .queue_enrichment import QueueEnricher, to_track_payload
+from .queue_enrichment import QueueEnricher, rebase_index, to_track_payload
 from .queue_protocols import AudioPlayerWithQueue
 from .queue_set_sequencer import queue_set_sequencer
 
@@ -251,12 +251,7 @@ class QueueServiceBase:
                     f"queue_changed broadcast: dropped {len(resolved) - len(tracks)} "
                     f"queue entr(y/ies) that resolve to no library track"
                 )
-                if 0 <= current_index < len(resolved):
-                    current_index = (
-                        sum(1 for ti in resolved[:current_index] if ti is not None)
-                        if resolved[current_index] is not None
-                        else -1
-                    )
+                current_index = rebase_index(resolved, current_index)
 
         # #5460: every queue edit ends here, and the state manager's copy of the
         # queue must follow it. Only set_queue used to update it, so the next

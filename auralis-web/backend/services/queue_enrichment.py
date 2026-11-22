@@ -45,6 +45,21 @@ def to_track_payload(track: TrackInfo) -> TrackPayload:
     )
 
 
+def rebase_index(resolved: list[Any], index: Any) -> Any:
+    """Re-base a queue index over the entries that resolved to no library track (#5934).
+
+    Those entries are dropped from the client's list, so the index counts only the
+    survivors before it; a dropped current entry becomes -1. An index that is not an
+    int in range is returned unchanged. The queue read and the queue_changed broadcast
+    both go through here, so they point at the same row for the same queue.
+    """
+    if not isinstance(index, int) or not 0 <= index < len(resolved):
+        return index
+    if resolved[index] is None:
+        return -1
+    return sum(1 for ti in resolved[:index] if ti is not None)
+
+
 def entry_filepath(entry: Any) -> str | None:
     """Extract a filepath from an engine queue entry (dict or TrackInfo)."""
     if isinstance(entry, TrackInfo):

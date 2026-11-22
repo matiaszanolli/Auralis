@@ -23,6 +23,7 @@ import logging
 from typing import Any
 
 from .errors import require_collaborators
+from .queue_enrichment import rebase_index
 from .queue_edit_mixin import QueueEditMixin
 from .queue_order_mixin import QueueOrderMixin
 from .queue_set_mixin import QueueSetMixin
@@ -76,16 +77,8 @@ class QueueService(QueueSetMixin, QueueEditMixin, QueueOrderMixin):
             resolved = await self._enricher.resolve_tracks(info.get("tracks", []))
             tracks = [ti for ti in resolved if ti is not None]
             if len(tracks) != len(resolved):
-                # Entries that resolve to no library track are dropped, so the index and the count
-                # must be re-based over them exactly as the queue_changed broadcast does (#5934);
-                # otherwise this read pointed at a different row than the broadcast for the same queue.
-                index = info.get("current_index", 0)
-                if isinstance(index, int) and 0 <= index < len(resolved):
-                    info["current_index"] = (
-                        sum(1 for ti in resolved[:index] if ti is not None)
-                        if resolved[index] is not None
-                        else -1
-                    )
+                # Entries that resolve to no library track are dropped: re-base the index and count.
+                info["current_index"] = rebase_index(resolved, info.get("current_index", 0))
                 info["track_count"] = len(tracks)
             info["tracks"] = tracks
             info["current_track"] = self._enricher.resolve_current_track(
