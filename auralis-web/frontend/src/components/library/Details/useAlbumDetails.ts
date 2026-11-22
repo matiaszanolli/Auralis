@@ -8,16 +8,15 @@
  * - Support for favorite toggling
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { transformTracks } from '@/api/transformers/trackTransformer';
 import type { AlbumTracksResponse } from '@/api/transformers/types';
 import { isAlbumTracksShape } from '@/api/responseGuards';
 import type { DetailTrack } from '@/types/domain';
-import type { ApiError } from '@/types/api';
 import { ApiErrorHandler } from '@/types/api';
 import { ENDPOINTS } from '@/config/api';
 import { get, post, del } from '@/utils/apiRequest';
-import { isAbortError } from '@/utils/errorGuards';
+import { useAbortableResource } from '@/hooks/shared/useAbortableResource';
 import { useToast } from '@/components/shared/Toast';
 import { UNKNOWN_ARTIST_LABEL } from '@/utils/unknownLabels';
 
@@ -33,79 +32,49 @@ export interface Album {
   tracks?: DetailTrack[];
 }
 
+/** One album with its tracks, from `/api/albums/{id}/tracks`. */
+const fetchAlbum = async (albumId: number, signal: AbortSignal): Promise<Album> => {
+  // #4643: through the shared get()/ApiErrorHandler transport instead of a raw fetch() that
+  // collapsed every non-OK response into one status-less Error, so a 404 (stale album link,
+  // recoverable) and a 500 (possibly transient) can be told apart by the UI.
+  const data = await get<AlbumTracksResponse>(`/api/albums/${albumId}/tracks`, {
+    signal,
+    validate: isAlbumTracksShape,
+  });
+
+  // Per-track fields are snake_case on the wire (Track.to_dict()), with `artists: string[]`;
+  // the canonical transformer maps them (#4568, #4571). The album-level fields below are
+  // genuinely snake_case on this endpoint and correct as-is: do not "normalise" them.
+  const tracks = transformTracks(data.tracks ?? []);
+  return {
+    id: data.album_id,
+    title: data.album_title,
+    artist: data.artist ?? UNKNOWN_ARTIST_LABEL,
+    artist_name: data.artist ?? UNKNOWN_ARTIST_LABEL,
+    year: data.year ?? undefined,
+    // #5170: genre is derived server-side (the modal genre of the tracks; Album has no column).
+    genre: data.genre ?? undefined,
+    track_count: data.total_tracks,
+    total_duration: tracks.reduce((sum, t) => sum + (t.duration || 0), 0),
+    tracks,
+  };
+};
+
 export const useAlbumDetails = (albumId: number) => {
-  const [album, setAlbum] = useState<Album | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ApiError | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const { error: errorToast } = useToast();
 
-  // #3601: AbortController on the fetch so we don't setState on a dead
-  // component if the user navigates away mid-request, and so the in-flight
-  // request itself is cancelled rather than running to completion uselessly.
-  useEffect(() => {
-    const controller = new AbortController();
-    const run = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // #4643: routed through the shared get()/ApiErrorHandler transport
-        // (like the rest of the library hooks) instead of a raw fetch() that
-        // collapsed every non-OK response into an identical, status-less
-        // Error — a 404 (stale/deleted album link, recoverable) and a 500
-        // (possibly transient) rendered the same, with no way for the UI to
-        // offer a differentiated recovery action.
-        const data = await get<AlbumTracksResponse>(`/api/albums/${albumId}/tracks`, {
-          signal: controller.signal,
-          validate: isAlbumTracksShape,
-        });
-        if (controller.signal.aborted) return;
-
-        // `/api/albums/{id}/tracks` serialises per-track fields in snake_case
-        // (serialize_tracks → Track.to_dict()), so the previous inline mapper —
-        // which read t.artworkUrl / t.trackNumber / t.discNumber / t.albumId —
-        // produced null for every one of them, and blank artists (the wire key
-        // is `artists: string[]`). The `(t: DetailTrack)` annotation asserted the
-        // camelCase shape onto raw JSON, so TypeScript endorsed the wrong keys.
-        // Routed through the canonical transformer instead (#4568, #4571).
-        //
-        // NOTE: the album-level fields below are genuinely snake_case on this
-        // endpoint and are correct as-is — do not "normalise" them.
-        const tracks = transformTracks(data.tracks ?? []);
-
-        const albumData: Album = {
-          id: data.album_id,
-          title: data.album_title,
-          artist: data.artist ?? UNKNOWN_ARTIST_LABEL,
-          artist_name: data.artist ?? UNKNOWN_ARTIST_LABEL,
-          year: data.year ?? undefined,
-          // #5170: genre is derived server-side (modal genre across the
-          // album's tracks — Album has no genre column). Without this line
-          // AlbumMetadata's "Genre:" row was unreachable.
-          genre: data.genre ?? undefined,
-          track_count: data.total_tracks,
-          total_duration: tracks.reduce((sum, t) => sum + (t.duration || 0), 0),
-          tracks,
-        };
-        setAlbum(albumData);
-        // #5118: seed the heart from the server rather than leaving it false.
-        // `favorite` is on the wire for every track (Track.to_dict(), #2851)
-        // and survives transformTracks, so the control no longer misrepresents
-        // stored state before the first click.
-        setIsFavorite(tracks[0]?.favorite ?? false);
-      } catch (err) {
-        // apiRequest rejects with an AbortError once the caller has cancelled (#5653, #6450).
-        if (isAbortError(err)) return;
-        console.error('Error fetching album details:', err);
-        setError(ApiErrorHandler.parse(err));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    };
-    run();
-    return () => controller.abort();
-  }, [albumId]);
+  const { data: album, loading, error } = useAbortableResource<Album>(
+    albumId,
+    (signal) => fetchAlbum(albumId, signal),
+    {
+      label: 'album details',
+      // #5118: seed the heart from the server rather than leaving it false; `favorite` is on the
+      // wire for every track (#2851) and survives transformTracks.
+      onLoaded: (loaded) => setIsFavorite(loaded.tracks?.[0]?.favorite ?? false),
+    },
+  );
 
   const toggleFavorite = async () => {
     setSavingFavorite(true);

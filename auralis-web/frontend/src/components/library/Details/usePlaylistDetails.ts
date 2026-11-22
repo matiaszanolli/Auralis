@@ -8,39 +8,15 @@
  * drive, unlike the songs/favourites views.
  */
 
-import { useState, useEffect } from 'react';
 import type { Playlist } from '@/services/playlistService';
-import type { ApiError } from '@/types/api';
-import { ApiErrorHandler } from '@/types/api';
 import { getPlaylist } from '@/services/playlistService';
-import { isAbortError } from '@/utils/errorGuards';
+import { useAbortableResource } from '@/hooks/shared/useAbortableResource';
 
 export const usePlaylistDetails = (playlistId: number) => {
-  const [playlist, setPlaylist] = useState<Playlist | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ApiError | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const run = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getPlaylist(playlistId, controller.signal);
-        if (controller.signal.aborted) return;
-        setPlaylist(data);
-      } catch (err) {
-        // apiRequest rejects with an AbortError once the caller has cancelled (#5653, #6450).
-        if (isAbortError(err)) return;
-        console.error('Error fetching playlist details:', err);
-        setError(ApiErrorHandler.parse(err));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    };
-    run();
-    return () => controller.abort();
-  }, [playlistId]);
-
+  const { data: playlist, loading, error } = useAbortableResource<Playlist>(
+    playlistId,
+    (signal) => getPlaylist(playlistId, signal),
+    { label: 'playlist details' },
+  );
   return { playlist, loading, error };
 };

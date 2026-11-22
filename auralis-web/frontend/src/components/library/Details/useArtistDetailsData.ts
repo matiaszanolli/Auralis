@@ -4,13 +4,10 @@
  * Manages artist data fetching and state
  */
 
-import { useState, useEffect } from 'react';
 import type { Artist as DomainArtist, DetailTrack } from '@/types/domain';
 import type { ArtistDetailApiResponse } from '@/api/transformers/types';
-import type { ApiError } from '@/types/api';
-import { ApiErrorHandler } from '@/types/api';
 import { transformArtistDetail } from '@/api/transformers/artistTransformer';
-import { isAbortError } from '@/utils/errorGuards';
+import { useAbortableResource } from '@/hooks/shared/useAbortableResource';
 import { get } from '@/utils/apiRequest';
 import { isArtistDetailShape } from '@/api/responseGuards';
 import { getArtistTracks, type TrackInArtist } from '@/services/libraryService';
@@ -40,68 +37,36 @@ const toDetailTrack = (track: TrackInArtist, artistName: string): DetailTrack =>
   discNumber: track.disc_number,
 });
 
-export const useArtistDetailsData = (artistId: number) => {
-  const [artist, setArtist] = useState<Artist | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ApiError | null>(null);
-
-  // #3601: AbortController on the fetch to prevent setState on dead component
-  // and to cancel the in-flight request when the user navigates away.
-  useEffect(() => {
-    const controller = new AbortController();
-    const run = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // #4643: routed through the shared get()/ApiErrorHandler transport,
-        // same fix and same rationale as the sibling useAlbumDetails.ts — a
-        // raw fetch() collapsed a 404 and a 500 into an identical, status-less
-        // Error with no way for the UI to offer a differentiated recovery
-        // action.
-        // The detail response carries albums and counts only; the tracks come from
-        // their own endpoint, so "All Tracks" and Play All / Shuffle had nothing to
-        // work with (#6009). Fetched together; a failed track list is not fatal.
-        const [data, trackList] = await Promise.all([
-          get<ArtistDetailApiResponse>(`/api/artists/${artistId}`, {
-            signal: controller.signal,
-            validate: isArtistDetailShape,
-          }),
-          getArtistTracks(artistId, controller.signal).catch((err) => {
-            if (!controller.signal.aborted) console.error('Error fetching artist tracks:', err);
-            return null;
-          }),
-        ]);
-        if (controller.signal.aborted) return;
-
-        const base = transformArtistDetail(data);
-        const artistData: Artist = {
-          ...base,
-          albums: (data.albums || []).map((a) => ({
-            id: a.id,
-            title: a.title,
-            year: a.year ?? undefined,
-            track_count: a.track_count,
-            total_duration: a.total_duration ?? 0,
-          })),
-          tracks: (trackList?.tracks ?? []).map((t) => toDetailTrack(t, base.name)),
-        };
-        setArtist(artistData);
-      } catch (err) {
-        // apiRequest rejects with an AbortError once the caller has cancelled (#5653, #6450).
-        if (isAbortError(err)) return;
-        console.error('Error fetching artist details:', err);
-        setError(ApiErrorHandler.parse(err));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    };
-    run();
-    return () => controller.abort();
-  }, [artistId]);
-
+/** The artist detail plus its own track list (#6009); a failed track list is not fatal. */
+const fetchArtist = async (artistId: number, signal: AbortSignal): Promise<Artist> => {
+  // #4643: through the shared get()/ApiErrorHandler transport, so a 404 and a 500 stay
+  // distinguishable for the UI's recovery action.
+  const [data, trackList] = await Promise.all([
+    get<ArtistDetailApiResponse>(`/api/artists/${artistId}`, { signal, validate: isArtistDetailShape }),
+    getArtistTracks(artistId, signal).catch((err) => {
+      if (!signal.aborted) console.error('Error fetching artist tracks:', err);
+      return null;
+    }),
+  ]);
+  const base = transformArtistDetail(data);
   return {
-    artist,
-    loading,
-    error,
+    ...base,
+    albums: (data.albums || []).map((a) => ({
+      id: a.id,
+      title: a.title,
+      year: a.year ?? undefined,
+      track_count: a.track_count,
+      total_duration: a.total_duration ?? 0,
+    })),
+    tracks: (trackList?.tracks ?? []).map((t) => toDetailTrack(t, base.name)),
   };
+};
+
+export const useArtistDetailsData = (artistId: number) => {
+  const { data: artist, loading, error } = useAbortableResource<Artist>(
+    artistId,
+    (signal) => fetchArtist(artistId, signal),
+    { label: 'artist details' },
+  );
+  return { artist, loading, error };
 };
