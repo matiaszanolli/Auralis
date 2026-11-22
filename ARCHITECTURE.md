@@ -13,8 +13,9 @@ file-level layout, see [docs/architecture/module-map.md](docs/architecture/modul
 All database access MUST use the repository pattern via `RepositoryFactory`. Every repository extends `BaseRepository` (`auralis/library/repositories/base.py`), which centralises the session factory and the `get_session()` / `_session_scope()` lifecycle so a pooling, retry, or async change is a one-file edit:
 
 ```python
-# ✅ CORRECT: Use repository pattern
-repos = repository_factory.create()
+# ✅ CORRECT: Use repository pattern. The library database's RepositoryFactory exposes each
+# repository as a property (a router receives it via Depends(_repo_deps.get_repos)).
+repos = library_database.repositories
 track = repos.tracks.get_by_id(track_id)
 
 # ❌ INCORRECT: Direct database access
@@ -34,7 +35,7 @@ class MyService:
 # ❌ INCORRECT: Internal instantiation
 class MyService:
     def __init__(self):
-        self._repos = repository_factory.create()  # Violates DI
+        self._repos = LibraryDatabase().repositories  # Violates DI
 ```
 
 ### Lazy Imports
