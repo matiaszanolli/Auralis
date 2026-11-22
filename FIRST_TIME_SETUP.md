@@ -14,6 +14,7 @@ Before you begin, ensure your system has:
 - [ ] **Node.js 24+ LTS** - Check with `node --version`
 - [ ] **Git** - Check with `git --version`
 - [ ] **pnpm** - Check with `pnpm --version` (the ONLY supported package manager, #4357; install with `corepack enable`)
+- [ ] **Rust toolchain** (stable `cargo`) - Check with `cargo --version`; builds the required `auralis_dsp` module (step 4)
 - [ ] **Audio libraries** (platform-dependent, see section below)
 - [ ] **~5GB free disk space** for dependencies, database, and build artifacts
 
@@ -79,7 +80,17 @@ uv pip install -r requirements.txt
 
 **Expected output**: 40-60 packages installed, no errors
 
-### 4️⃣ Database Initialization
+### 4️⃣ Build the Rust DSP Module (required)
+
+The 25D fingerprinting runs in Rust (`vendor/auralis-dsp`, imported as `auralis_dsp`); there is
+no Python fallback. Build it into the venv before the first run:
+
+```bash
+cd vendor/auralis-dsp && maturin develop && cd ../..
+python -c "import auralis_dsp; print('auralis_dsp OK')"
+```
+
+### Database Initialization
 
 The database initializes automatically on first launch — no manual step required.
 It creates `~/.auralis/library.db` and `~/.auralis/` on startup.
@@ -99,23 +110,16 @@ cd ../..
 
 **Expected output**: ~1000+ packages installed
 
-### 6️⃣ Verify Environment Configuration
+### 6️⃣ Configuration
 
-The project uses environment variables from `.env`:
-```bash
-cat .env
-```
-
-**For local development, these defaults should work:**
-- Backend runs on `http://localhost:8765`
+Nothing needs configuring for local development; nothing reads a `.env` file. The defaults:
+- Backend runs on `http://localhost:8765` (`AURALIS_PORT` moves it; the launcher, the Vite proxy
+  and the dev WebSocket follow it)
 - Frontend dev server runs on `http://localhost:3000`
 - Database uses SQLite at `~/.auralis/library.db`
 
-**To override for your setup:**
-```bash
-cp .env .env.local  # Create local override (not tracked by git)
-# Edit .env.local as needed
-```
+The tunable budgets are plain environment variables, documented in
+[auralis-web/backend/CONFIG.md](auralis-web/backend/CONFIG.md).
 
 ---
 
@@ -203,7 +207,7 @@ pnpm test
 ## 📚 Next Steps
 
 1. **Read the main architecture guide**: [CLAUDE.md](CLAUDE.md) - Overall architecture and patterns
-2. **Understand the audio pipeline**: [ADAPTIVE_MASTERING_SYSTEM.md](ADAPTIVE_MASTERING_SYSTEM.md)
+2. **Understand the audio pipeline**: [docs/subsystems/dsp-engine.md](docs/subsystems/dsp-engine.md)
 3. **Learn the testing approach**: [docs/development/TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)
 4. **Explore the codebase**: Start with `auralis/core/hybrid_processor.py` (main audio pipeline)
 
@@ -215,8 +219,7 @@ pnpm test
 1. **Install extensions**:
    - Python (Microsoft)
    - Pylance (Microsoft)
-   - Black Formatter (Microsoft)
-   - TypeScript Vue Plugin (Vue)
+   - Ruff (Astral)
    - ESLint (Microsoft)
    - Prettier (Code Formatter)
 
@@ -224,8 +227,6 @@ pnpm test
    ```json
    {
      "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-     "python.linting.enabled": true,
-     "python.formatting.provider": "black",
      "editor.formatOnSave": true
    }
    ```
@@ -254,29 +255,22 @@ pnpm test
 
 ## 🔍 Verify Audio Backend
 
-The system uses `audioread` which supports multiple backends. Check which backends are available:
+Audio is decoded by **libsndfile** (through `soundfile`: WAV, FLAC, AIFF, AU) and by **FFmpeg**
+for the compressed formats (MP3, M4A/AAC, OGG, WMA, Opus; `auralis/io/formats.py`). Check both:
 
 ```bash
-python -c "
-import audioread
-print('Available audioread backends:')
-for backend in audioread.get_backends():
-    print(f'  ✅ {backend.__name__}')
-"
+python -c "import soundfile; print('libsndfile', soundfile.__libsndfile_version__)"
+ffmpeg -version | head -1
 ```
 
-**Expected output** (at least one):
-- `FFmpeg` (most flexible)
-- `libsndfile`
-- `core audio` (macOS)
-- `WinMM` (Windows)
+Without FFmpeg on `PATH`, compressed files will not load.
 
 ---
 
 ## 📞 Need Help?
 
 - **Setup issues**: Check "Common First-Time Issues" section above
-- **Audio problems**: See `AUDIO_DEPENDENCY_TROUBLESHOOTING.md` (reference in CLAUDE.md)
+- **Audio problems**: See "Verify Audio Backend" above
 - **Architecture questions**: Read [CLAUDE.md](CLAUDE.md)
 - **Bug reports**: Create a GitHub issue with setup details
 
