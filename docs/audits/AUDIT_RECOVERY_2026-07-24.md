@@ -440,3 +440,18 @@ This is not a “fix hundreds of random tests” recovery. The fastest credible 
 5. then use that green slice to triage the larger red suites safely.
 
 That produces a genuinely usable application while preserving a clear boundary between **working** and **finished**.
+
+---
+
+## Triage ledger (added 2026-11-22, #6705)
+
+Every HIGH/CRITICAL finding in this report, mapped to the issue or commit that
+dealt with it. All are closed; this report has no open HIGH/CRITICAL work.
+MEDIUM/LOW findings are not covered here.
+
+| Finding | Severity | Resolved by |
+|---|---|---|
+| REC-01 | HIGH | #4805, #5373, #5447; `dev.js` now only delegates to `launch-auralis-web.py --electron` (`9315886dc`, PR #6711), so the `__dirname/..` path construction is gone |
+| REC-02 | HIGH | #5530, #5321 |
+| REC-03 | HIGH | #5550, #4928 |
+| REC-04 | HIGH | #4426 (closed 2026-07-12, before this report) |

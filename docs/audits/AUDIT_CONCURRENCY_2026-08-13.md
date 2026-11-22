@@ -871,3 +871,17 @@ epoch/sequence guards, but not every Redux slice reducer.
 of `auralis/optimization/` should be treated as unreliable rather than as evidence
 that the package is clean. This audit's verdict on it (sound except C2-2) is based
 on a full read of all 779 lines, not on the inherited claim.
+
+---
+
+## Triage ledger (added 2026-11-22, #6705)
+
+Every HIGH/CRITICAL finding in this report, mapped to the issue or commit that
+dealt with it. All are closed; this report has no open HIGH/CRITICAL work.
+MEDIUM/LOW findings are not covered here.
+
+| Finding | Severity | Resolved by |
+|---|---|---|
+| C3-1 | HIGH | Fixed structurally: the look-ahead drain moved into `pump_normal_chunks`' own `finally`, so `controller._stream_semaphore.release()` in `stream_normal.py` no longer sits behind a re-raising `drain_cancelled_task`; related cancellation sweep #6092 (`769623a34`) |
+| C3-2 | HIGH | #5253 (`618e2b161`) |
+| C1-1 | HIGH | #5581, #5726 (the remaining two-section swap is tracked in open #6531, LOW) |

@@ -782,9 +782,16 @@ Stated explicitly so the next audit starts here rather than re-deriving it:
 
 ---
 
-*Report generated 2026-08-13. No GitHub issues were created; no git write operations were
-performed. To publish:*
+*Report generated 2026-08-13; no git write operations were performed.*
 
-```
-/audit-publish docs/audits/AUDIT_SECURITY_2026-08-13.md
-```
+---
+
+## Triage ledger (added 2026-11-22, #6705)
+
+Every HIGH/CRITICAL finding in this report, mapped to the issue or commit that
+dealt with it. All are closed; this report has no open HIGH/CRITICAL work.
+MEDIUM/LOW findings are not covered here.
+
+| Finding | Severity | Resolved by |
+|---|---|---|
+| SEC-01 | HIGH | #4871; `starlette==1.3.1` in `requirements.txt` and `auralis-web/backend/requirements.txt`, and declared `>=1.3.1` in `pyproject.toml` |
