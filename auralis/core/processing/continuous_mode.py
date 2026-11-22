@@ -183,11 +183,11 @@ class ContinuousMode(ContinuousStagesMixin):
         ``fixed_params`` selects the fast path (no fingerprint extraction).
         """
         debug("Applying continuous space processing")
-        processed_audio = target_audio.copy()
-        params = self._resolve_parameters(processed_audio, fixed_params)
+        params = self._resolve_parameters(target_audio, fixed_params)
         if params is None:
-            return processed_audio
-        return self._apply_dsp_stages(target_audio, processed_audio, eq_processor, params)
+            return target_audio.copy()
+        # Never bound here: a local would pin this copy through every stage (#6717).
+        return self._apply_dsp_stages(target_audio, target_audio.copy(), eq_processor, params)
 
     def _resolve_parameters(
         self,
