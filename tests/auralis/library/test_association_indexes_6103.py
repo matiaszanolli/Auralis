@@ -16,12 +16,13 @@ declarations cover fresh ``create_all`` databases.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import re
 import shutil
 import tempfile
 from pathlib import Path
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 
 from auralis.library.migration_manager import MigrationManager
 from auralis.library.schema_indexes import create_missing_declared_indexes
@@ -142,6 +143,64 @@ def test_artist_lookup_no_longer_full_scans(temp_db):
         plan = " ".join(str(row) for row in plan_rows)
         assert 'SCAN track_artist' not in plan, plan
         assert 'ix_track_artist_artist_id' in plan, plan
+
+
+def test_track_read_paths_use_association_indexes(temp_db):
+    """The SQL TrackRepository's read paths emit must reach track_artist /
+    track_genre through the indexes, not around them.
+
+    The indexes existed, but joinedload(Track.artists) rendered
+    ``LEFT OUTER JOIN (track_artist JOIN artists) ON ...``, which SQLite
+    materializes by scanning the whole association table: every get_by_id,
+    get_by_path and list page paid time proportional to the library.
+    """
+    from auralis.library.database import LibraryDatabase
+
+    db = LibraryDatabase(temp_db)
+    try:
+        repo = db.tracks
+        filepath = '/music/a.flac'
+        track = repo.add({
+            'filepath': filepath, 'title': 'Title', 'artists': ['Artist A', 'Artist B'],
+            'genres': ['Rock'], 'album': 'Album', 'format': 'FLAC',
+            'sample_rate': 44100, 'channels': 2, 'duration': 200.0,
+        })
+        assert track is not None
+
+        statements: list[tuple[str, object]] = []
+
+        def record(conn, cursor, statement, parameters, context, executemany):
+            statements.append((statement, parameters))
+
+        event.listen(db.engine, 'before_cursor_execute', record)
+        try:
+            assert [a.name for a in repo.get_by_id(track.id).artists] == ['Artist A', 'Artist B']
+            assert set(repo.get_by_ids([track.id])) == {track.id}
+            assert repo.get_by_path(filepath).id == track.id
+            assert set(repo.get_by_paths([filepath])) == {filepath}
+            assert repo.get_all()[1] == 1
+            assert repo.get_favorites()[1] == 0
+        finally:
+            event.remove(db.engine, 'before_cursor_execute', record)
+
+        association_reads = [
+            (sql, params) for sql, params in statements
+            if 'track_artist' in sql or 'track_genre' in sql
+        ]
+        assert {t for t in ('track_artist', 'track_genre')
+                if any(t in sql for sql, _ in association_reads)} == {'track_artist', 'track_genre'}
+
+        offenders = []
+        with db.engine.connect() as conn:
+            for sql, params in association_reads:
+                plan = ' | '.join(
+                    row[3] for row in conn.exec_driver_sql('EXPLAIN QUERY PLAN ' + sql, params)
+                )
+                if re.search(r'SCAN track_(artist|genre)|MATERIALIZE', plan):
+                    offenders.append(f'{" ".join(sql.split())[:160]}...\n    {plan}')
+        assert offenders == [], '\n'.join(offenders)
+    finally:
+        db.shutdown()
 
 
 def test_migration_is_idempotent(temp_db):

@@ -43,10 +43,14 @@ def _track_eager_options(
 ) -> tuple[_AbstractLoad, ...]:
     """Standard eager-loads for every Track read path (#4500).
 
-    ``artists`` and ``album`` load inline (joined) by default, or via a separate
-    IN query (selectin) for paginated / DISTINCT queries where a join would
-    multiply rows. ``genres`` ALWAYS loads via selectin — a join on this
-    many-to-many explodes rows — and MUST be eager-loaded on EVERY path: read
+    ``album`` loads inline (joined) by default, or via a separate IN query
+    (selectin) for paginated / DISTINCT queries where a join would multiply
+    rows. The many-to-many ``artists`` and ``genres`` ALWAYS load via selectin.
+    Joined, a many-to-many becomes ``LEFT OUTER JOIN (track_artist JOIN
+    artists) ON ...``, and SQLite materializes that parenthesized join by
+    scanning the whole association table, so one ``get_by_id`` cost time
+    proportional to the library (~0.2 ms per 1k tracks) instead of an index
+    lookup. ``genres`` MUST also be eager-loaded on EVERY path: read
     paths ``expunge()`` the Track, so a lazy ``genres`` access inside
     ``to_dict()`` raises ``DetachedInstanceError`` (swallowed, yielding
     ``genres: []``). Centralised here so no read path can silently drop it again
@@ -60,7 +64,7 @@ def _track_eager_options(
     """
     loader = selectinload if collections_via_selectin else joinedload
     options: tuple[_AbstractLoad, ...] = (
-        loader(Track.artists), loader(Track.album), selectinload(Track.genres)
+        selectinload(Track.artists), loader(Track.album), selectinload(Track.genres)
     )
     if list_read:
         options += (defer(Track.lyrics), defer(Track.comments))
