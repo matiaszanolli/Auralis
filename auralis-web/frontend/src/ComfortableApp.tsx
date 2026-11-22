@@ -1,7 +1,6 @@
-import { useState, useCallback, useRef, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { Box } from '@mui/material';
-import { useSelector, useStore } from 'react-redux';
-import { usePlaybackControls } from '@/contexts/PlaybackSessionContext';
+import { useSelector } from 'react-redux';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
 import Player from './components/player/Player';
@@ -29,15 +28,12 @@ import { AppViewAnnouncement } from '@/components/core/AppViewAnnouncement';
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';
 import { useAppDragDrop } from '@/hooks/app/useAppDragDrop';
-import { useAppShortcuts } from '@/hooks/app/useAppShortcuts';
+import { useAppKeyboard } from '@/hooks/app/useAppKeyboard';
+import { useAppNavigation } from '@/hooks/app/useAppNavigation';
 
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
-import { useKeyboardShortcuts } from '@/hooks/app/useKeyboardShortcuts';
-import { selectVolume } from './store/slices/playerSlice';
-import type { RootState } from './store';
 import { playerSelectors } from './store/selectors';
-import type { ViewMode } from '@/components/navigation/ViewToggle';
 
 function ComfortableApp() {
   // Layout state management (useAppLayout handles responsive sidebar/drawer)
@@ -50,9 +46,15 @@ function ComfortableApp() {
   } = useAppLayout();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentView, setCurrentView] = useState('songs'); // songs, favourites, artist-N/album-N/playlist-N detail views
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const {
+    currentView,
+    setCurrentView,
+    viewMode,
+    setViewMode,
+    navigationResetToken,
+    handleSidebarNavigation,
+  } = useAppNavigation();
 
   // WebSocket connection for real-time updates (using shared WebSocketContext)
   const wsContext = useWebSocketContext();
@@ -64,75 +66,21 @@ function ComfortableApp() {
   // Toast notifications
   const { success, info } = useToast();
 
-  // The volume shortcuts' +/-10 step reads the store at keypress time instead of subscribing:
-  // a subscription re-rendered this whole shell on every slider input event (#6067).
-  const store = useStore<RootState>();
-  const getVolume = useCallback(() => selectVolume(store.getState()), [store]);
   // The Player boundary recovers when the track changes: the same bad track would crash every
   // "Try again", the next one need not (#6035).
   const currentTrackId = useSelector(playerSelectors.selectCurrentTrack)?.id;
 
-  // #4541: global shortcuts must operate on the SAME enhanced-audio session
-  // Player.tsx drives, not a disconnected legacy control plane — sending
-  // 'play_normal' (the old usePlaybackControl.play()) cancelled the user's
-  // own in-flight enhanced stream server-side with no visible error.
-  const session = usePlaybackControls();
-  const isPlaying = session.isPlaybackActive && !session.isPaused;
-  const togglePlayPause = session.handlePlayPause;
-  const nextTrack = session.handleNext;
-  const previousTrack = session.handlePrevious;
-  const setVolume = useCallback(
-    // handleVolumeChange expects 0.0-1.0 — clamp + scale the 0-100 value
-    // used by the keyboard-shortcut UI.
-    (newVolume: number) =>
-      session.handleVolumeChange(Math.max(0, Math.min(100, newVolume)) / 100),
-    [session]
-  );
-
   // Drag-drop handler (useAppDragDrop handles all queue/playlist operations)
   const { handleDragEnd } = useAppDragDrop({ info, success });
 
-  // Ref to break circular dependency: the shortcut array references openHelp,
-  // but openHelp comes from the hook that receives the array (fixes #3077).
-  const openHelpRef = useRef<(() => void) | null>(null);
-
-  // Keyboard shortcuts — table extracted to useAppShortcuts (#5631).
-  const keyboardShortcutsArray = useAppShortcuts({
-    session,
-    togglePlayPause,
-    isPlaying,
-    nextTrack,
-    previousTrack,
-    getVolume,
-    setVolume,
+  const { shortcuts, isHelpOpen, closeHelp, formatShortcut } = useAppKeyboard({
     info,
     searchQuery,
     setSearchQuery,
     settingsOpen,
     setSettingsOpen,
     setCurrentView,
-    openHelpRef,
   });
-
-  // Keyboard shortcuts via unified hook
-  const {
-    shortcuts,
-    isHelpOpen,
-    openHelp,
-    closeHelp,
-    formatShortcut
-  } = useKeyboardShortcuts(keyboardShortcutsArray);
-
-  // Keep ref in sync with latest openHelp
-  openHelpRef.current = openHelp;
-
-  // Picking the nav item of the view you are already in leaves any open detail page: the view id is
-  // unchanged, so a counter tells the library view to reset (#6014).
-  const [navigationResetToken, setNavigationResetToken] = useState(0);
-  const handleSidebarNavigation = useCallback((view: string) => {
-    setCurrentView(view);
-    setNavigationResetToken((token) => token + 1);
-  }, []);
 
   return (
     <Box
