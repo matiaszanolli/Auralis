@@ -17,6 +17,7 @@ from collections.abc import Callable
 import psutil
 
 from ..utils.logging import debug, error, info
+_MONITOR_JOIN_TIMEOUT_S = 5.0  # grace for the monitor thread to exit on stop (#6642)
 
 
 @dataclass
@@ -94,7 +95,7 @@ class AdaptiveResourceMonitor:
             return
 
         self._stop_event.set()
-        self._monitor_thread.join(timeout=5.0)
+        self._monitor_thread.join(timeout=_MONITOR_JOIN_TIMEOUT_S)
         self._monitor_thread = None
         info("Adaptive resource monitor stopped")
 

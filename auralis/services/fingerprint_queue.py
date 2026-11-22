@@ -43,6 +43,7 @@ from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 
 from ..library.resource_monitor import AdaptiveResourceMonitor
 from ..utils.logging import debug, error, info, warning
+_ERROR_BACKOFF_S = 0.1  # after a track fails, before the worker claims the next (#6642)
 
 
 class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixin):
@@ -251,7 +252,7 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
                     self._on_track_processed()  # #3479
                 except Exception as e:
                     error(f"Worker {worker_id} error during processing: {e}")
-                    time.sleep(0.1)
+                    time.sleep(_ERROR_BACKOFF_S)
 
             # Phase 2: Re-fingerprint tracks whose fingerprint was computed with an
             # older algorithm version.  Only runs when FINGERPRINT_ALGORITHM_VERSION
@@ -269,7 +270,7 @@ class FingerprintExtractionQueue(FingerprintWorkerExecution, AdaptiveScalingMixi
                     self._on_track_processed()  # #3479
                 except Exception as e:
                     error(f"Worker {worker_id} error during outdated re-fingerprinting: {e}")
-                    time.sleep(0.1)
+                    time.sleep(_ERROR_BACKOFF_S)
 
             # #3479: both phases drained — the ONE report this worker makes per wave. It used to
             # also report after Phase 1, so a worker that finished both phases counted twice

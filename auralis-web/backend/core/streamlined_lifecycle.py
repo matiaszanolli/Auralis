@@ -17,6 +17,7 @@ from helpers import spawn_background_task
 from .task_cancellation import await_cancelled_task
 
 logger = logging.getLogger(__name__)
+_POLL_INTERVAL_S = 1.0  # how often the worker looks for chunks to cache (#6642)
 
 
 class WorkerLifecycleMixin:
@@ -98,7 +99,7 @@ class WorkerLifecycleMixin:
         """
         try:
             while self.running:
-                await asyncio.sleep(1.0)  # Check every second
+                await asyncio.sleep(_POLL_INTERVAL_S)
 
                 try:
                     await self._process_priorities()

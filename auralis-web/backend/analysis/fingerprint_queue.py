@@ -28,6 +28,8 @@ from collections.abc import Callable, Iterable
 from helpers import spawn_background_task
 
 logger = logging.getLogger(__name__)
+_IDLE_POLL_S = 0.5  # no track to fingerprint: look again after this (#6642)
+_ERROR_BACKOFF_S = 1.0  # after an unexpected worker error
 
 
 @dataclass
@@ -247,7 +249,7 @@ class FingerprintQueue:
 
                 if track_id is None:
                     # Sleep briefly and check again
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(_IDLE_POLL_S)
                     continue
 
                 logger.info(f"🎵 Processing fingerprint for track {track_id} (remaining: {remaining})")
@@ -275,7 +277,7 @@ class FingerprintQueue:
                 break
             except Exception as e:
                 logger.error(f"Unexpected error in fingerprint queue worker: {e}")
-                await asyncio.sleep(1)  # Prevent tight loop on persistent errors
+                await asyncio.sleep(_ERROR_BACKOFF_S)  # no tight loop on a persistent error
 
         logger.info("🔄 Fingerprint queue worker loop ended")
 

@@ -17,6 +17,7 @@ import numpy as np
 
 
 logger = logging.getLogger(__name__)
+_CHUNK_YIELD_S = 0.1  # pause between buffered chunks so buffering does not saturate a core (#6642)
 
 # The preset to buffer. Mirrors schemas.DEFAULT_PRESET -- not imported directly
 # to avoid this streaming-core module depending on the REST schemas module.
@@ -42,8 +43,7 @@ async def _buffer_chunk(
         )
         logger.info(f"✅ Buffered: {preset} chunk {chunk_idx}")
 
-        # Small delay to avoid CPU saturation
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(_CHUNK_YIELD_S)
 
     except Exception as chunk_error:
         # A chunk abandoned mid-DSP because the stream was cancelled is not a

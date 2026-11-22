@@ -21,6 +21,7 @@ from helpers import spawn_background_task
 from websocket.outbound_messages import broadcast_typed
 
 from .task_cancellation import await_cancelled_task
+_TICK_INTERVAL_S = 1.0  # one position tick per second (#6642)
 
 
 class PositionTickerMixin:
@@ -100,7 +101,7 @@ class PositionTickerMixin:
         last_tick = loop.time()
         try:
             while True:
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(_TICK_INTERVAL_S)
                 now = loop.time()
                 elapsed = now - last_tick
                 last_tick = now

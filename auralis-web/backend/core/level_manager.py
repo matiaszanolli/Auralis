@@ -16,7 +16,7 @@ from typing import cast
 
 import numpy as np
 
-from .level_constants import LEVEL_SMOOTHING_GATE_DB, MAX_LEVEL_CHANGE_DB
+from .level_constants import LEVEL_HISTORY_MAXLEN, LEVEL_SMOOTHING_GATE_DB, MAX_LEVEL_CHANGE_DB
 from .level_transition import LevelTransitionMixin
 
 logger = logging.getLogger(__name__)
@@ -39,9 +39,8 @@ class LevelManager(LevelTransitionMixin):
         """
         self.max_level_change_db = max_level_change_db
 
-        # History tracking — capped at 256 entries so long sessions don't grow unboundedly
-        self.rms_history: deque[float] = deque(maxlen=256)
-        self.gain_history: deque[float] = deque(maxlen=256)
+        self.rms_history: deque[float] = deque(maxlen=LEVEL_HISTORY_MAXLEN)
+        self.gain_history: deque[float] = deque(maxlen=LEVEL_HISTORY_MAXLEN)
 
     @property
     def history(self) -> list[float]:

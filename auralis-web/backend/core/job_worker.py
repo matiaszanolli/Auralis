@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from core.processing_engine import ProcessingEngine
 
 logger = logging.getLogger(__name__)
+_ERROR_BACKOFF_S = 1.0  # after an unexpected worker error, so it cannot spin (#6642)
 
 
 class JobWorker:
@@ -261,7 +262,7 @@ class JobWorker:
                 task.add_done_callback(partial(self._on_job_task_done, job))
             except Exception as e:
                 logger.exception(f"Worker error: {e}")
-                await asyncio.sleep(1)
+                await asyncio.sleep(_ERROR_BACKOFF_S)
 
     def _on_job_task_done(self, job: ProcessingJob, task: "asyncio.Task[None]") -> None:
         """Return the slot of a job whose task was cancelled before its first step.

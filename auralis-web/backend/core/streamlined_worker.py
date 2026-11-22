@@ -39,6 +39,7 @@ from core.streamlined_processor_disposal import discard_timed_out_processor, lea
 
 
 logger = logging.getLogger(__name__)
+_CHUNK_YIELD_S = 0.05  # pause between cached chunks so the worker does not saturate a core (#6642)
 
 # Per-tier limit on one chunk render, in seconds. Tier 1 (the next chunk to
 # play) is urgent; tier 2 is the background full-track build.
@@ -229,8 +230,7 @@ class StreamlinedCacheWorker(WorkerLifecycleMixin):
                 else:
                     logger.warning(f"[{tier}] Failed to cache chunk {chunk_idx}")
 
-            # Small delay to avoid CPU saturation
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(_CHUNK_YIELD_S)
 
             return chunk_path
 

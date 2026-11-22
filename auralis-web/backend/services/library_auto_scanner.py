@@ -33,6 +33,7 @@ from .scanner_stop import stop_scanner
 from .scanner_watchdog import HAS_WATCHDOG, WatchdogMixin
 
 logger = logging.getLogger(__name__)
+_CRASH_BACKOFF_S = 30  # after a scan crashes, before the retry, so it cannot crash-loop (#6642)
 
 
 class LibraryAutoScanner(WatchdogMixin):
@@ -128,8 +129,7 @@ class LibraryAutoScanner(WatchdogMixin):
                     },
                     suppress_errors=True,
                 )
-                # Back off 30s before retry to avoid tight crash-loop
-                await self._interruptible_sleep(30)
+                await self._interruptible_sleep(_CRASH_BACKOFF_S)
 
     async def _run_cycle(self) -> None:
         """One complete scan cycle: read settings, scan, cleanup, sleep."""

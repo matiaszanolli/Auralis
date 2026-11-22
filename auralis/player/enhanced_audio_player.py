@@ -36,6 +36,7 @@ from .player_queue_navigation_mixin import PlayerQueueNavigationMixin
 from .player_streaming_mixin import PlayerStreamingMixin
 from .queue_controller import QueueController
 from .realtime import RealtimeProcessor
+_ADVANCE_JOIN_TIMEOUT_S = 2.0  # grace for the auto-advance thread to exit (#6642)
 
 
 class AudioPlayer(
@@ -269,15 +270,14 @@ class AudioPlayer(
         # and re-populate audio_data after clear_all(). Daemon=True saves us
         # at process exit, but tests that reuse the player (or assert on
         # post-cleanup state) need a deterministic barrier.
-        # #4227: read _advance_thread under _audio_lock (it is written under the
-        # same lock in PlayerStreamingMixin.get_audio_chunk()). A raw read can
-        # tear under free-threaded 3.14+, skipping the join so an in-flight
-        # advance thread survives cleanup. Join outside the lock so a slow
-        # thread can't deadlock against a writer holding _audio_lock.
+        # #4227: read _advance_thread under _audio_lock (it is written under the same lock in
+        # PlayerStreamingMixin.get_audio_chunk()). A raw read can tear under free-threaded 3.14+,
+        # skipping the join so an in-flight advance thread survives cleanup. Join outside the
+        # lock so a slow thread can't deadlock against a writer holding _audio_lock.
         with self.file_manager._audio_lock:
             advance_thread = self._advance_thread
         if advance_thread is not None and advance_thread.is_alive():
-            advance_thread.join(timeout=2.0)
+            advance_thread.join(timeout=_ADVANCE_JOIN_TIMEOUT_S)
             if advance_thread.is_alive():
                 warning("Auto-advance thread did not exit within cleanup timeout")
         self.file_manager.clear_all()

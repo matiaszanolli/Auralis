@@ -55,12 +55,13 @@ except ValueError:
 # Overridable via AURALIS_MAX_DECODED_BYTES, mirroring
 # AURALIS_MAX_DURATION_SECONDS (#3758) — an operator who raises one and not the
 # other would otherwise hit a new hardcoded wall with no way past it.
+_DEFAULT_MAX_DECODED_BYTES = 6 * 1024 ** 3
 try:
     MAX_DECODED_BYTES = int(_os.environ.get(
-        "AURALIS_MAX_DECODED_BYTES", str(6 * 1024 ** 3)
+        "AURALIS_MAX_DECODED_BYTES", str(_DEFAULT_MAX_DECODED_BYTES)
     ))
 except ValueError:
-    MAX_DECODED_BYTES = 6 * 1024 ** 3
+    MAX_DECODED_BYTES = _DEFAULT_MAX_DECODED_BYTES
 del _os
 
 # float32 — soundfile_loader reads with an explicit float32 dtype (#3748) and

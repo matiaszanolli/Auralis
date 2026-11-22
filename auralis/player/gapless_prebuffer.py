@@ -1,7 +1,6 @@
 """
-Prebuffer lifecycle for GaplessPlaybackEngine (split from
-gapless_playback_engine.py, #5836): the background worker, the stored buffer's
-accessors and validity rules, and the queue-change listener.
+Prebuffer lifecycle for GaplessPlaybackEngine (split from gapless_playback_engine.py, #5836): the
+background worker, the stored buffer's accessors and validity rules, and the queue-change listener.
 
 Lock order (unchanged): ``update_lock`` is always the outer lock, and
 ``_thread_lock`` is never held while waiting on ``update_lock`` or joining.
@@ -19,6 +18,7 @@ import numpy as np
 from ..utils.logging import debug, info, warning
 from .queue_controller import QueueController
 from .queue_entry import entry_path
+_SHUTDOWN_POLL_S = 0.2  # how often a waiting prebuffer checks for shutdown (#6642)
 
 
 class PrebufferMixin:
@@ -143,7 +143,7 @@ class PrebufferMixin:
                 while _loader.is_alive():
                     if self._shutdown.is_set():
                         return  # abandon; inner daemon thread dies with the process
-                    _loader.join(timeout=0.2)
+                    _loader.join(timeout=_SHUTDOWN_POLL_S)
 
                 if _load_exc:
                     raise _load_exc[0]

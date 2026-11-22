@@ -12,19 +12,22 @@ Split out of ``migration_manager.py`` (#4511); ``migration_manager`` re-exports
 """
 
 import logging
-import platform
+import sys
 import threading
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-# Import platform-specific file locking
-if platform.system() == "Windows":
+# Platform-specific file locking. sys.platform (not platform.system()) so mypy can narrow each
+# branch to the module that exists there.
+if sys.platform == "win32":
     import msvcrt
 else:
     import fcntl
 
 logger = logging.getLogger(__name__)
+_LOCK_POLL_S = 0.1  # how often a waiting process retries the migration lock (#6642)
 
 __all__ = ['migration_lock']
 
@@ -47,7 +50,7 @@ def _try_lock(fd: int) -> bool:
     """One non-blocking attempt at the OS file lock (msvcrt on Windows,
     fcntl.flock elsewhere); False if another process holds it."""
     try:
-        if platform.system() == "Windows":
+        if sys.platform == "win32":
             msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
         else:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -57,7 +60,7 @@ def _try_lock(fd: int) -> bool:
 
 
 @contextmanager
-def migration_lock(db_path: str, timeout: float = 30.0):
+def migration_lock(db_path: str, timeout: float = 30.0) -> Iterator[None]:
     """
     Acquire the migration lock: thread-exclusive *and* process-exclusive.
 
@@ -109,7 +112,7 @@ def migration_lock(db_path: str, timeout: float = 30.0):
                     f"Could not acquire migration lock within {timeout}s. "
                     "Another process may be migrating the database."
                 )
-            time.sleep(0.1)
+            time.sleep(_LOCK_POLL_S)
 
         logger.debug(f"Acquired migration lock: {lock_file}")
         yield
@@ -119,7 +122,7 @@ def migration_lock(db_path: str, timeout: float = 30.0):
         # what #4523 is about.
         if lock_fd:
             try:
-                if platform.system() == "Windows":
+                if sys.platform == "win32":
                     msvcrt.locking(lock_fd.fileno(), msvcrt.LK_UNLCK, 1)
                 else:
                     fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)

@@ -12,12 +12,12 @@ Import them from here; level_manager re-imports the ones its body uses.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-
 # Configuration
 MAX_LEVEL_CHANGE_DB = 1.5  # Maximum allowed level change between chunks in dB
 # Window over which a triggered gain adjustment ramps in from the previous
 # chunk's gain, so the boundary stays continuous instead of stepping (#3831).
 GAIN_RAMP_SECONDS = 0.05  # 50 ms
+LEVEL_HISTORY_MAXLEN = 256  # RMS/gain history entries kept, so a long session stays bounded (#6642)
 
 # A chunk's RMS at or below this gate carries no real level information —
 # it's effectively digital silence (or calculate_rms's log(0)-avoiding floor

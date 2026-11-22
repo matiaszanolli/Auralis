@@ -22,6 +22,7 @@ from .gapless_prebuffer import PrebufferMixin
 from .lock_held_hooks import lock_held_hook
 from .queue_controller import QueueController
 from .queue_entry import entry_path
+_PREBUFFER_JOIN_TIMEOUT_S = 5.0  # grace for the prebuffer thread to exit (#6642)
 
 
 class GaplessPlaybackEngine(PrebufferMixin):
@@ -262,13 +263,12 @@ class GaplessPlaybackEngine(PrebufferMixin):
         with self._thread_lock:
             prebuffer_thread = self.prebuffer_thread
 
-        # Join OUTSIDE the lock: _prebuffer_worker does not take _thread_lock
-        # today, but joining while holding it would deadlock the moment it did.
-        # The project's discipline is "callbacks and joins outside locks".
+        # Join OUTSIDE the lock: _prebuffer_worker does not take _thread_lock today, but joining
+        # while holding it would deadlock the moment it did ("callbacks and joins outside locks").
         if prebuffer_thread is not None and prebuffer_thread.is_alive():
-            prebuffer_thread.join(timeout=5.0)
+            prebuffer_thread.join(timeout=_PREBUFFER_JOIN_TIMEOUT_S)
             if prebuffer_thread.is_alive():
-                warning("Prebuffer thread did not stop within 5s after shutdown signal")
+                warning(f"Prebuffer thread did not stop within {_PREBUFFER_JOIN_TIMEOUT_S:.0f}s after shutdown signal")
 
         self.invalidate_prebuffer()
         info("GaplessPlaybackEngine cleaned up")

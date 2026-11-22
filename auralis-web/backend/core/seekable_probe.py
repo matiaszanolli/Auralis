@@ -26,17 +26,17 @@ from auralis.io.audio_probe import get_audio_info
 from auralis.io.formats import FFMPEG_FORMATS
 from core.file_signature import FileSignatureService
 
-# libsndfile sizes an MP3 that has no Xing/VBRI header (header-less VBR, files
-# joined with `cat`) from its first frame, then reads and seeks only that far
-# while FFmpeg decodes the whole file (#6314). An FFmpeg-decoded format is only
-# read in place when libsndfile's length agrees with ffprobe's. ffprobe's own
-# estimate for such a file is off by single-digit percent, libsndfile's by 20%+,
-# and healthy files agree to a few frames — so this tolerance separates them.
+# libsndfile sizes an MP3 that has no Xing/VBRI header (header-less VBR, files joined with `cat`)
+# from its first frame, then reads and seeks only that far while FFmpeg decodes the whole file
+# (#6314). An FFmpeg-decoded format is only read in place when libsndfile's length agrees with
+# ffprobe's. ffprobe's own estimate for such a file is off by single-digit percent, libsndfile's
+# by 20%+, and healthy files agree to a few frames — so this tolerance separates them.
 LENGTH_AGREEMENT_TOLERANCE_S = 0.5
 LENGTH_AGREEMENT_TOLERANCE_FRACTION = 0.01
+_PROBE_CACHE_SIZE = 64  # ffprobe durations remembered, keyed by path + content signature (#6642)
 
 
-@functools.lru_cache(maxsize=64)
+@functools.lru_cache(maxsize=_PROBE_CACHE_SIZE)
 def _ffprobe_duration(filepath: str, signature: str) -> float:
     """ffprobe's duration for this exact file content; raises when it has none.
 
