@@ -24,10 +24,8 @@ processor teardown all stay there, and only the loop between them moves. What
 that buys is a unit boundary: chunk production and delivery can now be read
 and changed without the setup and teardown wrapped around them.
 
-The look-ahead task is owned end-to-end here. It is created, awaited and
-drained inside this function's own try/finally, so #3493's guarantee — no
-in-flight processing task survives the loop, however the loop exits — holds
-without the handler needing a second drain.
+The loop itself is the shared one in stream_pump.py, which the normal
+stream runs too (#6627); this module is the enhanced flavour of it.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -35,15 +33,17 @@ without the handler needing a second drain.
 
 import asyncio
 import logging
+from collections.abc import Callable, Coroutine
 from typing import Any, NamedTuple
-from collections.abc import Callable
+
+import numpy as np
 
 from fastapi import WebSocket
 
 from . import audio_stream_controller as _asc
 from .chunk_boundaries import emitted_chunk_start
-from .stream_gates import wait_for_stream_gates
 from .stream_lifecycle import ChunkPumpResult
+from .stream_pump import ChunkPumpFlavour, run_chunk_pump
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +91,123 @@ def _recovery_position(
     return emitted_chunk_start(chunk_idx)
 
 
-async def _await_lookahead(task: "asyncio.Task[Any]") -> Any:
-    """Await the armed look-ahead chunk; None if the client disconnected."""
-    try:
-        return await task
-    except ConnectionError:
-        return None
+class _EnhancedFlavour(ChunkPumpFlavour):
+    """DSP with look-ahead processing; a seek trims its first chunk."""
+
+    def __init__(
+        self,
+        controller: '_asc.AudioStreamController',
+        websocket: WebSocket,
+        *,
+        track_id: int,
+        processor: Any,
+        start_chunk_idx: int,
+        seek_offset: float,
+        effective_position: float | None,
+        error_code: str,
+        label: str,
+        on_progress: Callable[[int, float, str], Any] | None,
+    ) -> None:
+        self.controller = controller
+        self.websocket = websocket
+        self.track_id = track_id
+        self.processor = processor
+        self.start_chunk_idx = start_chunk_idx
+        self.seek_offset = seek_offset
+        self.effective_position = effective_position
+        self.label = label
+        self.on_progress = on_progress
+        self.error_kwargs: dict[str, Any] = {"error_code": error_code}
+
+    def should_stop(self) -> bool:
+        # Stop streaming if enhancement was toggled off mid-stream (#2866).
+        enabled = self.controller._get_enhancement_enabled
+        if enabled and not enabled():
+            logger.info(f"Enhancement disabled mid-stream, stopping {self.label} for track {self.track_id}")
+            return True
+        return False
+
+    async def produce(self, chunk_idx: int) -> np.ndarray | None:
+        pcm_samples, _sr = await self.controller._process_chunk_only(chunk_idx, self.processor, self.websocket)
+        # Trim the first chunk to the exact seek position. Only ever produced here: the look-ahead
+        # is primed after the first chunk.
+        if chunk_idx == self.start_chunk_idx and self.seek_offset > 0:
+            trim_samples = round(self.seek_offset * self.processor.sample_rate)
+            pcm_samples = pcm_samples[trim_samples:]
+            logger.debug(
+                f"Seek trim: removed {trim_samples} samples ({self.seek_offset:.2f}s) from chunk {chunk_idx}"
+            )
+        return pcm_samples
+
+    def lookahead(self, chunk_idx: int) -> Coroutine[Any, Any, Any]:
+        return self.controller._process_chunk_only(chunk_idx, self.processor, self.websocket)
+
+    async def take_lookahead(self, task: 'asyncio.Task[Any]', chunk_idx: int) -> np.ndarray | None:
+        try:
+            chunk: tuple[np.ndarray, int] = await task
+        except ConnectionError:
+            return None
+        return chunk[0]
+
+    async def send(self, chunk: np.ndarray, chunk_idx: int) -> bool:
+        return await self.controller._stream_processed_chunk(chunk, chunk_idx, self.processor, self.websocket)
+
+    def recovery_position(self, chunk_idx: int) -> float:
+        return _recovery_position(chunk_idx, self.start_chunk_idx, self.effective_position)
+
+    async def on_delivered(self, chunk_idx: int) -> None:
+        if self.on_progress:
+            chunks_remaining = self.processor.total_chunks - self.start_chunk_idx
+            chunks_done = chunk_idx - self.start_chunk_idx + 1
+            progress = (chunks_done / chunks_remaining) * 100
+            await self.on_progress(self.track_id, progress, f"Processed chunk {chunk_idx + 1}")
+
+    async def on_chunk_error(self, exc: Exception, chunk_idx: int, result: ChunkPumpResult) -> bool:
+        if isinstance(exc, ConnectionError):
+            result.stopped_early = True  # the client disconnected: a clean exit
+            return False
+        if isinstance(exc, TimeoutError):
+            await self._abort_on_dsp_timeout(chunk_idx, result)
+            return False
+        logger.error(f"Failed to process chunk {chunk_idx}: {exc}", exc_info=exc)
+        await self.controller._send_error(
+            self.websocket,
+            self.track_id,
+            f"Failed to process audio chunk {chunk_idx}",
+            recovery_position=self.recovery_position(chunk_idx),
+            stream_continues=True,
+            **self.error_kwargs,
+        )
+        # Skip the failed chunk and continue (#3190), recorded so the end frame does not claim
+        # reason="completed" over a stream with gaps (#4790).
+        result.failed_chunks.append(chunk_idx)
+        return True
+
+    async def _abort_on_dsp_timeout(self, chunk_idx: int, result: ChunkPumpResult) -> None:
+        """End the stream on a chunk DSP timeout instead of skipping the chunk (#4999/#5074).
+
+        asyncio.wait_for gave up on the wrapper future (stream_chunk_ops.CHUNK_PROCESS_TIMEOUT), but
+        the OS thread may still be inside processor.process_chunk_safe(), holding the processor's
+        RLock for however long the hung DSP call takes. The #3190 skip-and-continue would make the
+        next chunk block on that lock, time out in turn, and cascade every remaining chunk into a
+        serial pileup; this stream's processor (like #4727's pooled HybridProcessor) must not be
+        touched again.
+        """
+        logger.error(
+            f"Chunk {chunk_idx} DSP timed out for track {self.track_id}; "
+            f"ending {self.label} rather than reusing a processor an "
+            f"orphaned thread may still be running inside"
+        )
+        await self.controller._send_error(
+            self.websocket,
+            self.track_id,
+            f"Audio processing timed out on chunk {chunk_idx}; stream stopped",
+            recovery_position=self.recovery_position(chunk_idx),
+            **self.error_kwargs,
+        )
+        # A server-side abort, not a client-driven stop: a failed chunk, so the end frame says
+        # "errored" like the normal pump's read-timeout abort (#4790, #5995).
+        result.failed_chunks.append(chunk_idx)
 
 
 async def pump_chunks(
@@ -123,175 +234,19 @@ async def pump_chunks(
     Returns what was delivered; raising is reserved for failures the handler's
     own except-clauses are responsible for.
     """
-    stopped_early = False
-    failed_chunks: list[int] = []
-    delivered_samples = 0
-    lookahead_task: asyncio.Task[Any] | None = None
-
-    try:
-        for chunk_idx in range(start_chunk_idx, processor.total_chunks):
-            # Stop streaming if enhancement was toggled off mid-stream (fixes #2866).
-            if controller._get_enhancement_enabled and not controller._get_enhancement_enabled():
-                logger.info(
-                    f"Enhancement disabled mid-stream, stopping {label} for track {track_id}"
-                )
-                await controller._drain_cancelled_task(lookahead_task)
-                lookahead_task = None
-                stopped_early = True
-                break
-
-            # Honour pause/resume (#2106) and flow control (frontend buffer full).
-            await wait_for_stream_gates(websocket)
-
-            if not controller._is_websocket_connected(websocket):
-                logger.info(f"WebSocket disconnected, stopping {label}")
-                await controller._drain_cancelled_task(lookahead_task)
-                lookahead_task = None
-                stopped_early = True
-                break
-
-            try:
-                # Get processed chunk: from look-ahead task or process now
-                if lookahead_task is not None:
-                    chunk = await _await_lookahead(lookahead_task)
-                else:
-                    chunk = await controller._process_chunk_only(chunk_idx, processor, websocket)
-                if chunk is None:
-                    # Client disconnected during look-ahead processing. The
-                    # finished task stays in its slot for the finally's drain.
-                    stopped_early = True
-                    break
-                pcm_samples, _sr = chunk
-                lookahead_task = None
-
-                # Trim the first chunk to the exact seek position
-                if chunk_idx == start_chunk_idx and seek_offset > 0:
-                    trim_samples = round(seek_offset * processor.sample_rate)
-                    pcm_samples = pcm_samples[trim_samples:]
-                    logger.debug(
-                        f"Seek trim: removed {trim_samples} samples "
-                        f"({seek_offset:.2f}s) from chunk {chunk_idx}"
-                    )
-
-                # Start look-ahead: process next chunk while we stream current one
-                if chunk_idx + 1 < processor.total_chunks:
-                    lookahead_task = asyncio.create_task(
-                        controller._process_chunk_only(chunk_idx + 1, processor, websocket)
-                    )
-
-                # Stream current chunk
-                delivered = await controller._stream_processed_chunk(
-                    pcm_samples, chunk_idx, processor, websocket
-                )
-                if not delivered:
-                    await controller._drain_cancelled_task(lookahead_task)
-                    lookahead_task = None
-                    await controller._send_error(
-                        websocket,
-                        track_id,
-                        f"Failed to send audio chunk {chunk_idx}",
-                        recovery_position=_recovery_position(
-                            chunk_idx, start_chunk_idx, effective_position
-                        ),
-                        error_code=error_code,
-                    )
-                    stopped_early = True
-                    break
-                delivered_samples += int(pcm_samples.shape[0])
-
-                # Progress update
-                if on_progress:
-                    chunks_remaining = processor.total_chunks - start_chunk_idx
-                    chunks_done = chunk_idx - start_chunk_idx + 1
-                    progress = (chunks_done / chunks_remaining) * 100
-                    await on_progress(track_id, progress, f"Processed chunk {chunk_idx + 1}")
-
-                # Pre-fetch was disabled in #3513 / BE-NEW-55: it populated a
-                # per-stream cache (system.py creates one fresh per
-                # play_enhanced) that nothing else reads. Re-enable once the
-                # cache manager is hoisted to a process-wide singleton.
-
-            except ConnectionError:
-                # Client disconnected — clean exit
-                await controller._drain_cancelled_task(lookahead_task)
-                lookahead_task = None
-                stopped_early = True
-                break
-
-            except TimeoutError:
-                # #4999/#5074: a chunk DSP timeout (stream_chunk_ops.CHUNK_PROCESS_TIMEOUT)
-                # means asyncio.wait_for gave up on the wrapper future, but the
-                # underlying OS thread may still be running inside
-                # processor.process_chunk_safe() — holding `processor`'s
-                # threading.RLock (_processor_lock) for however long the hung
-                # DSP call takes, unbounded. Unlike a plain processing error
-                # (#3190's skip-and-continue), the #3190 recovery path is unsafe
-                # here: the NEXT chunk's process_chunk_safe() call would block
-                # trying to acquire that same still-held lock, itself time out
-                # 30s later, and so on — cascading every remaining chunk into a
-                # serial pileup of timeouts instead of one clean failure.
-                # `processor` (this stream's ChunkedAudioProcessor, analogous to
-                # #4727's pooled HybridProcessor) must never be touched again —
-                # end the stream rather than continuing to reuse it.
-                await controller._drain_cancelled_task(lookahead_task)
-                lookahead_task = None
-                logger.error(
-                    f"Chunk {chunk_idx} DSP timed out for track {track_id}; "
-                    f"ending {label} rather than reusing a processor an "
-                    f"orphaned thread may still be running inside"
-                )
-                await controller._send_error(
-                    websocket,
-                    track_id,
-                    f"Audio processing timed out on chunk {chunk_idx}; stream stopped",
-                    recovery_position=_recovery_position(
-                        chunk_idx, start_chunk_idx, effective_position
-                    ),
-                    error_code=error_code,
-                )
-                # A server-side abort, not a client-driven stop: recorded as a
-                # failed chunk so the end frame says "errored", like the normal
-                # pump's read-timeout abort ("stopped" is reserved for clean
-                # client exits, #4790, #5995).
-                failed_chunks.append(chunk_idx)
-                break
-
-            except Exception as chunk_error:
-                # Cancel look-ahead task on error AND drain it so the
-                # CancelledError that would otherwise be raised by the
-                # next iteration's `await lookahead_task` doesn't escape
-                # `except Exception` and kill the stream (fixes #3493 /
-                # the #3190 recovery loop).
-                await controller._drain_cancelled_task(lookahead_task)
-                lookahead_task = None
-                logger.error(
-                    f"Failed to process chunk {chunk_idx}: {chunk_error}",
-                    exc_info=True
-                )
-                await controller._send_error(
-                    websocket,
-                    track_id,
-                    f"Failed to process audio chunk {chunk_idx}",
-                    recovery_position=_recovery_position(
-                        chunk_idx, start_chunk_idx, effective_position
-                    ),
-                    error_code=error_code,
-                    stream_continues=True,
-                )
-                # Skip failed chunk and continue with remaining chunks (#3190).
-                # Recorded so the terminal message doesn't claim reason="completed"
-                # over a stream with gaps (#4790).
-                failed_chunks.append(chunk_idx)
-                continue
-
-    finally:
-        # Drain any in-flight look-ahead task (#3493). Owned here rather than
-        # in the handler's finally: the task cannot outlive this function, so
-        # this is the narrowest scope that still covers every exit path.
-        await controller._drain_cancelled_task(lookahead_task)
-
-    return ChunkPumpResult(
-        stopped_early=stopped_early,
-        failed_chunks=failed_chunks,
-        delivered_samples=delivered_samples,
+    flavour = _EnhancedFlavour(
+        controller,
+        websocket,
+        track_id=track_id,
+        processor=processor,
+        start_chunk_idx=start_chunk_idx,
+        seek_offset=seek_offset,
+        effective_position=effective_position,
+        error_code=error_code,
+        label=label,
+        on_progress=on_progress,
+    )
+    return await run_chunk_pump(
+        controller, websocket, flavour,
+        track_id=track_id, start_chunk=start_chunk_idx, total_chunks=processor.total_chunks,
     )

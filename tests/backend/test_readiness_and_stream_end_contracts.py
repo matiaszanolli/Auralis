@@ -389,12 +389,14 @@ class TestStreamEndReason:
             )
             assert "delivered_samples" in source, f"{name} does not count delivered audio"
 
-        pumps = ("stream_normal_chunks.py", "stream_enhanced_chunks.py")
-        for name in pumps:
+        # #6627: both pumps run the one loop in stream_pump.py, which owns the bookkeeping.
+        for name in ("stream_normal_chunks.py", "stream_enhanced_chunks.py"):
             source = (_BACKEND / "core" / name).read_text()
-            assert "stopped_early" in source, f"{name} does not track early exit"
-            assert "delivered_samples" in source, f"{name} does not count delivered audio"
-            assert "if not delivered:" in source, f"{name} ignores failed chunk sends"
+            assert "run_chunk_pump(" in source, f"{name} does not run the shared pump loop"
+        loop_source = (_BACKEND / "core" / "stream_pump.py").read_text()
+        assert "stopped_early" in loop_source, "the pump loop does not track early exit"
+        assert "delivered_samples" in loop_source, "the pump loop does not count delivered audio"
+        assert "if not await flavour.send(" in loop_source, "the pump loop ignores failed chunk sends"
 
         import re
 
