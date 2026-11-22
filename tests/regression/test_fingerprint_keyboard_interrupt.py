@@ -1,106 +1,47 @@
 """
-Regression: AudioFingerprintAnalyzer KeyboardInterrupt handling (#2514, #2668, #3701)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Regression: Ctrl-C propagates out of AudioFingerprintAnalyzer.analyze() (#2514)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The fix avoids using ThreadPoolExecutor as a context manager (whose __exit__
-calls shutdown(wait=True) and blocks indefinitely on KeyboardInterrupt).
+#2514, #2668 and #3701 hardened a ThreadPoolExecutor that ran the Python
+sub-analyzers in parallel, so a KeyboardInterrupt neither blocked on shutdown
+nor left futures writing into the result. Since #13 Stage 3 (871356f75) the
+whole fingerprint is one in-process Rust call, compute_fingerprint_schema():
+no executor, no futures, and close() is a no-op. The tests that pinned that
+machinery asserted code that no longer exists.
 
-Since #3701 the executor is also long-lived (one pool per analyzer instance,
-reused across analyze() calls), so the KeyboardInterrupt handler must NOT
-shut it down — it cancels queued-but-unstarted futures and waits for the
-in-flight ones to finish before re-raising, so they cannot mutate the
-fingerprint dict after analyze() returns.
-
-A future refactor could easily reintroduce the `with` pattern or drop the
-wait/cancel discipline, so we pin the behaviour with both a structural
-check and a functional test.
+What still holds is the point of #2514: an interrupt reaches the caller as
+itself. analyze() converts every Exception into FingerprintUnavailable (#6107);
+KeyboardInterrupt is a BaseException and must not be converted, or a Ctrl-C
+during a scan would read as "fingerprint unavailable" and the scan would go on.
 """
 
-import inspect
-import textwrap
 from unittest.mock import patch
 
 import numpy as np
 import pytest
 
+from auralis.analysis.fingerprint import audio_fingerprint_analyzer as module
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
+    FingerprintUnavailable,
 )
+from auralis.analysis.fingerprint.windows import FINGERPRINT_SAMPLE_RATE
+
+
+def _one_second_stereo() -> np.ndarray:
+    return np.random.default_rng(0).standard_normal((FINGERPRINT_SAMPLE_RATE, 2)).astype(np.float32) * 0.1
 
 
 @pytest.mark.regression
-class TestFingerprintKeyboardInterrupt:
-    """Regression tests for KeyboardInterrupt handling in parallel fingerprint analysis."""
+def test_keyboard_interrupt_in_the_engine_reaches_the_caller_as_itself():
+    with patch.object(module, "compute_fingerprint_schema", side_effect=KeyboardInterrupt):
+        with pytest.raises(KeyboardInterrupt):
+            AudioFingerprintAnalyzer().analyze(_one_second_stereo(), FINGERPRINT_SAMPLE_RATE)
 
-    # ── Structural checks ──────────────────────────────────────────────
 
-    def test_executor_not_used_as_context_manager(self):
-        """
-        ThreadPoolExecutor must NOT be used via `with` in analyze().
-        A `with` block would call __exit__ → shutdown(wait=True) which
-        blocks on KeyboardInterrupt (#2514).
-        """
-        import ast
-        source = inspect.getsource(AudioFingerprintAnalyzer.analyze)
-        # Dedent so ast.parse works on extracted method source
-        tree = ast.parse(textwrap.dedent(source))
-
-        for node in ast.walk(tree):
-            if isinstance(node, ast.With):
-                for item in node.items:
-                    ctx = item.context_expr
-                    # Check for `with ThreadPoolExecutor(...)` usage
-                    name = ""
-                    if isinstance(ctx, ast.Call) and isinstance(ctx.func, ast.Name):
-                        name = ctx.func.id
-                    elif isinstance(ctx, ast.Call) and isinstance(ctx.func, ast.Attribute):
-                        name = ctx.func.attr
-                    assert name != "ThreadPoolExecutor", (
-                        "ThreadPoolExecutor must not be used as a context manager "
-                        "in analyze() — its __exit__ blocks on KeyboardInterrupt (#2514)"
-                    )
-
-    def test_keyboard_interrupt_handler_cancels_and_waits(self):
-        """
-        The KeyboardInterrupt handler must cancel queued futures and wait for
-        in-flight ones — never tear the shared executor down (#3701) and
-        never let a running future write to fingerprint after re-raise.
-        """
-        source = inspect.getsource(AudioFingerprintAnalyzer.analyze)
-        # Must drop queued futures explicitly (no more shutdown(cancel_futures=True))
-        assert "f.cancel()" in source, (
-            "KeyboardInterrupt handler must call f.cancel() on each submitted "
-            "future to drop queued tasks (#3701)"
-        )
-        # Must block on in-flight futures so they cannot write partial results
-        # to the fingerprint dict after analyze() returns (#2514).
-        assert "wait(futures)" in source, (
-            "KeyboardInterrupt handler must wait(futures) for in-flight tasks "
-            "before re-raising (#2514, #3701)"
-        )
-        # Must NOT shut down the long-lived executor here.
-        assert "executor.shutdown" not in source, (
-            "analyze() must not shut down the shared executor — close() does "
-            "that explicitly (#3701)"
-        )
-
-    # ── Functional check ───────────────────────────────────────────────
-
-    def test_keyboard_interrupt_propagates_and_shuts_down_executor(self):
-        """
-        When a submitted task raises KeyboardInterrupt, the exception must
-        propagate out of analyze() and the executor must be shut down cleanly.
-        """
-        analyzer = AudioFingerprintAnalyzer()
-        sr = 44100
-        audio = np.random.default_rng(0).standard_normal((sr, 2)).astype(np.float32)
-
-        def raise_keyboard_interrupt(*args, **kwargs):
-            raise KeyboardInterrupt
-
-        # Patch one of the parallel analyzers to raise KeyboardInterrupt
-        with patch.object(
-            analyzer.temporal_analyzer, "analyze", side_effect=raise_keyboard_interrupt
-        ):
-            with pytest.raises(KeyboardInterrupt):
-                analyzer.analyze(audio, sr)
+@pytest.mark.regression
+def test_an_engine_error_is_still_reported_as_fingerprint_unavailable():
+    """The contrast that makes the test above meaningful: ordinary errors are converted."""
+    with patch.object(module, "compute_fingerprint_schema", side_effect=RuntimeError("engine")):
+        with pytest.raises(FingerprintUnavailable, match="engine"):
+            AudioFingerprintAnalyzer().analyze(_one_second_stereo(), FINGERPRINT_SAMPLE_RATE)
