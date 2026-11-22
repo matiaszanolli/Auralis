@@ -104,6 +104,9 @@ export default defineConfig(({ mode }) => {
       // auralis/version.py by sync_version.py) instead of a hard-coded
       // string (#6253).
       __APP_VERSION__: appVersionDefineValue(path.resolve(__dirname, 'package.json')),
+      // The dev WebSocket fallback in src/config/api.ts follows the same AURALIS_PORT as the
+      // proxy targets below, so moving the backend moves both (#6645).
+      'import.meta.env.VITE_BACKEND_PORT': JSON.stringify(backendPort),
     },
     server: {
       port: 3000,

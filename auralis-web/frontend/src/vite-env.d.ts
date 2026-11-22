@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string
   /** Overrides WS_BASE_URL in config/api.ts (#4468). */
   readonly VITE_WS_URL?: string
+  /** The backend port in dev, from AURALIS_PORT via vite.config.mts's define (#6645). */
+  readonly VITE_BACKEND_PORT?: string
 }
 
 interface ImportMeta {

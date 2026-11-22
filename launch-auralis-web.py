@@ -24,6 +24,10 @@ DESKTOP = ROOT / "desktop"
 VITE = FRONTEND / "node_modules" / "vite" / "bin" / "vite.js"
 ELECTRON = DESKTOP / "node_modules" / "electron" / "cli.js"
 FRONTEND_PORT = 3000
+# Mirrors the backend's default (auralis-web/backend/config/origins.py BACKEND_PORT); the launcher
+# runs before the backend's import path exists. tests/backend/test_backend_port_defaults_6645.py
+# keeps every copy equal.
+BACKEND_PORT = 8765
 STARTUP_TIMEOUT = 45
 SHUTDOWN_TIMEOUT = 40
 
@@ -51,7 +55,7 @@ def spawn(command: list[str], cwd: Path, env: dict[str, str]) -> subprocess.Pope
 
 
 def start_backend(
-    port: int = 8765,
+    port: int = BACKEND_PORT,
     dev_mode: bool = False,
     launch_id: str | None = None,
     frontend_port: int = FRONTEND_PORT,
@@ -247,7 +251,7 @@ def run(args: argparse.Namespace) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Launch Auralis")
     parser.add_argument(
-        "--port", type=int, default=8765, help="Backend port (default: 8765)"
+        "--port", type=int, default=BACKEND_PORT, help=f"Backend port (default: {BACKEND_PORT})"
     )
     parser.add_argument(
         "--frontend-port",

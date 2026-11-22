@@ -40,7 +40,9 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 export const WS_BASE_URL =
   import.meta.env.VITE_WS_URL ??
   wsBaseFromApiBase(import.meta.env.VITE_API_URL) ??
-  (import.meta.env.DEV ? 'ws://localhost:8765' : sameOriginWsBase(window.location));
+  (import.meta.env.DEV
+    ? `ws://localhost:${import.meta.env.VITE_BACKEND_PORT ?? '8765'}`
+    : sameOriginWsBase(window.location));
 
 /**
  * Upper bound for a library-scan request, in ms — deliberately NOT the shared
