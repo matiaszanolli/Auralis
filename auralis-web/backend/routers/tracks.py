@@ -6,7 +6,7 @@ Track-domain endpoints: listing, pagination, favorites, and lyrics.
 
 Endpoints:
 - GET  /api/library/tracks              - Paginated track listing with search
-- GET  /api/library/tracks/favorites    - Paginated favorites listing
+- GET  /api/library/tracks/favorites    - Paginated favorites listing with search
 - GET  /api/library/tracks/{track_id}   - Single track by ID
 - POST /api/library/tracks/{track_id}/favorite   - Mark as favorite
 - DELETE /api/library/tracks/{track_id}/favorite - Remove from favorites
@@ -64,8 +64,7 @@ async def get_tracks(
     limit: int = limit_query(),
     offset: int = offset_query(),
     search: str | None = None,
-    # #2727: Literal type makes FastAPI reject unknown values with
-    # 422 at the route layer instead of silently coercing to 'title'.
+    # #2727: a Literal, so an unknown value is a 422, not a silent fallback to 'title'.
     order_by: Literal[
         'title', 'created_at', 'play_count',
         'duration', 'year', 'last_played'
@@ -86,10 +85,11 @@ async def get_tracks(
 async def get_favorite_tracks(
     limit: int = limit_query(),
     offset: int = offset_query(),
+    search: str | None = None,
     repos: Any = Depends(_repo_deps.get_repos),
 ) -> dict[str, Any]:
-    """Get all favorite tracks with pagination."""
-    tracks, total = await asyncio.to_thread(repos.tracks.get_favorites, limit=limit, offset=offset)
+    """Favourite tracks with pagination, narrowed by ``search`` like GET /api/library/tracks (#6565)."""
+    tracks, total = await asyncio.to_thread(repos.tracks.get_favorites, limit=limit, offset=offset, search=search)
     return paginated("tracks", serialize_tracks(tracks), total, offset, limit)
 
 

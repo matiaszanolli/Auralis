@@ -12,7 +12,7 @@ recent/popular/favorites/all listings, and simple similarity lookups.
 
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 
 from ..models import Album, Artist, Genre, Track
 from .base import BaseRepository, sort_terms
@@ -33,7 +33,8 @@ class TrackRepositorySearchMixin(BaseRepository):
     """Search, filter, and browse tracks."""
 
     def search(
-        self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title', order: str | None = None
+        self, query: str, limit: int = 50, offset: int = 0, order_by: str = 'title', order: str | None = None,
+        favorites_only: bool = False,
     ) -> tuple[list[Track], int]:
         """
         Search tracks by title, artist, album, or genre
@@ -44,6 +45,7 @@ class TrackRepositorySearchMixin(BaseRepository):
             offset: Number of results to skip (for pagination)
             order_by: Column name to order by ('title', 'created_at', 'play_count', etc.)
             order: 'asc' (default) or 'desc'
+            favorites_only: Search only the favourites (#6565), with the same text match
 
         Returns:
             Tuple of (matching tracks, total count)
@@ -56,6 +58,8 @@ class TrackRepositorySearchMixin(BaseRepository):
                 contains_text(Artist.name, query),
                 contains_text(Album.title, query),
             )
+            if favorites_only:
+                search_filter = and_(search_filter, Track.favorite == True)
 
             # Get total count
             total = session.execute(
@@ -86,16 +90,22 @@ class TrackRepositorySearchMixin(BaseRepository):
                 session.expunge(track)
             return list(results), total
 
-    def get_favorites(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
-        """Get favorite tracks with relationships loaded
+    def get_favorites(
+        self, limit: int = 50, offset: int = 0, search: str | None = None
+    ) -> tuple[list[Track], int]:
+        """Get favorite tracks with relationships loaded, title order
 
         Args:
             limit: Maximum number of tracks to return
             offset: Number of tracks to skip (for pagination)
+            search: Narrow to favourites matching this text, exactly as search()
+                matches the whole library (#6565); the total counts the matches
 
         Returns:
             Tuple of (track list, total count)
         """
+        if search:
+            return self.search(search, limit=limit, offset=offset, favorites_only=True)
         with self._session_scope() as session:
             # Get total count
             total = session.execute(
