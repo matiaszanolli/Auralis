@@ -25,14 +25,11 @@ Test Categories:
 import os
 
 # Add auralis to path
-import sys
 import tempfile
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis'))
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.config import UnifiedConfig

@@ -25,13 +25,10 @@ Test Categories:
 import os
 
 # Add auralis to path
-import sys
 import tempfile
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis'))
 
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -493,14 +490,12 @@ def test_search_wildcard_characters(track_repo):
         'channels': 2
     })
 
-    # Search for literal wildcards
-    result_percent = track_repo.search('100%', limit=100, offset=0)
-    result_underscore = track_repo.search('A_B', limit=100, offset=0)
+    # search() escapes LIKE wildcards (#5406), so each matches only its literal title.
+    results_percent, _ = track_repo.search('100%', limit=100, offset=0)
+    results_underscore, _ = track_repo.search('A_B', limit=100, offset=0)
 
-    # Should handle wildcards (either literal or pattern matching)
-    if isinstance(result_percent, tuple):
-        results_percent, _ = result_percent
-        assert isinstance(results_percent, list)
+    assert [t.title for t in results_percent] == ['100% Pure']
+    assert [t.title for t in results_underscore] == ['A_B_C']
 
 
 @pytest.mark.boundary

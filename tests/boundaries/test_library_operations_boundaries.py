@@ -25,16 +25,13 @@ Test Categories:
 import os
 
 # Add auralis to path
-import sys
 import tempfile
-from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis'))
 
 from auralis.library.models import Album, Artist, Base, Track
 from auralis.library.repositories import (
@@ -273,7 +270,7 @@ def test_delete_with_foreign_key_references(track_repo, temp_db):
     """
     # Add track with artist
     track_info = create_test_track(0)
-    track = track_repo.add(track_info)
+    assert track_repo.add(track_info) is not None
 
     # Get artist
     session = temp_db()
