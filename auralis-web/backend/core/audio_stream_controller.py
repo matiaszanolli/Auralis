@@ -152,7 +152,7 @@ class AudioStreamController:
 
     Streams processed audio chunks as PCM samples to frontend for playback.
     Handles fast-start optimization (first chunk processed quickly),
-    crossfading at boundaries, caching for performance, and error recovery.
+    non-overlapping chunk segments (no boundary crossfade, #4642), caching, and error recovery.
 
     All streaming logic lives in the stream_* submodules (see module
     docstring); this class wires them to per-instance state.

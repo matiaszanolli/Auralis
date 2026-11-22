@@ -5,8 +5,8 @@ Enhanced Audio Streaming
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The stream_enhanced_audio entry point: streams DSP-processed (mastered)
-audio chunks to a client via WebSocket, with look-ahead processing,
-chunk-boundary crossfading, and per-chunk error recovery.
+audio chunks to a client via WebSocket, with look-ahead processing and
+per-chunk error recovery. Emitted chunks tile with no boundary crossfade (#4642).
 
 Extracted from audio_stream_controller.py (#4071).
 

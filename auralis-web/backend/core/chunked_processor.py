@@ -202,7 +202,7 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
 
     @property
     def chunk_duration(self) -> float:
-        """Get chunk duration in seconds for crossfade calculations"""
+        """Chunk duration in seconds (the render window; emitted segments do not overlap)."""
         return CHUNK_DURATION
 
     def _validate_chunk_index(self, chunk_index: int) -> None:

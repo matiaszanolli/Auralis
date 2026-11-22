@@ -1,9 +1,9 @@
 """
-Chunk Boundary Manager
-~~~~~~~~~~~~~~~~~~~~~~
+Chunk Geometry
+~~~~~~~~~~~~~~
 
-Manages chunk boundaries and context windows for audio processing.
-Centralizes chunk calculation logic to prevent duplication and ensure consistency.
+The chunk-geometry constants and the pure functions over them: chunk counts, emitted starts and
+lengths, seek plans. The stateful ChunkBoundaryManager lives in chunk_boundary_manager.py.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -74,10 +74,10 @@ def emitted_chunk_start(chunk_index: int) -> float:
     """Source time of the FIRST sample chunk ``chunk_index`` actually emits.
 
     Not the same as the chunk's *core* start (``chunk_index * CHUNK_INTERVAL``),
-    which is what ``get_chunk_boundaries`` returns. The former ChunkOperations module
-    (split in #6270 into chunk_file_loading / chunk_segment_extraction).
-    extract_chunk_segment`` skips ``OVERLAP_DURATION`` from the head of every
-    chunk ``>= 1`` because the previous chunk already emitted that audio, so:
+    which is what ``ChunkBoundaryManager.get_chunk_boundaries`` returns.
+    ``chunk_segment_extraction.extract_chunk_segment`` skips ``OVERLAP_DURATION``
+    from the head of every chunk ``>= 1`` because the previous chunk already
+    emitted that audio, so:
 
         chunk 0 emits [0, 15)      — CHUNK_DURATION, nothing skipped
         chunk 1 emits [15, 25)     — 1*10 + 5

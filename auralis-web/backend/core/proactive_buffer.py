@@ -1,7 +1,7 @@
 """
 Proactive Buffering
 
-Buffers the first 3 chunks (45 seconds) of the one remaining preset when a
+Buffers the first 3 chunks (35 seconds: 15 + 10 + 10) of the one remaining preset when a
 track loads, so the first playback and any toggle back to enhanced start from a
 warm cache.
 """
@@ -23,7 +23,7 @@ _CHUNK_YIELD_S = 0.1  # pause between buffered chunks so buffering does not satu
 # to avoid this streaming-core module depending on the REST schemas module.
 # Narrowed to a single preset (#4861 follow-up), so there is no per-preset loop.
 BUFFER_PRESET = "adaptive"
-PRELOAD_CHUNKS = 3  # Buffer first 45 seconds (3 x 15s chunks)
+PRELOAD_CHUNKS = 3  # The first 35 s: chunk 0 emits 15 s, each later chunk 10 s
 
 
 async def _buffer_chunk(

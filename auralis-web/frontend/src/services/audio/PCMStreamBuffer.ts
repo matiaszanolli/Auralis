@@ -33,7 +33,7 @@ export interface BufferMetadata {
  * - Circular write/read pointers with wrap-around
  * - Thread-safe (single-threaded via event loop)
  *
- * No boundary crossfade (#4642): ChunkOperations.extract_chunk_segment trims
+ * No boundary crossfade (#4642): backend chunk_segment_extraction.extract_chunk_segment trims
  * every processed chunk to its non-overlapping CHUNK_INTERVAL segment before
  * it reaches the streaming layer, so adjacent chunks share no samples and
  * there is nothing to blend — do not add boundary crossfade here or a

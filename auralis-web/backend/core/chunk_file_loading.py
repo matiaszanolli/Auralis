@@ -46,8 +46,8 @@ def load_chunk_from_file(
     Consolidates logic from:
     - chunked_processor.load_chunk()
 
-    Chunks after the first include OVERLAP_DURATION at the start for crossfading.
-    This ensures no audio is lost during crossfade concatenation.
+    Chunks after the first include OVERLAP_DURATION at the start; extract_chunk_segment skips it,
+    since the previous chunk already emitted it, so segments tile with no crossfade (#4642).
 
     Args:
         filepath: Path to audio file
