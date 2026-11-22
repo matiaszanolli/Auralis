@@ -50,7 +50,7 @@ def test_limiter_does_not_mutate_its_input():
     np.testing.assert_array_equal(x, before)
 
 
-def test_limiter_peak_working_memory_stays_near_three_buffers():
+def test_limiter_peak_working_memory_stays_near_two_buffers():
     x = 1.5 * np.random.default_rng(7).standard_normal((SR * 20, 2))
     limiter = create_brick_wall_limiter(SR, threshold_db=-0.3)
     limiter.process(x[:SR])  # warm any lazy state outside the measurement
@@ -64,6 +64,7 @@ def test_limiter_peak_working_memory_stays_near_three_buffers():
         tracemalloc.stop()
 
     assert out.shape == x.shape
-    # Output (1x) plus |x| (1x) plus a few mono gain arrays: ~3.0x measured.
-    # The pre-#6717 code peaked at ~5.6x.
-    assert peak <= 3.5 * x.nbytes, f"limiter peaked at {peak / x.nbytes:.2f}x its input"
+    # Mono gain arrays, then the output: ~2.1x measured. The pre-#6717 code,
+    # with two padded |x| copies, peaked at ~5.6x.
+    assert peak <= 2.5 * x.nbytes, f"limiter peaked at {peak / x.nbytes:.2f}x its input"
+

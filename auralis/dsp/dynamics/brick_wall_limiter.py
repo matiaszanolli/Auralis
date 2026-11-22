@@ -119,15 +119,14 @@ class BrickWallLimiter:
         #
         # New approach: O(n) sliding-window maximum via scipy.ndimage.
         #
-        # Per-sample max |audio| across channels, then zero-padded so the filter
-        # sees zeros beyond the end of the block (matching the original
-        # zero-padding behaviour). Taking the channel max before padding keeps
-        # the full-size temporaries to one |audio| (#6717); the values are the
-        # same as max(|pad(audio)|). #3658: the pad shares audio.dtype so
-        # float32 input stays float32.
-        per_sample_max = np.concatenate(
-            [np.abs(audio).max(axis=1), np.zeros(self.lookahead_samples, dtype=audio.dtype)]
-        )  # shape: (num_samples + lookahead,)
+        # Per-sample max |audio| across channels, zero-padded so the filter sees
+        # zeros beyond the end of the block. Built a channel at a time into the
+        # padded buffer, so no full-size |audio| exists (#6717); max is exact,
+        # so the values equal max(|pad(audio)|). #3658: audio.dtype throughout.
+        per_sample_max = np.zeros(num_samples + self.lookahead_samples, dtype=audio.dtype)
+        np.abs(audio[:, 0], out=per_sample_max[:num_samples])
+        for ch in range(1, num_channels):
+            np.maximum(per_sample_max[:num_samples], np.abs(audio[:, ch]), out=per_sample_max[:num_samples])
 
         # maximum_filter1d origin convention (#5562): a POSITIVE origin shifts
         # the window toward EARLIER samples (a post-peak hold), a NEGATIVE one
@@ -148,7 +147,7 @@ class BrickWallLimiter:
         gain_where_over = np.maximum(peak_envelope, 1e-10)
         np.divide(self.threshold_linear, gain_where_over, out=gain_where_over)
         target_gains = np.where(peak_envelope > self.threshold_linear, gain_where_over, 1.0)
-        del gain_where_over
+        del gain_where_over, peak_envelope
 
         # Ramp the reduction in over the look-ahead (#5699), then build the
         # exponential-release gain envelope.
@@ -158,7 +157,9 @@ class BrickWallLimiter:
             self.lookahead_samples,
             self.threshold_linear,
         )
+        del per_sample_max  # dead from here; freed before the envelope and output (#6717)
         gain_curve = self._release_envelope(target_gains, audio.dtype)
+        del target_gains
 
         # Apply gain curve to audio
         output: np.ndarray = audio * gain_curve.reshape(-1, 1)

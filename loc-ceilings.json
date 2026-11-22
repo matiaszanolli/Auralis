@@ -154,6 +154,7 @@
     "auralis/core/recording_type_detector.py": 298,
     "auralis/core/recording_type_parameters.py": 223,
     "auralis/core/simple_mastering.py": 286,
+    "auralis/dsp/dynamics/brick_wall_limiter.py": 291,
     "auralis/dsp/eq/psychoacoustic_eq.py": 139,
     "auralis/dsp/eq/spectrum_gains.py": 104,
     "auralis/io/loaders/ffmpeg_command.py": 111,
