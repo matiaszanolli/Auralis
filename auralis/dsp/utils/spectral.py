@@ -13,14 +13,15 @@ from scipy.signal.windows import hann
 
 from ..constants import DEFAULT_FFT_SIZE
 from .audio_info import to_mono
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 # The time-anchored analysis window/hop shared by onset analysis, the ML
 # feature extractor and phase-correlation analysis (#6228): 1024/512
 # samples at the 44.1kHz reference rate, held in TIME so the resolution
 # doesn't drift with sample rate (#4308). Retuning the analysis window
 # means changing these two definitions, not copying the ratio.
-ANALYSIS_WINDOW_S: float = 1024 / 44100
-ANALYSIS_HOP_S: float = 512 / 44100
+ANALYSIS_WINDOW_S: float = 1024 / DEFAULT_SAMPLE_RATE
+ANALYSIS_HOP_S: float = 512 / DEFAULT_SAMPLE_RATE
 
 
 def frames_for_seconds(sample_rate: int, seconds: float, *, power_of_two: bool = True) -> int:

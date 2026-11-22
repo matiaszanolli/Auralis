@@ -1,3 +1,4 @@
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 """
 Auralis Player Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -16,7 +17,7 @@ class PlayerConfig:
 
     def __init__(
         self,
-        sample_rate: int = 44100,
+        sample_rate: int = DEFAULT_SAMPLE_RATE,
         # #5421: matches the only production construction site
         # (auralis-web/backend/config/startup/components.py, which now
         # constructs PlayerConfig() bare — #6227) — the previous 4410

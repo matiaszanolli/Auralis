@@ -22,11 +22,12 @@ from .critical_bands import (
 )
 from .filters import apply_eq_gains
 from .spectrum_gains import SpectrumGainsMixin
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 @dataclass
 class EQSettings:
     """Psychoacoustic EQ settings"""
-    sample_rate: int = 44100
+    sample_rate: int = DEFAULT_SAMPLE_RATE
     # Shadow default eliminated (#6229): reads the same canonical constant
     # as UnifiedConfig.fft_size, which the pipeline passes explicitly
     # (hybrid_setup); a bare construction can no longer disagree with it.

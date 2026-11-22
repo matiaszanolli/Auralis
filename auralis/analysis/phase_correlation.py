@@ -12,6 +12,7 @@ from scipy import signal
 
 from ..dsp.utils.spectral import ANALYSIS_WINDOW_S, frames_for_seconds
 from .fingerprint.metrics import MetricUtils, SafeOperations
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 _HILBERT_MAX_SECONDS = 30
 
@@ -19,7 +20,7 @@ _HILBERT_MAX_SECONDS = 30
 class PhaseCorrelationAnalyzer:
     """Stereo phase correlation and spatial analysis"""
 
-    def __init__(self, sample_rate: int = 44100, analysis_window: float = 0.1):
+    def __init__(self, sample_rate: int = DEFAULT_SAMPLE_RATE, analysis_window: float = 0.1):
         self.sample_rate = sample_rate
         self.analysis_window = analysis_window
         self.window_samples = int(analysis_window * sample_rate)

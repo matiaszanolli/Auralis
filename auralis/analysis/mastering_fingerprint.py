@@ -32,6 +32,7 @@ from .fingerprint.windows import FINGERPRINT_BODY_WINDOW_S, stereo_window
 
 from .fingerprint.metrics import AudioMetrics
 from ..io.formats import FFMPEG_FORMATS
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 @dataclass
@@ -81,7 +82,7 @@ class MasteringFingerprint:
     Indicates how widely distributed the frequency content is."""
 
     @classmethod
-    def from_audio_file(cls, file_path: str, sr: int = 44100) -> MasteringFingerprint | None:
+    def from_audio_file(cls, file_path: str, sr: int = DEFAULT_SAMPLE_RATE) -> MasteringFingerprint | None:
         """
         Extract fingerprint from an audio file.
 

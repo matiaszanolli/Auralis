@@ -19,6 +19,7 @@ from scipy.ndimage import maximum_filter1d
 
 from ..utils.loudness_targets import LIMITER_LOOKAHEAD_MS, LIMITER_RELEASE_MS
 from .limiter_ramp import ramp_gain_reduction
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 @dataclass
@@ -28,7 +29,7 @@ class BrickWallLimiterSettings:
     threshold_db: float = -0.5      # Ceiling level (typically -0.1 to -1.0 dBFS)
     lookahead_ms: float = LIMITER_LOOKAHEAD_MS  # Look-ahead for peak detection (1-5ms typical)
     release_ms: float = LIMITER_RELEASE_MS  # Release time for the gain-reduction envelope
-    sample_rate: int = 44100
+    sample_rate: int = DEFAULT_SAMPLE_RATE
 
 
 class BrickWallLimiter:

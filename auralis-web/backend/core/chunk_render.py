@@ -30,6 +30,7 @@ from core.audio_processing_pipeline import AudioProcessingPipeline
 from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL, silence_fallback
 from core.chunk_file_loading import load_chunk_from_file
 from core.chunk_segment_extraction import extract_chunk_segment
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 if TYPE_CHECKING:
     from core.chunked_processor import ChunkedAudioProcessor
@@ -93,7 +94,7 @@ def smooth_level_transition(
         chunk=chunk,
         chunk_index=chunk_index,
         apply_adjustment=True,
-        sample_rate=processor.sample_rate or 44100,
+        sample_rate=processor.sample_rate or DEFAULT_SAMPLE_RATE,
     )
 
     if was_adjusted:

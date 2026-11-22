@@ -22,6 +22,7 @@ from .dynamic_assessment import DynamicRangeAssessor
 from .frequency_assessment import FrequencyResponseAssessor
 from .loudness_assessment import LoudnessAssessor
 from .stereo_assessment import StereoImagingAssessor
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 @dataclass
@@ -48,7 +49,7 @@ class QualityMetrics:
 
     def __init__(
         self,
-        sample_rate: int = 44100,
+        sample_rate: int = DEFAULT_SAMPLE_RATE,
         *,
         loudness_optimal_range: tuple[float, float] = (-16.0, -14.0),
         loudness_acceptable_range: tuple[float, float] = (-20.0, -10.0),

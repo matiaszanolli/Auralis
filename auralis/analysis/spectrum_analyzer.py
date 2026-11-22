@@ -21,6 +21,7 @@ import numpy as np
 from ..dsp.constants import DEFAULT_FFT_SIZE
 from .fingerprint.metrics import AggregationUtils
 from .spectrum_operations import SpectrumOperations
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 @dataclass
@@ -31,7 +32,7 @@ class SpectrumSettings:
     fft_size: int = DEFAULT_FFT_SIZE
     window_type: str = 'hann'
     overlap: float = 0.75
-    sample_rate: int = 44100
+    sample_rate: int = DEFAULT_SAMPLE_RATE
     frequency_bands: int = 64
     frequency_weighting: str = 'A'  # 'A', 'C', or 'Z' (none)
     smoothing_factor: float = 0.8

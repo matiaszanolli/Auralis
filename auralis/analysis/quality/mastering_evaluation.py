@@ -11,6 +11,7 @@ from .mastering_evaluation_models import (
     MasteringEvaluationReport,
 )
 from .quality_metrics import QualityMetrics, QualityScores
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 class MasteringEvaluator:
@@ -18,7 +19,7 @@ class MasteringEvaluator:
 
     def __init__(
         self,
-        sample_rate: int = 44100,
+        sample_rate: int = DEFAULT_SAMPLE_RATE,
         quality_metrics: QualityMetrics | None = None,
     ) -> None:
         self.sample_rate = sample_rate

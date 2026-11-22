@@ -17,10 +17,7 @@ from ...utils.logging import debug
 from .feature_extractor import FeatureExtractor
 from .features import AudioFeatures
 from .genre_weights import initialize_genre_weights
-
-# Rate the default extractor is built for — the historical fixed rate and
-# still the fallback when classify() gets no explicit rate.
-DEFAULT_CLASSIFIER_SAMPLE_RATE = 44100
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 class RuleBasedGenreClassifier:
@@ -38,7 +35,7 @@ class RuleBasedGenreClassifier:
         # Hz-based feature when the pipeline runs at another rate. Extractors
         # are immutable after construction, so cached ones can be shared.
         self._feature_extractors: dict[int, FeatureExtractor] = {}
-        self.feature_extractor = self._extractor_for(DEFAULT_CLASSIFIER_SAMPLE_RATE)
+        self.feature_extractor = self._extractor_for(DEFAULT_SAMPLE_RATE)
         self.genres = [
             "classical", "rock", "electronic", "jazz", "pop",
             "hip_hop", "acoustic", "ambient", "metal", "country"

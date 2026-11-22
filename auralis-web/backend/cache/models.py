@@ -16,6 +16,7 @@ from typing import NamedTuple
 
 from core.chunk_boundaries import CHUNK_DURATION
 from core.intensity_key import intensity_cache_key
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 # Configuration
 #
@@ -28,7 +29,7 @@ from core.intensity_key import intensity_cache_key
 # real ~2.5 MB PCM_16 chunk size at the nominal 44.1kHz stereo baseline,
 # letting actual disk usage run well past the documented tier budgets before
 # the size-based eviction check believed it was over budget (fixes #4238).
-_NOMINAL_SAMPLE_RATE = 44100
+_NOMINAL_SAMPLE_RATE = DEFAULT_SAMPLE_RATE
 _NOMINAL_CHANNELS = 2
 _PCM16_BYTES_PER_SAMPLE = 2
 CHUNK_SIZE_MB = (

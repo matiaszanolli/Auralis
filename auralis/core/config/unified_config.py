@@ -28,6 +28,7 @@ from .settings import AdaptiveConfig, GenreProfile
 # The vocabulary lives in settings.py (#6218); re-exported here because
 # set_processing_mode()'s error message and validators read it.
 from .settings import PROCESSING_MODES, ProcessingMode  # noqa: F401 (re-export)
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 class UnifiedConfig:
@@ -38,7 +39,7 @@ class UnifiedConfig:
     def __init__(
         self,
         # Core audio settings
-        internal_sample_rate: int = 44100,
+        internal_sample_rate: int = DEFAULT_SAMPLE_RATE,
         fft_size: int = DEFAULT_FFT_SIZE,
 
         # New adaptive settings
@@ -49,7 +50,7 @@ class UnifiedConfig:
         # Real raises, not asserts: -O strips an assert (#6126).
         if not isinstance(internal_sample_rate, int) or isinstance(internal_sample_rate, bool) or internal_sample_rate <= 0:
             raise ValueError(f"internal_sample_rate must be a positive integer, got {internal_sample_rate!r}")
-        if internal_sample_rate != 44100:
+        if internal_sample_rate != DEFAULT_SAMPLE_RATE:
             debug(f"Using non-standard sample rate {internal_sample_rate}Hz")
         self.internal_sample_rate = internal_sample_rate
 

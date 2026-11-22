@@ -14,6 +14,7 @@ import numpy as np
 from .loudness_filters import KWeightingMixin
 from .loudness_range import LoudnessRangeTracker
 from .loudness_true_peak import true_peak_linear
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 @dataclass
@@ -32,10 +33,9 @@ class LUFSMeasurement:
 class LoudnessMeter(KWeightingMixin):
     """ITU-R BS.1770-4 compliant loudness meter"""
 
-    def __init__(self, sample_rate: int = 44100):
+    def __init__(self, sample_rate: int = DEFAULT_SAMPLE_RATE):
         self.sample_rate = sample_rate
 
-        # Initialize filters
         self._init_k_weighting_filter()
 
         # Measurement parameters

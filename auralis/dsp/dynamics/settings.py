@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ..utils.loudness_targets import DEFAULT_TARGET_LUFS
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 # Bound pairs shared by more than one field below. Promoted to named
 # constants (#5022) after two pairs were independently re-typed as identical
@@ -62,7 +63,7 @@ class CompressorSettings:
 class DynamicsSettings:
     """Complete dynamics processing settings"""
     mode: DynamicsMode = DynamicsMode.ADAPTIVE
-    sample_rate: int = 44100
+    sample_rate: int = DEFAULT_SAMPLE_RATE
 
     # Processing chain configuration
     enable_gate: bool = True

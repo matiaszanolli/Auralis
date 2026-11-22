@@ -22,12 +22,13 @@ from ...utils.logging import debug
 from .genre_classification import GenreClassificationMixin
 from ...dsp.utils.audio_info import to_mono
 from ...dsp.utils.conversion import level_stats
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 class ContentAnalyzer(GenreClassificationMixin):
     """Enhanced content analysis for adaptive processing with ML genre classification"""
 
-    def __init__(self, sample_rate: int = 44100, use_ml_classification: bool = True,
+    def __init__(self, sample_rate: int = DEFAULT_SAMPLE_RATE, use_ml_classification: bool = True,
                  use_fingerprint_analysis: bool = True, use_tempo_detection: bool = True):
         """
         Initialize content analyzer

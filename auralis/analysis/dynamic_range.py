@@ -11,14 +11,14 @@ from auralis.analysis.fingerprint.metrics import AudioMetrics
 from ..dsp.utils.conversion import amplitude_to_db, peak_db
 from .dynamic_range_dr_value import DRValueMixin
 from .dynamic_range_dynamics import DynamicsMetricsMixin
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 class DynamicRangeAnalyzer(DynamicsMetricsMixin, DRValueMixin):
     """Comprehensive dynamic range analysis"""
 
-    def __init__(self, sample_rate: int = 44100):
+    def __init__(self, sample_rate: int = DEFAULT_SAMPLE_RATE):
         self.sample_rate = sample_rate
 
-        # Analysis parameters
         self.rms_window_size = int(0.05 * sample_rate)  # 50ms RMS window
 
         # Crest factor analysis

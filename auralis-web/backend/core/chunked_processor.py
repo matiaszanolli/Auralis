@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 # Ensure both project root and backend are in path
 backend_path = str(Path(__file__).parent.parent)   # core/ → backend/
@@ -119,7 +120,7 @@ class ChunkedAudioProcessor(StreamProcessorLeaseMixin):
         # #4666: MUST precede build_collaborators() — the chunk cache identity
         # (memory key and WAV filename) hashes these targets.
         # `or 44100` only narrows `int | None`; metadata is already loaded.
-        sample_rate_valid: int = self.sample_rate or 44100
+        sample_rate_valid: int = self.sample_rate or DEFAULT_SAMPLE_RATE
         (
             self.fingerprint,
             self.mastering_targets,

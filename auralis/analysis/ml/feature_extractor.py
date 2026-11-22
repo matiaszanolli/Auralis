@@ -27,6 +27,7 @@ from ...dsp.utils.audio_info import to_mono
 
 from .feature_extractor_mfcc import _extract_mfcc, _extract_chroma, _extract_tonnetz
 from .feature_extractor_temporal import TemporalFeaturesMixin
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 class FeatureExtractor(TemporalFeaturesMixin):
@@ -50,7 +51,7 @@ class FeatureExtractor(TemporalFeaturesMixin):
     SPECTRAL_FRAMES: int = 16
     AC_FRAMES: int = 8
 
-    def __init__(self, sample_rate: int = 44100):
+    def __init__(self, sample_rate: int = DEFAULT_SAMPLE_RATE):
         """
         Initialize feature extractor
 

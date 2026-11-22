@@ -26,6 +26,7 @@ from .level_constants import (
     _clamp_gain_db,
 )
 from .level_peak_guard import peak_safe_gain_db
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class LevelTransitionMixin:
         chunk: np.ndarray,
         chunk_index: int,
         apply_adjustment: bool = True,
-        sample_rate: int = 44100,
+        sample_rate: int = DEFAULT_SAMPLE_RATE,
     ) -> tuple[np.ndarray, float, bool]:
         """
         Smooth level transitions between chunks.

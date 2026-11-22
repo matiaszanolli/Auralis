@@ -19,6 +19,7 @@ import numpy as np
 from ..io.loader import load
 from ..utils.logging import error, info
 from .lock_held_hooks import lock_held_hook
+from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
 
 class AudioFileManager:
@@ -29,7 +30,7 @@ class AudioFileManager:
     Only handles file I/O and audio data storage.
     """
 
-    def __init__(self, sample_rate: int = 44100):
+    def __init__(self, sample_rate: int = DEFAULT_SAMPLE_RATE):
         self.sample_rate = sample_rate
 
         # Guards audio_data against concurrent read (playback thread) / write
