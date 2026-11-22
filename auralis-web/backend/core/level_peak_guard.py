@@ -13,9 +13,10 @@ stays at or under the limiter ceiling.
 """
 
 import numpy as np
+from auralis.dsp.utils.conversion import db_to_amplitude
 
 # The brick-wall limiter's ceiling, -0.3 dBFS.
-PEAK_CEILING = 10 ** (-0.3 / 20)
+PEAK_CEILING = db_to_amplitude(-0.3)
 
 
 def peak_safe_gain_db(gain_db: float, chunk: np.ndarray, ceiling: float = PEAK_CEILING) -> float:

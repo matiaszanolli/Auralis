@@ -17,6 +17,7 @@ from ...utils.logging import debug, info
 from ..config import PlayerConfig
 from .gain_smoother import AdaptiveGainSmoother
 from .peak_ceiling import StreamingPeakCeiling
+from auralis.dsp.basic import rms
 
 
 class RealtimeLevelMatcher:
@@ -59,7 +60,7 @@ class RealtimeLevelMatcher:
         """Set reference audio for level matching"""
         # The RMS is O(len(reference)); measure it before taking the lock the audio
         # thread's process() waits on (#6084).
-        reference_rms = None if reference is None else np.sqrt(np.mean(reference ** 2))
+        reference_rms = None if reference is None else rms(reference)
         with self._lock:
             if reference_rms is None:
                 self.reference_rms = None
@@ -112,7 +113,7 @@ class RealtimeLevelMatcher:
                 return audio
 
             # Calculate current RMS
-            current_rms = np.sqrt(np.mean(audio ** 2))
+            current_rms = rms(audio)
 
             if current_rms == 0 or not np.isfinite(current_rms):
                 return audio  # silence, or a corrupt buffer: no gain decision (#6299)

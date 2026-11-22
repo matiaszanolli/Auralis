@@ -22,6 +22,7 @@ from ...utils.logging import debug, info, warning
 from ...core.utils.fingerprint_unpacker import FingerprintUnpacker
 from ..config import PlayerConfig
 from .peak_ceiling import StreamingPeakCeiling
+from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 
 
 class AutoMasterProcessor:
@@ -198,15 +199,15 @@ class AutoMasterProcessor:
         # 0.8×) could not prevent clipping when peaks were already near 0 dBFS.
         processed_peak = np.max(np.abs(processed))
         if processed_peak > 0 and makeup_gain_db > 0:
-            max_safe_gain_db = 20 * np.log10(0.98 / processed_peak)
+            max_safe_gain_db = amplitude_to_db(0.98 / processed_peak)
             if makeup_gain_db > max_safe_gain_db:
                 debug(f"Capped gain {makeup_gain_db:.1f} → {max(max_safe_gain_db, 0.0):.1f} dB "
-                      f"(headroom protection, peak {20*np.log10(processed_peak):.1f} dBFS)")
+                      f"(headroom protection, peak {amplitude_to_db(processed_peak):.1f} dBFS)")
                 makeup_gain_db = max(max_safe_gain_db, 0.0)
 
         # Apply makeup gain in linear scale
         if makeup_gain_db != 0:
-            gain_linear = 10 ** (makeup_gain_db / 20.0)
+            gain_linear = db_to_amplitude(makeup_gain_db)
             processed *= gain_linear
 
         # Optional: Apply low-mid transient enhancement for quiet, dynamic material
@@ -245,8 +246,8 @@ class AutoMasterProcessor:
             target_peak = self.adaptive_params['target_peak']
             current_peak = np.max(np.abs(processed))
             if current_peak > target_peak:
-                debug(f"Adaptive peak ceiling: {20*np.log10(current_peak):.1f} → "
-                      f"{20*np.log10(target_peak):.1f} dBFS")
+                debug(f"Adaptive peak ceiling: {amplitude_to_db(current_peak):.1f} → "
+                      f"{amplitude_to_db(target_peak):.1f} dBFS")
             processed = self.peak_ceiling.apply(processed, target_peak)
 
         return processed

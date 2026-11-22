@@ -9,7 +9,7 @@ Prevents audible volume jumps during chunk transitions.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db_array
+from auralis.dsp.utils.conversion import amplitude_to_db_array, db_to_amplitude
 import logging
 from collections import deque
 from typing import cast
@@ -18,6 +18,7 @@ import numpy as np
 
 from .level_constants import LEVEL_HISTORY_MAXLEN, LEVEL_SMOOTHING_GATE_DB, MAX_LEVEL_CHANGE_DB
 from .level_transition import LevelTransitionMixin
+from auralis.dsp.basic import rms
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +90,7 @@ class LevelManager(LevelTransitionMixin):
             logger.warning("RMS calculation received non-finite audio; using last known level")
             return self.current_rms if self.current_rms is not None else LEVEL_SMOOTHING_GATE_DB
 
-        rms = np.sqrt(np.mean(audio ** 2))
-        rms_db = float(amplitude_to_db_array(rms))  # #6230: AMPLITUDE_EPS guard
+        rms_db = float(amplitude_to_db_array(rms(audio)))  # #6230: AMPLITUDE_EPS guard
 
         return float(rms_db)
 
@@ -110,5 +110,5 @@ class LevelManager(LevelTransitionMixin):
 
         # Type the scalar to the input so float32 stays float32 (#3831 sibling —
         # `audio * pyfloat` would promote to float64).
-        gain_linear = audio.dtype.type(10 ** (gain_db / 20))
+        gain_linear = audio.dtype.type(db_to_amplitude(gain_db))
         return cast(np.ndarray, audio * gain_linear)

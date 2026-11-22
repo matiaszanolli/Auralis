@@ -27,6 +27,7 @@ from .level_constants import (
 )
 from .level_peak_guard import peak_safe_gain_db
 from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
+from auralis.dsp.utils.conversion import db_to_amplitude
 
 logger = logging.getLogger(__name__)
 
@@ -140,14 +141,13 @@ class LevelTransitionMixin:
             # Clamped as a last-resort safety net (#4729), and a boost is capped to the chunk's headroom (#5558).
             required_adjustment_db = peak_safe_gain_db(_clamp_gain_db(target_diff - level_diff_db), chunk)
 
-            # Convert dB to linear gain, typed to the chunk so float32 stays
-            # float32 (#3831 — avoids the float64 promotion of `chunk * pyfloat`).
-            new_gain = float(10 ** (required_adjustment_db / 20))
+            # A Python-float gain, so the float32 chunk stays float32 (#3831).
+            new_gain = db_to_amplitude(required_adjustment_db)
             # Ramp from the gain the previous chunk ended at, so the boundary is
             # continuous instead of stepping by the full adjustment (#3831).
             # Clamped (#4729) in case history already holds an unclamped legacy value.
             prev_gain_db = _clamp_gain_db(self.gain_history[-1] if self.gain_history else 0.0)
-            prev_gain = float(10 ** (prev_gain_db / 20))
+            prev_gain = db_to_amplitude(prev_gain_db)
 
             env = self._gain_envelope(
                 n_samples=len(chunk),
@@ -194,7 +194,7 @@ class LevelTransitionMixin:
             # Clamped (#4729) in case history already holds an unclamped legacy value.
             prev_gain_db = _clamp_gain_db(self.gain_history[-1] if self.gain_history else 0.0)
             if apply_adjustment and prev_gain_db != 0.0:
-                prev_gain = float(10 ** (prev_gain_db / 20))
+                prev_gain = db_to_amplitude(prev_gain_db)
                 env = self._gain_envelope(
                     n_samples=len(chunk),
                     prev_gain=prev_gain,
