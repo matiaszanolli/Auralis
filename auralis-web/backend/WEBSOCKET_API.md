@@ -350,7 +350,7 @@ Sent once at the beginning of every stream (including seeks/resumes).
     "intensity": number,       // 0.0 – 1.0
     "sample_rate": number,     // e.g. 44100
     "channels": number,        // 1 (mono) or 2 (stereo)
-    "total_chunks": number,    // Total 15-second chunks in the stream (10s new-content interval, 5s crossfade overlap)
+    "total_chunks": number,    // Chunks in the stream: chunk 0 carries 15 s, each later one 10 s of new audio; they tile with no crossfade (#4642)
     "chunk_duration": number,  // Seconds per chunk (15.0 — see backend/core/chunk_boundaries.py CHUNK_DURATION, the source of truth)
     "total_duration": number,  // Track duration in seconds
     "stream_type"?: "enhanced" | "normal",
@@ -406,7 +406,9 @@ Sent as a **text JSON frame** immediately before each binary PCM frame. The clie
 ---
 
 #### `audio_stream_end`
-Sent once when all chunks have been streamed.
+Sent once when a stream ends, however it ends (`core/stream_lifecycle.py::send_stream_end`).
+`reason` says how: only `"completed"` means the track played to its end, so only it should
+trigger auto-advance (#4659, #4790).
 
 **Payload**:
 ```typescript
@@ -416,7 +418,12 @@ Sent once when all chunks have been streamed.
     "track_id": number,
     "total_samples": number,  // Total float32 samples sent across the entire stream
     "duration": number,       // Actual streamed duration in seconds
-    "stream_type"?: "enhanced" | "normal"
+    "stream_type"?: "enhanced" | "normal",
+    "reason": "completed" | "stopped" | "errored",
+                              // completed: the chunk loop ran to the end
+                              // stopped:   a clean client-driven exit (disconnect, new stream)
+                              // errored:   the stream ended early or with failed chunks
+    "stream_epoch"?: number   // The stream it ends; a stale epoch is ignored (#5861)
   }
 }
 ```
@@ -447,7 +454,10 @@ Sent when the backend encounters an unrecoverable streaming error.
 }
 ```
 
-**Common error codes**: `STREAMING_ERROR`, `TRACK_NOT_FOUND`, `DSP_ERROR`, `ENCODING_ERROR`.
+**Error codes**: `STREAMING_ERROR` (the default), `SEEK_ERROR` (a seek stream failed),
+`ENHANCEMENT_DISABLED` (an enhanced play while enhancement is off), `PROCESSOR_UNAVAILABLE`
+(the DSP processor could not be built). The client also raises `DESYNC` itself when a chunk's
+`seq` skips (see the desync note above).
 
 ---
 
