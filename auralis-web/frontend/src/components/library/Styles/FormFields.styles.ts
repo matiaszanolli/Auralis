@@ -34,7 +34,7 @@ export const StyledTextField = styled(TextField)({
  * Used in search bars and search interfaces
  * Features: transparent background, simple underline, minimal styling
  */
-export const SearchTextField = styled(TextField)(({ theme: _theme }) => ({
+export const SearchTextField = styled(TextField)({
   '& .MuiOutlinedInput-root': {
     height: tokens.components.searchBar.height,
     borderRadius: 0,
@@ -76,6 +76,6 @@ export const SearchTextField = styled(TextField)(({ theme: _theme }) => ({
     color: themeVars.textMuted,
     opacity: 0.6,
   },
-}));
+});
 
 export default StyledTextField;

@@ -40,7 +40,6 @@ export interface ContextMenuProps {
   actions: ContextMenuAction[];
   // Playlist integration (optional, for tracks with playlist support)
   trackId?: number | null;
-  trackTitle?: string;
   playlists?: playlistService.Playlist[];
   isLoadingPlaylists?: boolean;
   onPlaylistsLoad?: () => void;
@@ -54,7 +53,6 @@ export const ContextMenu = ({
   onClose,
   actions,
   trackId,
-  trackTitle: _trackTitle,
   playlists = [],
   isLoadingPlaylists = false,
   onPlaylistsLoad,

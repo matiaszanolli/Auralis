@@ -20,7 +20,6 @@ import { buildFatalInitHtml } from '@/components/core/fatalInitScreen';
     ]);
 
     // Now safe to import components that use styled(Paper) etc
-    const { ThemeProvider: _ThemeProvider } = await import('@mui/material/styles');
     const { default: CssBaseline } = await import('@mui/material/CssBaseline');
     const { Global } = await import('@emotion/react');
     const { globalStyles } = await import('./styles/globalStyles');

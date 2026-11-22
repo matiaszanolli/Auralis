@@ -79,7 +79,6 @@ const BatchActionsToolbar = ({
     moreMenuAnchor,
     handleMoreMenuOpen,
     handleMoreMenuClose,
-    handleAction: _handleAction,
   } = useBatchActionsMenu();
 
   const [playlistMenuAnchor, setPlaylistMenuAnchor] = useState<HTMLElement | null>(null);

@@ -232,7 +232,6 @@ export const MediaCard = memo(function MediaCard(props: MediaCardProps) {
       <MediaCardArtwork
         artworkUrl={props.artworkUrl}
         fallbackText={metadata.fallbackText}
-        variant={props.variant}
         fingerprint={props.fingerprint}
       >
         <MediaCardOverlay

@@ -52,7 +52,7 @@ export const GradientButton = styled(Button)({
  * CancelButton - Secondary button with glass hover effect (Design Language v1.2.0)
  * Used in dialog action bars
  */
-export const CancelButton = styled(Button)(({ theme: _theme }) => ({
+export const CancelButton = styled(Button)({
   color: themeVars.textSecondary,
   textTransform: 'none',
   borderRadius: tokens.borderRadius.md,                   // 12px - softer, more organic
@@ -65,14 +65,14 @@ export const CancelButton = styled(Button)(({ theme: _theme }) => ({
   },
 
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
-}));
+});
 
 /**
  * SaveButton - Primary action button with aurora gradient (Design Language v1.2.0)
  * Used in dialogs and forms for saving/submitting data
  * Glass effect on hover for elevated aesthetic
  */
-export const SaveButton = styled(Button)(({ theme: _theme }) => ({
+export const SaveButton = styled(Button)({
   background: tokens.gradients.aurora,
   // See GradientButton: fixed gradient fill, so onAccent rather than textPrimary.
   color: themeVars.onAccent,
@@ -98,4 +98,4 @@ export const SaveButton = styled(Button)(({ theme: _theme }) => ({
   },
 
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
-}));
+});

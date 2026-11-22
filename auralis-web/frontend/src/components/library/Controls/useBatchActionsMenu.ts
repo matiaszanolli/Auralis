@@ -17,15 +17,9 @@ export const useBatchActionsMenu = () => {
     setMoreMenuAnchor(null);
   };
 
-  const handleAction = (action: () => void) => {
-    action();
-    handleMoreMenuClose();
-  };
-
   return {
     moreMenuAnchor,
     handleMoreMenuOpen,
     handleMoreMenuClose,
-    handleAction,
   };
 };

@@ -66,7 +66,7 @@ export interface SegmentedControlProps<T extends string = string> {
   'aria-label'?: string;
 }
 
-const ControlContainer = styled('div')<{ size: 'sm' | 'md' }>(({ size: _size }) => ({
+const ControlContainer = styled('div')({
   display: 'inline-flex',
   alignItems: 'center',
   // Subtle glass container
@@ -76,7 +76,7 @@ const ControlContainer = styled('div')<{ size: 'sm' | 'md' }>(({ size: _size }) 
   border: `1px solid ${themeVars.borderSubtle}`,
   padding: tokens.spacing.xxs,
   gap: tokens.spacing.xxs,
-}));
+});
 
 const SegmentButton = styled('button')<{
   isSelected: boolean;
@@ -149,7 +149,7 @@ export const SegmentedControl = <T extends string>({
   'aria-label': ariaLabel,
 }: SegmentedControlProps<T>) => {
   return (
-    <ControlContainer size={size} className={className} role="group" aria-label={ariaLabel}>
+    <ControlContainer className={className} role="group" aria-label={ariaLabel}>
       {options.map((option) => (
         <SegmentButton
           key={option.value}

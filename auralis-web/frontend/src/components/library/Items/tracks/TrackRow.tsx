@@ -196,7 +196,6 @@ const TrackRowComponent = ({
         actions={contextActions}
         // Playlist support
         trackId={track.id}
-        trackTitle={track.title}
         playlists={playlists}
         isLoadingPlaylists={isLoadingPlaylists}
         // Stable (useCallback []) on purpose: the menu re-runs its load effect

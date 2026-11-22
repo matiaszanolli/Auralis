@@ -69,7 +69,7 @@ export interface PlaylistSectionProps {
 
 export const PlaylistSection = ({
   playlists,
-  isLoadingPlaylists: _isLoadingPlaylists,
+  isLoadingPlaylists,
   onAddToPlaylist,
   onCreateNewPlaylist,
 }: PlaylistSectionProps) => {
@@ -82,6 +82,12 @@ export const PlaylistSection = ({
         </ListItemIcon>
         <ListItemText>Add to Playlist</ListItemText>
       </MenuItem>
+
+      {isLoadingPlaylists && playlists.length === 0 && (
+        <MenuItem disabled aria-busy="true">
+          <ListItemText>Loading playlists…</ListItemText>
+        </MenuItem>
+      )}
 
       {playlists.length > 0 && (
         <>

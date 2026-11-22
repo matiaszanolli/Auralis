@@ -18,7 +18,6 @@ interface AlbumArtProps {
   size?: number | string;
   borderRadius?: number | string;
   onClick?: () => void;
-  showSkeleton?: boolean;
   style?: CSSProperties;
 }
 
@@ -90,7 +89,6 @@ export const AlbumArt = ({
   size = 160,
   borderRadius = 8,
   onClick,
-  showSkeleton: _showSkeleton = true,
   style,
 }: AlbumArtProps) => {
   // Subscribe to artwork_updated WS messages for cache-busting (#2867)

@@ -30,7 +30,6 @@ const baseProps = {
   anchorPosition: { top: 10, left: 10 },
   onClose: vi.fn(),
   trackId: 1,
-  trackTitle: 'Track',
   playlists: [] as never[],
   onAddToPlaylist: vi.fn(),
   onCreatePlaylist: vi.fn(),

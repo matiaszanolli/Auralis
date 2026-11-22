@@ -9,7 +9,7 @@ import { IconButton } from '@/design-system';
 import { Paper, Typography, styled } from '@mui/material';
 import { themeVars } from '@/theme/semanticTheme';
 
-export const ToolbarContainer = styled(Paper)(({ theme: _theme }) => ({
+export const ToolbarContainer = styled(Paper)({
   position: 'fixed',
   top: '80px',
   left: '50%',
@@ -38,28 +38,28 @@ export const ToolbarContainer = styled(Paper)(({ theme: _theme }) => ({
       transform: 'translate(-50%, 0)',
     },
   },
-}));
+});
 
-export const SelectionCount = styled(Typography)(({ theme: _theme }) => ({
+export const SelectionCount = styled(Typography)({
   color: themeVars.textPrimary,
   fontWeight: tokens.typography.fontWeight.bold,
   fontSize: tokens.typography.fontSize.md,
   minWidth: '140px',
-}));
+});
 
-export const ActionButton = styled(IconButton)(({ theme: _theme }) => ({
+export const ActionButton = styled(IconButton)({
   color: themeVars.textPrimary,
   backgroundColor: tokens.colors.opacityScale.accent.light,
   '&:hover': {
     backgroundColor: tokens.colors.opacityScale.accent.standard,
   },
   transition: tokens.transitions.hover_out,
-}));
+});
 
-export const CloseButton = styled(IconButton)(({ theme: _theme }) => ({
+export const CloseButton = styled(IconButton)({
   color: themeVars.textPrimary,
   marginLeft: 'auto',
   '&:hover': {
     backgroundColor: tokens.colors.opacityScale.accent.light,
   },
-}));
+});

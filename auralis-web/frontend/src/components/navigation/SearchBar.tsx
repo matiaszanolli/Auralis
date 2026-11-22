@@ -2,7 +2,6 @@ import { ChangeEvent, useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { SearchTextField } from '@/components/library/Styles/FormFields.styles';
 import { SearchInputAdornments } from './SearchInputAdornments';
-import { SearchKeyboardHint } from './SearchKeyboardHint';
 import { SEARCH_DEBOUNCE_MS } from '@/config/timing';
 
 interface SearchBarProps {
@@ -88,8 +87,6 @@ export const SearchBar = ({
           },
         }}
       />
-
-      <SearchKeyboardHint show={!internalValue && !autoFocus} />
     </Box>
   );
 };

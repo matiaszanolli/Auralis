@@ -21,7 +21,7 @@ import { themeVars } from '@/theme/semanticTheme';
  * Reduced prominence to avoid drawing excessive attention to placeholder
  * Dimensions: 120x120 with 3rem font size (scaled down from 200x200)
  */
-export const ArtistAvatarCircle = styled(Box)(({ theme: _theme }) => ({
+export const ArtistAvatarCircle = styled(Box)({
   width: 120,
   height: 120,
   borderRadius: radiusCircle,
@@ -35,28 +35,28 @@ export const ArtistAvatarCircle = styled(Box)(({ theme: _theme }) => ({
   boxShadow: 'none', // No glow effect
   border: `1px solid ${tokens.colors.border.light}`, // Subtle border
   opacity: 0.6, // Reduce visual weight
-}));
+});
 
 /**
  * ArtistSearchAvatar - Medium avatar for artist search results
  * Features aurora gradient background with initial letter
  * Dimensions: 40x40
  */
-export const ArtistSearchAvatar = styled(Avatar)(({ theme: _theme }) => ({
+export const ArtistSearchAvatar = styled(Avatar)({
   width: 40,
   height: 40,
   background: tokens.gradients.aurora,
   fontSize: tokens.typography.fontSize.md,
   fontWeight: tokens.typography.fontWeight.bold
-}));
+});
 
 /**
  * DefaultSearchAvatar - Generic avatar for non-artist search results
  * Used for tracks, albums, and other result types
  * Dimensions: 40x40
  */
-export const DefaultSearchAvatar = styled(Avatar)(({ theme: _theme }) => ({
+export const DefaultSearchAvatar = styled(Avatar)({
   width: 40,
   height: 40,
   backgroundColor: tokens.colors.opacityScale.accent.standard
-}));
+});

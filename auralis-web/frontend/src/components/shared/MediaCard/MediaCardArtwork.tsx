@@ -13,7 +13,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
-import { MediaCardVariant } from './MediaCard.types';
 import { fingerprintToGradientSafe, type AudioFingerprint } from '@/utils/fingerprintToGradient';
 
 interface MediaCardArtworkProps {
@@ -21,8 +20,6 @@ interface MediaCardArtworkProps {
   artworkUrl?: string;
   /** Fallback text for placeholder (album or track name) */
   fallbackText: string;
-  /** Card variant (affects placeholder color) */
-  variant: MediaCardVariant;
   /** Audio fingerprint for gradient generation (optional) */
   fingerprint?: Partial<AudioFingerprint>;
   /** Child elements (overlay) */
@@ -78,7 +75,6 @@ const getPlaceholderGradient = (
 export const MediaCardArtwork = ({
   artworkUrl,
   fallbackText,
-  variant: _variant,
   fingerprint,
   children,
 }: MediaCardArtworkProps) => {

@@ -7,7 +7,6 @@ import { useId } from 'react';
 interface LoadingSpinnerProps {
   size?: number;
   thickness?: number;
-  gradient?: string;
   className?: string;
 }
 
@@ -33,7 +32,6 @@ const SpinnerWrapper = styled(Box)({
 export const LoadingSpinner = ({
   size = 40,
   thickness = 4,
-  gradient: _gradient = tokens.gradients.aurora,
   className,
 }: LoadingSpinnerProps) => {
   const uid = useId();

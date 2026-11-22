@@ -15,7 +15,6 @@ export interface SearchResult {
 
 interface GlobalSearchProps {
   onResultClick?: (result: SearchResult) => void;
-  onClose?: () => void;
 }
 
 /**
@@ -33,7 +32,7 @@ interface GlobalSearchProps {
  * - Empty state handling
  * - Keyboard-friendly result selection
  */
-export const GlobalSearch = ({ onResultClick, onClose: _onClose }: GlobalSearchProps) => {
+export const GlobalSearch = ({ onResultClick }: GlobalSearchProps) => {
   const {
     query,
     setQuery,

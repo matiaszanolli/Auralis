@@ -136,7 +136,6 @@ const TrackTableRowItemImpl = ({
       onClose={handleCloseContextMenu}
       actions={contextActions}
       trackId={track.id}
-      trackTitle={track.title}
       playlists={playlists}
       isLoadingPlaylists={isLoadingPlaylists}
       onPlaylistsLoad={fetchPlaylists}

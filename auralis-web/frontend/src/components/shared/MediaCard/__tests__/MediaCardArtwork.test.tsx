@@ -14,14 +14,14 @@ import { MediaCardArtwork } from '@/components/shared/MediaCard/MediaCardArtwork
 describe('MediaCardArtwork onError fallback (#4437)', () => {
   it('renders the <img> when a URL is provided', () => {
     const { getByRole } = render(
-      <MediaCardArtwork artworkUrl="/api/albums/1/artwork" fallbackText="Album" variant="album" />
+      <MediaCardArtwork artworkUrl="/api/albums/1/artwork" fallbackText="Album" />
     );
     expect(getByRole('img')).toBeInTheDocument();
   });
 
   it('falls back to the gradient placeholder after the image fails to load', () => {
     const { getByRole, queryByRole } = render(
-      <MediaCardArtwork artworkUrl="/api/albums/1/artwork" fallbackText="Album" variant="album" />
+      <MediaCardArtwork artworkUrl="/api/albums/1/artwork" fallbackText="Album" />
     );
 
     const img = getByRole('img');
@@ -33,7 +33,7 @@ describe('MediaCardArtwork onError fallback (#4437)', () => {
 
   it('shows no <img> when no URL is provided (gradient placeholder only)', () => {
     const { queryByRole } = render(
-      <MediaCardArtwork fallbackText="Album" variant="album" />
+      <MediaCardArtwork fallbackText="Album" />
     );
     expect(queryByRole('img')).not.toBeInTheDocument();
   });
@@ -43,7 +43,7 @@ describe('MediaCardArtwork onError fallback (#4437)', () => {
     // further 'px' suffix used to emit '16pxpx', which the browser (and the
     // CSS parser below) drops, losing the artwork's top-corner rounding.
     const { getByRole } = render(
-      <MediaCardArtwork artworkUrl="/api/albums/1/artwork" fallbackText="Album" variant="album" />
+      <MediaCardArtwork artworkUrl="/api/albums/1/artwork" fallbackText="Album" />
     );
     const container = getByRole('img').parentElement as HTMLElement;
     expect(getComputedStyle(container).borderRadius).toBe('16px 16px 0 0');

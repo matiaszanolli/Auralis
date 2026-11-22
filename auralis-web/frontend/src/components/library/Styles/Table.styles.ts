@@ -11,7 +11,7 @@ import { tokens } from '@/design-system';
  * StyledTableRow - Interactive table row with hover effects and current track highlighting
  * Used in AlbumDetailView and ArtistDetailView for track listings
  */
-export const StyledTableRow = styled(TableRow)(({ theme: _theme }) => ({
+export const StyledTableRow = styled(TableRow)({
   cursor: 'pointer',
   transition: tokens.transitions.background,
   '&:hover': {
@@ -30,7 +30,7 @@ export const StyledTableRow = styled(TableRow)(({ theme: _theme }) => ({
       fontWeight: tokens.typography.fontWeight.bold
     }
   }
-}));
+});
 
 /**
  * PlayIcon - Icon container that appears on row hover
