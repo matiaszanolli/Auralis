@@ -27,8 +27,8 @@ from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
 from .converted_wav_registry import ConversionKey, acquire_conversion, converted_wavs
-from .job_error_mapping import _safe_error_message
 from .stream_normal_chunks import pump_normal_chunks
+from .stream_permit import acquire_stream_permit, report_stream_failure
 from .stream_track_resolution import resolve_and_validate_track
 from security.path_security import validate_file_path
 
@@ -67,17 +67,7 @@ async def stream_normal_audio(
     if not controller._get_repository_factory:
         raise ValueError("RepositoryFactory not available")
 
-    # Limit concurrent streams to prevent unbounded memory growth (#2185)
-    try:
-        await asyncio.wait_for(
-            controller._stream_semaphore.acquire(),
-            timeout=_asc.STREAM_ACQUIRE_TIMEOUT_SECONDS,
-        )
-    except TimeoutError:
-        logger.warning(
-            f"Stream limit ({_asc.MAX_CONCURRENT_STREAMS}) reached, rejecting track {track_id}"
-        )
-        await controller._send_error(websocket, track_id, "Server busy - too many active streams")
+    if not await acquire_stream_permit(controller, track_id, websocket):
         return
 
     # stopped_early / failed_chunks / delivered_samples now come back from
@@ -96,13 +86,7 @@ async def stream_normal_audio(
     # never just the WAV) lives there, and a failed conversion holds nothing.
     conversion_key: 'ConversionKey | None' = None
 
-    # A single try/finally from here guards the semaphore permit acquired above:
-    # it is released exactly once in the finally at the end. The track lookup
-    # lives INSIDE this try so a task cancellation (CancelledError — a
-    # BaseException that `except Exception` does not catch) during the awaited
-    # get_by_id cannot escape before the permit is released, which would leak a
-    # permit permanently for the process lifetime (#4329).
-    try:
+    try:  # releases the permit; the track lookup is inside it (#4329)
         # Get track from library and validate its filepath (#5032: shared
         # with stream_enhanced.py/stream_seek.py — see stream_track_resolution.py).
         resolved = await resolve_and_validate_track(
@@ -256,14 +240,7 @@ async def stream_normal_audio(
         # Client closed the WebSocket — normal exit (#3511 / BE-NEW-53).
         logger.info("Normal audio streaming stopped: client disconnected")
     except Exception as e:
-        logger.error(f"Normal audio streaming failed: {e}", exc_info=True)
-        # Only try to send error if WebSocket is still connected
-        if controller._is_websocket_connected(websocket):
-            await controller._send_error(
-                websocket, track_id,
-                # #5488: surface the specific category, not a blanket string.
-                _safe_error_message(e, default="Audio streaming failed"),
-            )
+        await report_stream_failure(controller, websocket, track_id, e, failed_log="Normal audio streaming failed")
     finally:
         # The look-ahead drain that used to sit here moved into
         # pump_normal_chunks' own finally (#3493 still holds — the task cannot

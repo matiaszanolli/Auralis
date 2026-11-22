@@ -5,7 +5,7 @@ Enhanced / Seek Stream Lifecycle
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The skeleton `stream_enhanced_audio` and `stream_enhanced_audio_from_position` share (#6214): the
-stream-slot semaphore, the cooperative-cancel registration, track resolution, processor construction
+stream-slot permit (taken and reported through stream_permit.py, shared with the normal stream), the cooperative-cancel registration, track resolution, processor construction
 with a timeout, the error replies, and the teardown (semaphore, temp WAV, cancel-event registry, the
 proactive-buffer task). Each entry point keeps only what differs: its start message, how it picks the
 first chunk, and its logging. Written once because the two copies drifted (#4329, #4815, #5253, #5378).
@@ -25,9 +25,9 @@ from fastapi import WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from . import audio_stream_controller as _asc
-from .job_error_mapping import _safe_error_message
 from .processor_init_handoff import ProcessorInitHandoff
 from .stream_gates import stream_chunk_cancel_events
+from .stream_permit import acquire_stream_permit, report_stream_failure
 from .stream_track_resolution import resolve_and_validate_track
 
 if TYPE_CHECKING:
@@ -79,17 +79,7 @@ async def run_enhanced_stream(
     if not controller._get_repository_factory:
         raise ValueError("RepositoryFactory not available")
 
-    # Limit concurrent streams to prevent unbounded memory growth (#2185)
-    try:
-        await asyncio.wait_for(
-            controller._stream_semaphore.acquire(),
-            timeout=_asc.STREAM_ACQUIRE_TIMEOUT_SECONDS,
-        )
-    except TimeoutError:
-        logger.warning(
-            f"Stream limit ({_asc.MAX_CONCURRENT_STREAMS}) reached, rejecting track {track_id}"
-        )
-        await controller._send_error(websocket, track_id, "Server busy - too many active streams")
+    if not await acquire_stream_permit(controller, track_id, websocket):
         return
 
     # Registered before track lookup and processor construction so _cancel_prior_task can set() it
@@ -99,9 +89,7 @@ async def run_enhanced_stream(
     stream_chunk_cancel_events[_asc.ws_id(websocket)] = stream.chunk_cancel_event
     error_kwargs: dict[str, Any] = {"error_code": flavour.error_code} if flavour.error_code else {}
 
-    # One try/finally guards the semaphore permit acquired above. The track lookup lives INSIDE it so a
-    # CancelledError (a BaseException) during the awaited lookup cannot leak the permit (#4329).
-    try:
+    try:  # releases the permit; the track lookup is inside it (#4329)
         resolved = await resolve_and_validate_track(
             controller, track_id, websocket, validate_file_path=validate_file_path
         )
@@ -136,12 +124,7 @@ async def run_enhanced_stream(
         # Client closed the WebSocket: a normal exit (#3511).
         logger.info(flavour.stopped_log)
     except Exception as e:
-        logger.error(f"{flavour.failed_log}: {e}", exc_info=True)
-        if controller._is_websocket_connected(websocket):
-            # #5488: surface the specific category, not a blanket string.
-            await controller._send_error(
-                websocket, track_id, _safe_error_message(e, default="Audio streaming failed"), **error_kwargs
-            )
+        await report_stream_failure(controller, websocket, track_id, e, failed_log=flavour.failed_log, **error_kwargs)
     finally:
         # Signal the proactive buffer at once; the awaited drain is last, because a cancellation aimed at
         # THIS task re-raises out of the drain (#5083) and would skip everything after it (#5378).
