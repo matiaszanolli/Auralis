@@ -31,6 +31,41 @@ logger = logging.getLogger(__name__)
 # null/garbage" — only the latter is worth a warning.
 _ABSENT = object()
 
+# Preset/intensity as last set from Settings or the enhancement controls, with a
+# revision bumped on each change (#6568). A connection's play_enhanced snapshot
+# records the revision it was taken at; a seek after a later Settings change
+# prefers these values over the stale snapshot. play_enhanced never writes here,
+# so one connection's play still cannot retarget another's seek (#4742). Only
+# touched on the event loop (routers and WS handlers), so no lock.
+_settings_change: dict[str, Any] = {"revision": 0}
+
+
+def note_settings_change(preset: Any, intensity: Any) -> None:
+    """Record a Settings/controls preset or intensity change for later seeks (#6568)."""
+    _settings_change.update(revision=_settings_change["revision"] + 1, preset=preset, intensity=intensity)
+
+
+def settings_revision() -> int:
+    """The current Settings revision, stamped onto each play_enhanced snapshot."""
+    return int(_settings_change["revision"])
+
+
+def seek_fallbacks(
+    stream_settings: Mapping[str, Any] | None, global_settings: Mapping[str, Any] | None
+) -> tuple[Mapping[str, Any] | None, ...]:
+    """Fallback order for a seek's preset/intensity (#4742, #6568).
+
+    This connection's stream snapshot first, then the global dict, unless the
+    user changed preset/intensity in Settings after the snapshot was taken: a
+    stream that finished delivering is not re-issued on that change, so its
+    snapshot would re-master the seek with the old values.
+    """
+    # An unstamped snapshot (built by hand, or before #6568) is treated as current.
+    stamped = stream_settings.get("settings_rev") if stream_settings is not None else None
+    if stamped is not None and stamped < settings_revision():
+        return (_settings_change, stream_settings, global_settings)
+    return (stream_settings, global_settings)
+
 
 def resolve_enhancement_params(
     data: Mapping[str, Any],

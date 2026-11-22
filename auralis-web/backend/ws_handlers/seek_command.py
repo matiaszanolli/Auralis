@@ -20,7 +20,7 @@ from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET  # single source of truth 
 from websocket.message_validation import send_error_response
 
 from .context import StreamState, WSDeps
-from .enhancement_params import resolve_enhancement_params
+from .enhancement_params import resolve_enhancement_params, seek_fallbacks
 from .playback_commands import _cancel_prior_task
 from .stream_cancel import attach_stream
 
@@ -70,7 +70,7 @@ async def handle_seek(
         deps.get_enhancement_settings() if deps.get_enhancement_settings is not None else None
     )
 
-    preset, intensity = resolve_enhancement_params(data, stream_settings, global_settings)
+    preset, intensity = resolve_enhancement_params(data, *seek_fallbacks(stream_settings, global_settings))
     if preset is None:
         preset = DEFAULT_PRESET
     if intensity is None:

@@ -9,6 +9,7 @@ import logging
 from fastapi import Depends
 from typing import Any
 from websocket.outbound_messages import broadcast_typed
+from ws_handlers.enhancement_params import note_settings_change
 import asyncio
 
 from .dependencies import with_error_handling
@@ -109,6 +110,7 @@ async def set_enhancement_preset(
     preset = body.preset  # already validated and lowercased by SetPresetRequest
     old_preset = enhancement_settings.get("preset")
     enhancement_settings["preset"] = preset
+    note_settings_change(preset, enhancement_settings.get("intensity"))  # reaches later seeks (#6568)
 
     # NOTE: We keep the old preset cached for instant toggling back
     # Proactive buffering will handle caching the new preset in background
@@ -159,6 +161,7 @@ async def set_enhancement_intensity(
     intensity = body.intensity  # already clamped by SetIntensityRequest
     old_intensity = enhancement_settings.get("intensity")
     enhancement_settings["intensity"] = intensity
+    note_settings_change(enhancement_settings.get("preset"), intensity)  # reaches later seeks (#6568)
 
     # #4587: persist so this survives a backend restart — see toggle_enhancement.
     if repos is not None and old_intensity != intensity:

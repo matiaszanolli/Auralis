@@ -27,7 +27,7 @@ from websocket.message_validation import send_error_response
 
 from .context import StreamState, WSDeps
 from .stream_cancel import attach_stream, detach_stream, signal_cancel
-from .enhancement_params import parse_play_request, resolve_enhancement_params
+from .enhancement_params import parse_play_request, resolve_enhancement_params, settings_revision
 
 logger = logging.getLogger(__name__)
 
@@ -139,15 +139,15 @@ async def handle_play_enhanced(
 
     ws_id = _ws_id(websocket)
 
-    # Record what THIS connection's stream actually resolved to, so
-    # handle_seek can read it back instead of the process-global
-    # enhancement_settings dict (#4742) — that global is shared by every
-    # connection, so a second connection's play_enhanced used to silently
-    # retarget a first connection's subsequent seeks.
+    # Record what THIS connection's stream actually resolved to, so handle_seek
+    # reads it back instead of the process-global enhancement_settings dict
+    # (#4742): that global is shared by every connection, so a second
+    # connection's play_enhanced used to retarget a first connection's seeks.
     state.active_stream_settings[ws_id] = {
         "preset": preset,
         "intensity": intensity,
         "enabled": enhancement_enabled,
+        "settings_rev": settings_revision(),  # a later Settings change outranks it on seek (#6568)
     }
 
     # Every command is authoritative, including a same-track reissue with a

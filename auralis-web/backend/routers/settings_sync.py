@@ -12,6 +12,7 @@ from typing import Any
 from helpers import seed_enhancement_settings
 
 from websocket.outbound_messages import broadcast_typed
+from ws_handlers.enhancement_params import note_settings_change
 
 from .settings_deps import _SettingsDeps
 
@@ -46,6 +47,8 @@ async def _sync_enhancement_settings(deps: _SettingsDeps, settings: Any) -> None
         return
     live_settings = deps.get_enhancement_settings()
     seed_enhancement_settings(live_settings, settings)
+    # A stream that already finished delivering is not re-issued on this change (#6568).
+    note_settings_change(live_settings["preset"], live_settings["intensity"])
     if deps.connection_manager is None:
         return
     try:
