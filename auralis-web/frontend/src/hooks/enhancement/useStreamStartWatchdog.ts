@@ -5,9 +5,10 @@
  * Client-side watchdog for the first stream message after a play command
  * (#4433), lifted out of useAudioStreamingCore's body (#5041).
  *
- * The timeout must exceed the backend's own bound (CHUNK_PROCESS_TIMEOUT =
- * 30s, plus a 5s stream-semaphore wait) so that in the ordinary timeout case
- * the backend's `audio_stream_error` surfaces first. This only fires for a
+ * The timeout must exceed the backend's own bound on the silence before
+ * `audio_stream_start` (a 5 s stream-slot wait plus the 90 s processor build,
+ * #6555) so that in the ordinary timeout case the backend's
+ * `audio_stream_error` surfaces first. This only fires for a
  * fully-hung worker that never emits anything, which would otherwise leave
  * the UI in 'buffering' forever — the duplicate-play guard blocks a naive
  * retry out of that state.
@@ -25,10 +26,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { endActiveStream } from '@/hooks/websocket/websocketConnectionState';
 
-// #6232: derived from the mirrored backend chunk timing (30 s chunk
-// processing + 5 s stream semaphore + one 10 s chunk interval = 45 s), not a
-// bare literal — when the backend budget changes, the mirror in
-// audioConstants.BACKEND_STREAM_TIMING moves this with it.
+// #6232/#6555: derived from the mirrored backend timing (5 s stream slot + 90 s
+// processor build + one 10 s chunk interval of margin = 105 s), not a bare
+// literal: the mirror in audioConstants.BACKEND_STREAM_TIMING moves it.
 import { STREAM_START_WATCHDOG_DERIVED_MS } from '@/services/audio/audioConstants';
 
 export const STREAM_START_WATCHDOG_MS = STREAM_START_WATCHDOG_DERIVED_MS;

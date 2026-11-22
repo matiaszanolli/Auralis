@@ -11,7 +11,7 @@
  * useWebSocketConnection).
  */
 
-import { DEFAULT_MAX_RECONNECT_ATTEMPTS } from '@/config/timing';
+import { DEFAULT_MAX_RECONNECT_ATTEMPTS, WS_HEARTBEAT_INTERVAL_MS } from '@/config/timing';
 
 // ============================================================================
 // Types
@@ -207,7 +207,7 @@ export class WebSocketManager {
           console.warn('[WebSocketManager] Failed to send heartbeat:', err);
         }
       }
-    }, 30000); // Every 30 seconds
+    }, WS_HEARTBEAT_INTERVAL_MS);
   }
 
   /**

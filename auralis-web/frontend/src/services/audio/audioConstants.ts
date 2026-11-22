@@ -46,28 +46,32 @@ export const PLAYBACK_ENGINE_CONFIG = {
 } as const;
 
 /**
- * Backend chunk timing the frontend constants depend on (#6232). These are
+ * Backend stream timing the frontend constants depend on (#6232). These are
  * MIRRORS of auralis-web/backend values — named here so the dependency is
  * visible and greppable, and so the derived values below explain themselves.
- * When the backend changes one, update the mirror here in the same commit.
- *  - CHUNK_INTERVAL: seconds between chunk sends (backend CHUNK_INTERVAL).
- *  - CHUNK_PROCESS_TIMEOUT_S: worst-case per-chunk processing budget.
- *  - STREAM_SEMAPHORE_WAIT_S: the stream-start semaphore wait on top of it.
+ * tests/backend/test_frontend_stream_mirror_6634.py fails when one drifts.
+ *  - chunkIntervalSeconds: seconds between chunk starts (chunk_boundaries.CHUNK_INTERVAL).
+ *  - streamSemaphoreWaitSeconds: the wait for a stream slot
+ *    (audio_stream_controller.STREAM_ACQUIRE_TIMEOUT_SECONDS).
+ *  - processorInitTimeoutSeconds: the bound on building the enhanced processor, which also runs a
+ *    missing whole-track analysis (audio_stream_controller.PROCESSOR_INIT_TIMEOUT, #6336).
  */
 export const BACKEND_STREAM_TIMING = {
   chunkIntervalSeconds: 10,
-  chunkProcessTimeoutSeconds: 30,
   streamSemaphoreWaitSeconds: 5,
+  processorInitTimeoutSeconds: 90,
 } as const;
 
 /**
- * Stream-start watchdog budget (#4433, #6232): must exceed one full chunk
- * cycle — the backend may spend CHUNK_PROCESS_TIMEOUT processing the first
- * chunk plus the semaphore wait — with margin for the interval itself.
+ * Stream-start watchdog budget (#4433, #6232, #6555). The backend sends audio_stream_start after
+ * the slot wait and the processor build, and before any chunk is processed, so those two bound the
+ * silence the watchdog waits through; it must outlast both so the backend's own
+ * audio_stream_error for a slow build surfaces first. One chunk interval is the margin. Counting
+ * the 30 s chunk-processing budget here (the old 45 s) left out the 90 s build and fired first.
  */
 export const STREAM_START_WATCHDOG_DERIVED_MS =
-  (BACKEND_STREAM_TIMING.chunkProcessTimeoutSeconds
-    + BACKEND_STREAM_TIMING.streamSemaphoreWaitSeconds
+  (BACKEND_STREAM_TIMING.streamSemaphoreWaitSeconds
+    + BACKEND_STREAM_TIMING.processorInitTimeoutSeconds
     + BACKEND_STREAM_TIMING.chunkIntervalSeconds) * 1000;
 
 /**

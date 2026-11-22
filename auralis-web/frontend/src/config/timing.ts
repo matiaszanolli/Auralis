@@ -32,3 +32,10 @@ export const SEARCH_DEBOUNCE_MS = 300;
  */
 export const DEFAULT_MAX_RECONNECT_ATTEMPTS = 10;
 export const DEV_MAX_RECONNECT_ATTEMPTS = 3;
+
+/**
+ * How often the WebSocket client sends a heartbeat. Mirrors the backend's
+ * WS_HEARTBEAT_INTERVAL_SECONDS (config/limits.py); tests/backend/
+ * test_frontend_stream_mirror_6634.py fails when the two drift.
+ */
+export const WS_HEARTBEAT_INTERVAL_MS = 30 * 1000;
