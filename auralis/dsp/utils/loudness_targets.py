@@ -16,6 +16,14 @@ changing either meant a grep:
 
 The first two are equal today, which is why they were never separated.
 
+Two more anchors the content rules share (#6647):
+
+* ``QUIET_MATERIAL_TARGET_LUFS`` -- the gentler target for quiet or highly dynamic
+  material (classical-style), and the fallback when no preset profile resolves.
+* ``LOUD_THRESHOLD_LUFS`` -- where material counts as already loud: the adaptive
+  loudness control's "very loud" regime, the cap on a boosted target for quiet
+  input, and the reference the dynamics generator measures the loudness gap to.
+
 The output ceiling and the final limiter's timing live here too (#6635):
 
 * ``OUTPUT_PEAK_CEILING_DB`` -- how hot the rendered output may get (-0.3 dBFS,
@@ -43,6 +51,8 @@ layer and must not import ``core``.
 DEFAULT_TARGET_LUFS = -14.0
 STREAMING_TARGET_LUFS = -14.0
 LOUD_MASTER_TARGET_LUFS = -11.0
+QUIET_MATERIAL_TARGET_LUFS = -16.0
+LOUD_THRESHOLD_LUFS = -12.0
 
 OUTPUT_PEAK_CEILING_DB = -0.3
 LIMITER_LOOKAHEAD_MS = 2.0

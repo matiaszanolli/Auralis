@@ -21,6 +21,7 @@ from .distortion_assessment import DistortionAssessor
 from .dynamic_assessment import DynamicRangeAssessor
 from .frequency_assessment import FrequencyResponseAssessor
 from .loudness_assessment import LoudnessAssessor
+from ..quality_assessors.utilities.assessment_constants import AssessmentConstants
 from .stereo_assessment import StereoImagingAssessor
 from auralis.dsp.constants import DEFAULT_SAMPLE_RATE
 
@@ -51,9 +52,9 @@ class QualityMetrics:
         self,
         sample_rate: int = DEFAULT_SAMPLE_RATE,
         *,
-        loudness_optimal_range: tuple[float, float] = (-16.0, -14.0),
-        loudness_acceptable_range: tuple[float, float] = (-20.0, -10.0),
-        max_true_peak_dbfs: float = -1.0,
+        loudness_optimal_range: tuple[float, float] = AssessmentConstants.OPTIMAL_LUFS_RANGE,
+        loudness_acceptable_range: tuple[float, float] = AssessmentConstants.ACCEPTABLE_LUFS_RANGE,
+        max_true_peak_dbfs: float = AssessmentConstants.SPOTIFY_MAX_TRUE_PEAK,
     ):
         """
         Initialize quality metrics system

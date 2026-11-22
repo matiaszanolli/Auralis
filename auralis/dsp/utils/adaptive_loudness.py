@@ -14,7 +14,7 @@ based on source loudness characteristics.
 
 import numpy as np
 
-from .loudness_targets import LOUD_MASTER_TARGET_LUFS
+from .loudness_targets import LOUD_MASTER_TARGET_LUFS, LOUD_THRESHOLD_LUFS, STREAMING_TARGET_LUFS
 
 
 class AdaptiveLoudnessControl:
@@ -29,8 +29,8 @@ class AdaptiveLoudnessControl:
     TARGET_LUFS = LOUD_MASTER_TARGET_LUFS
 
     # LUFS thresholds for adaptive behavior
-    VERY_LOUD_THRESHOLD = -12.0  # Already very loud
-    MODERATELY_LOUD_THRESHOLD = -14.0  # Moderately loud
+    VERY_LOUD_THRESHOLD = LOUD_THRESHOLD_LUFS  # Already very loud
+    MODERATELY_LOUD_THRESHOLD = STREAMING_TARGET_LUFS  # At streaming level
 
     # Width (LU / dB) of the smoothstep knee centred on each threshold, so the
     # makeup gain eases between regimes instead of stepping (#5704).

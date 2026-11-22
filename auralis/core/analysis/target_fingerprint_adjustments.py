@@ -12,7 +12,7 @@ generator as its first argument and the class method stays a thin delegator.
 
 from typing import Any
 
-from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS
+from ...dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS, LOUD_THRESHOLD_LUFS
 
 from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from ...utils.logging import debug
@@ -84,7 +84,7 @@ def apply_fingerprint_enhancements(
         enhanced["target_lufs"] = max(DEFAULT_TARGET_LUFS, targets.get("target_lufs", DEFAULT_TARGET_LUFS) - 2.0)
         debug(f"Already loud ({lufs:.1f}LUFS) - conservative target")
     elif lufs < -25.0:  # Very quiet
-        enhanced["target_lufs"] = min(-12.0, targets.get("target_lufs", DEFAULT_TARGET_LUFS) + 2.0)
+        enhanced["target_lufs"] = min(LOUD_THRESHOLD_LUFS, targets.get("target_lufs", DEFAULT_TARGET_LUFS) + 2.0)
         debug(f"Quiet input ({lufs:.1f}LUFS) - boost target")
 
     # 3. TEMPORAL-AWARE PROCESSING (4D temporal characteristics)

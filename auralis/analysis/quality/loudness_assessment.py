@@ -22,8 +22,8 @@ class LoudnessAssessor(BaseAssessor):
 
     def __init__(
         self,
-        optimal_lufs_range: tuple[float, float] = (-16.0, -14.0),
-        acceptable_lufs_range: tuple[float, float] = (-20.0, -10.0),
+        optimal_lufs_range: tuple[float, float] = AssessmentConstants.OPTIMAL_LUFS_RANGE,
+        acceptable_lufs_range: tuple[float, float] = AssessmentConstants.ACCEPTABLE_LUFS_RANGE,
         max_true_peak_dbfs: float = AssessmentConstants.SPOTIFY_MAX_TRUE_PEAK,
     ) -> None:
         super().__init__()

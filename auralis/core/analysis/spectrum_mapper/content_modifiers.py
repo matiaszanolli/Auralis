@@ -11,6 +11,7 @@ Rules for adjusting processing parameters based on content characteristics
 """
 
 from auralis.core.config.preset_profiles import DEFAULT_PRESET_NAME
+from auralis.dsp.utils.loudness_targets import QUIET_MATERIAL_TARGET_LUFS, STREAMING_TARGET_LUFS
 
 from .data_classes import SpectrumParameters, SpectrumPosition
 
@@ -33,7 +34,7 @@ def apply_content_modifiers(params: SpectrumParameters,
     # Get user preset target for RMS blending
     from ...config.preset_profiles import get_preset_profile
     preset_profile = get_preset_profile(user_preset_hint)
-    preset_target_lufs = preset_profile.target_lufs if preset_profile else -16.0
+    preset_target_lufs = preset_profile.target_lufs if preset_profile else QUIET_MATERIAL_TARGET_LUFS
 
     # Apply all modifier rules
     params = _apply_extreme_dynamics_rule(params, position, preset_target_lufs)
@@ -157,7 +158,7 @@ def _apply_output_target_rules(params: SpectrumParameters,
     # Check for problematic combinations first
     if position.input_level < 0.4 and position.dynamic_range > 0.6:
         # Quiet but dynamic (like classical) - moderate boost, preserve dynamics
-        content_recommended = -16.0
+        content_recommended = QUIET_MATERIAL_TARGET_LUFS
         params.output_target_rms = (
             content_recommended * 0.4 +
             preset_target_lufs * 0.6
@@ -195,7 +196,7 @@ def _apply_output_target_rules(params: SpectrumParameters,
         # MODERATELY LOUD + HIGH DYNAMICS → LIGHT EXPANSION
         # Examples: Soda Stereo (Level 0.76, DR 0.73, crest 15.14)
         # These have good dynamics that should be preserved/enhanced
-        content_recommended = -14.0  # Slight RMS reduction
+        content_recommended = STREAMING_TARGET_LUFS  # Slight RMS reduction
         params.output_target_rms = (
             content_recommended * 0.6 +
             preset_target_lufs * 0.4
@@ -233,7 +234,7 @@ def _apply_output_target_rules(params: SpectrumParameters,
 
     elif position.input_level < 0.3:
         # Very quiet - significant boost needed
-        content_recommended = -14.0
+        content_recommended = STREAMING_TARGET_LUFS
         params.output_target_rms = (
             content_recommended * 0.5 +
             preset_target_lufs * 0.5

@@ -16,6 +16,7 @@ methods they replace.
 
 import numpy as np
 
+from ...dsp.utils.loudness_targets import LOUD_THRESHOLD_LUFS
 from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from .continuous_space_types import ProcessingCoordinates
 
@@ -45,7 +46,7 @@ def calculate_target_lufs(
     fp = coords.fingerprint
 
     input_lufs = FingerprintUnpacker.from_dict(fp).lufs
-    reference_lufs = -12.0
+    reference_lufs = LOUD_THRESHOLD_LUFS
     softness_db = 0.75
     loudness_gap = reference_lufs - input_lufs
     desired_lift = softness_db * np.logaddexp(

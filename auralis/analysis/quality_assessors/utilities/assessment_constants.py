@@ -23,6 +23,11 @@ class AssessmentConstants:
     TARGET_LOUDNESS_RANGE_LU = (7.0, 20.0)  # dB
     ACCEPTABLE_LOUDNESS_RANGE_LU = (4.0, 22.0)
 
+    # Integrated loudness bands the loudness score uses (#6647): LoudnessAssessor and QualityMetrics
+    # both default to these.
+    OPTIMAL_LUFS_RANGE = (-16.0, -14.0)
+    ACCEPTABLE_LUFS_RANGE = (-20.0, -10.0)
+
     # Streaming platform standards
     SPOTIFY_TARGET_LUFS = -14.0
     SPOTIFY_TOLERANCE_LUFS = 1.0
