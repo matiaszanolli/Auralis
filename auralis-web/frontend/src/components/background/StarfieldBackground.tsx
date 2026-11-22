@@ -2,7 +2,8 @@
  * StarfieldBackground - WebGL Procedural Starfield
  *
  * GPU-accelerated starfield with parallax and audio reactivity. GLSL shaders
- * extracted to starfield.shaders.ts.
+ * live in starfield.shaders.ts; the GL resources and the draw call in
+ * useStarfieldGL.ts; this component owns the render loop.
  *
  * Render loop (#5661): one rAF loop drives both the analyser sampling
  * (sampleAudioVisualization) and the draw, capped to ~30fps while animating.
@@ -13,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { initStarfieldGL } from './starfieldGL';
+import { useStarfieldGL } from './useStarfieldGL';
 import {
   getAudioVisualization,
   sampleAudioVisualization,
@@ -45,12 +46,6 @@ export const StarfieldBackground = ({
   enableAudioReactivity = true,
 }: StarfieldBackgroundProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const glRef = useRef<WebGLRenderingContext | null>(null);
-  const programRef = useRef<WebGLProgram | null>(null);
-  const bufferRef = useRef<WebGLBuffer | null>(null);
-  const uniformsRef = useRef<Record<string, WebGLUniformLocation | null>>({});
-  const startTimeRef = useRef<number>(Date.now());
-  const mouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
 
   // Wire playback state to the visualization store this loop samples.
   useAudioVisualization(enableAudioReactivity);
@@ -66,51 +61,11 @@ export const StarfieldBackground = ({
   const { mode } = useTheme();
   const prefersReducedMotion = usePrefersReducedMotion();
 
-  const initWebGL = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return false;
-    const resources = initStarfieldGL(canvas);
-    if (!resources) return false;
-    glRef.current = resources.gl;
-    programRef.current = resources.program;
-    bufferRef.current = resources.buffer;
-    uniformsRef.current = resources.uniforms;
-    return true;
-  }, []);
-
-  const draw = useCallback((now: number) => {
-    const gl = glRef.current;
-    const program = programRef.current;
-    const canvas = canvasRef.current;
-    if (!gl || !program || !canvas) return;
-
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-      gl.viewport(0, 0, width, height);
-    }
-
-    gl.useProgram(program);
-
-    const u = uniformsRef.current;
-    const timeElapsed = (now - startTimeRef.current) / 1000 * speed;
-    gl.uniform1f(u.u_time, timeElapsed);
-    gl.uniform2f(u.u_resolution, width, height);
-    gl.uniform2f(u.u_mouse, mouseRef.current.x, mouseRef.current.y);
-    gl.uniform1f(u.u_parallaxStrength, enableParallax ? parallaxStrength : 0);
-
-    const audio = getAudioVisualization();
-    gl.uniform1f(u.u_bass, audio.bass);
-    gl.uniform1f(u.u_mid, audio.mid);
-    gl.uniform1f(u.u_treble, audio.treble);
-    gl.uniform1f(u.u_loudness, audio.loudness);
-    gl.uniform1f(u.u_peak, audio.peak);
-    gl.uniform1f(u.u_isPlaying, audio.isActive ? 1.0 : 0.0);
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  }, [enableParallax, parallaxStrength, speed]);
+  const { glReady, draw, mouseRef } = useStarfieldGL(canvasRef, mode, {
+    speed,
+    enableParallax,
+    parallaxStrength,
+  });
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!enableParallax) return;
@@ -118,46 +73,7 @@ export const StarfieldBackground = ({
       x: e.clientX / window.innerWidth,
       y: 1 - e.clientY / window.innerHeight,
     };
-  }, [enableParallax]);
-
-  // GL resources: created once per context (a light/dark switch or a restored context), NOT on
-  // every play/pause the render loop below restarts for (#6036). Context loss is handled here:
-  // the browser can drop the context under GPU pressure, after which every call is a silent
-  // no-op until it is restored and the program and buffer rebuilt.
-  const [glReady, setGlReady] = useState(false);
-  useEffect(() => {
-    // The light theme composites the canvas at 3.5% opacity for the same GPU
-    // cost — skip the context entirely there (#5661).
-    if (mode === 'light') return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const release = () => {
-      const gl = glRef.current;
-      if (gl && programRef.current) gl.deleteProgram(programRef.current);
-      if (gl && bufferRef.current) gl.deleteBuffer(bufferRef.current);
-      programRef.current = null;
-      bufferRef.current = null;
-    };
-    const handleLost = (event: Event) => {
-      event.preventDefault(); // without this the context is never restored
-      setGlReady(false);
-      programRef.current = null;
-      bufferRef.current = null;
-    };
-    const handleRestored = () => setGlReady(initWebGL());
-
-    canvas.addEventListener('webglcontextlost', handleLost);
-    canvas.addEventListener('webglcontextrestored', handleRestored);
-    setGlReady(initWebGL());
-
-    return () => {
-      canvas.removeEventListener('webglcontextlost', handleLost);
-      canvas.removeEventListener('webglcontextrestored', handleRestored);
-      release();
-      setGlReady(false);
-    };
-  }, [initWebGL, mode]);
+  }, [enableParallax, mouseRef]);
 
   useEffect(() => {
     if (mode === 'light' || !glReady) return;
