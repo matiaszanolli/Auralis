@@ -11,7 +11,8 @@ import { createElement, type ReactNode } from 'react';
 
 let deliver: ((message: unknown) => void) | undefined;
 
-vi.mock('@/hooks/websocket/useWebSocketMessages', () => ({
+vi.mock('@/hooks/websocket/useWebSocketMessages', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/websocket/useWebSocketMessages')>()),
   useWebSocketMessages: vi.fn((_types: string[], callback: (msg: unknown) => void) => {
     deliver = callback;
   }),

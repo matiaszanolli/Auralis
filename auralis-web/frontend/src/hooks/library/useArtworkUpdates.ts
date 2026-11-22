@@ -20,8 +20,8 @@
  * counter advances. The subscription is backed by WebSocketContext (#4380).
  */
 
-import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
-import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { useCallback, useSyncExternalStore } from 'react';
+import { createSharedSubscription } from '@/hooks/websocket/useWebSocketMessages';
 import type { ArtworkUpdatedMessage } from '@/types/websocket';
 
 // ----- Module-level revision store -----
@@ -66,14 +66,8 @@ function subscribeToAlbum(albumId: number, listener: () => void): () => void {
 }
 
 // ----- Single global WS subscription, refcounted across consumers -----
-// The subscription is installed exactly once regardless of how many album cards
-// mount (a 500-album grid must not create 500 WS subscriptions — #3575). It is
-// now backed by WebSocketContext (#4380) instead of the retired singleton;
-// context.subscribe has stable identity and is available immediately, so no
-// manager-ready deferral is needed.
-let globalRefCount = 0;
-let unsubscribeFromManager: (() => void) | null = null;
-
+// Installed once however many album cards mount (a 500-album grid must not create 500 WS
+// subscriptions, #3575), backed by WebSocketContext (#4380) through the shared helper (#6633).
 function handleArtworkMessage(msg: ArtworkUpdatedMessage): void {
   // Routed by message type, so `msg` is an artwork_updated frame; the payload
   // check guards a malformed frame off the wire.
@@ -82,33 +76,7 @@ function handleArtworkMessage(msg: ArtworkUpdatedMessage): void {
   }
 }
 
-function detachGlobalSubscription(): void {
-  unsubscribeFromManager?.();
-  unsubscribeFromManager = null;
-}
-
-function useGlobalArtworkSubscription(): void {
-  const { subscribe } = useWebSocketContext();
-  // Effect runs once per consumer mount; refcount keeps the single global
-  // subscription alive while >=1 consumer is mounted. `subscribe` is identity-
-  // stable (context useCallback), so this does not resubscribe on re-render.
-  const initialized = useRef(false);
-  useEffect(() => {
-    if (initialized.current) return; // strict-mode double-invoke guard
-    initialized.current = true;
-    globalRefCount += 1;
-    if (globalRefCount === 1) {
-      unsubscribeFromManager = subscribe('artwork_updated', handleArtworkMessage);
-    }
-    return () => {
-      globalRefCount = Math.max(0, globalRefCount - 1);
-      if (globalRefCount === 0) {
-        detachGlobalSubscription();
-      }
-      initialized.current = false;
-    };
-  }, [subscribe]);
-}
+const artworkSubscription = createSharedSubscription(['artwork_updated'], handleArtworkMessage);
 
 /**
  * Returns a revision counter for the given album's artwork.
@@ -116,7 +84,7 @@ function useGlobalArtworkSubscription(): void {
  * for this album, causing a re-render with a cache-busted URL.
  */
 export function useArtworkRevision(albumId: number): number {
-  useGlobalArtworkSubscription();
+  artworkSubscription.use();
   // Stable per album: a fresh `subscribe` each render makes React unsubscribe and
   // resubscribe every card in a large grid on every grid re-render (#6428).
   const subscribe = useCallback((listener: () => void) => subscribeToAlbum(albumId, listener), [albumId]);
@@ -132,12 +100,11 @@ export const _internal = {
   revisionMap,
   albumListeners,
   get globalRefCount() {
-    return globalRefCount;
+    return artworkSubscription.refCount;
   },
   reset() {
     revisionMap.clear();
     albumListeners.clear();
-    detachGlobalSubscription();
-    globalRefCount = 0;
+    artworkSubscription.reset();
   },
 };

@@ -90,3 +90,66 @@ export function useWebSocketMessages<K extends WebSocketMessageType>(
     Object.fromEntries(messageTypes.map((type) => [type, callback])) as MessageHandlers
   );
 }
+
+/** A module-level subscription shared by every mounted consumer (see createSharedSubscription). */
+export interface SharedSubscription {
+  /** Call from a hook: keeps the shared subscription alive while the calling component is mounted. */
+  use: () => void;
+  readonly refCount: number;
+  /** Test helper: detach and forget every consumer. */
+  reset: () => void;
+}
+
+/**
+ * One subscription for any number of mounted consumers (#6633): installed when the first consumer
+ * mounts, removed when the last unmounts. For a store-backed hook used by many components at once,
+ * where a subscription per consumer would multiply the work (a 500-album grid must not create 500
+ * subscriptions, #3575). Create it once at module scope next to the store it feeds.
+ *
+ * The count is per instance, so two stores never share one. `handler` is fixed at creation: it
+ * writes to a module store, so it has no per-render closure to refresh. `onLastRelease` runs after
+ * the last consumer leaves (cancel work nobody will receive). StrictMode's dev double-invoke runs
+ * cleanup between the two mounts, so the count goes 1 -> 0 -> 1 and needs no guard.
+ */
+export function createSharedSubscription<K extends WebSocketMessageType>(
+  types: readonly K[],
+  handler: TypedMessageHandler<K>,
+  onLastRelease?: () => void,
+): SharedSubscription {
+  let refCount = 0;
+  let detach: (() => void) | null = null;
+
+  const release = () => {
+    refCount = Math.max(0, refCount - 1);
+    if (refCount > 0) return;
+    detach?.();
+    detach = null;
+    onLastRelease?.();
+  };
+
+  function useSharedSubscription(): void {
+    const { subscribe } = useWebSocketContext();
+    useEffect(() => {
+      refCount += 1;
+      if (refCount === 1) {
+        const unsubscribes = types.map((type) => subscribe(type, handler as MessageHandler));
+        detach = () => {
+          for (const unsubscribe of unsubscribes) unsubscribe();
+        };
+      }
+      return release;
+    }, [subscribe]);
+  }
+
+  return {
+    use: useSharedSubscription,
+    get refCount() {
+      return refCount;
+    },
+    reset() {
+      detach?.();
+      detach = null;
+      refCount = 0;
+    },
+  };
+}

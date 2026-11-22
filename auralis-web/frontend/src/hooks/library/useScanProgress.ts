@@ -24,6 +24,7 @@ import type { ScanFailure } from '@/types/ws/library';
 import { isLibraryTracksRemovedMessage } from '@/types/ws/guards';
 import { get } from '@/utils/apiRequest';
 import { recordScanTimeout } from '@/services/scanRequestTimeout';
+import { createSharedSubscription } from '@/hooks/websocket/useWebSocketMessages';
 
 export interface ScanProgress {
   isScanning: boolean;
@@ -180,11 +181,6 @@ const SCAN_MESSAGE_TYPES = [
   'library_scan_error',
 ] as const satisfies readonly WebSocketMessageType[];
 
-// ----- Single refcounted WS subscription (the useArtworkRevision pattern) -----
-
-let globalRefCount = 0;
-let detachGlobalSubscription: (() => void) | null = null;
-
 /**
  * #4821: scan lifecycle is otherwise broadcast-only, so a WebSocket drop that
  * spans the scan's terminal frame (scan_complete/library_scan_error) leaves
@@ -230,6 +226,13 @@ function resyncScanStatus(): void {
     });
 }
 
+// The single refcounted WS subscription (#6633). When the last consumer leaves, nobody is left to
+// receive a resync result, so it is cancelled.
+const scanSubscription = createSharedSubscription(SCAN_MESSAGE_TYPES, handleScanMessage, () => {
+  resyncController?.abort();
+  resyncController = null;
+});
+
 /**
  * Subscribe to library scan lifecycle messages from the WebSocket.
  * Returns live scan status and the result of the most recent completed scan.
@@ -238,31 +241,12 @@ function resyncScanStatus(): void {
  * (ScanStatusCard, SettingsDialog) read the shared store transparently.
  */
 export function useScanProgress(): ScanStatus {
-  const { subscribe, connectionStatus } = useWebSocketContext();
+  const { connectionStatus } = useWebSocketContext();
 
-  // Refcount: the WS subscription is installed exactly once while >= 1
-  // consumer is mounted. SettingsDialog stays mounted for the app lifetime,
-  // so in practice the subscription always lives and ScanStatusCard's
-  // remounts reuse it instead of restarting from INITIAL_STATE.
-  useEffect(() => {
-    globalRefCount += 1;
-    if (globalRefCount === 1) {
-      const unsubscribes = SCAN_MESSAGE_TYPES.map((type) => subscribe(type, handleScanMessage));
-      detachGlobalSubscription = () => {
-        for (const unsubscribe of unsubscribes) unsubscribe();
-      };
-    }
-    return () => {
-      globalRefCount = Math.max(0, globalRefCount - 1);
-      if (globalRefCount === 0) {
-        detachGlobalSubscription?.();
-        detachGlobalSubscription = null;
-        // No consumer left to receive the resync result — cancel it.
-        resyncController?.abort();
-        resyncController = null;
-      }
-    };
-  }, [subscribe]);
+  // One WS subscription while >= 1 consumer is mounted. SettingsDialog stays mounted for the app
+  // lifetime, so in practice it always lives and ScanStatusCard's remounts reuse it instead of
+  // restarting from INITIAL_STATE.
+  scanSubscription.use();
 
   useEffect(() => {
     if (connectionStatus === 'connected') resyncScanStatus();
@@ -282,5 +266,6 @@ export const _internal = {
     statusListeners.clear();
     resyncController?.abort();
     resyncController = null;
+    scanSubscription.reset();
   },
 };

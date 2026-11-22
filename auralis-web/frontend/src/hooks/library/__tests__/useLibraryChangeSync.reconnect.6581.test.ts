@@ -11,7 +11,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type ReactNode } from 'react';
 import * as WebSocketContextModule from '@/contexts/WebSocketContext';
 
-vi.mock('@/hooks/websocket/useWebSocketMessages', () => ({ useWebSocketMessages: vi.fn() }));
+vi.mock('@/hooks/websocket/useWebSocketMessages', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/websocket/useWebSocketMessages')>()),
+  useWebSocketMessages: vi.fn(),
+}));
 
 import { useReconnected } from '@/hooks/websocket/useReconnected';
 import { useLibraryChangeSync } from '../useLibraryChangeSync';
