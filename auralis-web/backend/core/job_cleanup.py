@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 from core.job_models import TERMINAL_STATUSES, ProcessingJob
+from config.retention import SECONDS_PER_HOUR
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ async def cleanup_expired_jobs(
         for job_id, job in jobs.items():
             if job.status not in TERMINAL_STATUSES or job.completed_at is None:
                 continue
-            age_hours = (now - job.completed_at).total_seconds() / 3600
+            age_hours = (now - job.completed_at).total_seconds() / SECONDS_PER_HOUR
             if age_hours > max_age_hours:
                 candidate_paths.append((Path(job.output_path), Path(job.input_path)))
                 jobs_to_remove.append(job_id)

@@ -15,14 +15,15 @@ from pathlib import Path
 
 from auralis.io.loaders.decode_temp import DECODE_TEMP_PREFIX
 from core.dir_sweep import reap_older_than
+from config.retention import SECONDS_PER_HOUR, STALE_TEMP_MAX_AGE_HOURS
 
 logger = logging.getLogger(__name__)
 
 
-def reclaim_leftover_decode_wavs(temp_root: Path, max_age_hours: float = 1.0) -> int:
+def reclaim_leftover_decode_wavs(temp_root: Path, max_age_hours: float = STALE_TEMP_MAX_AGE_HOURS) -> int:
     """Delete decode WAVs older than ``max_age_hours``; returns how many were removed."""
     reclaimed = reap_older_than(
-        temp_root.glob(f"{DECODE_TEMP_PREFIX}*"), max_age_hours * 3600, label="leftover decode WAV", log=logger
+        temp_root.glob(f"{DECODE_TEMP_PREFIX}*"), max_age_hours * SECONDS_PER_HOUR, label="leftover decode WAV", log=logger
     )
     if reclaimed:
         logger.info(f"🧹 Reclaimed {reclaimed} orphaned FFmpeg decode WAV(s)")

@@ -23,6 +23,7 @@ from .dependencies import require_processing_engine, with_error_handling
 from .errors import BadRequestError, NotFoundError
 from .processing_deps import _get_processing_engine
 from .processing_models import JobListResponse, JobStatusResponse
+from config.retention import JOB_CLEANUP_DEFAULT_AGE_HOURS
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +167,7 @@ async def get_queue_status(
 
 
 async def cleanup_old_jobs(
-    max_age_hours: float = Query(24, gt=0),
+    max_age_hours: float = Query(JOB_CLEANUP_DEFAULT_AGE_HOURS, gt=0),
     engine: ProcessingEngine | None = Depends(_get_processing_engine),
 ) -> dict[str, Any]:
     """Clean up completed jobs older than specified hours"""

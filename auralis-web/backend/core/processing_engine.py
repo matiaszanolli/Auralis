@@ -34,7 +34,6 @@ import numpy as np
 # Add parent directory to path for Auralis imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
 
@@ -57,6 +56,7 @@ from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_store import JobStore
 from core.job_worker import JobWorker
 from core.processor_pool import ProcessorPool
+from config.retention import COMPLETED_JOB_TTL_HOURS, JOB_CLEANUP_DEFAULT_AGE_HOURS
 
 __all__ = [
     "ProcessingEngine",
@@ -82,7 +82,7 @@ class ProcessingEngine:
         self,
         max_concurrent_jobs: int = 2,
         max_queue_size: int = 20,
-        completed_job_ttl_hours: float = 1.0,
+        completed_job_ttl_hours: float = COMPLETED_JOB_TTL_HOURS,
         processing_timeout: float | None = None,
         job_store: JobStore | None = None,
     ) -> None:
@@ -262,7 +262,7 @@ class ProcessingEngine:
         """
         return await _cancel_job_impl(self, job_id)
 
-    async def cleanup_old_jobs(self, max_age_hours: float = 24) -> int:
+    async def cleanup_old_jobs(self, max_age_hours: float = JOB_CLEANUP_DEFAULT_AGE_HOURS) -> int:
         """Clean up old completed jobs and their files. Thin delegate; see
         job_cleanup.cleanup_expired_jobs().
 

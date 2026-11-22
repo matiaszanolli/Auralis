@@ -32,6 +32,7 @@ from core.dir_sweep import reap_older_than
 from core.encoding.atomic_io import PARTIAL_MAX_AGE_SECONDS, cleanup_partial_files
 
 from .decode_temps import reclaim_leftover_decode_wavs
+from config.retention import SECONDS_PER_HOUR, STALE_TEMP_MAX_AGE_HOURS
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ def pid_is_alive(pid: int) -> bool:
         return True
 
 
-def reclaim_leftover_stream_temps(temp_root: Path, max_age_hours: float = 1.0) -> int:
+def reclaim_leftover_stream_temps(temp_root: Path, max_age_hours: float = STALE_TEMP_MAX_AGE_HOURS) -> int:
     """Remove temp WAV dirs orphaned by interrupted compressed-format streams.
 
     stream_normal_audio writes a temp WAV under ``auralis_stream_<pid>_*`` and
@@ -95,7 +96,7 @@ def reclaim_leftover_stream_temps(temp_root: Path, max_age_hours: float = 1.0) -
     """
     reclaimed = 0
     skipped = 0
-    cutoff = time.time() - (max_age_hours * 3600)
+    cutoff = time.time() - (max_age_hours * SECONDS_PER_HOUR)
 
     # #5253: auralis_seekable_* has no PID tag, so every match falls to the age guard below,
     # the same default an untagged auralis_stream_* directory gets.
@@ -197,7 +198,7 @@ def reclaim_stale_temp_entries(dir_path: Path, max_age_hours: float) -> int:
     if not dir_path.exists():
         return 0
     reclaimed = reap_older_than(
-        dir_path.iterdir(), max_age_hours * 3600, label="stale temp entry", remove_dirs=True, log=logger
+        dir_path.iterdir(), max_age_hours * SECONDS_PER_HOUR, label="stale temp entry", remove_dirs=True, log=logger
     )
     if reclaimed:
         logger.info(f"🧹 Reclaimed {reclaimed} stale entr{'y' if reclaimed == 1 else 'ies'} from {dir_path.name}")

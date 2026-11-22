@@ -24,6 +24,7 @@ from datetime import datetime
 from typing import Any
 
 from core.job_models import TERMINAL_STATUSES, ProcessingJob, ProcessingStatus
+from config.retention import SECONDS_PER_HOUR
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,7 @@ class JobStore:
                 if (
                     job.status in TERMINAL_STATUSES
                     and job.completed_at is not None
-                    and (now - job.completed_at).total_seconds() > ttl_hours * 3600
+                    and (now - job.completed_at).total_seconds() > ttl_hours * SECONDS_PER_HOUR
                 ):
                     expired.append(job.job_id)
                 else:
