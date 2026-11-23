@@ -1,0 +1,8 @@
+{
+  "_comment": "Known-failing pytest tests (#4562). CI fails on any failure NOT listed here. Regenerate with: python scripts/check_pytest_baseline.py <junit.xml> --update",
+  "generatedFrom": {
+    "totalTests": 325,
+    "failedTests": 0
+  },
+  "failures": []
+}

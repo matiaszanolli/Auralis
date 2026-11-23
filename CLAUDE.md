@@ -53,6 +53,7 @@ that list. The list may shrink, never grow. The frontend list is empty since #60
 |---|---|---|---|
 | `frontend-test.yml` | `pnpm run test:ci` | `auralis-web/frontend/test-baseline.json` | `auralis-web/frontend/scripts/check-test-baseline.mjs` |
 | `backend-tests.yml` | `pytest --junitxml` | `pytest-baseline.json` | `scripts/check_pytest_baseline.py` |
+| `slow-tests.yml` (nightly) | `pytest -m slow --junitxml` | `pytest-slow-baseline.json` | `scripts/check_pytest_baseline.py --baseline` |
 | `frontend-typecheck.yml` | `pnpm run type-check:prod` | — (must be clean) | — |
 
 The test step itself always exits 0; **the baseline step is what decides the

@@ -203,6 +203,7 @@ def _listing(ids: list[str]) -> str:
 
 
 def main() -> int:
+    global BASELINE_PATH  # --baseline rebinds the file every helper reads
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("results", type=Path, help="pytest --junitxml output")
     parser.add_argument(
@@ -217,7 +218,15 @@ def main() -> int:
             "run cannot trip it."
         ),
     )
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=BASELINE_PATH,
+        help="baseline file (default: pytest-baseline.json; the nightly slow lane uses "
+             "pytest-slow-baseline.json, #6502)",
+    )
     args = parser.parse_args()
+    BASELINE_PATH = args.baseline
 
     root = read_results(args.results)
     current = collect_failures(root)

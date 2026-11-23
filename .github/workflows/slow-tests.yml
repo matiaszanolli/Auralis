@@ -8,10 +8,12 @@ name: Slow Tests
 # ~23 minutes out of the per-push job. Runs here took ~19-22 minutes before that, so expect
 # ~40-45 against the 60-minute cap; read this job's durations before adding another directory.
 #
-# Report-only on purpose: the slow suite has never had a CI baseline, so a red/green verdict would
-# start from an unknown. The job always succeeds, uploads the junit report and prints the failures
-# in the run summary; once a few nights show a stable set, check a baseline in and gate on it the way
-# backend-tests.yml does with pytest-baseline.json.
+# Gated since #6502, the way backend-tests.yml gates the fast lane: the pytest step itself always
+# exits 0, and the baseline step fails the job on any slow test that fails without an entry in
+# pytest-slow-baseline.json, and (--strict-stale) on an entry whose test now passes. That baseline was
+# generated from this workflow's own junit artifact (CLAUDE.md: never from a local run); regenerate it
+# the same way with `python scripts/check_pytest_baseline.py pytest-slow-results.xml --baseline
+# pytest-slow-baseline.json --update`.
 
 on:
   schedule:
@@ -79,6 +81,11 @@ jobs:
               print(f"## Slow tests\n\n{suite.get('tests')} run, {len(failed)} failed or errored.\n")
               print("\n".join(f"- `{name}`" for name in failed[:100]))
           PY
+
+      - name: Check slow-test baseline
+        run: |
+          python scripts/check_pytest_baseline.py pytest-slow-results.xml \
+            --baseline pytest-slow-baseline.json --strict-stale
 
       - name: Upload test results
         if: always()
