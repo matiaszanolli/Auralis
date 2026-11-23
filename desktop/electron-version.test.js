@@ -1,12 +1,13 @@
 // #6152: the lock must not resolve an Electron below the GHSA-jr5w-w6x2-84p9 fix
-// (affects >=43.0.0-alpha.1 <43.8.1; we require >=43.8.3 for the Chromium/V8
-// security backports in between). Raise MIN_43 when a newer advisory lands.
+// (affects >=43.0.0-alpha.1 <43.8.1). Chromium/V8 security backports ship as
+// patch releases with no advisory of their own, so the floor tracks the latest
+// patch taken (#6519: 43.8.12); Dependabot's grouped desktop PR proposes the next.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const MIN_43 = [43, 8, 3];
+const MIN_43 = [43, 8, 12];
 
 function parse(v) {
   const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v);

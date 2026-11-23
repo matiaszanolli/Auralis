@@ -12,10 +12,13 @@
 # deliberate `numpy<2.5` ceiling, so letting Dependabot raise those would fight
 # existing policy rather than support it.
 #
-# The one exception is /desktop, security updates only: Electron ships Chromium
-# and the update channel, and an advisory against it (GHSA-jr5w-w6x2-84p9) sat
-# unflagged because nothing watched that manifest (#6152). `open-pull-requests-limit: 0`
-# is Dependabot's way of disabling version updates while keeping security-update PRs.
+# The one exception is /desktop: Electron ships Chromium and the update channel,
+# and an advisory against it (GHSA-jr5w-w6x2-84p9) sat unflagged because nothing
+# watched that manifest (#6152). Security updates alone were not enough either:
+# Chromium/V8 backports land as Electron patch releases with no advisory, and the
+# lock sat seven patches behind (#6519). So /desktop gets version updates too:
+# patch and minor bumps as one grouped PR, a new major on its own, since it needs
+# a smoke test of the packaged app.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
@@ -39,8 +42,12 @@ updates:
     directory: "/desktop"
     schedule:
       interval: "weekly"
-    # 0 = no version-update PRs; security-update PRs are still opened (#6152).
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 3
+    groups:
+      desktop-patch-and-minor:
+        update-types:
+          - "patch"
+          - "minor"
     commit-message:
       prefix: "fix(desktop)"
     labels:
