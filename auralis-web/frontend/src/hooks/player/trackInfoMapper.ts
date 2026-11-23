@@ -17,13 +17,15 @@
 
 import type { TrackInfo } from '@/types/websocket';
 import type { QueueTrack } from '@/types/domain';
+import { UNKNOWN_ALBUM_LABEL, UNKNOWN_ARTIST_LABEL } from '@/utils/unknownLabels';
 
 export function mapTrackInfoToTrack(track: TrackInfo): QueueTrack {
   return {
     id: track.id,
     title: track.title,
-    artist: track.artist,
-    album: track.album || '',
+    // The backend no longer sends "Unknown ..." sentinels (#6508); the labels are applied here.
+    artist: track.artist || UNKNOWN_ARTIST_LABEL,
+    album: track.album || UNKNOWN_ALBUM_LABEL,
     duration: track.duration || 0,
     artworkUrl: track.artwork_url,
     albumId: track.album_id,

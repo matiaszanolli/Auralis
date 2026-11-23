@@ -37,8 +37,12 @@ class TrackInfo(BaseModel):
     """
     id: int
     title: str
+    # One shape with the library's TrackResponse (#6508): every artist, and no sentinel strings; the
+    # "Unknown ..." labels belong to the frontend (#5905). `artist` is the joined display string,
+    # kept for the clients that read it ("" when there is none).
+    artists: list[str] = Field(default_factory=list)
     artist: str
-    album: str
+    album: str | None = None
     duration: float
     # Server-only; excluded from API responses (#3205)
     filepath: str = Field(exclude=True)
@@ -113,6 +117,24 @@ class PlayerState(BaseModel):
     analysis: dict[str, Any] | None = None
 
 
+def track_artist_names(track: Any) -> list[str]:
+    """Every artist of a Track row (or a plain ``artist`` string), in order; [] when there is none (#6508)."""
+    artists = getattr(track, 'artists', None)
+    if artists:
+        return [a.name for a in artists if getattr(a, 'name', None)]
+    artist = getattr(track, 'artist', None)
+    return [artist] if isinstance(artist, str) and artist else []
+
+
+def track_album_title(track: Any) -> str | None:
+    """The album title of a Track row (or a plain ``album`` string); None when there is none (#6508)."""
+    album = getattr(track, 'album', None)
+    if isinstance(album, str):
+        return album or None
+    title = getattr(album, 'title', None) if album is not None else None
+    return title if isinstance(title, str) and title else None
+
+
 def create_track_info(track: Any) -> TrackInfo | None:
     """
     Convert a Track model to TrackInfo DTO
@@ -126,20 +148,8 @@ def create_track_info(track: Any) -> TrackInfo | None:
     if not track:
         return None
 
-    # Get artist name (handle relationship)
-    artist_name = "Unknown Artist"
-    if hasattr(track, 'artists') and track.artists:
-        artist_name = track.artists[0].name
-    elif hasattr(track, 'artist') and track.artist:
-        artist_name = track.artist
-
-    # Get album name
-    album_name = "Unknown Album"
-    if hasattr(track, 'album') and track.album:
-        if hasattr(track.album, 'title'):
-            album_name = track.album.title
-        elif isinstance(track.album, str):
-            album_name = track.album
+    artist_names = track_artist_names(track)
+    album_name = track_album_title(track)
 
     # Audio format (#4586). Coerce anything that isn't a real string to None:
     # `getattr` on a Mock auto-creates a Mock attribute, and other callers pass
@@ -162,7 +172,8 @@ def create_track_info(track: Any) -> TrackInfo | None:
     return TrackInfo(
         id=track.id,
         title=track.title or "Unknown Title",
-        artist=artist_name,
+        artists=artist_names,
+        artist=", ".join(artist_names),
         album=album_name,
         duration=track.duration or 0.0,
         filepath=track.filepath,

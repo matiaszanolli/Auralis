@@ -16,6 +16,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { UNKNOWN_ALBUM_LABEL } from '@/utils/unknownLabels';
 import { renderHook, act } from '@testing-library/react';
 import { ReactNode, createElement } from 'react';
 import { Provider } from 'react-redux';
@@ -222,11 +223,11 @@ describe('usePlayerStateSync – current_track', () => {
     expect(store.getState().player.currentTrack?.artworkUrl).toBe('https://cdn.example.com/cover.png');
   });
 
-  it('defaults album to empty string when missing', () => {
+  it('labels a missing album "Unknown Album" (the backend sends no sentinel, #6508)', () => {
     const { album: _unused, ...trackWithoutAlbum } = backendTrack;
     firePlayerState({ current_track: trackWithoutAlbum });
 
-    expect(store.getState().player.currentTrack?.album).toBe('');
+    expect(store.getState().player.currentTrack?.album).toBe(UNKNOWN_ALBUM_LABEL);
   });
 
   it('defaults duration to 0 when missing', () => {
@@ -532,11 +533,11 @@ describe('usePlayerStateSync – queue', () => {
     expect(tracks[1].artworkUrl).toBe('https://example.com/2.jpg');
   });
 
-  it('defaults album to empty string for queue tracks when missing', () => {
+  it('labels a missing album "Unknown Album" for queue tracks (#6508)', () => {
     const noAlbumTracks = [{ id: 5, title: 'T', artist: 'A', duration: 100, artwork_url: null }];
     firePlayerState({ queue: noAlbumTracks });
 
-    expect(store.getState().queue.tracks[0].album).toBe('');
+    expect(store.getState().queue.tracks[0].album).toBe(UNKNOWN_ALBUM_LABEL);
   });
 
   it('defaults duration to 0 for queue tracks when missing', () => {

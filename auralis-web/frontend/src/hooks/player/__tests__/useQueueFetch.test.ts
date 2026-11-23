@@ -160,7 +160,7 @@ describe('useQueueFetch', () => {
       });
       expect(selectQueueTracks(store.getState())[0]).toMatchObject({
         id: 2,
-        album: '',
+        album: 'Unknown Album', // labelled in the mapper since the backend sends none (#6508)
         duration: 0,
       });
     });

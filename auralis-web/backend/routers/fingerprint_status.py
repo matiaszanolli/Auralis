@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from auralis.analysis.fingerprint.schema import centroid_to_hz, rolloff_to_hz
 from auralis.utils.logging import sanitize_log_value
 
+from player_state import track_album_title, track_artist_names
 from schemas import FingerprintVectorResponse
 
 from .dependencies import with_error_handling
@@ -54,8 +55,9 @@ class TrackFingerprintResponse(BaseModel):
     """
     track_id: int = Field(description="Track database ID")
     track_title: str = Field(description="Track title (tracks.title is NOT NULL)")
-    artist: str = Field(default="Unknown Artist", description="Joined artist names")
-    album: str = Field(default="Unknown Album", description="Album title")
+    artists: list[str] = Field(default_factory=list, description="Every artist, as in TrackResponse (#6508)")
+    artist: str = Field(default="", description="Joined artist names; empty when there is none")
+    album: str | None = Field(default=None, description="Album title; null when there is none")
     fingerprint: FingerprintVectorResponse = Field(description="The 25 fingerprint dimensions")
 
 
@@ -118,16 +120,10 @@ async def get_track_fingerprint(
             from analysis.fingerprint_queue import get_fingerprint_queue
             queue = get_fingerprint_queue()
             if queue:
-                # Check the return value (#3816) — enqueue() returns
-                # False when the track is already queued/processing
-                # or the bounded queue is full; claiming "queued for
-                # generation" regardless would mislead the caller
-                # when the track was actually dropped.
-                # Offloaded like every other enqueue call from an
-                # `async def` (#4702). Bounded in-memory push under a
-                # lock today, so the stall is sub-millisecond — but the
-                # invariant "no sync queue work on the loop" is only
-                # useful if it holds uniformly and greppably.
+                # Check the return value (#3816): enqueue() is False when the track is already
+                # queued/processing or the bounded queue is full, so "queued" would mislead.
+                # Offloaded like every enqueue from an `async def` (#4702): no sync queue work on
+                # the loop, even a sub-millisecond one, so the invariant stays uniform and greppable.
                 queued = await asyncio.to_thread(queue.enqueue, track_id)
                 if queued:
                     logger.info(f"📋 Track {track_id} queued for background fingerprinting")
@@ -147,8 +143,9 @@ async def get_track_fingerprint(
     return {
         "track_id": track_id,
         "track_title": track.title,
-        "artist": ", ".join(a.name for a in track.artists) if track.artists else "Unknown Artist",
-        "album": track.album.title if track.album else "Unknown Album",
+        "artists": (artist_names := track_artist_names(track)),
+        "artist": ", ".join(artist_names),
+        "album": track_album_title(track),
         # Attribute names corrected to match TrackFingerprint model (fixes #2260).
         "fingerprint": {
             # 7D Frequency distribution

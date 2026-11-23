@@ -42,8 +42,12 @@ export interface WebSocketErrorMessage {
 export interface TrackInfo {
   id: number;
   title: string;
+  /** Every artist, as the library's TrackResponse sends them (#6508); `[]` when there is none. */
+  artists?: string[];
+  /** The artists joined for display; `''` when there is none (no sentinel since #6508). */
   artist: string;
-  album: string;
+  /** `null` when the track has no album (no "Unknown Album" sentinel since #6508). */
+  album: string | null;
   duration: number;
   /**
    * #3634: backend's player_state TrackInfo declares filepath as

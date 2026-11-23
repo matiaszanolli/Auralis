@@ -37,6 +37,7 @@ def to_track_payload(track: TrackInfo) -> TrackPayload:
     return TrackPayload(
         id=track.id,
         title=track.title,
+        artists=list(track.artists),
         artist=track.artist,
         album=track.album,
         duration=track.duration,

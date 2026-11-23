@@ -20,8 +20,9 @@ RepeatMode = Literal["off", "all", "one"]
 class TrackPayload(TypedDict, total=False):
     id: int
     title: str
+    artists: list[str]
     artist: str
-    album: str
+    album: str | None
     duration: float
     artwork_url: str | None
     format: str | None
