@@ -131,8 +131,8 @@ class PlayerStateManager(PositionTickerMixin):
         if broadcast:
             await self.broadcast_state(state_snapshot)
 
-        # Start/stop position updates
-        if playing:
+        # From the state now, not `playing`: a set_playing(True) during the broadcast keeps its ticker (#6549).
+        if self.state.is_playing:
             self._start_position_updates()
         else:
             await self._stop_position_updates()
