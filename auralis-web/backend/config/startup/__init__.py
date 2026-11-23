@@ -38,6 +38,8 @@ from typing import Any
 
 from fastapi import FastAPI
 
+from config.parent_lifeline import start_parent_lifeline
+
 from .components import (
     _init_audio_player,
     _init_library_database,
@@ -165,6 +167,7 @@ def create_lifespan(
         # on CPython's implicit pool and, worse, hand out futures against a
         # pool that is about to stop being the default.
         _install_thread_pools()
+        start_parent_lifeline()  # exit with a crashed or killed Electron, not outlive it (#6720)
 
         try:
             await _cleanup_temp_directories()

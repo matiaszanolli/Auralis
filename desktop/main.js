@@ -80,13 +80,16 @@ class AuralisApp {
     if (process.platform !== 'darwin') verifyBackendBinary(backendExe, path.join(__dirname, DIGEST_FILE));
     pythonCmd = backendExe;
     pythonArgs = [];
+    // stdin is a lifeline, never written or ended: the OS closes it when this process exits by
+    // any means, and the backend shuts itself down on end-of-file (#6720).
     this.pythonProcess = spawn(pythonCmd, pythonArgs, {
       cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
       detached: process.platform !== 'win32',
       env: {
         ...buildBackendEnv(process.env, false),
         AURALIS_LAUNCH_ID: this.launchId,
+        AURALIS_STDIN_LIFELINE: '1',
         PYTHONUNBUFFERED: '1',
         ELECTRON_MODE: '1',
         PYTHONPATH: process.resourcesPath,
@@ -97,6 +100,7 @@ class AuralisApp {
     const pipeBackend = (fallbackLevel) => (output) => {
       for (const { level, line } of backendLogLines(output, fallbackLevel)) log[level]('[Backend]', line);
     };
+    this.pythonProcess.stdin.on('error', () => {}); // nothing is written; a closed pipe is no error
     this.pythonProcess.stdout.on('data', pipeBackend('info'));
     this.pythonProcess.stderr.on('data', pipeBackend('error'));
     this.pythonProcess.on('error', (error) => {

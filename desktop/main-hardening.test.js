@@ -67,3 +67,13 @@ test('closing the last window and reopening never leaves the quit path skipping 
   assert.match(MAIN_SRC, /if \(!this\.initialized\) \{[\s\S]*?this\.startPythonBackend\(\)/,
     'a reactivation (initialized) must reuse the running backend, not spawn a second one');
 });
+
+test('the packaged backend is spawned with a stdin lifeline it exits on (#6720)', () => {
+  // A crashed or SIGKILLed main process never runs before-quit, so the backend outlived it and
+  // held the port, failing every later launch. The OS closes this pipe when the app exits by any
+  // means; the backend (config/parent_lifeline.py) shuts down on end-of-file.
+  assert.match(MAIN_SRC, /stdio: \['pipe', 'pipe', 'pipe'\]/, 'the backend needs a stdin pipe');
+  assert.match(MAIN_SRC, /AURALIS_STDIN_LIFELINE: '1'/, 'the backend only watches stdin when told to');
+  assert.equal(/\.stdin\.(write|end|destroy)\(/.test(MAIN_SRC), false,
+    'writing to or closing the lifeline would stop or hang the backend');
+});
