@@ -36,6 +36,8 @@ class AudioFileManager:
         # Guards audio_data against concurrent read (playback thread) / write
         # (gapless prebuffer thread) races that cause IndexError on transition (#2423).
         self._audio_lock = threading.RLock()
+        # Set by close() (player cleanup): no swap installs audio afterwards (#6528).
+        self.closed = False
 
         # Audio data
         self.audio_data: np.ndarray | None = None
@@ -72,6 +74,8 @@ class AudioFileManager:
             # Load outside the lock (I/O may be slow); then swap atomically.
             audio_data, loaded_sample_rate = load(file_path, "target")
             with self._audio_lock:
+                if self.closed:  # cleanup() ran during the decode (#6528)
+                    return False
                 self.audio_data = audio_data
                 self.current_file = file_path
                 self.sample_rate = loaded_sample_rate
@@ -223,3 +227,14 @@ class AudioFileManager:
         """Clear all loaded audio"""
         self.clear_audio()
         self.clear_reference()
+
+    def close(self) -> None:
+        """Clear everything and refuse any later swap, in one hold of ``_audio_lock`` (#6528).
+
+        AudioPlayer.cleanup() polled its abort flag once and then cleared the audio, so a load or
+        advance from another thread that was past the poll, mid-decode, installed its buffer after
+        the clear. Every swap checks ``closed`` inside this same lock and bails.
+        """
+        with self._audio_lock:
+            self.closed = True
+            self.clear_all()

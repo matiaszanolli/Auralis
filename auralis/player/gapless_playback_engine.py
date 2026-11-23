@@ -198,12 +198,11 @@ class GaplessPlaybackEngine(PrebufferMixin):
         assert file_path is not None
 
         with self.update_lock:
-            # Hold _audio_lock while swapping audio_data so get_audio_chunk()
-            # cannot slice the old (shorter) array after we replace it (#2423).
-            # `on_swap` (the caller's seek(0, …) position reset) runs inside the
-            # same acquisition so the swap and the reset are atomic with the
-            # audio callback's chunk read (#3717, #2283).
+            # Under _audio_lock so get_audio_chunk() never slices the old array mid-swap (#2423); `on_swap`
+            # (the caller's seek(0, …) reset) runs in the same hold, atomic with chunk reads (#3717, #2283).
             with self.file_manager._audio_lock:
+                if self.file_manager.closed:  # cleanup() ran after the abort poll (#6528)
+                    return False
                 self.file_manager.audio_data = audio_data
                 self.file_manager.sample_rate = sample_rate
                 self.file_manager.current_file = file_path

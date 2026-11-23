@@ -143,17 +143,16 @@ class AudioPlayer(
 
     def play(self) -> bool:
         """Start playback"""
-        if not self.file_manager.is_loaded():
-            warning("No audio file loaded")
-            return False
-        # #3669: clear `_stop_requested` AFTER `playback.play()` succeeds.
-        # Previous order (clear → play) allowed a concurrent stop() to set
-        # the flag between the clear and the state transition, leaving
-        # state=PLAYING with _stop_requested=SET. Auto-advance is then
-        # permanently suppressed for the rest of the session
-        # (PlayerStreamingMixin._auto_advance_next checks
-        # `_stop_requested.is_set()` and bails).
-        started = self.playback.play()
+        # The loaded test and the transition share one _audio_lock hold, so a cleanup() clearing
+        # the audio in between cannot leave PLAYING with nothing loaded (#6528); notifications are
+        # deferred past the lock (#3781).
+        with self.playback.defer_notifications(), self.file_manager._audio_lock:
+            if not self.file_manager.is_loaded():
+                warning("No audio file loaded")
+                return False
+            started = self.playback.play()
+        # #3669: clear the flags only AFTER play() succeeds: clearing first let a concurrent stop()
+        # land in between, leaving PLAYING with _stop_requested set and auto-advance suppressed.
         if started:
             self._stop_requested.clear()
             self._pause_requested.clear()
@@ -280,7 +279,7 @@ class AudioPlayer(
             advance_thread.join(timeout=_ADVANCE_JOIN_TIMEOUT_S)
             if advance_thread.is_alive():
                 warning("Auto-advance thread did not exit within cleanup timeout")
-        self.file_manager.clear_all()
+        self.file_manager.close()  # clears, and refuses a swap still in flight (#6528)
         self.gapless.cleanup()
         self.integration.cleanup()
         # Dispose the fingerprint service's self-created engine pool (#4501).
