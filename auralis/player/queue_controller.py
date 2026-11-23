@@ -165,23 +165,16 @@ class QueueController(QueueLockedStateMixin, QueueLoadingMixin):
         unshuffle() directly. A flag-only write left set_shuffle() reporting
         shuffle_enabled: True while the queue order stayed untouched (#4986).
         """
-        # Route through the locked property setter (#4096) — writing
-        # self.queue.shuffle_enabled directly bypassed QueueManager._lock that
-        # the shuffle_enabled reader holds.
-        #
-        # #5315: read the prior state BEFORE overwriting the flag, and skip
-        # queue.shuffle() entirely when shuffle was already enabled. Beyond
-        # QueueManager.shuffle()'s own snapshot guard (which stops the
-        # original order from being lost), a repeated set_shuffle(True) —
-        # double click, retried request, UI race — must not even re-shuffle
-        # the already-shuffled queue a second time.
-        already_enabled = self.shuffle_enabled
-        self.shuffle_enabled = enabled
-        if enabled:
-            if not already_enabled:
+        # Flag and order change under one hold of the queue's RLock (#6536), through the locked
+        # setter (#4096). The prior state is read first: a repeated set_shuffle(True) (double click,
+        # retried request) must not re-shuffle an already-shuffled queue (#5315).
+        with self.queue._lock:
+            already_enabled = self.shuffle_enabled
+            self.shuffle_enabled = enabled
+            if not enabled:
+                self.queue.unshuffle()
+            elif not already_enabled:
                 self.queue.shuffle()
-        else:
-            self.queue.unshuffle()
         self._notify_changed()
         info(f"Shuffle {'enabled' if enabled else 'disabled'}")
 
@@ -230,21 +223,21 @@ class QueueController(QueueLockedStateMixin, QueueLoadingMixin):
 
     def shuffle(self) -> None:
         """Shuffle the queue, keeping the current track in place."""
-        self.queue.shuffle()
-        # #5587: keep the flag consistent with the order. Only set_shuffle
-        # wrote it, so a REST shuffle (QueueService.shuffle_queue → this
-        # method) left get_queue_info()['shuffle_enabled'] False while the
-        # queue was actually shuffled — and an unshuffle() after
-        # set_shuffle(True) left it True over the restored order. The locked
-        # property setter is the same route set_shuffle uses (#4096).
-        self.shuffle_enabled = True
+        # #5587: the flag follows the order (a REST shuffle left it False over a shuffled queue). One
+        # hold of the queue's RLock, so a clear()/set_queue() cannot land between the two (#6536).
+        with self.queue._lock:
+            self.queue.shuffle()
+            self.shuffle_enabled = True
         self._notify_changed()
 
     def unshuffle(self) -> bool:
         """Restore the pre-shuffle queue order. Returns True if restored."""
-        restored: bool = self.queue.unshuffle()
-        if restored or self.shuffle_enabled:  # an edit drops the snapshot, not the user's "shuffle off" (#5936)
-            self.shuffle_enabled = False
+        with self.queue._lock:  # flag and order together (#6536)
+            restored: bool = self.queue.unshuffle()
+            changed = restored or self.shuffle_enabled  # an edit drops the snapshot, not "shuffle off" (#5936)
+            if changed:
+                self.shuffle_enabled = False
+        if changed:
             self._notify_changed()
         return restored
 
