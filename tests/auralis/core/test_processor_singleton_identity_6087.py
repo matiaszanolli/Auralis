@@ -93,12 +93,10 @@ class TestPerCallState:
         hp_module.process_adaptive(np.zeros((4, 2)))
         hp_module.process_reference(np.zeros((4, 2)), np.zeros((4, 2)))
 
-        assert processor.reset_psychoacoustic_eq.call_count == 2
-        assert processor.reset_limiter.call_count == 2
-        assert processor.reset_run_state.call_count == 2
+        assert processor.reset_for_new_input.call_count == 2
         names = [c[0] for c in processor.method_calls]
-        # Each call: resets first, then process.
-        assert names[:4] == ["reset_psychoacoustic_eq", "reset_limiter", "reset_run_state", "process"]
+        # Each call: reset first, then process.
+        assert names[:2] == ["reset_for_new_input", "process"]
 
     def test_second_unrelated_input_matches_a_fresh_processor(self):
         loud_first = _music(2.0, seed=1, level=0.9)

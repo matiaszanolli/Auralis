@@ -99,13 +99,18 @@ class ProcessorLeaseMixin:
         """Lease a processor exclusively: a released warm one, else a fresh build.
 
         The caller MUST hand it back with ``release_lease`` (or ``discard_lease``).
-        Construction runs outside the cache lock (#4689).
+        Construction runs outside the cache lock (#4689). A warm instance is reset
+        first (#6542): it still carries the previous stream's limiter, EQ smoothing
+        and analysis, which an un-pre-rolled chunk would render into the durable
+        chunk cache. Uncontended: a cached instance has no holder.
         """
         key = self._lease_key(track_id, preset, config, mastering_targets)
         with self._lock:
             processor = self._processor_cache.pop(key, None)
         if processor is None:
             processor = self._build_processor(track_id, preset, intensity, config, mastering_targets)
+        else:
+            processor.reset_for_new_input()
         with self._lock:
             if track_id > 0:
                 self._active_processors[track_id] = processor

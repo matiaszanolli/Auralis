@@ -218,31 +218,30 @@ class HybridProcessor:
 
     # Delegation methods for component managers
 
+    def reset_for_new_input(self) -> None:
+        """Render like a fresh instance: drop the EQ smoothing, limiter gain and last-run analysis
+        that persist across ``process()`` for one track's continuity. For a pooled job (#4811,
+        #6088), a shared-instance call (#6087) and a warm stream lease (#6542); one lock hold."""
+        with self._process_lock:
+            self.reset_psychoacoustic_eq()
+            self.reset_limiter()
+            self.reset_run_state()
+
     def reset_psychoacoustic_eq(self) -> None:
-        """Reset the adaptive/continuous psychoacoustic EQ's gain-smoothing
-        state (``current_gains``/``target_gains``, persisted across
-        ``process()`` calls for intra-track continuity) at a track/job
-        boundary, so one master's EQ curve can't bleed into the next. This is
-        the only psychoacoustic-EQ reset."""
+        """Reset the psychoacoustic EQ's gain smoothing (``current_gains``/``target_gains``)."""
         with self._process_lock:
             self.psychoacoustic_eq.reset()
 
     def reset_run_state(self) -> None:
-        """Forget the previous run's analysis at a job boundary (#6088); an empty or silent
-        input returns before analysing. Job paths only: streaming reuses ``last_*`` across chunks."""
+        """Forget the previous run's analysis (#6088); an empty or silent input returns before
+        analysing. Only at a job or stream boundary: a stream reuses ``last_*`` across its chunks."""
         with self._process_lock:
             self.last_content_profile = {}
             self.adaptive_mode.last_content_profile = None
             self.continuous_mode.reset_run_state()
 
     def reset_limiter(self) -> None:
-        """Reset the brick-wall limiter's cross-call gain-reduction state (#3787: locked).
-
-        ``current_gain`` persists across ``process()`` calls for intra-track
-        continuity (#2390); left unreset between pooled/cached jobs, a loud
-        track leaves the limiter deep into gain reduction and the next track
-        starts already attenuated by that leftover gain (fixes #4811).
-        """
+        """Reset the brick-wall limiter's cross-call gain reduction (#3787: locked; #2390, #4811)."""
         with self._process_lock:
             self.brick_wall_limiter.reset()
 

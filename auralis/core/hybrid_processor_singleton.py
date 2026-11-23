@@ -113,9 +113,7 @@ def _process_from_clean_state(
     between the two.
     """
     with processor._process_lock:
-        processor.reset_psychoacoustic_eq()
-        processor.reset_limiter()
-        processor.reset_run_state()
+        processor.reset_for_new_input()
         return processor.process(target, reference)
 
 

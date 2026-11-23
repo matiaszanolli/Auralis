@@ -775,9 +775,8 @@ class TestResetProcessorState:
 
     @pytest.mark.asyncio
     async def test_process_job_resets_all_four_stateful_components(self, temp_audio_file):
-        """Every job resets EQ, dynamics AND the brick-wall limiter before
-        processing — reset_limiter() must be wired in alongside the three
-        pre-existing resets (fixes #4811), not just some of them."""
+        """Every job resets the EQ, the brick-wall limiter (#4811) and the last run's
+        analysis (#6088) before processing, through HybridProcessor.reset_for_new_input()."""
         engine = ProcessingEngine(max_concurrent_jobs=1)
 
         with patch('core.job_execution.load_audio') as mock_load, \
@@ -795,9 +794,7 @@ class TestResetProcessorState:
             await engine.process_job(job)
 
             assert job.status == ProcessingStatus.COMPLETED
-            mock_proc.reset_psychoacoustic_eq.assert_called_once()
-            mock_proc.reset_limiter.assert_called_once()
-            mock_proc.reset_run_state.assert_called_once()
+            mock_proc.reset_for_new_input.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_slow_reset_does_not_block_the_event_loop(self, temp_audio_file):
@@ -816,7 +813,7 @@ class TestResetProcessorState:
             mock_proc = Mock()
             mock_proc.process.return_value = np.zeros((1000, 2))
             # Simulate a slow (blocking) acquire of `_process_lock`.
-            mock_proc.reset_psychoacoustic_eq.side_effect = lambda: time.sleep(0.3)
+            mock_proc.reset_for_new_input.side_effect = lambda: time.sleep(0.3)
             mock_processor_cls.return_value = mock_proc
 
             job = await engine.create_job(
