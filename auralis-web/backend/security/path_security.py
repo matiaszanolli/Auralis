@@ -38,6 +38,7 @@ __all__ = [
     "PathMissingError",
     "PathValidationError",
     "get_allowed_directories",
+    "trusted_scan_folders",
     "validate_directory_list",
     "validate_file_path",
     "validate_user_chosen_directory",
@@ -266,3 +267,32 @@ def validate_directory_list(directories: list[str]) -> list[str]:
         except PathValidationError as e:
             raise PathValidationError(f"Invalid directory path '{directory}': {e}") from e
     return validated
+
+
+def trusted_scan_folders(folders: list[str]) -> list[str]:
+    """The persisted scan folders that still pass the write-time root checks (#6525).
+
+    ``validate_user_chosen_directory`` refuses operating-system trees and the
+    app's scratch roots when a folder is added, but the settings row is read
+    back at every startup (allowlist registration) and every auto-scan cycle.
+    A profile saved before those checks existed, or a local write to the
+    settings DB, kept an entry such as ``/`` trusted forever. Existence is not
+    required here, unlike at write time: a folder on an unmounted drive stays
+    trusted for when the drive returns.
+    """
+    kept: list[str] = []
+    for folder in folders:
+        try:
+            path = Path(folder)
+            resolved = path.resolve()
+        except (OSError, RuntimeError, ValueError):
+            logger.warning("Ignoring a persisted scan folder that cannot be resolved")
+            continue
+        if ".." in path.parts or _is_system_directory(resolved) or _is_app_scratch_root(resolved):
+            logger.warning(
+                f"Ignoring persisted scan folder {resolved.name or str(resolved)!r}: an operating-system "
+                "or app working directory cannot be a library root; remove it in Settings"
+            )
+            continue
+        kept.append(folder)
+    return kept

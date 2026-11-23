@@ -22,6 +22,7 @@ from config.limits import SHUTDOWN_STEP_TIMEOUT_S, clamp_scan_interval
 from typing import Any
 
 from helpers import spawn_background_task
+from security.path_security import trusted_scan_folders
 from websocket.outbound_messages import broadcast_typed
 
 from .missing_tracks import parse_scan_folders, prune_folders_removed_during_scan, prune_missing_tracks
@@ -137,7 +138,7 @@ class LibraryAutoScanner(WatchdogMixin):
         self._trigger_event.clear()
         settings = await asyncio.to_thread(self._settings_repo.get_settings)
 
-        scan_folders = parse_scan_folders(settings)
+        scan_folders = trusted_scan_folders(parse_scan_folders(settings))  # never scan a stored "/" (#6525)
         auto_scan: bool = bool(settings.auto_scan) if settings else False
         scan_interval = clamp_scan_interval(settings.scan_interval if settings else None)
 

@@ -93,11 +93,12 @@ def _register_scan_folders(globals_dict: dict[str, Any]) -> None:
     """Register user-configured scan folders as allowed directories so
     validate_file_path accepts files from custom locations."""
     try:
-        import json
         from security.path_allowlist import register_allowed_directory
-        settings = globals_dict['settings_repository'].get_settings()
-        if settings and settings.scan_folders:
-            folders = json.loads(settings.scan_folders) if isinstance(settings.scan_folders, str) else settings.scan_folders
+        from security.path_security import trusted_scan_folders
+        from services.missing_tracks import parse_scan_folders
+        # Re-checked on read, not only when saved: a stored "/" must not widen the allowlist (#6525).
+        folders = trusted_scan_folders(parse_scan_folders(globals_dict['settings_repository'].get_settings()))
+        if folders:
             for folder in folders:
                 register_allowed_directory(Path(folder))
             logger.info(f"✅ Registered {len(folders)} scan folder(s) as allowed directories")
