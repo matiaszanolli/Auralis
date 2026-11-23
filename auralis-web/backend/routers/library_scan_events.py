@@ -14,9 +14,10 @@ payload policy (#4651: redact only what the user did not supply) is unchanged.
 """
 
 import logging
+from collections.abc import Sequence
 from typing import Any
 
-from services.missing_tracks import prune_missing_tracks
+from services.missing_tracks import prune_folders_removed_during_scan, prune_missing_tracks
 from services.scan_complete_broadcast import broadcast_scan_complete
 from services.scan_fingerprint_enqueue import enqueue_scanned_for_fingerprinting
 from websocket.outbound_messages import broadcast_typed
@@ -24,7 +25,9 @@ from websocket.outbound_messages import broadcast_typed
 logger = logging.getLogger(__name__)
 
 
-async def publish_scan_result(connection_manager: Any, library_database: Any, result: Any) -> None:
+async def publish_scan_result(
+    connection_manager: Any, library_database: Any, result: Any, folders_at_start: Sequence[str] = ()
+) -> None:
     """Everything after a finished, non-rejected scan, in the order it must run.
 
     A scan that aborted (``result.error``, #5877) gets ``library_scan_error``
@@ -35,7 +38,9 @@ async def publish_scan_result(connection_manager: Any, library_database: Any, re
     (#5515). Not when a folder could not be read: its files look missing
     (an unplugged drive, a permission-denied album) and would be deleted, nor
     when a moved-file check failed (#6569): that track's old row looks missing too.
+    Scan folders removed while the scan ran are pruned again first (#6556).
     """
+    await prune_folders_removed_during_scan(library_database, folders_at_start, connection_manager)
     if result.error:
         await broadcast_scan_error(connection_manager, result.error)
         return

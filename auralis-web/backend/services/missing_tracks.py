@@ -11,11 +11,13 @@ anyone rescanning by hand after reorganising files — kept dead entries forever
 """
 
 import asyncio
+import json
 import logging
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from auralis.library.scan_paths import reservation_key
 from websocket.outbound_messages import broadcast_typed
 
 logger = logging.getLogger(__name__)
@@ -99,4 +101,59 @@ async def prune_tracks_under_folder(
                 {"action": "update", "track_count": 0},
                 suppress_errors=True,
             )
+    return removed
+
+
+def parse_scan_folders(settings: Any) -> list[str]:
+    """The settings row's scan_folders as a list; [] when unset or unparseable."""
+    return _scan_folders_or_none(settings) or []
+
+
+def _scan_folders_or_none(settings: Any) -> list[str] | None:
+    """scan_folders as a list, [] when unset, None when the value cannot be parsed."""
+    if not settings or not settings.scan_folders:
+        return []
+    raw = settings.scan_folders
+    try:
+        folders = json.loads(raw) if isinstance(raw, str) else raw
+    except (ValueError, TypeError):
+        return None
+    return [str(f) for f in folders if f] if isinstance(folders, list) else None
+
+
+async def current_scan_folders(library_database: Any) -> list[str] | None:
+    """The configured scan folders now; None when settings cannot be read or parsed.
+
+    None, not []: an unreadable list is not an empty one, and the caller would
+    prune every folder in it as removed.
+    """
+    try:
+        folders = _scan_folders_or_none(await asyncio.to_thread(library_database.settings.get_settings))
+    except Exception as exc:
+        logger.error(f"Could not read the scan folders: {exc}")
+        return None
+    if folders is None:
+        logger.error("Could not parse the configured scan folders")
+    return folders
+
+
+async def prune_folders_removed_during_scan(
+    library_database: Any, folders_at_start: Sequence[str], connection_manager: Any | None
+) -> int:
+    """Prune again under scan folders removed while a scan was walking them (#6556).
+
+    Removing a folder prunes its rows once, but a scan already walking it went
+    on adding them back (and its files may no longer be trusted, so they were
+    visible-but-broken). Run after the scan thread is done: a removal saved
+    before the settings read here is pruned again now; one saved after it
+    prunes on its own, with every row of this scan already written.
+    """
+    current = await current_scan_folders(library_database) if folders_at_start else None
+    if current is None:
+        return 0
+    kept = {reservation_key(folder) for folder in current}
+    removed = 0
+    for folder in folders_at_start:
+        if reservation_key(folder) not in kept:
+            removed += await prune_tracks_under_folder(library_database, folder, connection_manager, current)
     return removed

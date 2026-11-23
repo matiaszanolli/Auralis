@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from schemas import LibraryScanRequest, ScanResultResponse
 
+from services.missing_tracks import current_scan_folders
 from services.scan_events import make_progress_callback
 
 from .errors import LibraryUnavailableError, handle_query_error
@@ -111,6 +112,7 @@ async def scan_library(
     body purely so the scan can be stopped when the caller goes away
     (#4820) — see ``_await_scan``.
     """
+    scan_timeout = float(SCAN_TIMEOUT_S)
     try:
         from auralis.library.scanner import LibraryScanner
 
@@ -121,23 +123,20 @@ async def scan_library(
             raise LibraryUnavailableError()
 
         scanner = LibraryScanner(library_database)
+        folders_at_start = await current_scan_folders(library_database) or []  # #6556
 
-        # NOTE: `library_scan_started` is NOT broadcast here (#4602). It used
-        # to be sent unconditionally on entry — before scan_directories() ran
-        # and long before `result.rejected` could be known — so a second scan
-        # request that ended up 409'd had already told the UI a scan began,
-        # and its handler resets every counter, destroying the live progress
-        # of the scan actually running. The scanner now emits a
-        # `stage: 'started'` progress event once it owns the scan slot, and
-        # the callback below translates that into the frame (#2711's intent,
-        # correctly ordered).
+        # NOTE: `library_scan_started` is NOT broadcast here (#4602). Sent on
+        # entry, before `result.rejected` was known, a second request that was
+        # then 409'd had told the UI a scan began, and its handler reset every
+        # counter of the scan actually running. The scanner emits
+        # `stage: 'started'` once it owns the scan slot, and the callback below
+        # turns that into the frame (#2711's intent, correctly ordered).
 
         if connection_manager:
             scanner.set_progress_callback(
                 make_progress_callback(asyncio.get_running_loop(), connection_manager, request.directories)
             )
 
-        scan_timeout = float(SCAN_TIMEOUT_S)
         # #3710: capture the to_thread future so we can signal the scanner
         # to stop on cancellation/timeout/disconnect — asyncio.wait_for
         # cancels the awaitable but cannot terminate the underlying thread
@@ -155,7 +154,7 @@ async def scan_library(
         if result.rejected:
             raise HTTPException(status_code=409, detail="Scan already in progress")
 
-        await publish_scan_result(connection_manager, library_database, result)
+        await publish_scan_result(connection_manager, library_database, result, folders_at_start)
         if result.error:
             # The scan aborted (#5877): not a 200 that reads as "Added 0 tracks".
             raise HTTPException(status_code=500, detail=result.error)

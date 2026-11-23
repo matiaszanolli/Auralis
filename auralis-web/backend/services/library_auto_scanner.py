@@ -16,7 +16,6 @@ library in sync:
 """
 
 import asyncio
-import json
 import logging
 
 from config.limits import SHUTDOWN_STEP_TIMEOUT_S, clamp_scan_interval
@@ -25,7 +24,7 @@ from typing import Any
 from helpers import spawn_background_task
 from websocket.outbound_messages import broadcast_typed
 
-from .missing_tracks import prune_missing_tracks
+from .missing_tracks import parse_scan_folders, prune_folders_removed_during_scan, prune_missing_tracks
 from .scan_complete_broadcast import broadcast_scan_complete
 from .scan_events import make_progress_callback
 from .scan_fingerprint_enqueue import enqueue_scanned_for_fingerprinting
@@ -138,7 +137,7 @@ class LibraryAutoScanner(WatchdogMixin):
         self._trigger_event.clear()
         settings = await asyncio.to_thread(self._settings_repo.get_settings)
 
-        scan_folders = _parse_scan_folders(settings)
+        scan_folders = parse_scan_folders(settings)
         auto_scan: bool = bool(settings.auto_scan) if settings else False
         scan_interval = clamp_scan_interval(settings.scan_interval if settings else None)
 
@@ -207,6 +206,7 @@ class LibraryAutoScanner(WatchdogMixin):
         else:
             # The scanner's own catch-all reports the same way (#5877).
             scan_error = scan_result.error
+        await prune_folders_removed_during_scan(self._library_database, scan_folders, self._connection_manager)
         if scan_error:
             await broadcast_typed(
                 self._connection_manager, "library_scan_error", {"error": scan_error}, suppress_errors=True,
@@ -248,24 +248,3 @@ class LibraryAutoScanner(WatchdogMixin):
             await asyncio.wait_for(self._trigger_event.wait(), timeout=float(seconds))
         except TimeoutError:
             pass  # Normal: slept the full interval
-
-
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-def _parse_scan_folders(settings: Any) -> list[str]:
-    """Extract and parse scan_folders from UserSettings object."""
-    if not settings or not settings.scan_folders:
-        return []
-    raw = settings.scan_folders
-    if isinstance(raw, str):
-        try:
-            folders = json.loads(raw)
-        except (ValueError, TypeError):
-            return []
-    elif isinstance(raw, list):
-        folders = raw
-    else:
-        return []
-    return [str(f) for f in folders if f]
