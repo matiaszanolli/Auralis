@@ -78,23 +78,30 @@ def test_the_suppressed_count_is_flushed_when_the_window_ends(caplog):
     assert [r.getMessage() for r in caplog.records] == ["one", "3 more k rejection(s) in the last 60s window"]
 
 
-def test_a_flush_timer_writes_the_count_with_no_further_rejection(caplog):
-    log = logging.getLogger("test.throttle")
-    written = threading.Event()
+def test_a_flush_timer_writes_the_count_with_no_further_rejection():
+    """The timer writes from its own thread, so the test collects records with its own handler and
+    is signalled only after a record is appended: reading caplog after a filter-set event raced the
+    handler on that thread (CI run 45282187108)."""
+    log = logging.getLogger("test.throttle.flush")
+    messages: list[str] = []
+    summary_written = threading.Event()
 
-    def note_summary(record: logging.LogRecord) -> bool:
-        if "more k rejection" in record.getMessage():
-            written.set()
-        return True
+    class _Collect(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            messages.append(record.getMessage())
+            if "more k rejection" in record.getMessage():
+                summary_written.set()
 
-    log.addFilter(note_summary)
-    with caplog.at_level(logging.WARNING, logger="test.throttle"):
+    handler = _Collect(logging.WARNING)
+    log.addHandler(handler)
+    try:
         log_throttle.warn_throttled(log, "k", "one", window=0.2)
         log_throttle.warn_throttled(log, "k", "again", window=0.2)
-        assert written.wait(5), "the suppressed count was never written"
-    log.removeFilter(note_summary)
+        assert summary_written.wait(5), "the suppressed count was never written"
+    finally:
+        log.removeHandler(handler)
 
-    assert caplog.records[-1].getMessage() == "1 more k rejection(s) in the last 0.2s window"
+    assert messages == ["one", "1 more k rejection(s) in the last 0.2s window"]
 
 
 def test_a_new_detail_inside_the_window_is_logged_and_the_set_is_bounded(caplog):
