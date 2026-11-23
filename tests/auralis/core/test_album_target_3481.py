@@ -269,31 +269,3 @@ class TestUnifiesDestinationNotCurve:
         )
         gap_after = abs(_bass_after(dark) - _bass_after(bright))
         assert gap_after < gap_before
-
-
-# ---------------------------------------------------------------------------
-# ContinuousMode wiring
-# ---------------------------------------------------------------------------
-
-class _StubRepository:
-    def __init__(self, cloud):
-        self._cloud = cloud
-        self.calls = 0
-
-    def get_reference_cloud(self):
-        self.calls += 1
-        return self._cloud
-
-
-def _mode(cloud=None):
-    """A ContinuousMode wired to a stub cloud, without touching a database."""
-    from auralis.core.config import UnifiedConfig
-    from auralis.core.processing.continuous_mode import ContinuousMode
-
-    mode = ContinuousMode.__new__(ContinuousMode)
-    mode.config = UnifiedConfig()
-    mode.fingerprint_repository = _StubRepository(cloud) if cloud else None
-    mode._reference_cloud = None
-    mode._distance_stats = None
-    mode._album_target = None
-    return mode

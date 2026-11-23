@@ -17,7 +17,6 @@ the guard knees, and ``fixed_target_params.py`` the fixed-targets conversion.
 """
 
 import dataclasses
-import time
 from typing import Any
 
 import numpy as np
@@ -33,10 +32,7 @@ from .continuous_space_types import ProcessingParameters
 from .continuous_stages import ContinuousStagesMixin
 from .fixed_target_params import convert_targets_to_parameters
 from .parameter_generator import ContinuousParameterGenerator
-
-
-# How long a loaded, non-empty reference cloud is trusted before it is re-read.
-_REFERENCE_CLOUD_TTL_S = 60.0
+from .reference_cloud import ReferenceCloud
 
 
 class ContinuousMode(ContinuousStagesMixin):
@@ -73,16 +69,9 @@ class ContinuousMode(ContinuousStagesMixin):
         self.fingerprint_analyzer = fingerprint_analyzer
         self.fingerprint_repository = fingerprint_repository
 
-        # Reference-cloud caches (lazy-loaded on first process() call so we
-        # don't hit the DB during construction). None = not loaded / empty;
-        # see _reference_context for the refresh rules.
-        self._reference_cloud: list[Any] | None = None
-        self._reference_cloud_loaded_at = 0.0
-        self._distance_stats: Any | None = None
-
-        # Album-consistency override (#3481). When set, every process() call
-        # uses this one target instead of deriving its own, so tracks played as
-        # an album converge on a shared tonality. None = per-track mode.
+        # Reference cloud, lazy-loaded on the first process() call so the DB is
+        # not touched during construction; see ReferenceCloud for the refresh rules.
+        self.reference_cloud = ReferenceCloud(lambda: self.fingerprint_repository)
 
         # Initialize continuous space components
         self.space_mapper = ProcessingSpaceMapper()
@@ -102,72 +91,6 @@ class ContinuousMode(ContinuousStagesMixin):
         # Quality-gate sampling counter (#3460): only run the gate on selected
         # process() calls per config.quality_gate_interval.
         self._quality_gate_call_count = 0
-
-    def _derive_target_spectrum(self, fingerprint: dict[str, Any]) -> dict[str, float] | None:
-        """Lazy-load the reference cloud and derive a continuous target.
-
-        Returns None when no repository is wired or the cloud is empty —
-        the parameter generator then falls back to legacy deficit-based math.
-        The cloud is cached between calls (see ``_reference_context``).
-        """
-        context = self._reference_context()
-        if context is None:
-            return None
-        references, stats = context
-
-        from .target_derivation import derive_target
-        result = derive_target(fingerprint, references, stats)
-        if result is None:
-            return None
-        debug(
-            f"[Mastering] Target derived from {result.n_matched} references "
-            f"(top: {result.top_ref_ids[:3]})"
-        )
-        return result.target
-
-    def _reference_context(self) -> tuple[list[Any], Any] | None:
-        """Lazy-load the reference cloud and its z-score stats.
-
-        A non-empty cloud is trusted for ``_REFERENCE_CLOUD_TTL_S`` seconds and
-        then re-read, so a processor that outlives a refresh (they live in an
-        LRU of 32) picks the new cloud up instead of keeping the one it first
-        saw. An empty cloud or a failed read is never cached: the next call
-        asks again, so a processor created before the first refresh starts
-        using the reference-cloud EQ as soon as one exists (#5722). Returns
-        None when no repository is wired or the cloud is empty -- every caller
-        then falls back to legacy deficit-based math.
-        """
-        if self.fingerprint_repository is None:
-            return None
-
-        now = time.monotonic()
-        if self._reference_cloud is None or now - self._reference_cloud_loaded_at >= _REFERENCE_CLOUD_TTL_S:
-            self._reload_reference_cloud(now)
-
-        if not self._reference_cloud:
-            return None
-
-        # Fit z-score stats once per loaded cloud
-        if self._distance_stats is None:
-            from .target_derivation import DistanceStats
-            self._distance_stats = DistanceStats.from_references(self._reference_cloud)
-
-        return self._reference_cloud, self._distance_stats
-
-    def _reload_reference_cloud(self, now: float) -> None:
-        """Re-read the cloud; keep the previous one if the read fails."""
-        repository = self.fingerprint_repository
-        if repository is None:
-            return
-        try:
-            cloud = repository.get_reference_cloud()
-        except Exception as e:
-            debug(f"[Mastering] Failed to load reference cloud: {e}")
-            return
-        # `or None` so an empty cloud is re-read on the next call, never cached.
-        self._reference_cloud = cloud or None
-        self._reference_cloud_loaded_at = now
-        self._distance_stats = None  # stats belong to the cloud they were fitted on
 
     def reset_run_state(self) -> None:
         """Clear the last run's fingerprint, coordinates and parameters (#6088)."""
@@ -231,7 +154,7 @@ class ContinuousMode(ContinuousStagesMixin):
         # cloud (Phase 4). If no cloud is available (no repository, or
         # nothing flagged is_reference yet), target_spectrum is None and
         # generate_parameters falls back to the legacy deficit-based curve.
-        target_spectrum = self._derive_target_spectrum(fingerprint)
+        target_spectrum = self.reference_cloud.target_spectrum(fingerprint)
 
         # Step 4: Generate processing parameters
         params = self.param_generator.generate_parameters(coords, target_spectrum=target_spectrum)
