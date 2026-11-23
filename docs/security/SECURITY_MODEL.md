@@ -17,7 +17,9 @@ accepts.
 
 - One user, one machine. There is no server deployment, no multi-tenant mode,
   no LAN/remote access scenario. See `docs/development` and the project memory
-  ("Desktop-only distribution").
+  ("Desktop-only distribution"). A machine where other people hold their own OS
+  accounts and can run programs while Auralis is open (a shared workstation, a
+  terminal server) is **not a supported deployment**; see "Out of scope" below.
 - The backend binds to `127.0.0.1` only (`uvicorn.run(host="127.0.0.1", ...)`
   in `auralis-web/backend/main.py`). It is not reachable from any other host on
   the network.
@@ -106,15 +108,29 @@ privileges**: it can read and write the music library, the SQLite DB
 (`~/.auralis/library.db`) and the user's files directly. Driving the Auralis
 API grants it nothing it could not already do.
 
-### Not accepted: another OS account on the same machine
+### Out of scope: another OS account on the same machine (#6520)
 
 Loopback is shared by every account on the machine, so a process run by
 **another local user** passes the same boundaries (loopback peer, no `Origin`).
-The argument above does not hold for it: that user cannot read `~/.auralis`
-(owner-only, #2577, #4347, #4824) or, typically, this user's music, yet through the API
-it can list the library, read metadata and artwork, start scans of folders this
-user can read, and control playback. This is an **open risk, tracked in
-#6520**, not an accepted one. The capability token below would close it.
+The same-user argument above does not cover it: that user cannot read
+`~/.auralis` (owner-only, #2577, #4347, #4824) or, typically, this user's music,
+yet while Auralis is running it can, through the API, list the library, read
+metadata, artwork and the audio of allowlisted folders, edit tags in this user's
+files, change the persisted scan folders, reset the library and control
+playback.
+
+Decision (#6520): **shared multi-user hosts are not a supported deployment**,
+and Auralis does not defend against this actor. Auralis is a personal desktop
+player; the machines it targets have one person using them at a time, and the
+exposure lasts only while Auralis runs. The fix that would close it (the
+capability token below) has to be threaded through Electron, the renderer's
+REST and WebSocket clients, both backend gates, the development launcher and
+every test client, and every future client inherits it. That cost is not taken
+for a deployment the app does not target. Do not run Auralis on a machine where
+untrusted people have their own accounts and can run programs at the same time.
+
+Revisit this decision if Auralis is ever packaged for shared machines (labs,
+terminal servers, kiosks) or gains a headless or server mode.
 
 What is **not** exposed to anyone off the machine:
 
@@ -130,7 +146,8 @@ renderer at startup, and require it on WS connect and REST mutations. A local
 process without the token would be rejected. This is a design decision with a
 usability/complexity cost and is **not currently adopted**: the boundaries above
 are considered sufficient against a same-user process and anything off the
-machine. It is the candidate fix for the cross-account risk (#6520).
+machine. It is the fix to adopt if the cross-account case above ever comes into
+scope (#6520).
 
 ## Related
 
@@ -138,6 +155,6 @@ machine. It is the candidate fix for the cross-account risk (#6520).
   readable dir); tracked separately.
 - #2413, #3845, #5066 — WebSocket Origin hardening (implemented).
 - #4893, #6158 — REST origin check and its Sec-Fetch-Site GET gate.
-- #6520 — the cross-OS-account actor (open).
+- #6520 — the cross-OS-account actor: shared multi-user hosts declared out of scope.
 - [WEBSOCKET_SECURITY_FIX_2156.md](WEBSOCKET_SECURITY_FIX_2156.md) — related WS
   security fix.
