@@ -170,24 +170,16 @@ def test_error_process_nan_audio():
 
 @pytest.mark.error
 @pytest.mark.unit
-@pytest.mark.xfail(
-    strict=True,
-    reason="#5191: the MIN_SAMPLES short-circuit returns before "
-           "validate_audio_finite, so a sub-MIN_SAMPLES buffer keeps its NaN",
-)
 def test_error_process_nan_audio_short_buffer():
-    """The gap the original 3-sample fixture was unknowingly sitting on.
+    """A buffer shorter than MIN_SAMPLES is rejected too (#5191, fixed in 73cc8b982).
 
-    `_process_impl` validates NaN/Inf and fails fast — but only after the
-    "too short to master" short-circuit has already returned a copy. So the
-    guard holds at every length except the one this exercises.
+    The "too short to master" short-circuit used to return a copy before the finiteness check ran;
+    an xfail marked that gap until it kept "passing" as XFAIL after the fix (#6495).
     """
     audio_with_nan = np.array([[1.0, 1.0], [np.nan, 0.5], [0.3, 0.3]])
 
-    processor = HybridProcessor(UnifiedConfig())
-    processed = processor.process(audio_with_nan)
-
-    assert not np.isnan(processed).any()
+    with pytest.raises(ModuleError, match="NaN"):
+        HybridProcessor(UnifiedConfig()).process(audio_with_nan)
 
 
 @pytest.mark.error
@@ -210,19 +202,12 @@ def test_error_process_inf_audio():
 
 @pytest.mark.error
 @pytest.mark.unit
-@pytest.mark.xfail(
-    strict=True,
-    reason="#5191: the MIN_SAMPLES short-circuit returns before "
-           "validate_audio_finite, so a sub-MIN_SAMPLES buffer keeps its Inf",
-)
 def test_error_process_inf_audio_short_buffer():
     """Inf half of #5191 — see test_error_process_nan_audio_short_buffer."""
     audio_with_inf = np.array([[1.0, 1.0], [np.inf, 0.5], [0.3, 0.3]])
 
-    processor = HybridProcessor(UnifiedConfig())
-    processed = processor.process(audio_with_inf)
-
-    assert not np.isinf(processed).any()
+    with pytest.raises(ModuleError, match="Inf"):
+        HybridProcessor(UnifiedConfig()).process(audio_with_inf)
 
 
 # ============================================================================
