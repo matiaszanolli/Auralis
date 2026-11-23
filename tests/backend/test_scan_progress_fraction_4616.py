@@ -50,6 +50,7 @@ class _StubBatchProcessor:
             # refreshed tracks up from each batch, so the double models both.
             updated_tracks=[],
             failures=[],
+            unresolved_moves=0,  # #6569: moved-file checks that failed, carried up by the merge
         )
 
     def stop(self) -> None:
