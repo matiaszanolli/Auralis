@@ -14,13 +14,24 @@ import logging as _stdlib_logging
 import os as _os
 from collections.abc import Callable
 
-# Control characters that must not reach a log line verbatim: C0 range
-# (0x00-0x1F) except tab, plus DEL (0x7F) and the C1 range (0x80-0x9F).
-# Newlines/carriage returns here let attacker-controlled metadata forge log
-# lines; ESC (0x1B) and friends can corrupt a terminal log viewer (#4363).
-_LOG_UNSAFE_CHARS = frozenset(
-    chr(c) for c in range(0x00, 0x20) if c != 0x09
-) | {chr(0x7F)} | frozenset(chr(c) for c in range(0x80, 0xA0))
+# Characters that must not reach a log line verbatim: C0 range (0x00-0x1F) except tab, DEL (0x7F)
+# and the C1 range (0x80-0x9F). Newlines/carriage returns here let attacker-controlled metadata
+# forge log lines; ESC (0x1B) and friends can corrupt a terminal log viewer (#4363). Also U+2028/
+# U+2029 (line breaks to editors and splitlines()), the zero-width and directional marks
+# U+200B-200F, and the bidi embedding/override/isolate controls U+202A-202E and U+2066-2069 that
+# visually reorder a line (#6535). desktop/url-safety.js escapeControlChars uses the same set.
+_LOG_UNSAFE_CHARS = (
+    frozenset(chr(c) for c in range(0x00, 0x20) if c != 0x09)
+    | {chr(0x7F)}
+    | frozenset(chr(c) for c in range(0x80, 0xA0))
+    | frozenset(chr(c) for c in (*range(0x200B, 0x2010), *range(0x2028, 0x202F), *range(0x2066, 0x206A)))
+)
+
+
+def _escape_char(ch: str) -> str:
+    """``\\xNN`` for a byte-range character, ``\\uNNNN`` above it."""
+    code = ord(ch)
+    return f"\\x{code:02x}" if code <= 0xFF else f"\\u{code:04x}"
 
 
 # The user's home directory carries their OS account name and the install layout; every path under it
@@ -56,9 +67,7 @@ def sanitize_log_value(value: object, max_length: int = 500) -> str:
         text = text[:max_length] + "…"
     if not any(ch in _LOG_UNSAFE_CHARS for ch in text):
         return text  # fast path: nothing to escape
-    return "".join(
-        f"\\x{ord(ch):02x}" if ch in _LOG_UNSAFE_CHARS else ch for ch in text
-    )
+    return "".join(_escape_char(ch) if ch in _LOG_UNSAFE_CHARS else ch for ch in text)
 
 
 class Code:

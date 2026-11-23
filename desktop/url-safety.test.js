@@ -147,3 +147,13 @@ test('isTrustedIpcSender admits the Vite dev origin only in development', () => 
   assert.equal(isTrustedIpcSender(frame('http://127.0.0.1:3000/'), { isDevelopment: true }), true);
   assert.equal(isTrustedIpcSender(frame('http://127.0.0.1:3000/')), false);
 });
+
+test('escapeControlChars also escapes Unicode line separators and bidi controls (#6535)', () => {
+  const hostile = 'a\u2028b\u2029c\u202ed\u2066e\u200bf\u0085g';
+
+  const escaped = escapeControlChars(hostile);
+
+  assert.equal(/[\u0080-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/.test(escaped), false);
+  assert.equal(escaped, 'a\\u2028b\\u2029c\\u202ed\\u2066e\\u200bf\\x85g');
+  assert.equal(escapeControlChars('Bj\u00f6rk \u2013 J\u00f3ga \u266a'), 'Bj\u00f6rk \u2013 J\u00f3ga \u266a');
+});

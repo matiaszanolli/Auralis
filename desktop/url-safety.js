@@ -99,12 +99,20 @@ function isAllowedAppNavigation(url, { isDevelopment = false } = {}) {
   return isDevelopment && parsed.origin === DEV_ORIGIN;
 }
 
+// C0, DEL, C1, zero-width/directional marks, U+2028/2029 line separators and the bidi
+// embedding/override/isolate controls: the set auralis/utils/logging.py _LOG_UNSAFE_CHARS escapes (#6535).
+const LOG_UNSAFE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g;
+
 /**
  * A value that is safe to interpolate into a log line: control characters (CR/LF, ESC, NUL, ...) are
- * escaped so a renderer- or backend-controlled URL or output cannot forge extra log entries (#6187).
+ * escaped so a renderer- or backend-controlled URL or output cannot forge extra log entries (#6187),
+ * nor break or visually reorder a line in an editor (#6535).
  */
 function escapeControlChars(value) {
-  return String(value).replace(/[\u0000-\u001f\u007f]/g, (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
+  return String(value).replace(LOG_UNSAFE, (c) => {
+    const code = c.charCodeAt(0);
+    return code <= 0xff ? `\\x${code.toString(16).padStart(2, '0')}` : `\\u${code.toString(16).padStart(4, '0')}`;
+  });
 }
 
 module.exports = {
