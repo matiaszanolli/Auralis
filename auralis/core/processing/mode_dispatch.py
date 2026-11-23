@@ -54,8 +54,8 @@ def process_adaptive_mode(
     fixed_params = processor.current_targets if processor.current_targets is not None else None
 
     # Delegate to continuous mode processor
-    processed = processor.continuous_mode.process(target_audio, processor.eq_processor,
-                                            fixed_params=fixed_params)
+    processed = processor.continuous_mode.process(target_audio, processor.eq_processor,  # consume: our own copy (#6717)
+                                            fixed_params=fixed_params, consume_input=True)
 
     # Store fingerprint and parameters for debugging
     processor.last_content_profile = {

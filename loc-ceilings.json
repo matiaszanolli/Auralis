@@ -148,7 +148,7 @@
     "auralis/core/mastering_presets.py": 294,
     "auralis/core/mastering_stage_delegates.py": 118,
     "auralis/core/processing/adaptive_normalization.py": 117,
-    "auralis/core/processing/continuous_mode.py": 252,
+    "auralis/core/processing/continuous_mode.py": 172,
     "auralis/core/processing/continuous_space_types.py": 65,
     "auralis/core/processing/eq_curve.py": 125,
     "auralis/core/processing/mode_dispatch.py": 81,

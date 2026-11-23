@@ -97,11 +97,17 @@ class ContinuousMode(ContinuousStagesMixin):
         self.last_parameters = None
 
     def process(self, target_audio: np.ndarray, eq_processor: Any,
-                fixed_params: dict[str, Any] | None = None) -> np.ndarray:
+                fixed_params: dict[str, Any] | None = None, consume_input: bool = False) -> np.ndarray:
         """Process audio using continuous parameter space.
 
         Dispatches to parameter resolution then DSP application, which share one
         loudness reading of the input. ``fixed_params`` selects the fast path.
+
+        ``consume_input`` (#6717): the caller created ``target_audio`` and reads
+        nothing in it afterwards (HybridProcessor's validated input), so the
+        stages may use it as their working buffer instead of a whole-track copy.
+        Ignored while the quality comparison is on: it reads the original after
+        the stages have run.
         """
         debug("Applying continuous space processing")
         input_lufs = calculate_loudness_units(target_audio, self.config.internal_sample_rate)
@@ -109,7 +115,9 @@ class ContinuousMode(ContinuousStagesMixin):
         if params is None:
             return target_audio.copy()
         # Never bound here: a local would pin this copy through every stage (#6717).
-        return self._apply_dsp_stages(target_audio, target_audio.copy(), eq_processor, params, input_lufs)
+        consume = consume_input and not self.config.quality_gate_enabled
+        return self._apply_dsp_stages(target_audio, target_audio if consume else target_audio.copy(),
+                                      eq_processor, params, input_lufs, overwrite_input=True)
 
     def _resolve_parameters(
         self,
