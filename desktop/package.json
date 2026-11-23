@@ -30,11 +30,11 @@
   },
   "devDependencies": {
     "electron": "^45.4.1",
-    "electron-builder": "^26.15.7"
+    "electron-builder": "^26.18.0"
   },
   "dependencies": {
     "electron-log": "^5.4.4",
-    "electron-updater": "^6.8.9"
+    "electron-updater": "^6.8.11"
   },
   "build": {
     "appId": "com.auralis.desktop",
