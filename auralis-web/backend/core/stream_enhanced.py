@@ -80,10 +80,10 @@ async def stream_enhanced_audio(
             name=f"proactive_buffer:{track_id}",
         )
 
-        # Non-blocking fingerprint check: queue one for background generation if missing and start
-        # streaming at once with standard mastering.
-        if await controller._check_or_queue_fingerprint(track_id=track_id, websocket=websocket):
-            logger.info("🎯 Adaptive mastering will use fingerprint-optimized parameters (cached)")
+        # What the processor masters with, not a DB-only check (#6507): it may have extracted one.
+        fingerprinted = bool(processor.fingerprint)
+        if await controller._check_or_queue_fingerprint(track_id=track_id, websocket=websocket, in_use=fingerprinted):
+            logger.info("🎯 Adaptive mastering uses the track's fingerprint")
         else:
             logger.info("📊 Streaming with standard adaptive mastering (fingerprint queued for background generation)")
 

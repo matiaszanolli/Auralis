@@ -27,78 +27,66 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+async def _enqueue(track_id: int) -> bool:
+    """Queue background fingerprinting; True when the track is actually waiting for it (#5919)."""
+    try:
+        from analysis.fingerprint_queue import get_fingerprint_queue
+        queue = get_fingerprint_queue()
+        if not queue:
+            logger.debug("Fingerprint queue not available")
+            return False
+        added = await asyncio.to_thread(queue.enqueue, track_id)
+        pending: bool = added or await asyncio.to_thread(queue.is_pending, track_id)
+        if added:
+            logger.info(f"📋 Track {track_id} queued for background fingerprinting")
+        elif pending:
+            logger.debug(f"Track {track_id} already queued or processing")
+        else:
+            logger.warning(f"Fingerprint queue rejected track {track_id} (full)")
+        return pending
+    except Exception as q_err:
+        logger.warning(f"Could not enqueue track {track_id}: {q_err}")
+        return False
+
+
 async def check_or_queue_fingerprint(
     controller: 'AudioStreamController',
     track_id: int,
-    websocket: WebSocket | None = None
+    websocket: WebSocket | None = None,
+    *,
+    in_use: bool = False,
 ) -> bool:
-    """
-    Non-blocking fingerprint check - queue generation instead of waiting.
+    """Report the fingerprint status of a stream, and queue background generation when missing.
 
-    Phase 7.5: Don't block streaming on fingerprint generation.
-    - If fingerprint exists in database: return True immediately
-    - If fingerprint missing: queue for background generation, return False
-    - Stream starts immediately with standard mastering either way
-
-    Args:
-        controller: AudioStreamController instance
-        track_id: ID of the track
-        websocket: Optional WebSocket connection for progress messages
+    ``in_use``: the stream's processor already holds a fingerprint (DB row, ``.25d`` sidecar, or the
+    whole-track extraction it ran at construction). That stream is fingerprint-mastered whatever
+    the database says, so it is reported as such (#6507); a missing DB row is still queued, quietly,
+    to persist it. Without one, a missing fingerprint is queued and the client told the stream uses
+    standard mastering. Never blocks the stream on generation.
 
     Returns:
-        True if fingerprint is cached and ready, False if not (generation queued)
+        True when the stream is fingerprint-mastered, False when it is not.
     """
     if not controller._get_repository_factory:
-        logger.debug(f"RepositoryFactory not available, skipping fingerprint check")
+        logger.debug("RepositoryFactory not available, skipping fingerprint check")
         return False
-
     try:
-        # Quick database check. O(1) by index, but still a full
-        # session_scope() + SELECT COUNT round-trip against SQLite, so it must
-        # be offloaded (#4566): this runs at the start of every enhanced stream,
-        # and running it inline blocked the whole event loop — every other
-        # WebSocket, all in-flight chunk sends, and the heartbeat — for an
-        # unbounded time whenever the DB was locked by a concurrent scan or
-        # fingerprint write. Matches stream_enhanced/stream_normal/stream_seek.
-        factory = controller._get_repository_factory()
-        fingerprint_repo = factory.fingerprints
-
-        if await asyncio.to_thread(fingerprint_repo.exists, track_id):
-            # Fingerprint already cached - streaming will use optimized mastering
-            logger.info(f"✅ Fingerprint cached for track {track_id} (instant lookup)")
+        # Offloaded (#4566): a full session + SELECT COUNT at every stream start, and a locked DB
+        # (concurrent scan or fingerprint write) used to block the whole event loop on it.
+        fingerprint_repo = controller._get_repository_factory().fingerprints
+        in_db = await asyncio.to_thread(fingerprint_repo.exists, track_id)
+        if in_db or in_use:
+            if not in_db:
+                await _enqueue(track_id)  # only to persist the analysis the stream already uses
+            logger.info(f"✅ Track {track_id} streams with its fingerprint ({'database' if in_db else 'extracted'})")
             if websocket:
                 await controller._send_fingerprint_progress(
-                    websocket,
-                    track_id=track_id,
-                    status="cached",
-                    message="Using cached audio analysis"
+                    websocket, track_id=track_id, status="cached", message="Using cached audio analysis"
                 )
             return True
 
-        # Fingerprint not cached - queue for background generation
         logger.info(f"📋 Fingerprint not cached for track {track_id}, queuing for background generation")
-
-        # Try to enqueue via fingerprint queue (non-blocking). "queued" is reported only when
-        # the track is actually waiting for analysis (#5919): a missing queue, a raising
-        # enqueue or a full queue means it never will be.
-        pending = False
-        try:
-            from analysis.fingerprint_queue import get_fingerprint_queue
-            queue = get_fingerprint_queue()
-            if queue:
-                added = await asyncio.to_thread(queue.enqueue, track_id)
-                pending = added or await asyncio.to_thread(queue.is_pending, track_id)
-                if added:
-                    logger.info(f"📋 Track {track_id} queued for background fingerprinting")
-                elif pending:
-                    logger.debug(f"Track {track_id} already queued or processing")
-                else:
-                    logger.warning(f"Fingerprint queue rejected track {track_id} (full)")
-            else:
-                logger.debug("Fingerprint queue not available")
-        except Exception as q_err:
-            logger.warning(f"Could not enqueue track {track_id}: {q_err}")
-
+        pending = await _enqueue(track_id)
         if websocket:
             await controller._send_fingerprint_progress(
                 websocket,
@@ -110,9 +98,7 @@ async def check_or_queue_fingerprint(
                     else "Audio analysis unavailable, using standard mastering"
                 ),
             )
-
         return False
-
     except Exception as e:
         logger.debug(f"Fingerprint check failed for track {track_id}: {e}")
         return False

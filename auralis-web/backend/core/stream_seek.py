@@ -77,13 +77,9 @@ async def stream_enhanced_audio_from_position(
         meta = validate_processor_metadata(processor)
 
         # Map the requested position onto the chunk that actually EMITS it
-        # (#4557). This used to be `int(start_position / chunk_interval)` with
-        # `seek_offset = start_position - idx * chunk_interval`, which maps onto
-        # the chunk *core* timeline — but the buffer the offset is trimmed from
-        # has already had OVERLAP_DURATION skipped by
-        # extract_chunk_segment (chunk_segment_extraction.py), so every seek to >= 10s landed
-        # exactly 5s past the requested point and the transport read 5s ahead of
-        # the audio for the rest of the stream.
+        # (#4557). `int(start_position / chunk_interval)` mapped onto the chunk *core* timeline, but
+        # extract_chunk_segment had already skipped OVERLAP_DURATION from the trimmed buffer, so every
+        # seek to >= 10s landed 5s past the requested point for the rest of the stream.
         #
         # chunk_for_position derives both values from the same constants the
         # extraction uses, and may advance to the next chunk when the requested
@@ -113,10 +109,11 @@ async def stream_enhanced_audio_from_position(
             f"offset={seek_offset:.2f}s"
         )
 
-        # Check if WebSocket disconnected
         if not controller._is_websocket_connected(websocket):
             logger.info("WebSocket disconnected, aborting seek stream")
             return
+        # The same fingerprint status play reports, from what this processor masters with (#6507).
+        await controller._check_or_queue_fingerprint(track_id, websocket, in_use=bool(processor.fingerprint))
 
         # Send stream start message with seek info
         if not await controller._send_stream_start(

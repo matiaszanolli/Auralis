@@ -228,10 +228,10 @@ class AudioStreamController:
         await stream_notifications.send_fingerprint_progress(self, websocket, track_id, status, message)
 
     async def _check_or_queue_fingerprint(
-        self, track_id: int, websocket: WebSocket | None = None
+        self, track_id: int, websocket: WebSocket | None = None, *, in_use: bool = False
     ) -> bool:
         from . import stream_fingerprint
-        return await stream_fingerprint.check_or_queue_fingerprint(self, track_id, websocket)
+        return await stream_fingerprint.check_or_queue_fingerprint(self, track_id, websocket, in_use=in_use)
 
 
     @staticmethod
