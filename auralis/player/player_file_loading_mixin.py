@@ -27,6 +27,7 @@ from .gapless_playback_engine import GaplessPlaybackEngine
 from .integration_manager import IntegrationManager
 from .playback_controller import PlaybackController
 from .realtime import RealtimeProcessor
+from .track_change import serialised_track_change
 
 
 class PlayerFileLoadingMixin:
@@ -48,6 +49,7 @@ class PlayerFileLoadingMixin:
     # implementation via MRO regardless of base-class order.
     _schedule_fingerprint_load: Callable[[str], None]
 
+    @serialised_track_change
     def load_file(self, file_path: str) -> bool:
         """
         Load an audio file for playback with automatic fingerprinting for adaptive mastering.
@@ -121,6 +123,7 @@ class PlayerFileLoadingMixin:
             })
         return ref_data is not None
 
+    @serialised_track_change
     def load_track_from_library(self, track_id: int) -> bool:
         """
         Load a track from the library by ID.

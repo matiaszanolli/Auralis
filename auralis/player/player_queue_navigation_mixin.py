@@ -30,6 +30,7 @@ from .integration_manager import IntegrationManager
 from .playback_controller import PlaybackController
 from .queue_controller import QueueController
 from .queue_entry import QueueEntryTrack, entry_path
+from .track_change import serialised_track_change
 
 
 class PlayerQueueNavigationMixin:
@@ -56,6 +57,7 @@ class PlayerQueueNavigationMixin:
     # Provided by PlayerFingerprintLoaderMixin.
     _schedule_fingerprint_load: Callable[[str], None]
 
+    @serialised_track_change
     def next_track(self, completed: bool = False) -> bool:
         """
         Skip to next track in queue with gapless playback support.
@@ -165,6 +167,7 @@ class PlayerQueueNavigationMixin:
         if entry:
             self.integration.set_current_track(QueueEntryTrack(entry))  # type: ignore[arg-type]
 
+    @serialised_track_change
     def previous_track(self) -> bool:
         """Skip to previous track in queue.
 
@@ -216,6 +219,7 @@ class PlayerQueueNavigationMixin:
             self.queue.rollback_index(saved_index, expected_current=moved_to)
         return False
 
+    @serialised_track_change
     def add_to_queue(self, track_info: dict[str, Any]) -> None:
         """Add a track to the playback queue"""
         self.queue.add_track(track_info)
@@ -227,12 +231,9 @@ class PlayerQueueNavigationMixin:
         # `_audio_lock`) for the full load duration → audible audio
         # dropout on first track add.
         #
-        # The check + load no longer needs to be atomic under `_audio_lock`:
-        # `load_file()` internally locks before mutating shared state, and
-        # the inner critical section is the actual race window (#3359). The
-        # narrow TOCTOU between the check here and the load itself is
-        # acceptable — `load_file()` is idempotent (an in-progress load
-        # from a concurrent caller will simply overwrite once and settle).
+        # The check + load is not atomic under `_audio_lock` (#3359), but the whole method runs
+        # under _track_change_lock (#6531): two concurrent first adds no longer both see "nothing
+        # loaded", so the second does not load over the first or leave it unselected.
         needs_load = False
         with self.file_manager._audio_lock:
             if not self.file_manager.is_loaded():
@@ -255,6 +256,7 @@ class PlayerQueueNavigationMixin:
         """Add a track from the library to the queue"""
         return self.queue.add_track_from_library(track_id)
 
+    @serialised_track_change
     def load_playlist(self, playlist_id: int, start_index: int = 0) -> bool:
         """Load a playlist from the library"""
         if self.queue.load_playlist(playlist_id, start_index):

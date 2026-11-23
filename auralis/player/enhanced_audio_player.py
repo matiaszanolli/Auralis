@@ -132,10 +132,9 @@ class AudioPlayer(
         # can join it (an in-flight advance past its _stop_requested check
         # could otherwise call load_file() after cleanup() returns).
         self._advance_thread: threading.Thread | None = None
-        # #3727: set by cleanup() before the join; _auto_advance_next() checks
-        # it so a thread that outlives the join timeout still aborts before
-        # swapping audio_data.
+        # #3727: set by cleanup() before the join, so a thread outliving its timeout aborts too.
         self._cleanup_in_progress = threading.Event()
+        self._track_change_lock = threading.RLock()  # outermost; see track_change.py (#6531)
 
         info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled, fingerprinting enabled)")
 
