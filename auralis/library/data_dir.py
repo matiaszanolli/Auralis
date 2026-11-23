@@ -15,8 +15,8 @@ into the real profile and served another library's ``album_<id>`` images
 
 The location is process-wide, so every consumer resolves the same directory;
 opening a second library at a different path moves it to that library.
-Uploads (``~/.auralis/uploads``) are per-installation, not per-library, and
-stay global.
+Uploads (``uploads_dir()``) are per-installation, not per-library: they stay
+under the default root, which ``AURALIS_DATA_DIR`` still moves (#6513).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -56,6 +56,11 @@ def register_database_location(database_path: str | os.PathLike[str]) -> None:
         _database_data_dir = None
     else:
         _database_data_dir = resolved.parent
+
+
+def uploads_dir() -> Path:
+    """Where POST /api/files/upload keeps accepted files: per-installation, so the default root (#6513)."""
+    return default_data_dir() / "uploads"
 
 
 def artwork_dir() -> Path:

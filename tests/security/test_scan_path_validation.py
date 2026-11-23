@@ -61,6 +61,7 @@ class TestAllowedDirectories:
         monkeypatch.setattr(allowlist, "DEFAULT_ALLOWED_DIRS", [music, tmp_path / "Documents"])
         monkeypatch.setattr(allowlist, "_extra_allowed_dirs", [])
         monkeypatch.delenv("XDG_MUSIC_DIR", raising=False)
+        monkeypatch.setenv("AURALIS_DATA_DIR", str(tmp_path / "data"))  # no uploads dir yet (#6513)
 
         allowed = get_allowed_directories()
 

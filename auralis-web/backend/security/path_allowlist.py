@@ -15,6 +15,8 @@ import os
 import sys
 from pathlib import Path
 
+from auralis.library.data_dir import uploads_dir
+
 logger = logging.getLogger(__name__)
 
 
@@ -94,14 +96,11 @@ def get_allowed_directories() -> list[Path]:
     Returns:
         List of allowed directory paths
 
-    The allow-list is DEFAULT_ALLOWED_DIRS (~/Music and ~/Documents; home
-    itself is not on it) widened by two configured sources: XDG_MUSIC_DIR, and the scan
-    folders registered at runtime into _extra_allowed_dirs. Startup seeds the
-    latter from the settings-backed scan-folder allowlist, so this list is
-    already configuration-driven — it is not a hardcoded stand-in awaiting one
-    (#5145). Non-existent entries are dropped rather than resolved.
+    DEFAULT_ALLOWED_DIRS (~/Music, ~/Documents; not home itself), the uploads directory alone,
+    never the whole data dir (#6513, #2562), XDG_MUSIC_DIR, and the scan folders registered
+    into _extra_allowed_dirs (settings-driven, #5145). Non-existent entries are dropped.
     """
-    allowed_dirs = DEFAULT_ALLOWED_DIRS.copy()
+    allowed_dirs = [*DEFAULT_ALLOWED_DIRS, uploads_dir()]
 
     # Add XDG_MUSIC_DIR if available (Linux)
     xdg_music = os.environ.get('XDG_MUSIC_DIR')

@@ -8,6 +8,7 @@ POST /api/files/upload handler (split from files.py, #5831).
 import logging
 from auralis.io.formats import SUPPORTED_FORMATS
 from auralis.io.audio_probe import get_audio_info
+from auralis.library.data_dir import uploads_dir
 from auralis.utils.logging import sanitize_log_value
 from collections.abc import Callable
 from config.limits import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
@@ -68,7 +69,7 @@ async def upload_files(
         )
 
     repos = get_repos()
-    upload_dir = Path.home() / ".auralis" / "uploads"
+    upload_dir = uploads_dir()  # follows AURALIS_DATA_DIR, and is on the path allowlist (#6513)
     budget = UploadBudget(MAX_UPLOAD_REQUEST_BYTES, MAX_UPLOAD_DIR_BYTES, upload_dir)
 
     results: list[dict[str, Any]] = []
@@ -221,7 +222,7 @@ async def upload_files(
                 # no-op (missing_ok) in that case. On failure the temp file still
                 # exists and must be cleaned up here.
                 _remove_quietly(temp_path, "temp file")
-                # The file was moved into ~/.auralis/uploads before the DB insert; if the insert
+                # The file was moved into the uploads directory before the DB insert; if the insert
                 # failed (or returned None) nothing references it, and it stayed there forever (#5968).
                 if permanent_path is not None and not track_added:
                     _remove_quietly(permanent_path, "orphaned upload")
