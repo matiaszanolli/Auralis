@@ -62,11 +62,18 @@ class SimilarityAutoFitWorker:
         self._task: 'asyncio.Task[None] | None' = None
 
     async def start(self) -> None:
-        """Kick off the fit pass. A no-op if one is already running."""
-        if self._task is not None and not self._task.done():
+        """Kick off the fit pass. A no-op only while a run is live and not stopped.
+
+        A run abandoned by a timed-out stop() is still a not-done task, but its
+        stop was requested: it keeps its own (set) event and exits at its next
+        check, and this start gets a fresh event and a fresh loop. Clearing one
+        shared event, or returning early, left the worker dead after a library
+        reset that outlived the stop timeout (#6571).
+        """
+        if self._task is not None and not self._task.done() and not self._stop_event.is_set():
             return
-        self._stop_event.clear()
-        self._task = asyncio.ensure_future(asyncio.to_thread(self._run))
+        self._stop_event = threading.Event()
+        self._task = asyncio.ensure_future(asyncio.to_thread(self._run, self._stop_event))
 
     async def stop(self) -> None:
         """Signal the fit loop to abort at its next batch boundary and wait
@@ -85,22 +92,23 @@ class SimilarityAutoFitWorker:
         except Exception as exc:
             logger.warning(f"Similarity auto-fit task raised during stop(): {exc}")
 
-    def _run(self) -> None:
+    def _run(self, stop_event: threading.Event) -> None:
         """Runs in a worker thread via asyncio.to_thread (started by start()).
 
         Fits once, then re-checks every ``check_interval`` seconds until
         stop() is signalled. The re-check is what retries a library that was
         below ``min_samples`` at startup and refits one whose fit rests on a
         small sample (#5716); ``fit()`` is a single COUNT when nothing has
-        changed.
+        changed. ``stop_event`` is this run's own, so a run a later start()
+        replaced still sees its stop (#6571).
         """
-        self._fit_once(first=True)
-        while not self._stop_event.wait(self._check_interval):
-            self._fit_once(first=False)
+        self._fit_once(stop_event, first=True)
+        while not stop_event.wait(self._check_interval):
+            self._fit_once(stop_event, first=False)
 
-    def _fit_once(self, first: bool) -> None:
+    def _fit_once(self, stop_event: threading.Event, first: bool) -> None:
         try:
-            if self._sim_system.fit(stop_event=self._stop_event):
+            if self._sim_system.fit(stop_event=stop_event):
                 # get_component reads globals fresh per request, so this
                 # late assignment is picked up. The builder shares the
                 # similarity system (and so its normalizer), so a refit
@@ -113,7 +121,7 @@ class SimilarityAutoFitWorker:
                         graph_repo=self._lib_mgr.repositories.similarity_graph,
                     )
                     logger.info("✅ Similarity auto-fitted; K-NN Graph Builder ready")
-            elif self._stop_event.is_set():
+            elif stop_event.is_set():
                 logger.info("ℹ️  Similarity auto-fit stopped before completing")
             elif first:
                 logger.info("ℹ️  Similarity auto-fit skipped (not enough fingerprints yet)")

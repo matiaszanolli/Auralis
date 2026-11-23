@@ -159,6 +159,46 @@ class TestStop:
         assert call_count["n"] == 1
 
 
+class TestRestartAfterTimedOutStop:
+    """#6571: start() after a stop() that timed out runs a fresh loop, and the abandoned one still exits."""
+
+    async def test_start_after_an_abandoned_run_starts_a_fresh_loop(self, monkeypatch):
+        import services.similarity_autofit_worker as worker_module
+
+        monkeypatch.setattr(worker_module, "_STOP_TIMEOUT_SECONDS", 0.1)
+        release_wedged = threading.Event()
+        seen_events: list[threading.Event] = []
+
+        def _fit(stop_event=None, **kw):
+            seen_events.append(stop_event)
+            if len(seen_events) == 1:
+                release_wedged.wait(timeout=5)  # a fit that ignores the stop past the timeout
+            return True
+
+        worker, *_ = _make_worker(fit_side_effect=_fit)
+        await worker.start()
+        await asyncio.sleep(0.05)
+        old_task = worker._task
+
+        await worker.stop()  # times out: the first run is abandoned mid-fit
+        assert not old_task.done()
+
+        await worker.start()
+        for _ in range(100):
+            if len(seen_events) >= 2:
+                break
+            await asyncio.sleep(0.01)
+
+        assert len(seen_events) == 2, "start() after an abandoned run did not start a new loop"
+        assert seen_events[1] is not seen_events[0]
+        assert seen_events[0].is_set() and not seen_events[1].is_set()
+
+        release_wedged.set()
+        await asyncio.wait_for(old_task, timeout=2)  # the abandoned loop sees ITS stop and exits
+        assert not worker._task.done(), "the new loop must still be running"
+        await worker.stop()
+
+
 class TestPeriodicRecheck:
     """#5716: the worker re-checks on an interval, retrying an unfitted system and
     refitting one that has outgrown its sample, until stop()."""
