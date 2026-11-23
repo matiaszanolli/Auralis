@@ -15,6 +15,7 @@ Sidecar files provide:
 """
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -138,13 +139,14 @@ class SidecarManager:
             error(f"Failed to read sidecar file {sidecar_path}: {e}")
             return None
 
-    def write(self, audio_path: str | Path, data: dict[str, Any]) -> bool:
+    def write(self, audio_path: str | Path, data: dict[str, Any], audio_stat: os.stat_result | None = None) -> bool:
         """
         Write sidecar file.
 
         Args:
             audio_path: Path to audio file
             data: Sidecar data dict (must contain 'fingerprint' and/or 'processing_cache')
+            audio_stat: The audio's pre-analysis stat (#6558); statting now could stamp a replaced file
 
         Returns:
             True if write successful
@@ -155,7 +157,7 @@ class SidecarManager:
         sidecar_path = self.get_sidecar_path(audio_path)
 
         try:
-            audio_stat = audio_path.stat()
+            audio_stat = audio_stat or audio_path.stat()
             audio_meta = {
                 'path': str(audio_path.name),
                 'size_bytes': audio_stat.st_size,
@@ -174,12 +176,9 @@ class SidecarManager:
                 'metadata': data.get('metadata', {})
             }
 
-            # #4638: atomic. Opening the destination in 'w' truncated it before
-            # the first byte was written, so an interrupted scan destroyed the
-            # previously-valid sidecar as well as failing to write the new one —
-            # and this artifact lives next to the user's audio file, where a
-            # leftover truncated file is user-visible. Shared with
-            # FingerprintStorage.save (#4508) so the two .25d writers cannot drift.
+            # #4638: atomic. A 'w' open truncated the destination first, so an interrupted scan
+            # destroyed the previously-valid sidecar, a user-visible file next to the audio.
+            # Shared with FingerprintStorage.save (#4508) so the two .25d writers cannot drift.
             write_json_atomic(sidecar_path, sidecar_data, indent=2)
 
             info(f"Wrote sidecar file: {sidecar_path}")

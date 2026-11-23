@@ -26,7 +26,7 @@ import time
 from typing import Any
 from collections.abc import Callable
 
-from auralis.services.fingerprint_extractor import FingerprintExtractor
+from auralis.services.fingerprint_extractor import AudioChangedDuringAnalysis, FingerprintExtractor
 from auralis.services.fingerprint_track_runner import run_bounded
 from auralis.services.resizable_semaphore import ResizableSemaphore
 
@@ -213,6 +213,11 @@ class FingerprintWorkerExecution:
             else:
                 raise Exception(f"Extractor returned False for track {track.id}")
 
+        except AudioChangedDuringAnalysis as changed:
+            # Not a failed attempt: the old audio's fingerprint was discarded, so hand the
+            # claim back for the new audio to be analysed (#6558).
+            info(f"Worker {worker_id}: {changed}; releasing track {track.id} for re-analysis")
+            self._get_repository_factory().fingerprint_scheduler.release_claim(track.id)
         except Exception as e:
             error(f"Error extracting fingerprint for track {track.id}: {e}")
 

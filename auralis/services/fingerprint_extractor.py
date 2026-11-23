@@ -9,6 +9,7 @@ Extracts 25D audio fingerprints during library scanning
 """
 
 import gc
+import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -20,6 +21,18 @@ from ..analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
 from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..library.sidecar_manager import SidecarManager
 from ..utils.logging import debug, error, info, warning
+
+
+class AudioChangedDuringAnalysis(Exception):
+    """The audio file was replaced while it was being analysed (#6558).
+
+    The fingerprint describes the old audio, so it is neither stored nor written
+    to a sidecar; the worker releases the claim and the new audio is analysed.
+    """
+
+
+def _audio_signature(stat: os.stat_result) -> tuple[int, float]:
+    return stat.st_size, stat.st_mtime
 
 
 class FingerprintExtractor:
@@ -86,8 +99,12 @@ class FingerprintExtractor:
             cached = fingerprint is not None
 
             # Strategy 2: analyse the audio (slow path: decode + ~1 s of DSP
-            # on a release build — see the workflow note above, #4599).
+            # on a release build — see the workflow note above, #4599). The file is
+            # stat()ed first: a replacement during the analysis must not be stored
+            # as the new audio's fingerprint, nor stamped into its sidecar (#6558).
+            pre_stat = None
             if fingerprint is None:
+                pre_stat = filepath_obj.stat()
                 fingerprint = self._compute_fingerprint(track_id, filepath_obj, should_stop)
 
             if fingerprint is None:
@@ -97,14 +114,17 @@ class FingerprintExtractor:
             if fingerprint is None:
                 return False
 
+            if pre_stat is not None and _audio_signature(filepath_obj.stat()) != _audio_signature(pre_stat):
+                raise AudioChangedDuringAnalysis(f"{filepath_obj.name} changed while it was analysed")
+
             if not self.fingerprint_repo.upsert(track_id, fingerprint, expected_filepath=filepath):
                 error(f"Failed to store fingerprint for track {track_id}")
                 return False
 
             # Note: fingerprint_started_at is cleared by the worker after processing
             # (This prevents tracks from timing out and being reprocessed)
-            if not cached:
-                self._write_sidecar(track_id, filepath_obj, fingerprint)
+            if pre_stat is not None:
+                self._write_sidecar(track_id, filepath_obj, fingerprint, pre_stat)
 
             info(
                 f"Fingerprint {'loaded from cache' if cached else 'extracted'} "
@@ -112,6 +132,8 @@ class FingerprintExtractor:
             )
             return True
 
+        except AudioChangedDuringAnalysis:
+            raise  # not a failure: the caller releases the claim (#6558)
         except Exception as e:
             error(f"Error extracting fingerprint for track {track_id} ({filepath}): {e}")
             return False
@@ -216,9 +238,9 @@ class FingerprintExtractor:
         return stored
 
     def _write_sidecar(
-        self, track_id: int, filepath_obj: Path, fingerprint: dict[str, Any]
+        self, track_id: int, filepath_obj: Path, fingerprint: dict[str, Any], audio_stat: os.stat_result
     ) -> None:
-        """Write the freshly computed fingerprint out as a .25d sidecar."""
+        """Write the freshly computed fingerprint out as a .25d sidecar, stamped with the pre-analysis stat."""
         if not (self.use_sidecar_files and self.sidecar_manager):
             return
 
@@ -228,7 +250,7 @@ class FingerprintExtractor:
                 'track_id': track_id,
                 'filename': filepath_obj.name,
                 'file_extension': filepath_obj.suffix,
-                'file_size_bytes': filepath_obj.stat().st_size,
+                'file_size_bytes': audio_stat.st_size,
                 'extracted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
             },
-        })
+        }, audio_stat=audio_stat)

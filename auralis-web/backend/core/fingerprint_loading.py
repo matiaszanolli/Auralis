@@ -239,6 +239,9 @@ def extract_from_audio(
             compute_windowed_fingerprint,
         )
 
+        # Stat first: a file replaced during the analysis must not get this fingerprint
+        # cached under its new signature (#6558).
+        pre_analysis = Path(filepath).stat()
         fingerprint_data: dict[str, Any] | None = compute_windowed_fingerprint(
             AudioFingerprintAnalyzer(), Path(filepath), interactive=True, should_stop=should_stop
         )
@@ -271,8 +274,12 @@ def extract_from_audio(
 
         # Save to .25d file if requested
         if save_to_file:
-            FingerprintStorage.save(Path(filepath), fingerprint_data, mastering_targets)
-            logger.info(f"💾 Saved fingerprint to .25d file for {Path(filepath).name}")
+            now = Path(filepath).stat()
+            if (now.st_size, now.st_mtime) != (pre_analysis.st_size, pre_analysis.st_mtime):
+                logger.warning(f"{Path(filepath).name} changed during analysis; not caching its fingerprint (#6558)")
+            else:
+                FingerprintStorage.save(Path(filepath), fingerprint_data, mastering_targets)
+                logger.info(f"💾 Saved fingerprint to .25d file for {Path(filepath).name}")
 
         return (fingerprint_data, mastering_targets)
 
