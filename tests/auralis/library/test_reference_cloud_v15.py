@@ -5,14 +5,13 @@ Pins the contract for the schema v15 changes that enable the mastering
 reference cloud:
   - track_fingerprints.is_reference column exists, defaults to False
   - FingerprintRepository.get_reference_cloud() filters correctly
-  - clear_all_reference_flags() and set_reference_flags() do bulk updates
+  - replace_reference_cloud() swaps the flagged set in one bulk transaction
   - migrate_to_latest() on a fresh DB lands at v15 (no errors)
 
 Also pins the v017 addition (#3480 Layer 1 — listening-behavior reference
 weighting), which lives in the same repository/subsystem:
   - track_fingerprints.reference_weight column exists, defaults to 0.0
-  - set_reference_weights() bulk-updates weight
-  - clear_all_reference_flags() also resets weight to 0.0
+  - replace_reference_cloud() writes the weights and resets unflagged ones to 0.0
   - get_all_with_track_stats() attaches play_count/favorite from Track
 """
 
@@ -170,7 +169,7 @@ def test_get_reference_cloud_empty_when_none_flagged(fresh_db_with_session):
     assert repo.get_reference_cloud() == []
 
 
-def test_set_reference_flags_updates_existing_rows(fresh_db_with_session):
+def test_replace_reference_cloud_swaps_the_flagged_set(fresh_db_with_session):
     _db_path, session_factory = fresh_db_with_session
     with session_factory() as session:
         _seed_track_and_fp(session, 1, is_reference=False)
@@ -178,16 +177,13 @@ def test_set_reference_flags_updates_existing_rows(fresh_db_with_session):
         _seed_track_and_fp(session, 3, is_reference=True)
 
     repo = FingerprintRepository(session_factory)
-    # Flip 1 → True, 2 stays False, 3 → False
-    updated = repo.set_reference_flags({1: True, 2: False, 3: False})
-    # Only 1 and 3 actually changed (2 was already False)
-    assert updated == 2
+    assert repo.replace_reference_cloud({1: 0.9}) == (1, 1)  # 3 cleared, 1 flagged
 
     cloud = repo.get_reference_cloud()
     assert sorted(fp.track_id for fp in cloud) == [1]
 
 
-def test_clear_all_reference_flags(fresh_db_with_session):
+def test_replace_reference_cloud_with_no_selection_clears_all(fresh_db_with_session):
     _db_path, session_factory = fresh_db_with_session
     with session_factory() as session:
         _seed_track_and_fp(session, 1, is_reference=True)
@@ -195,20 +191,18 @@ def test_clear_all_reference_flags(fresh_db_with_session):
         _seed_track_and_fp(session, 3, is_reference=False)
 
     repo = FingerprintRepository(session_factory)
-    cleared = repo.clear_all_reference_flags()
-    assert cleared == 2
+    assert repo.replace_reference_cloud({}) == (2, 0)
     assert repo.get_reference_cloud() == []
 
 
-def test_set_reference_flags_ignores_missing_track_ids(fresh_db_with_session):
+def test_replace_reference_cloud_ignores_missing_track_ids(fresh_db_with_session):
     """If a track_id has no fingerprint, the flag request is silently ignored."""
     _db_path, session_factory = fresh_db_with_session
     with session_factory() as session:
         _seed_track_and_fp(session, 1, is_reference=False)
 
     repo = FingerprintRepository(session_factory)
-    updated = repo.set_reference_flags({1: True, 99999: True})
-    assert updated == 1  # only track 1 actually exists
+    assert repo.replace_reference_cloud({1: 1.0, 99999: 1.0}) == (0, 1)  # only track 1 exists
     cloud = repo.get_reference_cloud()
     assert [fp.track_id for fp in cloud] == [1]
 
@@ -237,35 +231,28 @@ def test_reference_weight_column_exists_with_default_zero(fresh_db_with_session)
     assert weight == 0.0
 
 
-def test_set_reference_weights_updates_existing_rows(fresh_db_with_session):
+def test_replace_reference_cloud_writes_weights(fresh_db_with_session):
     _db_path, session_factory = fresh_db_with_session
     with session_factory() as session:
-        _seed_track_and_fp(session, 1, is_reference=True)
-        _seed_track_and_fp(session, 2, is_reference=True)
+        _seed_track_and_fp(session, 1, is_reference=False)
+        _seed_track_and_fp(session, 2, is_reference=False)
 
     repo = FingerprintRepository(session_factory)
-    updated = repo.set_reference_weights({1: 0.9, 2: 1.35})
-    assert updated == 2
+    assert repo.replace_reference_cloud({1: 0.9, 2: 1.35}) == (0, 2)
 
     cloud = {fp.track_id: fp.reference_weight for fp in repo.get_reference_cloud()}
     assert cloud[1] == pytest.approx(0.9)
     assert cloud[2] == pytest.approx(1.35)
 
 
-def test_set_reference_weights_empty_dict_is_noop(fresh_db_with_session):
-    _db_path, session_factory = fresh_db_with_session
-    repo = FingerprintRepository(session_factory)
-    assert repo.set_reference_weights({}) == 0
-
-
-def test_clear_all_reference_flags_also_resets_weight(fresh_db_with_session):
+def test_replace_reference_cloud_resets_dropped_weights(fresh_db_with_session):
     _db_path, session_factory = fresh_db_with_session
     with session_factory() as session:
         _seed_track_and_fp(session, 1, is_reference=True, reference_weight=0.8)
         _seed_track_and_fp(session, 2, is_reference=True, reference_weight=1.2)
 
     repo = FingerprintRepository(session_factory)
-    repo.clear_all_reference_flags()
+    repo.replace_reference_cloud({})
 
     with session_factory() as session:
         weights = session.execute(

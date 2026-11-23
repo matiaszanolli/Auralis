@@ -60,91 +60,42 @@ class FingerprintSimilarityMixin(BaseRepository):
                 session.expunge(fp)
             return fingerprints
 
-    def set_reference_flags(self, track_ids_flagged: dict[int, bool]) -> int:
-        """Bulk set is_reference for the given track_ids.
+    def replace_reference_cloud(self, weights: dict[int, float]) -> tuple[int, int]:
+        """Make exactly ``weights``' tracks the reference cloud, with those weights, atomically (#6554).
 
-        Used by reference_seeder.refresh_cloud() — clears all existing flags
-        then sets the chosen ones in a single transaction so the cloud is
-        never partially populated (atomic refresh).
-
-        Args:
-            track_ids_flagged: {track_id: True|False} for each track to update.
-
-        Returns:
-            Number of rows updated (sum of True + False updates issued).
-        """
-        if not track_ids_flagged:
-            return 0
-        # #3681: previous version issued one SELECT + per-row UPDATE per
-        # track, producing 2 000 SQLite round-trips for a 2 000-track
-        # reference cloud. Two bulk UPDATE statements complete in a single
-        # round-trip each. Matches the pattern in `clear_all_reference_flags`.
-        from sqlalchemy import update
-        # Bulk DML types as a plain Result; at runtime it is a CursorResult,
-        # which is what carries rowcount (same cast as fingerprint_scheduler_repository).
-        flagged_ids = [tid for tid, f in track_ids_flagged.items() if f]
-        unflagged_ids = [tid for tid, f in track_ids_flagged.items() if not f]
-        with self._session_scope() as session:
-            updated = 0
-            if flagged_ids:
-                result = session.execute(
-                    update(TrackFingerprint)
-                    .where(TrackFingerprint.track_id.in_(flagged_ids))
-                    .where(TrackFingerprint.is_reference == False)  # noqa: E712
-                    .values(is_reference=True)
-                )
-                updated += cast(CursorResult[Any], result).rowcount or 0
-            if unflagged_ids:
-                result = session.execute(
-                    update(TrackFingerprint)
-                    .where(TrackFingerprint.track_id.in_(unflagged_ids))
-                    .where(TrackFingerprint.is_reference == True)  # noqa: E712
-                    .values(is_reference=False)
-                )
-                updated += cast(CursorResult[Any], result).rowcount or 0
-            session.commit()
-            return updated
-
-    def set_reference_weights(self, weights: dict[int, float]) -> int:
-        """Bulk set reference_weight for the given track_ids (#3480 Layer 1).
-
-        Used by reference_seeder.refresh_cloud() immediately after
-        set_reference_flags() flags the selected references — a separate
-        call so weight computation (which needs listening-behavior data)
-        stays decoupled from the flag-only path other callers may still use.
-
-        Args:
-            weights: {track_id: reference_weight} for each reference to update.
+        Used by reference_seeder.refresh_cloud(), which computes the selection
+        first. The clear, the flagging and the weights used to be three commits
+        around seconds of scoring, so a concurrent get_reference_cloud() could
+        read an empty cloud or a flagged-but-unweighted one, and two overlapping
+        refreshes left the union of both selections flagged. Here they are one
+        transaction, write-locked from its first UPDATE: readers see the old
+        cloud or the new one, and overlapping refreshes serialise, the later
+        selection winning whole. Track ids without a fingerprint row are ignored.
 
         Returns:
-            Number of rows updated.
+            (previously flagged rows cleared, rows now flagged).
         """
-        if not weights:
-            return 0
         from sqlalchemy import case, update
-        with self._session_scope() as session:
-            result = session.execute(
-                update(TrackFingerprint)
-                .where(TrackFingerprint.track_id.in_(weights.keys()))
-                .values(reference_weight=case(weights, value=TrackFingerprint.track_id))
-            )
-            session.commit()
-            return int(cast(CursorResult[Any], result).rowcount or 0)
-
-    def clear_all_reference_flags(self) -> int:
-        """Set is_reference=False and reference_weight=0.0 on every fingerprint.
-
-        Returns rows updated.
-        """
-        from sqlalchemy import update
         with self._session_scope() as session:
             result = session.execute(
                 update(TrackFingerprint)
                 .where(TrackFingerprint.is_reference == True)  # noqa: E712
                 .values(is_reference=False, reference_weight=0.0)
             )
+            cleared = int(cast(CursorResult[Any], result).rowcount or 0)
+            flagged = 0
+            if weights:
+                result = session.execute(
+                    update(TrackFingerprint)
+                    .where(TrackFingerprint.track_id.in_(weights.keys()))
+                    .values(
+                        is_reference=True,
+                        reference_weight=case(weights, value=TrackFingerprint.track_id),
+                    )
+                )
+                flagged = int(cast(CursorResult[Any], result).rowcount or 0)
             session.commit()
-            return int(cast(CursorResult[Any], result).rowcount or 0)
+            return cleared, flagged
 
     def get_by_multi_dimension_range(
         self,

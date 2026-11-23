@@ -178,9 +178,7 @@ class _FingerprintRepoLike(Protocol):
     """Minimum protocol required from the repository for refresh_cloud."""
 
     def get_all_with_track_stats(self, limit: int | None = ..., offset: int = ...) -> list[Any]: ...
-    def clear_all_reference_flags(self) -> int: ...
-    def set_reference_flags(self, track_ids_flagged: dict[int, bool]) -> int: ...
-    def set_reference_weights(self, weights: dict[int, float]) -> int: ...
+    def replace_reference_cloud(self, weights: dict[int, float]) -> tuple[int, int]: ...
 
 
 def refresh_cloud(
@@ -189,9 +187,10 @@ def refresh_cloud(
 ) -> tuple[int, int]:
     """Rebuild the reference cloud from current library state.
 
-    Clears all existing is_reference flags, scores every fingerprint, and
-    flags the top-N. The clear and re-flag happen in separate transactions
-    but the seeder is idempotent (running it twice produces the same flags).
+    Scores every fingerprint, then replaces the flagged set with the top-N in
+    one transaction (#6554): the clear, flags and weights used to be three
+    commits around the scoring, so a mastering stream could read an empty or
+    unweighted cloud mid-refresh. Running it twice produces the same flags.
 
     Selected references also get a reference_weight (#3480 Layer 1) — the
     base quality score scaled by listening behavior (play_count, favorite)
@@ -206,17 +205,14 @@ def refresh_cloud(
     Returns:
         (cleared_count, selected_count).
     """
-    cleared = repository.clear_all_reference_flags()
     # #3680: bounded candidate pool to prevent OOM on very large libraries.
     # get_all_with_track_stats() returns rows ordered by created_at DESC so
     # the cap takes the most recent slice, which is the sensible default for
     # "what should the reference cloud represent right now".
     all_fps = repository.get_all_with_track_stats(limit=config.max_candidates)
     selected = select_references(all_fps, config)
-    flags = {fp.track_id: True for fp, _score in selected}
-    repository.set_reference_flags(flags)
     weights = {fp.track_id: compute_reference_weight(fp, score) for fp, score in selected}
-    repository.set_reference_weights(weights)
+    cleared, _flagged = repository.replace_reference_cloud(weights)
     logger.info(
         "Reference cloud rebuilt: %d cleared, %d selected from %d candidates",
         cleared, len(selected), len(all_fps),

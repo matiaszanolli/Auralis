@@ -187,27 +187,14 @@ class _FakeRepo:
     def get_all_with_track_stats(self, limit=None, offset=0):
         return list(self._fps)
 
-    def clear_all_reference_flags(self):
-        n = sum(1 for fp in self._fps if getattr(fp, 'is_reference', False))
-        for fp in self._fps:
-            fp.is_reference = False
-            fp.reference_weight = 0.0
-        self.cleared = n
-        return n
-
-    def set_reference_flags(self, track_ids_flagged):
-        self.flags_set = dict(track_ids_flagged)
-        for fp in self._fps:
-            if fp.track_id in track_ids_flagged:
-                fp.is_reference = track_ids_flagged[fp.track_id]
-        return len(track_ids_flagged)
-
-    def set_reference_weights(self, weights):
+    def replace_reference_cloud(self, weights):
+        self.cleared = sum(1 for fp in self._fps if getattr(fp, 'is_reference', False))
+        self.flags_set = {track_id: True for track_id in weights}
         self.weights_set = dict(weights)
         for fp in self._fps:
-            if fp.track_id in weights:
-                fp.reference_weight = weights[fp.track_id]
-        return len(weights)
+            fp.is_reference = fp.track_id in weights
+            fp.reference_weight = weights.get(fp.track_id, 0.0)
+        return self.cleared, sum(1 for fp in self._fps if fp.track_id in weights)
 
 
 def _orm_fp(track_id, **overrides):
