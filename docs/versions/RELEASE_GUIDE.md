@@ -13,6 +13,11 @@ The current candidate-specific gate is
 - A `v*` tag starts `.github/workflows/build-release.yml`.
 - Successful Linux x64, Windows x64, and macOS Apple Silicon jobs create a **draft** GitHub
   release. A human publishes it only after testing the attached artifacts.
+- That workflow is the **only** publisher of release artifacts and checksums. Never create a
+  release or upload installers, `SHA256SUMS.txt` or electron-updater manifests (`latest*.yml`)
+  from a workstation: a local build has none of the CI controls (SHA-pinned actions,
+  hash-locked tooling, signed checksums, draft review), and the update manifests are what
+  installed apps trust (#6529, #4905).
 - JavaScript workspaces use pnpm; npm is not a supported release workflow.
 
 ## 1. Choose the version and scope
