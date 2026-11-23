@@ -32,5 +32,10 @@ SQLITE_CONNECT_TIMEOUT_S = 15
 #: more room. The metadata PUT validates against these, and the lyrics fallback
 #: and the metadata GET's tag readers cut to them (#5266, #6515).
 MAX_TAG_TEXT_CHARS = 1000
+
+# Per-track caps on the multi-valued tags: each artist is an Artist row and a link, each genre a
+# Genre row, and both are returned in every track payload (#6165 genres, #6510 artists).
+MAX_ARTISTS_PER_TRACK = 20
+MAX_GENRES_PER_TRACK = 20
 MAX_COMMENT_CHARS = 10_000
 MAX_LYRICS_CHARS = 100_000

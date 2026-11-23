@@ -25,6 +25,7 @@ from ..models import (
     Genre,
     Track,
 )
+from ..constants import MAX_ARTISTS_PER_TRACK, MAX_GENRES_PER_TRACK
 from ..path_key import make_filepath_key
 from ..utils.artist_normalizer import normalize_artist_name
 from .artist_links import link_artists
@@ -34,7 +35,6 @@ from .track_repository import _track_eager_options
 
 
 MAX_GENRE_NAME_LENGTH = 100
-MAX_GENRES_PER_TRACK = 20
 
 _M = TypeVar("_M", Artist, Genre, Album)
 
@@ -83,7 +83,8 @@ class TrackRepositoryLifecycleMixin(BaseRepository):
             if field in track_info and isinstance(track_info[field], str) and len(track_info[field]) > max_len:
                 track_info[field] = track_info[field][:max_len]
         if 'artists' in track_info:
-            track_info['artists'] = [a[:200] for a in track_info['artists'] if isinstance(a, str)]
+            # Counted too: each is an Artist row plus a link, and every add/update path lands here (#6510).
+            track_info['artists'] = [a[:200] for a in track_info['artists'] if isinstance(a, str)][:MAX_ARTISTS_PER_TRACK]
         if 'genres' in track_info:
             # Capped like artists: an unbounded TCON frame would otherwise be stored
             # once and returned in every track and genre payload (#6165).

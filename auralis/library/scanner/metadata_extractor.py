@@ -14,7 +14,7 @@ from typing import Any
 from mutagen import File as MutagenFile  # a required dependency (#6655)
 
 from ...utils.logging import debug
-from ..constants import MAX_TAG_TEXT_CHARS
+from ..constants import MAX_ARTISTS_PER_TRACK, MAX_GENRES_PER_TRACK, MAX_TAG_TEXT_CHARS
 from ..scan_models import AudioFileInfo
 from ..utils.artist_normalizer import parse_featured_artists
 
@@ -24,6 +24,8 @@ MAX_TRACK_NUMBER = 99_999
 
 # Tags whose several values are all kept (the track model holds lists of artists and genres, #5732).
 MULTI_VALUED_FIELDS = frozenset({'artist', 'genre'})
+# The repository keeps at most this many of either; extracting more is wasted work (#6510).
+MAX_TAG_VALUES = max(MAX_ARTISTS_PER_TRACK, MAX_GENRES_PER_TRACK)
 
 
 class MetadataExtractor:
@@ -133,12 +135,19 @@ class MetadataExtractor:
 
     @staticmethod
     def _distinct(values: Any) -> list[Any]:
-        """The non-empty values in order, without repeats."""
-        seen: list[Any] = []
+        """The non-empty values in order, without repeats, at most MAX_TAG_VALUES of them (#6510).
+
+        A list-membership dedup was quadratic, and nothing bounded the count: a 16 MiB Vorbis block of
+        distinct ARTIST values froze the scan in pure Python. A dict dedups in linear time, and the
+        loop stops (so ``values``, a generator, stops normalizing) once the cap is reached.
+        """
+        seen: dict[Any, None] = {}
         for value in values:
-            if value is not None and value not in seen:
-                seen.append(value)
-        return seen
+            if value is not None:
+                seen.setdefault(value, None)
+                if len(seen) >= MAX_TAG_VALUES:
+                    break
+        return list(seen)
 
     def _normalize_field_value(self, field: str, value: Any) -> Any | None:
         """
