@@ -41,6 +41,8 @@ def ramp_gain_reduction(
     Args:
         target_gains: Sliding-minimum gain per sample, in (0, 1].
         sample_peaks: Per-sample max |audio| across channels, same length.
+            Overwritten: it becomes each sample's own cap (the caller's
+            scratch buffer, so no second full-length array, #6717).
         lookahead: Look-ahead window in samples.
         threshold_linear: Ceiling in linear scale.
 
@@ -54,14 +56,14 @@ def ramp_gain_reduction(
     origin = (lookahead - 1) // 2
     # Read-only below, so no copy when the gains are float64 already (#6717).
     gains = target_gains.astype(np.float64, copy=False)
-    ramped: np.ndarray = uniform_filter1d(gains, size=lookahead, mode='nearest', origin=origin)
-    no_limiting = minimum_filter1d(
-        gains, size=lookahead, mode='nearest', origin=origin
-    ) >= 1.0
+    # The sliding minimum is only needed as a mask, so its buffer then takes the mean (#6717).
+    ramped: np.ndarray = minimum_filter1d(gains, size=lookahead, mode='nearest', origin=origin)
+    no_limiting = ramped >= 1.0
+    uniform_filter1d(gains, size=lookahead, mode='nearest', origin=origin, output=ramped)
     ramped[no_limiting] = 1.0
     del no_limiting
-    # Each sample's own cap, min(threshold / peak, 1), built in one buffer.
-    cap = np.maximum(sample_peaks, 1e-10)
+    # Each sample's own cap, min(threshold / peak, 1), built over the peaks themselves.
+    cap = np.maximum(sample_peaks, 1e-10, out=sample_peaks)
     np.divide(threshold_linear, cap, out=cap)
     np.minimum(cap, 1.0, out=cap)
     np.minimum(ramped, cap, out=ramped)

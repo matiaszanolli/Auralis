@@ -112,13 +112,7 @@ class BrickWallLimiter:
 
         num_samples, num_channels = audio.shape
 
-        # --- Vectorized lookahead peak detection (fixes #2293) ---
-        #
-        # Original approach: O(n × lookahead) — a Python loop with an inner
-        # np.max() call per sample, which is 100-500 ms/second of audio.
-        #
-        # New approach: O(n) sliding-window maximum via scipy.ndimage.
-        #
+        # --- Vectorized lookahead peak detection: an O(n) sliding-window maximum (#2293) ---
         # Per-sample max |audio| across channels, zero-padded so the filter sees
         # zeros beyond the end of the block. Built a channel at a time into the
         # padded buffer, so no full-size |audio| exists (#6717); max is exact,
@@ -143,14 +137,14 @@ class BrickWallLimiter:
 
         # Vectorized target-gain computation: threshold / peak where above
         # threshold, else 1.0.  Clamp denominator to avoid division by zero.
-        # The quotient is computed in place over the clamped envelope (#6717).
-        gain_where_over = np.maximum(peak_envelope, 1e-10)
-        np.divide(self.threshold_linear, gain_where_over, out=gain_where_over)
-        target_gains = np.where(peak_envelope > self.threshold_linear, gain_where_over, 1.0)
-        del gain_where_over, peak_envelope
+        # Quotient and unity both written into the clamped envelope's buffer (#6717).
+        target_gains = np.maximum(peak_envelope, 1e-10)
+        np.divide(self.threshold_linear, target_gains, out=target_gains)
+        target_gains[~(peak_envelope > self.threshold_linear)] = 1.0  # np.where's exact complement, NaN included
+        del peak_envelope
 
         # Ramp the reduction in over the look-ahead (#5699), then build the
-        # exponential-release gain envelope.
+        # exponential-release gain envelope. The ramp overwrites per_sample_max.
         target_gains = ramp_gain_reduction(
             target_gains,
             per_sample_max[:num_samples],
@@ -222,9 +216,12 @@ class BrickWallLimiter:
         for start, end in zip(seg_starts, seg_ends):
             if is_unity[start]:
                 # Vectorized geometric release toward 1.0 across the whole run.
+                # 1 - (1 - g) * rc**k through one float64 buffer, the same values (#6717).
                 run_len = end - start
-                k = np.arange(1, run_len + 1)
-                gain_curve[start:end] = 1.0 - (1.0 - prev_gain) * (rc ** k)
+                release = np.arange(1, run_len + 1, dtype=np.float64)
+                np.power(rc, release, out=release)
+                release *= 1.0 - prev_gain
+                np.subtract(1.0, release, out=gain_curve[start:end], casting='same_kind')
                 # Advance prev_gain analytically in full precision (matches the
                 # iterated scalar release to float roundoff).
                 prev_gain = 1.0 - (1.0 - prev_gain) * float(rc ** run_len)
