@@ -47,3 +47,23 @@ test('the app stops only the backend it spawned, never a listener it found on th
   }
   assert.ok(MAIN_SRC.includes('requestSingleInstanceLock('), 'a second launch must be refused, not resolved by killing');
 });
+
+function handlerBody(event) {
+  const start = MAIN_SRC.indexOf(`app.on('${event}'`);
+  assert.notEqual(start, -1, `no app.on('${event}') handler`);
+  const end = MAIN_SRC.indexOf('\n});', start);
+  return MAIN_SRC.slice(start, end);
+}
+
+test('closing the last window and reopening never leaves the quit path skipping backend cleanup (#6521)', () => {
+  // cleanup() sets isQuitting for good. When window-all-closed called it on macOS, a dock reopen
+  // spawned a new backend with the flag still set, and before-quit, gated on isQuitting, then
+  // skipped cleanup: the second backend outlived the app.
+  assert.equal(/cleanup\(/.test(handlerBody('window-all-closed')), false,
+    'window-all-closed must not stop the backend (macOS keeps the app, and its backend, alive)');
+  const beforeQuit = handlerBody('before-quit');
+  assert.equal(/isQuitting/.test(beforeQuit), false, 'before-quit must not be gated on the sticky isQuitting flag');
+  assert.match(beforeQuit, /auralisApp\.cleanup\(\)\.then/, 'before-quit must wait for the backend to stop');
+  assert.match(MAIN_SRC, /if \(!this\.initialized\) \{[\s\S]*?this\.startPythonBackend\(\)/,
+    'a reactivation (initialized) must reuse the running backend, not spawn a second one');
+});
