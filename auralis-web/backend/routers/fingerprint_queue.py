@@ -159,13 +159,12 @@ async def enqueue_all_missing_fingerprints(
 
     queue = require_service(queue, "On-demand fingerprint queue")
 
-    # Get tracks without fingerprints
-    missing_tracks = await asyncio.to_thread(repos.fingerprints.get_missing_fingerprints, limit=limit)
-
+    # Ids only, and no more than the queue can hold: the rest were always dropped (#6509).
+    fetch = min(limit or queue.MAX_QUEUE_SIZE, queue.MAX_QUEUE_SIZE)
+    missing_ids = await asyncio.to_thread(repos.fingerprints.get_missing_fingerprint_ids, limit=fetch)
     # Offloaded so a large batch does not block the event loop (#3335).
-    enqueued_count, skipped_count, dropped_count = await asyncio.to_thread(
-        queue.enqueue_many, [track.id for track in missing_tracks]
-    )
+    enqueued_count, skipped_count, dropped_count = await asyncio.to_thread(queue.enqueue_many, missing_ids)
+    dropped_count += max(0, min(limit or pending, pending) - fetch)  # never fetched: past the queue's capacity
 
     logger.info(
         f"📋 Batch enqueued {enqueued_count} tracks for fingerprinting "

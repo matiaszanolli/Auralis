@@ -73,7 +73,7 @@ def test_repository_treats_none_limit_as_all():
     )
 
     limit_param = inspect.signature(
-        FingerprintRepository.get_missing_fingerprints
+        FingerprintRepository.get_missing_fingerprint_ids
     ).parameters["limit"]
 
     assert limit_param.annotation == (int | None)

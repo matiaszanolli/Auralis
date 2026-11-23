@@ -68,8 +68,8 @@ def fingerprint_repository_mock():
                 return MockFingerprint(self.fingerprints[track_id])
             return None
 
-        def get_missing_fingerprints(self, limit=None):
-            """Get tracks missing fingerprints"""
+        def get_missing_fingerprint_ids(self, limit=None):
+            """Ids of tracks missing fingerprints"""
             return []  # Mock implementation
 
     return MockFingerprintRepository()

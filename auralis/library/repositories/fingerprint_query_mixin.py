@@ -218,20 +218,14 @@ class FingerprintQueryMixin(BaseRepository):
             ).scalar_one()
             return count > 0
 
-    def get_missing_fingerprints(self, limit: int | None = None) -> list[Track]:
-        """
-        Get tracks that don't have fingerprints yet
+    def get_missing_fingerprint_ids(self, limit: int | None = None) -> list[int]:
+        """Ids of tracks with no fingerprint row, in id order, at most ``limit`` of them.
 
-        Useful for batch fingerprint extraction
-
-        Args:
-            limit: Maximum number of tracks to return
-
-        Returns:
-            List of Track objects without fingerprints
+        Ids only (#6509): the batch enqueue used just ``track.id`` but loaded every column of every
+        row, lyrics and comments included, for a whole library of which the queue takes 5,000.
         """
         with self._session_scope() as session:
-            stmt = select(Track).outerjoin(
+            stmt = select(Track.id).outerjoin(
                 TrackFingerprint,
                 Track.id == TrackFingerprint.track_id
             ).where(
@@ -241,15 +235,4 @@ class FingerprintQueryMixin(BaseRepository):
             if limit is not None:
                 stmt = stmt.limit(limit)
 
-            tracks = session.execute(stmt).scalars().all()
-
-            # CRITICAL: Detach all Track objects from session before returning
-            # Prevents memory accumulation when workers process tracks from multiple queries
-            # Without detaching, each worker holds a session reference for the entire track lifetime
-            for track in tracks:
-                session.expunge(track)
-
-            # CRITICAL: Clear session to free memory
-            session.expunge_all()
-
-            return list(tracks)
+            return [int(track_id) for track_id in session.execute(stmt).scalars().all()]
