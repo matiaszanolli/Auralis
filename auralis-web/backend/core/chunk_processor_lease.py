@@ -32,6 +32,7 @@ class StreamProcessorLeaseMixin:
     processor_config: Any | None
     mastering_targets: dict[str, Any] | None
     _processor_factory: Any
+    _processor_lock: threading.RLock  # held across a whole chunk render
     _closed: bool = False
 
     def hybrid_processor(self) -> Any | None:
@@ -74,9 +75,29 @@ class StreamProcessorLeaseMixin:
         self._release_processor()
 
     def _release_processor(self) -> None:
-        """Hand the leased HybridProcessor back to the factory. Idempotent."""
+        """Hand the leased HybridProcessor back to the factory. Idempotent.
+
+        Not while a render is still inside it (#6539): a pump exit cannot cancel a look-ahead render
+        already in the stream executor, and a lease returned under it let a successor stream of the
+        same key acquire an instance that render was still advancing (its limiter and EQ state). The
+        render holds _processor_lock for the whole chunk, so a lock this close cannot take means one
+        is in flight: that lease is discarded, as after a DSP timeout (#5335). A render starting
+        later cannot reach it: ``_closed`` is set first and hybrid_processor() then refuses.
+        """
         leased, self.processor = self.processor, None
-        self._return_lease(leased)
+        if leased is None or self.preset is None:
+            return
+        lock = getattr(self, "_processor_lock", None)  # absent: __init__ failed before any render could run
+        if lock is None:
+            self._return_lease(leased)
+            return
+        if not lock.acquire(blocking=False):
+            self._processor_factory.discard_lease(leased, track_id=self.track_id)
+            return
+        try:
+            self._return_lease(leased)
+        finally:
+            lock.release()
 
     def _return_lease(self, leased: Any | None) -> None:
         if leased is not None and self.preset is not None:
