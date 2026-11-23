@@ -277,11 +277,14 @@ class QueueEditMixin(QueueServiceBase):
                 if hasattr(self.audio_player, 'stop'):
                     await asyncio.to_thread(self.audio_player.stop)
 
-            # Update player state — outside the engine lock: set_playing/
-            # set_track broadcast internally by default, and #4825 requires
-            # _set_queue_engine_lock never cover a broadcast.
-            await self.player_state_manager.set_playing(False)
-            await self.player_state_manager.set_track(None)
+            # Outside the engine lock (#4825), and never over a newer set_queue (#6547).
+            async def _stop_state() -> Any:
+                await self.player_state_manager.set_playing(False, broadcast=False)
+                return await self.player_state_manager.set_track(None, broadcast=False)
+
+            current, snapshot = await self._if_current_generation(self._edit_generation, _stop_state)
+            if current:
+                await self.player_state_manager.broadcast_state(snapshot)
 
             # Broadcast queue update (fixes #3492)
             await self._broadcast_queue_changed(

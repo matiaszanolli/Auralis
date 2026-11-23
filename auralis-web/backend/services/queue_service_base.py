@@ -12,7 +12,7 @@ build on this class; ``services.queue_service.QueueService`` composes them
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any, Unpack
 
@@ -67,6 +67,8 @@ class QueueServiceBase:
         self._enricher = QueueEnricher(
             player_state_manager, library_database, create_track_info_fn
         )
+        # The generation this request's queue edit claimed (#6547); None: no edit, mirror as is.
+        self._edit_generation: int | None = None
 
     # #3721: concurrent set_queue() calls are serialised, and a later one (or a
     # queue-shape mutator, #5320) supersedes an in-flight one, through a
@@ -99,35 +101,34 @@ class QueueServiceBase:
     def _set_queue_generation(self, value: int) -> None:
         queue_set_sequencer.generation = value
 
-    async def _invalidate_set_queue_generation(self) -> None:
-        """Supersede any in-flight set_queue request (#5320).
+    async def _invalidate_set_queue_generation(self) -> int:
+        """Supersede any in-flight set_queue request (#5320); returns the generation claimed.
 
-        clear_queue and the other queue-shape mutators (add/remove/reorder/
-        move/shuffle/unshuffle) bypassed set_queue's generation protocol
-        entirely — a mutator landing while _set_queue_impl was between its
-        generation check and its engine-mutating steps still ran
-        load_file()/play() afterward against a queue the mutator had just
-        changed out from under it.
-
-        Bumping _next_set_queue_generation AND setting _set_queue_generation
-        to that new value (rather than just incrementing the latter) means
-        no future set_queue() call can accidentally reuse a generation
-        number this invalidation already claimed. Every one of
-        _set_queue_impl's `generation != self._set_queue_generation` /
-        `generation < self._set_queue_generation` checkpoints then correctly
-        sees itself as superseded and returns before its next engine call —
-        including a checkpoint reached while _set_queue_impl is still
-        inside `_set_queue_engine_lock`, since this only takes the narrower
-        `_set_queue_lock` and does not contend with it.
-
-        Callers should call this before touching the engine (or before
-        acquiring `_set_queue_engine_lock`, whichever comes first in their
-        method), so an in-flight set_queue sees the staleness at its very
-        next checkpoint rather than one call later.
+        The queue-shape mutators (clear/add/remove/reorder/move/shuffle/unshuffle) bypassed
+        set_queue's generation protocol, so one landing between _set_queue_impl's generation check
+        and its engine steps still ran load_file()/play() against the queue it had just changed.
+        Claiming a fresh generation (bumping _next_set_queue_generation too, so no set_queue reuses
+        it) makes every later checkpoint of an in-flight set_queue see itself superseded, even one
+        inside `_set_queue_engine_lock`, since this takes only the narrower `_set_queue_lock`. Call
+        it before touching the engine, so the staleness shows at the very next checkpoint.
         """
         async with self._set_queue_lock:
             self._next_set_queue_generation += 1
             self._set_queue_generation = self._next_set_queue_generation
+            return self._set_queue_generation
+
+    async def _if_current_generation(
+        self, generation: int | None, operation: Callable[[], Awaitable[Any]]
+    ) -> tuple[bool, Any]:
+        """Run *operation* under ``_set_queue_lock`` iff *generation* is current (None: always).
+
+        Returns ``(True, result)``, or ``(False, None)`` when superseded; the check and the state
+        mutation share one lock hold. set_queue's steps and a queue edit's state writes (#6547).
+        """
+        async with self._set_queue_lock:
+            if generation is not None and generation != self._set_queue_generation:
+                return False, None
+            return True, await operation()
 
     def _require_queue(self) -> None:
         """Raise ServiceUnavailable unless the audio player exposes a queue."""
@@ -147,9 +148,9 @@ class QueueServiceBase:
         The engine lock never covers a broadcast (#4825): do state-manager
         updates and ``_broadcast_queue_changed`` after leaving the block.
         Invalidating even on a "nothing to do" path is harmless (a no-op
-        generation bump).
+        generation bump). The generation it claims gates this edit's mirror (#6547).
         """
-        await self._invalidate_set_queue_generation()
+        self._edit_generation = await self._invalidate_set_queue_generation()
         async with self._set_queue_engine_lock:
             yield
 
@@ -261,11 +262,18 @@ class QueueServiceBase:
         # playing track, none after a clear). Not broadcast: queue_changed below
         # is this edit's message. Best-effort like the read and hydration above:
         # the engine edit already happened, and its broadcast must still go out.
+        # Ordered with set_queue's own state write by its lock and generation (#6547): a newer
+        # set_queue or edit committed since this edit already wrote (or will write) a newer queue,
+        # so this read is stale - neither mirrored nor sent as the client's queue.
+        superseded = False
         if hydrated and self.player_state_manager is not None:
             try:
-                await self.player_state_manager.set_queue(
-                    [ti for ti in resolved if ti is not None], current_index, broadcast=False
+                queue = [ti for ti in resolved if ti is not None]
+                mirrored, _ = await self._if_current_generation(
+                    self._edit_generation,
+                    lambda: self.player_state_manager.set_queue(queue, current_index, broadcast=False),
                 )
+                superseded = not mirrored
             except Exception as exc:
                 logger.warning(f"queue_changed: could not mirror the queue into player state: {exc}")
 
@@ -275,8 +283,10 @@ class QueueServiceBase:
             'action': action,
             **extras,
         }
-        if not hydrated:
-            # Omit rather than send an empty queue, which a client would apply.
+        if not hydrated or superseded:
+            # Omit rather than send an empty or stale queue, which a client would apply.
             del payload['tracks']
+        if superseded:
+            del payload['current_index']
         await broadcast_typed(self.connection_manager, "queue_changed", payload)
         return engine_shuffled

@@ -248,6 +248,7 @@ class TestClearQueue:
         mock_state = Mock()
         mock_state.set_playing = AsyncMock()
         mock_state.set_track = AsyncMock()
+        mock_state.broadcast_state = AsyncMock()
         mock_ws = Mock()
         mock_ws.broadcast = AsyncMock()
 
@@ -356,6 +357,7 @@ class TestQueueIntegration:
         mock_state = Mock()
         mock_state.set_playing = AsyncMock()
         mock_state.set_track = AsyncMock()
+        mock_state.broadcast_state = AsyncMock()
         mock_ws = Mock()
         mock_ws.broadcast = AsyncMock()
 

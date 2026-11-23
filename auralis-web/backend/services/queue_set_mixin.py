@@ -12,7 +12,6 @@ Part of QueueService, split out of services/queue_service.py (#5237).
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 from .errors import InvalidRequest, require_collaborators
@@ -79,20 +78,6 @@ class QueueSetMixin(QueueServiceBase):
         """
         async with self._set_queue_lock:
             return generation != self._set_queue_generation
-
-    async def _if_current_generation(
-        self, generation: int, operation: Callable[[], Awaitable[Any]]
-    ) -> tuple[bool, Any]:
-        """Run *operation* under ``_set_queue_lock`` iff *generation* is current.
-
-        Returns ``(True, result)``, or ``(False, None)`` when superseded. The
-        check and the state mutation share one lock hold, exactly as the
-        inlined ``async with lock: if stale: return`` blocks did.
-        """
-        async with self._set_queue_lock:
-            if generation != self._set_queue_generation:
-                return False, None
-            return True, await operation()
 
     async def _start_playback(self, generation: int, deferred_snapshots: list[Any]) -> bool:
         """Play and record the playing snapshot; False when superseded meanwhile."""
