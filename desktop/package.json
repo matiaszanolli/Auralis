@@ -19,14 +19,14 @@
     "test": "node --test",
     "electron": "electron .",
     "dev": "node ../dev.js",
-    "build": "electron-builder --publish never",
-    "build:win": "electron-builder --win --x64 --publish never",
+    "build": "node scripts/record-backend-digest.js && electron-builder --publish never",
+    "build:win": "node scripts/record-backend-digest.js && electron-builder --win --x64 --publish never",
     "build:mac": "pnpm run build:mac:arm64",
-    "build:mac:arm64": "electron-builder --mac --arm64 --publish never",
-    "build:linux": "electron-builder --linux --x64 --publish never",
-    "build:linux:flatpak": "electron-builder --linux flatpak --x64 --publish never",
-    "pack": "electron-builder --dir --publish never",
-    "dist": "electron-builder --publish never"
+    "build:mac:arm64": "node scripts/record-backend-digest.js && electron-builder --mac --arm64 --publish never",
+    "build:linux": "node scripts/record-backend-digest.js && electron-builder --linux --x64 --publish never",
+    "build:linux:flatpak": "node scripts/record-backend-digest.js && electron-builder --linux flatpak --x64 --publish never",
+    "pack": "node scripts/record-backend-digest.js && electron-builder --dir --publish never",
+    "dist": "node scripts/record-backend-digest.js && electron-builder --publish never"
   },
   "devDependencies": {
     "electron": "^43.8.12",
@@ -44,7 +44,8 @@
       "runAsNode": false,
       "enableNodeOptionsEnvironmentVariable": false,
       "enableNodeCliInspectArguments": false,
-      "onlyLoadAppFromAsar": true
+      "onlyLoadAppFromAsar": true,
+      "enableEmbeddedAsarIntegrityValidation": true
     },
     "directories": {
       "output": "../dist",
@@ -56,6 +57,8 @@
       "url-safety.js",
       "backend-env.js",
       "backend-shutdown.js",
+      "backend-integrity.js",
+      "backend-digest.json",
       "assets/**/*",
       "error.html"
     ],

@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const { isSafeExternalUrl, isAllowedAppNavigation, isTrustedIpcSender, escapeControlChars, backendLogLines, DEV_ORIGIN_FLAG, APP_PORT, APP_ORIGIN, DEV_ORIGIN } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
 const { terminateBackend } = require('./backend-shutdown');
+const { DIGEST_FILE, verifyBackendBinary } = require('./backend-integrity');
 const STARTUP_TIMEOUT_MS = 45000;
 // Allow the backend's bounded lifespan shutdown to flush its SQLite WAL and stop workers.
 const BACKEND_KILL_GRACE_MS = 40000;
@@ -68,20 +69,17 @@ class AuralisApp {
     const cwd = path.join(process.resourcesPath, 'backend');
     const backendPath = path.join(cwd, 'auralis-backend');
     const backendExe = isWindows ? `${backendPath}.exe` : backendPath;
-    const pythonScript = path.join(cwd, 'main.py');
 
-    if (fs.existsSync(backendExe)) {
-      // Use compiled binary if available
-      pythonCmd = backendExe;
-      pythonArgs = [];
-    } else if (!isWindows && fs.existsSync(pythonScript)) {
-      // macOS/Linux: Fallback to Python script from resources
-      console.log('Binary not found, using Python script from resources');
-      pythonCmd = 'python3';
-      pythonArgs = [pythonScript];
-    } else {
+    // Only the bundled binary, and only once it matches the digest recorded at build time (#6527).
+    // The python3 script fallback ran whatever interpreter and sources were on disk. macOS is
+    // exempt from the digest: codesign rewrites the binary after it is recorded, and there the
+    // backend sits inside the signed bundle, whose signature covers it.
+    if (!fs.existsSync(backendExe)) {
       throw new Error('The installed backend is missing. Reinstall Auralis.');
     }
+    if (process.platform !== 'darwin') verifyBackendBinary(backendExe, path.join(__dirname, DIGEST_FILE));
+    pythonCmd = backendExe;
+    pythonArgs = [];
     this.pythonProcess = spawn(pythonCmd, pythonArgs, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],

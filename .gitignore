@@ -157,6 +157,7 @@ desktop/dist/
 desktop/build/
 desktop/out/
 desktop/resources/
+desktop/backend-digest.json
 desktop/.env
 desktop/.env.local
 desktop/npm-debug.log*
