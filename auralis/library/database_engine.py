@@ -62,6 +62,7 @@ def create_library_engine(database_path: str) -> Engine:
     engine = create_engine(
         f"sqlite:///{database_path}",
         echo=False,
+        hide_parameters=True,  # a DB error's text would carry the bound row: paths, titles (#6538)
         connect_args=connect_args,
         pool_pre_ping=True,  # Verify connections before use
         pool_size=5,  # Sufficient for SQLite with WAL concurrent readers

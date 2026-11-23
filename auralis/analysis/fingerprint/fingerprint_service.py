@@ -45,6 +45,7 @@ def _make_engine(db_path: Path) -> Engine:
     engine = create_engine(
         f"sqlite:///{db_path}",
         echo=False,
+        hide_parameters=True,  # keep bound paths/tags out of logged DB errors (#6538)
         connect_args={'timeout': SQLITE_CONNECT_TIMEOUT_S, 'check_same_thread': False},
         pool_pre_ping=True,
     )
