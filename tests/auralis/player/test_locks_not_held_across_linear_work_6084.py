@@ -58,3 +58,31 @@ def test_reference_rms_is_measured_before_the_matcher_lock_is_taken():
     assert reference.held == [False]
     assert float(matcher.reference_rms) == pytest.approx(0.1, abs=1e-6)
     assert matcher.enabled is True
+
+
+class _ProcessorLockProbe(np.ndarray):
+    """Records whether RealtimeProcessor.lock was held when the reference RMS is computed (#6523)."""
+
+    processor: "RealtimeProcessor"
+    held: list[bool]
+
+    def __pow__(self, power):  # noqa: ANN001
+        self.held.append(self.processor.lock.locked())
+        return np.asarray(self).__pow__(power)
+
+
+def test_processor_does_not_hold_its_chunk_lock_across_the_reference_rms():
+    # #6084 moved the RMS ahead of the matcher's lock only; RealtimeProcessor.set_reference_audio
+    # still wrapped the call in the lock process_chunk() takes at the start of every buffer.
+    from auralis.player.realtime.processor import RealtimeProcessor
+
+    processor = RealtimeProcessor(PlayerConfig(enable_level_matching=True))
+    reference = np.full((4096, 2), 0.1, dtype=np.float32).view(_ProcessorLockProbe)
+    reference.processor = processor
+    reference.held = []
+
+    assert processor.set_reference_audio(reference) is True
+
+    assert reference.held == [False]
+    assert processor.level_matcher is not None
+    assert float(processor.level_matcher.reference_rms) == pytest.approx(0.1, abs=1e-6)

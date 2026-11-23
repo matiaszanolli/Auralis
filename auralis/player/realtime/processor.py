@@ -68,17 +68,18 @@ class RealtimeProcessor:
         info(f"   Auto-mastering: {'✅ Enabled' if config.enable_auto_mastering else '❌ Disabled'}")
 
     def set_reference_audio(self, reference: np.ndarray) -> bool:
-        """Set reference audio for processing"""
-        with self.lock:
-            success = False
+        """Set reference audio for processing.
 
-            if self.level_matcher:
-                success = self.level_matcher.set_reference_audio(reference)
-
-            if success:
-                info("Reference audio loaded for real-time processing")
-
-            return success
+        Not under ``self.lock``: the matcher measures the reference's O(n) RMS and
+        then installs it under its own ``_lock``, and ``level_matcher`` is fixed at
+        construction. Holding ``self.lock`` around that call stalled every
+        ``process_chunk()`` for the whole measurement, about 300 ms for a 10-minute
+        reference against a 23 ms chunk budget (#6523, the half #6084 missed).
+        """
+        success = self.level_matcher.set_reference_audio(reference) if self.level_matcher else False
+        if success:
+            info("Reference audio loaded for real-time processing")
+        return success
 
     def set_effect_enabled(self, effect_name: str, enabled: bool) -> None:
         """Enable/disable specific effects"""
