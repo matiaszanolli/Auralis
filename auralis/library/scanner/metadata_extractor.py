@@ -14,12 +14,9 @@ from typing import Any
 from mutagen import File as MutagenFile  # a required dependency (#6655)
 
 from ...utils.logging import debug
+from ..constants import MAX_TAG_TEXT_CHARS
 from ..scan_models import AudioFileInfo
 from ..utils.artist_normalizer import parse_featured_artists
-
-# One cap on every string tag (title/artist/album/genre/comment) before any
-# regex or the repository sees it: frames can be megabytes (#6154).
-MAX_TAG_TEXT_CHARS = 1000
 
 # A track or disc number above this is a corrupt or hostile tag, not a position: a value past
 # SQLite's int64 raised OverflowError in the insert and blocked the track's ingest (#5732).

@@ -10,7 +10,22 @@ Format-specific metadata reading functions
 
 from typing import Any
 
+from ..constants import MAX_COMMENT_CHARS, MAX_LYRICS_CHARS, MAX_TAG_TEXT_CHARS
 from .tag_mappings import TAG_MAPPINGS
+
+_FREE_TEXT_CAPS = {'comment': MAX_COMMENT_CHARS, 'lyrics': MAX_LYRICS_CHARS}
+
+
+def cap_tag_values(metadata: dict[str, str | None]) -> dict[str, str | None]:
+    """Cut every value to the library's cap for its field (#6515).
+
+    The same caps the metadata PUT validates against, so a value read from a
+    hostile file is never served at a size the editor could not save back.
+    """
+    return {
+        field: value[:_FREE_TEXT_CAPS.get(field, MAX_TAG_TEXT_CHARS)] if value else value
+        for field, value in metadata.items()
+    }
 
 
 class MetadataReaders:

@@ -16,6 +16,8 @@ file was only probed for an English USLT frame.
 import re
 from typing import Any
 
+from auralis.library.constants import MAX_LYRICS_CHARS
+
 # A synced (LRC) line starts with a [mm:ss] or [mm:ss.xx] timestamp. A bare "[" and
 # "]" pair is also found in plain lyrics ("[Chorus]"), so it is not a signal.
 _LRC_TIMESTAMP = re.compile(r"\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]")
@@ -29,12 +31,16 @@ def lyrics_format(text: str) -> str:
 
 
 def _first_text(value: Any) -> str | None:
-    """A tag value as text: the first non-empty entry of a list, else the string."""
+    """A tag value as text: the first non-empty entry of a list, else the string.
+
+    Cut to the library's lyrics cap: the result is persisted to ``Track.lyrics`` and
+    served on every later fetch, and a hostile frame can be megabytes (#6515).
+    """
     if isinstance(value, (list, tuple)):
         value = next((v for v in value if v), None)
     if value is None:
         return None
-    text = str(value).strip()
+    text = str(value).strip()[:MAX_LYRICS_CHARS]
     return text or None
 
 

@@ -25,3 +25,12 @@ SQLITE_BUSY_TIMEOUT_MS = 60_000
 #: The sqlite3 driver's own lock wait (``connect_args["timeout"]``, seconds), the
 #: companion to the PRAGMA above and shared by the same three engines.
 SQLITE_CONNECT_TIMEOUT_S = 15
+
+#: Longest tag text the library stores or serves, in characters. Frames can be
+#: megabytes, so a short tag (title, artist, album, genre...) is cut at ingest
+#: before any regex or the repository sees it (#6154). The free-text tags get
+#: more room. The metadata PUT validates against these, and the lyrics fallback
+#: and the metadata GET's tag readers cut to them (#5266, #6515).
+MAX_TAG_TEXT_CHARS = 1000
+MAX_COMMENT_CHARS = 10_000
+MAX_LYRICS_CHARS = 100_000

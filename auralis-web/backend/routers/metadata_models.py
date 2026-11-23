@@ -5,15 +5,16 @@ Metadata router request/response bodies (split from metadata.py, #5831).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from auralis.library.constants import MAX_COMMENT_CHARS, MAX_LYRICS_CHARS, MAX_TAG_TEXT_CHARS
 from pydantic import BaseModel, Field
 from schemas import TrackId
 from typing import Any
 
 
-# Text caps follow the scanner's MAX_TAG_TEXT_CHARS for short tags; free-text tags get more room.
-_SHORT_TAG = 1000
-_COMMENT_TAG = 10_000
-_LYRICS_TAG = 100_000
+# The library's tag-text caps: the scanner's for short tags, more room for free text.
+_SHORT_TAG = MAX_TAG_TEXT_CHARS
+_COMMENT_TAG = MAX_COMMENT_CHARS
+_LYRICS_TAG = MAX_LYRICS_CHARS
 
 
 class MetadataUpdateRequest(BaseModel):

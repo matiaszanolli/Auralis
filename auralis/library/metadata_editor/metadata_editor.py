@@ -24,7 +24,7 @@ from ...utils.logging import debug, error, info
 from .backup import BackupManager, lock_files
 from .errors import open_audio_file
 from .batch import BatchUpdateMixin
-from .readers import MetadataReaders
+from .readers import MetadataReaders, cap_tag_values
 from .tag_mappings import STANDARD_FIELDS, TAG_MAPPINGS, get_format_key
 from .writers import MetadataWriters
 
@@ -122,7 +122,7 @@ class MetadataEditor(BatchUpdateMixin):
                 metadata = self.readers.read_generic_metadata(audio_file)
 
             debug(f"Read metadata from {filepath}: {list(metadata.keys())}")
-            return metadata
+            return cap_tag_values(metadata)
 
         except Exception as e:
             error(f"Failed to read metadata from {filepath}: {e}")
