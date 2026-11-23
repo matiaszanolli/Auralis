@@ -23,6 +23,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core import streamlined_worker
+from core.streamlined_processor_disposal import wait_for_pending_closes
 from core.streamlined_worker import StreamlinedCacheWorker
 from core.file_signature import FileSignatureService
 
@@ -105,6 +106,7 @@ class TestTimeoutEviction:
         hung.release.set()
         for _ in range(5):
             await asyncio.sleep(0)
+        await wait_for_pending_closes()  # closes run off the loop (#6550)
         hung.close.assert_called_once_with()
         assert not hung.render_cancelled
 

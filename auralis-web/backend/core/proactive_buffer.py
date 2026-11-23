@@ -110,14 +110,18 @@ async def _buffer_one_preset(
         logger.error(f"Failed to initialize processor for {preset}: {preset_error}")
         return True
     finally:
-        # Release processor resources (#2567)
+        # Release processor resources (#2567), off the loop: close() can rmtree a converted
+        # full-track WAV (#6550). Shielded, so a cancelled buffering task still finishes it.
         if processor is not None and hasattr(processor, "close"):
-            try:
-                processor.close()
-            except Exception:
-                # Best-effort release (#4368 -- was a bare pass, hiding genuine
-                # resource-release failures from debugging).
-                logger.debug(f"Processor close failed for {preset}", exc_info=True)
+            await asyncio.shield(asyncio.to_thread(_close_quietly, processor, preset))
+
+
+def _close_quietly(processor: Any, preset: str) -> None:
+    """Best-effort release (#4368: was a bare pass, hiding genuine release failures)."""
+    try:
+        processor.close()
+    except Exception:
+        logger.debug(f"Processor close failed for {preset}", exc_info=True)
 
 
 async def buffer_presets_for_track(

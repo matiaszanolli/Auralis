@@ -20,6 +20,7 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from core.streamlined_processor_disposal import wait_for_pending_closes
 from core.streamlined_worker import StreamlinedCacheWorker
 from core.file_signature import FileSignatureService
 
@@ -193,6 +194,7 @@ class TestProcessorReuse:
             # _remember_processor, #4737), and it leaked a temp WAV per
             # M4A/AAC/WMA track change before the shared close-and-drop
             # helper covered it.
+            await wait_for_pending_closes()  # closes run off the loop (#6550)
             old_processor.close.assert_called_once()
 
     @pytest.mark.asyncio
@@ -232,6 +234,7 @@ class TestProcessorReuse:
                                             preset="balanced", intensity=0.5)
 
             assert (1, "balanced", 0.5, sig) not in worker._processor_cache
+            await wait_for_pending_closes()  # closes run off the loop (#6550)
             exploding.close.assert_called_once()
 
 

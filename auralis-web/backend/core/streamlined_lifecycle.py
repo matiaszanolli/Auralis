@@ -14,6 +14,7 @@ from typing import Any
 
 from helpers import spawn_background_task
 
+from .streamlined_processor_disposal import close_dropped_processor, wait_for_pending_closes
 from .task_cancellation import await_cancelled_task
 
 logger = logging.getLogger(__name__)
@@ -48,25 +49,25 @@ class WorkerLifecycleMixin:
             # done task, or a plain truthiness check report a stopped worker
             # as running.
             self._worker_task = None
-        self._close_cached_processors()
+        await self._close_cached_processors()
         logger.info("🛑 Streamlined cache worker stopped")
 
-    def _close_cached_processors(self) -> None:
+    async def _close_cached_processors(self) -> None:
         """Release every cached ChunkedAudioProcessor (#5979).
 
         Each holds a SeekableSource reference on the converted temp WAV of an .m4a/.aac/.wma
         track, and ConvertedWavRegistry.shutdown() deletes only unreferenced conversions, so
-        processors left in the cache kept their temp files for the life of the process.
+        processors left in the cache kept their temp files for the life of the process. Through
+        close_dropped_processor like every other drop (#6551): one a render still holds (the
+        cancel above only abandoned its awaiting side) closes when that render ends. The closes
+        run off the loop (#6550) and are awaited here, so stop() returns with them done.
         """
         cache = getattr(self, "_processor_cache", None)
-        if not cache:
-            return
-        for processor in list(cache.values()):
-            try:
-                processor.close()
-            except Exception as e:
-                logger.debug(f"Failed to close a cached processor: {e}")
-        cache.clear()
+        if cache:
+            for key, processor in list(cache.items()):
+                close_dropped_processor(key, processor)
+            cache.clear()
+        await wait_for_pending_closes()
 
     @property
     def worker_task(self) -> asyncio.Task[None] | None:

@@ -9,7 +9,9 @@ discarding one whose render timed out. Distinct from ``core/processor_lease.py``
 and ``core/chunk_processor_lease.py``, which lease ``HybridProcessor`` instances
 from the ``ProcessorFactory`` to a stream.
 
-The lease table is touched only on the event loop, so it takes no lock.
+The lease table is touched only on the event loop, so it takes no lock. A close
+reached from the loop runs in a worker thread: it can rmtree a converted
+full-track WAV (#6550).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -31,6 +33,8 @@ logger = logging.getLogger(__name__)
 # the last of them (#5064). Touched only on the event loop, so no lock.
 _leases: dict[int, int] = {}
 _close_when_idle: dict[int, tuple["ProcessorCacheKey", Any]] = {}
+# Closes running off the loop (#6550); strong references until they finish.
+_pending_closes: set[asyncio.Task[None]] = set()
 
 
 @contextmanager
@@ -56,11 +60,33 @@ def leased(processor: Any) -> Iterator[None]:
                 _close_now(*deferred)
 
 
-def _close_now(cache_key: "ProcessorCacheKey", processor: Any) -> None:
+def _close_blocking(cache_key: "ProcessorCacheKey", processor: Any) -> None:
     try:
         processor.close()
     except Exception as exc:
         logger.warning(f"Failed to close dropped processor {cache_key}: {exc}")
+
+
+def _close_now(cache_key: "ProcessorCacheKey", processor: Any) -> None:
+    """Close in a worker thread when called on the event loop (#6550), else inline.
+
+    ``ChunkedAudioProcessor.close()`` releases its converted temp WAV, and a release that pushes
+    the idle conversions over the cap rmtrees one: on the loop that stalls every WebSocket.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        _close_blocking(cache_key, processor)  # already off the loop
+        return
+    task = asyncio.ensure_future(asyncio.to_thread(_close_blocking, cache_key, processor))
+    _pending_closes.add(task)
+    task.add_done_callback(_pending_closes.discard)
+
+
+async def wait_for_pending_closes() -> None:
+    """Return once every close started off the loop has finished (worker stop, tests)."""
+    while _pending_closes:
+        await asyncio.gather(*list(_pending_closes))
 
 
 def close_dropped_processor(cache_key: "ProcessorCacheKey", processor: Any) -> None:
