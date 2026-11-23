@@ -19,6 +19,7 @@ Target: 25 comprehensive performance tests
 """
 
 import os
+import statistics
 import tempfile
 import time
 
@@ -528,6 +529,13 @@ class TestDatabaseQueryPerformance:
     def test_sorted_query_performance(self, temp_db, timer):
         """
         BENCHMARK: Sorted queries should have similar performance (±30%).
+
+        Every whitelisted sort column is indexed, so no order should cost a
+        full sort of the table. Compared by median over interleaved rounds
+        after a warm-up: one timed call per order (the old form) put a single
+        ~3 ms call against another, and one GC or scheduler pause (single calls
+        ran up to ~18 ms locally) failed the nightly at 34%. Interleaved
+        medians agree within ~1%.
         """
         track_repo = TrackRepository(temp_db)
 
@@ -544,13 +552,19 @@ class TestDatabaseQueryPerformance:
             })
 
         sort_orders = ['title', 'created_at', 'play_count']
-        latencies = []
+        samples: dict[str, list[float]] = {sort_by: [] for sort_by in sort_orders}
 
-        for sort_by in sort_orders:
-            start = time.perf_counter()
+        for sort_by in sort_orders:  # warm-up: statement compile, first selectin
             tracks, total = track_repo.get_all(limit=100, offset=0, order_by=sort_by)
-            latency_ms = (time.perf_counter() - start) * 1000
-            latencies.append(latency_ms)
+            assert total == 5000 and len(tracks) == 100
+
+        for _ in range(15):
+            for sort_by in sort_orders:
+                start = time.perf_counter()
+                track_repo.get_all(limit=100, offset=0, order_by=sort_by)
+                samples[sort_by].append((time.perf_counter() - start) * 1000)
+
+        latencies = [statistics.median(samples[sort_by]) for sort_by in sort_orders]
 
         # BENCHMARK: Variance should be < 30%
         avg_latency = sum(latencies) / len(latencies)
