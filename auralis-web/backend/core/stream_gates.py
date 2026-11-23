@@ -33,6 +33,38 @@ logger = logging.getLogger(__name__)
 #: turns an unbounded truncation into a bounded stall plus a log line.
 FLOW_GATE_TIMEOUT_S = 30.0
 
+
+class FlowGate(asyncio.Event):
+    """A stream's flow event that remembers the client's buffer_full signals (#6553).
+
+    The #5863 bound forces one chunk past an unanswered ``buffer_full`` in case
+    the client's ``buffer_ready`` was lost. A client that is merely paused never
+    drains, so it never sends ``buffer_ready``; the bound then fed it one chunk
+    per timeout until its PCM ring overflowed and dropped audio. The client now
+    re-asserts ``buffer_full`` for a chunk that lands above its pause mark, and
+    the gate stops forcing once it has heard that since its last forced chunk.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.full_signals = 0
+        self.forced_at: int | None = None  # full_signals when a timeout last forced a chunk
+
+    def note_full(self) -> None:
+        self.clear()
+        self.full_signals += 1
+
+    def note_ready(self) -> None:
+        self.forced_at = None  # a new flow-pause episode starts with one forced chunk again
+        self.set()
+
+    def may_force_after_timeout(self) -> bool:
+        """Force a chunk only if the client has not re-asserted buffer_full since the last forced one."""
+        if self.forced_at is not None and self.full_signals > self.forced_at:
+            return False
+        self.forced_at = self.full_signals
+        return True
+
 # Per-WebSocket pause events: when clear, streaming loops sleep; when set, they proceed.
 # This avoids destroying the streaming task on pause (#2106).
 stream_pause_events: dict[str, asyncio.Event] = {}
@@ -54,7 +86,9 @@ async def wait_for_stream_gates(websocket: WebSocket) -> None:
 
     The flow gate is bounded (#5863): on timeout, log and resume rather
     than park the stream forever — the client's drain watch or its next
-    flow signal re-syncs the buffer state. The pause gate stays unbounded:
+    flow signal re-syncs the buffer state. A client that re-asserted
+    buffer_full after the last forced chunk is alive and full (paused), so
+    the gate keeps waiting for its buffer_ready instead (#6553). The pause gate stays unbounded:
     pause is user-initiated and its resume arrives through a separate,
     always-available path (handle_resume / the next play command).
     """
@@ -66,10 +100,17 @@ async def wait_for_stream_gates(websocket: WebSocket) -> None:
     if flow_evt is not None:
         if flow_evt.is_set():
             return
-        try:
-            await asyncio.wait_for(flow_evt.wait(), timeout=FLOW_GATE_TIMEOUT_S)
-        except TimeoutError:
-            logger.warning(
-                f"Stream flow gate for {key} did not clear within "
-                f"{FLOW_GATE_TIMEOUT_S}s (lost buffer_ready?); resuming delivery (#5863)"
-            )
+        while True:
+            try:
+                await asyncio.wait_for(flow_evt.wait(), timeout=FLOW_GATE_TIMEOUT_S)
+                return
+            except TimeoutError:
+                if flow_evt.is_set():
+                    return  # buffer_ready landed as the wait timed out: not a forced chunk
+                if isinstance(flow_evt, FlowGate) and not flow_evt.may_force_after_timeout():
+                    continue  # the client said 'still full' after our last forced chunk
+                logger.warning(
+                    f"Stream flow gate for {key} did not clear within "
+                    f"{FLOW_GATE_TIMEOUT_S}s (lost buffer_ready?); resuming delivery (#5863)"
+                )
+                return

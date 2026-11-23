@@ -123,9 +123,13 @@ export type FlowControlSignal = 'pause' | 'resume' | null;
 
 export function nextFlowControlSignal(
   fillPercentage: number,
-  currentlyPaused: boolean
+  currentlyPaused: boolean,
+  /** The frame completed a content chunk: re-assert a held pause once per chunk (#6553). */
+  chunkComplete = false
 ): FlowControlSignal {
-  if (fillPercentage > FLOW_PAUSE_FILL_PCT && !currentlyPaused) return 'pause';
+  // A chunk that still lands above the pause mark means the backend's bounded gate
+  // forced it to a paused client; saying 'full' again stops the trickle (#6553).
+  if (fillPercentage > FLOW_PAUSE_FILL_PCT && (!currentlyPaused || chunkComplete)) return 'pause';
   if (fillPercentage < FLOW_RESUME_FILL_PCT && currentlyPaused) return 'resume';
   return null;
 }
@@ -165,6 +169,8 @@ export interface IngestChunkResult {
   clampedProgress: number;
   /** Flow-control frame the caller should send, if any. */
   flowControl: FlowControlSignal;
+  /** The ring could not hold the frame: it was dropped, not ingested (#6553). */
+  rejected: boolean;
   /** Decoder metadata, for the caller's debug logging. */
   chunkIndex: number;
   frameIndex: number;
@@ -195,11 +201,15 @@ export function ingestChunk({
     metadata.channels
   );
 
-  buffer.append(samples);
+  // A dropped frame is never counted as ingested (#6553): progress would claim audio
+  // the listener will not hear, and the stream would skip ahead unannounced.
+  const rejected = buffer.append(samples) === false;
+  const chunkComplete = chunkMeta.frameIndex >= chunkMeta.frameCount - 1;
+  const flowControl = rejected
+    ? 'pause'
+    : nextFlowControlSignal(buffer.getFillPercentage(), flowPaused, chunkComplete);
 
-  const flowControl = nextFlowControlSignal(buffer.getFillPercentage(), flowPaused);
-
-  if (chunkMeta.frameIndex >= chunkMeta.frameCount - 1) {
+  if (chunkComplete && !rejected) {
     metadata.processedChunks++;
   }
 
@@ -213,6 +223,7 @@ export function ingestChunk({
     bufferedSamples,
     clampedProgress,
     flowControl,
+    rejected,
     chunkIndex: chunkMeta.chunkIndex,
     frameIndex: chunkMeta.frameIndex,
     frameCount: chunkMeta.frameCount,

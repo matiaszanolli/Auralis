@@ -109,6 +109,10 @@ export function useStreamChunkHandler({
         flowPausedRef.current = false;
         send({ type: 'buffer_ready', data: {} });
       }
+      if (result.rejected) {
+        // A dropped frame is a hole in the audio; say so rather than skip ahead silently (#6553).
+        throw new Error(`audio buffer full: chunk ${result.chunkIndex} frame ${result.frameIndex} was dropped`);
+      }
 
       if (
         shouldDispatchProgress(

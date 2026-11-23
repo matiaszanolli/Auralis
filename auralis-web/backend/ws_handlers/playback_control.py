@@ -17,6 +17,7 @@ from core.stream_protocol import safe_send_text
 from fastapi import WebSocket
 from services.playback_event_sequencer import playback_event_sequencer
 
+from core.stream_gates import FlowGate
 from core.task_cancellation import await_cancelled_task
 
 from .context import StreamState
@@ -59,16 +60,22 @@ async def handle_resume(websocket: WebSocket, state: StreamState) -> None:
 async def handle_buffer_full(websocket: WebSocket, state: StreamState) -> None:
     ws_id = _ws_id(websocket)
     flow_evt = state.flow_events.get(ws_id)
-    if flow_evt is not None:
+    if isinstance(flow_evt, FlowGate):
+        flow_evt.note_full()  # also counted, so a re-assertion holds the bounded gate (#6553)
+    elif flow_evt is not None:
         flow_evt.clear()
+    if flow_evt is not None:
         logger.debug("Flow control: paused (buffer_full)")
 
 
 async def handle_buffer_ready(websocket: WebSocket, state: StreamState) -> None:
     ws_id = _ws_id(websocket)
     flow_evt = state.flow_events.get(ws_id)
-    if flow_evt is not None:
+    if isinstance(flow_evt, FlowGate):
+        flow_evt.note_ready()
+    elif flow_evt is not None:
         flow_evt.set()
+    if flow_evt is not None:
         logger.debug("Flow control: resumed (buffer_ready)")
 
 

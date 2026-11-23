@@ -22,6 +22,8 @@ import threading
 from collections.abc import Callable, Coroutine
 from typing import Any
 
+from core.stream_gates import FlowGate
+
 from .context import StreamState
 
 
@@ -42,7 +44,7 @@ async def attach_stream(
         pause_event = asyncio.Event()
         pause_event.set()
         state.pause_events[ws_id] = pause_event
-        flow_event = asyncio.Event()
+        flow_event = FlowGate()  # counts buffer_full re-assertions (#6553)
         flow_event.set()
         state.flow_events[ws_id] = flow_event
         state.active_tasks[ws_id] = asyncio.create_task(start())

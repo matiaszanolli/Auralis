@@ -101,7 +101,7 @@ export class PCMStreamBuffer {
    * Append PCM samples to buffer
    * @param pcm - Float32Array of PCM samples
    */
-  append(pcm: Float32Array): void {
+  append(pcm: Float32Array): boolean {
     if (!this.isInitialized || !this.buffer) {
       throw new Error('PCMStreamBuffer not initialized. Call initialize() first.');
     }
@@ -120,8 +120,8 @@ export class PCMStreamBuffer {
       );
     }
 
-    // Write to circular buffer with wrap-around
-    this.writeToBuffer(pcm);
+    // Write to circular buffer with wrap-around; false = dropped whole (#6553)
+    return this.writeToBuffer(pcm);
   }
 
   /**
@@ -231,13 +231,12 @@ export class PCMStreamBuffer {
    * IMPORTANT: If buffer is full, we DROP the new data instead of discarding
    * unplayed audio. This prevents audio position jumps - it's better to
    * potentially lose audio at the end of a long track than to have playback
-   * jump to a random position mid-track.
-   *
-   * With the 100MB buffer (~5 minutes), overflow should be rare.
+   * jump to a random position mid-track. Returns false then, so the caller
+   * can surface the hole instead of counting the frame as played (#6553).
    */
-  private writeToBuffer(pcm: Float32Array): void {
+  private writeToBuffer(pcm: Float32Array): boolean {
     if (!this.buffer) {
-      return;
+      return false;
     }
 
     // Calculate available space before write. Subtract the slot initialize()
@@ -261,7 +260,7 @@ export class PCMStreamBuffer {
         `${(freeSpace / this.sampleRate / this.channels).toFixed(1)}s free.`
       );
       // Don't write anything - preserve playback position integrity
-      return;
+      return false;
     }
 
     writeRing(this.buffer, this.writePos, pcm);
@@ -269,6 +268,7 @@ export class PCMStreamBuffer {
     // Advance write position
     this.writePos = (this.writePos + sampleCount) % bufferCapacity;
     this.totalAppended += sampleCount;
+    return true;
   }
 
   /**

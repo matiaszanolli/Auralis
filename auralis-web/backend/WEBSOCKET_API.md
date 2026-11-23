@@ -682,6 +682,13 @@ chunks → `audio_stream_end`).
 Client-side flow control: `buffer_full` pauses the server's chunk delivery,
 `buffer_ready` resumes it. No payload, no response frame.
 
+The server's wait for `buffer_ready` is bounded (30 s, #5863): if it hears
+nothing, it sends one chunk in case `buffer_ready` was lost. The client sends
+`buffer_full` again for any completed chunk that still lands above its pause
+mark (a user pause never drains the ring), and once it has, the server holds
+until `buffer_ready` instead of forcing more chunks (#6553). A frame the ring
+cannot hold is reported as a streaming error, never counted as played.
+
 #### `ping`
 
 Client-initiated liveness probe. Responds `{ "type": "pong" }` and marks the
