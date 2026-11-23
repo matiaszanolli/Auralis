@@ -315,12 +315,16 @@ def test_is_valid_rejects_null_dimension(
 
 
 def _rewrite_sidecar(sidecar_manager, audio, mutate):
+    """Mutate a written sidecar and re-sign it, so each test still reaches the check it targets
+    rather than failing on the signature first (#6522)."""
+    from auralis.library.sidecar_signature import sign_sidecar
+
     path = sidecar_manager.get_sidecar_path(audio)
     with open(path) as f:
         data = json.load(f)
     mutate(data)
     with open(path, 'w') as f:
-        json.dump(data, f)
+        json.dump(sign_sidecar(data), f)
 
 
 @pytest.mark.parametrize("payload", ["[]", "null", '"text"', "7"])

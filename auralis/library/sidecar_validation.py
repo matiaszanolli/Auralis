@@ -15,6 +15,7 @@ from ..__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..utils.logging import debug, warning
 from .sidecar_fingerprint_check import fingerprint_block_is_valid
 from .sidecar_mtime import modified_at_stamp, mtime_matches
+from .sidecar_signature import sidecar_signed_here
 
 
 def sidecar_matches_audio(
@@ -28,6 +29,8 @@ def sidecar_matches_audio(
     """
     if not isinstance(data, dict):
         warning(f"Sidecar is not a JSON object: {type(data).__name__}")
+        return False
+    if not sidecar_signed_here(data):  # every other field is chosen by its author (#6522)
         return False
 
     # Check format version
@@ -65,9 +68,6 @@ def sidecar_matches_audio(
         debug(f"Audio file modified: {expected_mtime} → {modified_at_stamp(mtime)}")
         return False
 
-    # Size + mtime is the deliberate validation strategy — a checksum
-    # would catch content changes that leave size/mtime unchanged
-    # (rare) but costs a full file read on every check, so it's not
-    # computed here (#4405).
+    # Size + mtime, not a checksum: a full read per check is too costly for a rare miss (#4405).
 
     return fingerprint_block_is_valid(data.get('fingerprint'))

@@ -95,10 +95,22 @@ There are **two distinct `.25d` mechanisms**. Know which one you're touching.
 | System | Class | Location | Validation |
 |--------|-------|----------|------------|
 | **Centralized cache** | `FingerprintStorage` ([`fingerprint_storage.py`](../../auralis/analysis/fingerprint/fingerprint_storage.py)) | `~/.auralis/fingerprints/<md5>.25d` | key = MD5 of `abs_path:mtime:size:strategy` (#3679, #4127); orphan sweep, per-entry delete and clear-all live in [`fingerprint_store_maintenance.py`](../../auralis/analysis/fingerprint/fingerprint_store_maintenance.py) |
-| **Per-file sidecar** | `SidecarManager` ([`library/sidecar_manager.py`](../../auralis/library/sidecar_manager.py)) | `<audio>.25d` next to the file | size + mtime (not checksum) |
+| **Per-file sidecar** | `SidecarManager` ([`library/sidecar_manager.py`](../../auralis/library/sidecar_manager.py)) | `<audio>.25d` next to the file | this install's HMAC signature, then size + mtime (not checksum) |
 
 Both write **flat** JSON fingerprint dicts. `FingerprintExtractor` reads/writes the
-per-file sidecar during scanning.
+per-file sidecar during scanning. Both reject values the analyser cannot produce: band
+shares that do not sum to 1, or a `lufs` below -120 or equal to the -100 claim sentinel
+([`sidecar_fingerprint_check.py`](../../auralis/library/sidecar_fingerprint_check.py), #6522, #6524).
+
+**Sidecar trust (#6522):** a per-file sidecar sits in the music folder, so whoever supplied
+the folder may have written it. It is trusted only with a `signature` field, an HMAC-SHA256
+of its canonical JSON under a per-installation key (`sidecar.key`, owner-only, in
+`~/.auralis` or `$AURALIS_DATA_DIR`;
+[`sidecar_signature.py`](../../auralis/library/sidecar_signature.py)). An unsigned or foreign
+sidecar, including every one written before #6522, is ignored; the track is re-analysed and
+a signed sidecar written in its place. Sidecars therefore do not carry over between
+installations. The centralized cache is not signed: it lives beside the key, so anyone who
+can write it can read the key.
 
 > ⚠️ **The spec doc lies.**
 > [`docs/archive/guides/25D_SIDECAR_FORMAT_SPEC.md`](../archive/guides/25D_SIDECAR_FORMAT_SPEC.md) is a

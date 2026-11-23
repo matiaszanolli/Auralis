@@ -14,6 +14,7 @@ from datetime import datetime
 import pytest
 
 from auralis.library.sidecar_manager import SidecarManager
+from auralis.library.sidecar_signature import sign_sidecar
 
 
 @pytest.fixture
@@ -79,7 +80,9 @@ def test_a_legacy_naive_stamp_still_validates_on_the_machine_that_wrote_it(tz, a
     path = manager.get_sidecar_path(audio)
     data = json.loads(path.read_text())
     data["audio_file"]["modified_at"] = datetime.fromtimestamp(audio.stat().st_mtime).isoformat()
-    path.write_text(json.dumps(data))
+    # Re-signed: a sidecar is trusted only with this install's signature (#6522), which a real
+    # pre-#6325 file lacks, so this checks the stamp comparison itself still accepts a naive stamp.
+    path.write_text(json.dumps(sign_sidecar(data)))
 
     assert manager.is_valid(audio)
 

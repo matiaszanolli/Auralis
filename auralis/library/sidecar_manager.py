@@ -25,6 +25,7 @@ from ..utils.atomic_write import write_json_atomic
 from ..utils.logging import debug, error, info
 from ..version import __version__
 from .sidecar_mtime import modified_at_stamp
+from .sidecar_signature import sign_sidecar
 from .sidecar_validation import sidecar_matches_audio
 
 
@@ -179,7 +180,7 @@ class SidecarManager:
             # #4638: atomic. A 'w' open truncated the destination first, so an interrupted scan
             # destroyed the previously-valid sidecar, a user-visible file next to the audio.
             # Shared with FingerprintStorage.save (#4508) so the two .25d writers cannot drift.
-            write_json_atomic(sidecar_path, sidecar_data, indent=2)
+            write_json_atomic(sidecar_path, sign_sidecar(sidecar_data), indent=2)  # trusted only here (#6522)
 
             info(f"Wrote sidecar file: {sidecar_path}")
             return True
