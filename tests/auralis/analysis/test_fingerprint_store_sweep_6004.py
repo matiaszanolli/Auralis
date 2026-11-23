@@ -14,7 +14,7 @@ import pytest
 
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
 from auralis.analysis.fingerprint.fingerprint_store_maintenance import sweep_orphans
-from auralis.analysis.fingerprint.schema import DIMENSION_SCHEMA
+from auralis.analysis.fingerprint.schema import BAND_PCT_KEYS, DIMENSION_SCHEMA
 
 
 @pytest.fixture(autouse=True)
@@ -25,7 +25,8 @@ def isolated_store(tmp_path, monkeypatch):
 
 
 def _fingerprint():
-    return {name: 0.5 for name in DIMENSION_SCHEMA}
+    # Band shares sum to 1, or FingerprintStorage.load refuses the entry (#6522).
+    return {name: 1 / len(BAND_PCT_KEYS) if name in BAND_PCT_KEYS else 0.5 for name in DIMENSION_SCHEMA}
 
 
 def _save(path):

@@ -243,16 +243,12 @@ class FingerprintService:
             return None
 
     def _load_from_file_cache(self, audio_path: Path) -> dict[str, Any] | None:
-        """Load fingerprint from .25d file cache, discarding stale entries."""
+        """Load fingerprint from .25d file cache; FingerprintStorage.load discards
+        stale and unmeasurable entries (band shares, claim sentinel: #6522, #6524)."""
         try:
             cached_data = FingerprintStorage.load(audio_path)
             if cached_data:
                 fingerprint, _ = cached_data
-                if not band_pct_valid(fingerprint):
-                    logger.info(
-                        f"Discarding stale .25d cache (band-pct sum != 1): {audio_path.name}"
-                    )
-                    return None
                 return fingerprint
             return None
         except Exception as e:

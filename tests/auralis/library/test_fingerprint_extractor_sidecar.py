@@ -66,13 +66,13 @@ def temp_audio_file(tmp_path):
 def sample_fingerprint():
     """Sample 25D fingerprint (includes fingerprint_version as added by extractor)"""
     return {
-        "sub_bass_pct": 0.588,
-        "bass_pct": 39.111,
-        "low_mid_pct": 14.684,
-        "mid_pct": 26.745,
-        "upper_mid_pct": 13.995,
-        "presence_pct": 2.787,
-        "air_pct": 2.090,
+        "sub_bass_pct": 0.00588,
+        "bass_pct": 0.39111,
+        "low_mid_pct": 0.14684,
+        "mid_pct": 0.26745,
+        "upper_mid_pct": 0.13995,
+        "presence_pct": 0.02787,
+        "air_pct": 0.02090,
         "lufs": -14.019,
         "crest_db": 14.494,
         "bass_mid_ratio": -0.250,

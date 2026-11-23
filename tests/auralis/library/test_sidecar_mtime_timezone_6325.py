@@ -45,9 +45,10 @@ def _write(manager: SidecarManager, audio_path, sample_fingerprint) -> None:
 
 @pytest.fixture
 def fingerprint():
-    from auralis.analysis.fingerprint.schema import DIMENSION_NAMES
+    from auralis.analysis.fingerprint.schema import BAND_PCT_KEYS, DIMENSION_NAMES
 
-    return {name: 0.5 for name in DIMENSION_NAMES}
+    # Band shares are fractions of one spectrum: a sidecar whose shares do not sum to 1 is refused (#6522).
+    return {name: 1 / len(BAND_PCT_KEYS) if name in BAND_PCT_KEYS else 0.5 for name in DIMENSION_NAMES}
 
 
 def test_sidecar_written_in_one_timezone_validates_in_another(tz, audio, fingerprint):

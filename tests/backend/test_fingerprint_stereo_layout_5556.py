@@ -104,6 +104,7 @@ def test_stale_sidecar_is_rejected_and_current_one_accepted(monkeypatch: pytest.
         'stereo_width', 'phase_correlation',
     )}
     full['lufs'] = -20.0
+    full.update(dict.fromkeys([k for k in full if k.endswith('_pct')], 1 / 7))  # shares sum to 1 (#6522)
 
     def _write_sidecar(fp: dict) -> None:
         key = FingerprintStorage._get_cache_key(wav)

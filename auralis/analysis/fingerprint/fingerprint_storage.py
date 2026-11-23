@@ -21,8 +21,8 @@ from typing import Any
 
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ...library.data_dir import fingerprints_dir
+from ...library.sidecar_fingerprint_check import fingerprint_block_is_valid
 from ...utils.atomic_write import write_json_atomic
-from .schema import DIMENSION_SCHEMA
 
 logger = logging.getLogger(__name__)
 
@@ -197,11 +197,8 @@ class FingerprintStorage:
             targets = content.get('mastering_targets')
 
             # Targets may legitimately be empty until derived (fingerprint_service.py writes `{}`);
-            # only a missing/empty fingerprint is rejected (#3464, #3451).
-            if (
-                not isinstance(fingerprint, dict)
-                or not set(DIMENSION_SCHEMA).issubset(fingerprint)
-            ):
+            # the fingerprint gets the sidecar validator: complete, finite, measurable (#6522, #6524).
+            if not fingerprint_block_is_valid(fingerprint):
                 return None
 
             # #5697: refuse fingerprints from an older algorithm (or from before the stamp existed).

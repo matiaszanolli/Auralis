@@ -32,7 +32,7 @@ from ...utils.logging import info, warning
 from ...__version__ import FINGERPRINT_ALGORITHM_VERSION
 from ..models import TrackFingerprint
 from .base import BaseRepository
-from .fingerprint_shared import _validate_fingerprint_columns
+from .fingerprint_shared import PLACEHOLDER_LUFS_SENTINEL, _validate_fingerprint_columns
 
 
 def _persisted_row(session: Session, track_id: int) -> TrackFingerprint | None:
@@ -76,6 +76,10 @@ class FingerprintUpsertMixin(BaseRepository):
         # propagates to the caller instead of being swallowed (#2286).
         cols = list(fingerprint_data.keys())
         _validate_fingerprint_columns(cols)
+        # That lufs marks a claim row ("extraction in progress"), which every reader hides and
+        # each startup deletes; a fingerprint carrying it would vanish the same way (#6524).
+        if fingerprint_data.get('lufs') == PLACEHOLDER_LUFS_SENTINEL:
+            raise ValueError("lufs equals the fingerprint-claim sentinel; refusing to store it as a fingerprint")
         cols_str = ', '.join(cols)
         named_placeholders = ', '.join([f':{col}' for col in cols])
 

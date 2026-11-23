@@ -268,7 +268,7 @@ class TestFingerprintStorageSaveIsAtomic:
         full 25-dimension fingerprint rather than a stub — a partial one is
         rejected as invalid regardless of how it was written.
         """
-        from auralis.analysis.fingerprint.schema import DIMENSION_SCHEMA
+        from auralis.analysis.fingerprint.schema import BAND_PCT_KEYS, DIMENSION_SCHEMA
 
         cache_dir = tmp_path / "fingerprints"
         cache_dir.mkdir()
@@ -277,6 +277,7 @@ class TestFingerprintStorageSaveIsAtomic:
         audio.write_bytes(b"audio")
 
         fingerprint = {name: float(i) for i, name in enumerate(DIMENSION_SCHEMA)}
+        fingerprint.update(dict.fromkeys(BAND_PCT_KEYS, 1 / len(BAND_PCT_KEYS)))  # shares sum to 1 (#6522)
         FingerprintStorage.save(audio, fingerprint, {"gain": 1.0}, sample_rate=44100, duration=1.0)
         loaded = FingerprintStorage.load(audio)
 
