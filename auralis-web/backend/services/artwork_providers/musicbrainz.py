@@ -14,10 +14,7 @@ import logging
 from typing import TYPE_CHECKING
 
 
-from auralis.utils.artwork_security import (
-    MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES,
-    musicbrainz_phrase,
-)
+from auralis.utils.artwork_security import MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES, musicbrainz_phrase
 from services.artwork_providers.bounded_read import read_bounded, read_bounded_json
 from services.artwork_providers.trust import _get_trusted_artwork
 
