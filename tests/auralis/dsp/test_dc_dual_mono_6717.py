@@ -44,10 +44,9 @@ def test_digital_silence_is_still_returned_unprocessed(level):
     processor = HybridProcessor(UnifiedConfig())
     silent = np.full((4096, 2), level)
 
-    normalized, early = validate_and_normalize_input(processor, silent)
+    _, early = validate_and_normalize_input(processor, silent)
 
-    assert early is not None
-    np.testing.assert_array_equal(early, silent)
+    assert isinstance(early, np.ndarray) and np.array_equal(early, silent)  # handed back untouched
 
 
 def test_a_level_just_above_the_silence_tolerance_is_processed():
