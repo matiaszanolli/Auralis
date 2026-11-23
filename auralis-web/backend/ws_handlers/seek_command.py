@@ -10,7 +10,6 @@ cancellation helper, which it imports back.
 """
 
 import logging
-import math
 from typing import Any
 
 from core.audio_stream_controller import ws_id as _ws_id
@@ -20,7 +19,7 @@ from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET  # single source of truth 
 from websocket.message_validation import send_error_response
 
 from .context import StreamState, WSDeps
-from .enhancement_params import resolve_enhancement_params, seek_fallbacks
+from .enhancement_params import is_finite_position, resolve_enhancement_params, seek_fallbacks
 from .playback_commands import _cancel_prior_task
 from .stream_cancel import attach_stream
 
@@ -39,7 +38,7 @@ async def handle_seek(
         await send_error_response(websocket, "invalid_track_id", "track_id must be a positive integer")
         return
 
-    if not isinstance(position, (int, float)) or not math.isfinite(position) or position < 0:
+    if not is_finite_position(position):  # a huge JSON int overflowed isfinite() (#6505)
         logger.warning(f"Invalid seek position: {position!r}")
         await send_error_response(websocket, "invalid_seek_position", "position must be a non-negative number")
         return

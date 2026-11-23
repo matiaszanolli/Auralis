@@ -134,6 +134,21 @@ def resolve_enhancement_params(
 
 
 
+def is_finite_position(value: Any) -> bool:
+    """True for a finite, non-negative JSON number (not a bool).
+
+    JSON integers are unbounded: ``math.isfinite(10**400)`` and ``float(10**400)`` raise
+    OverflowError rather than answering, so a huge position reached the dispatch loop as an
+    ``internal_error`` with a traceback instead of the typed reply (#6505).
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value) and value >= 0
+    except OverflowError:
+        return False
+
+
 async def parse_play_request(
     websocket: WebSocket, data: Mapping[str, Any], command: str
 ) -> tuple[int, float] | None:
@@ -151,7 +166,7 @@ async def parse_play_request(
         return None
     try:
         start_position = float(data.get("start_position", 0.0) or 0.0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):  # OverflowError: a huge JSON integer (#6505)
         logger.warning(f"Invalid start_position in {command}: {data.get('start_position')!r}")
         await send_error_response(websocket, "invalid_start_position", "start_position must be a number", command=command)
         return None
