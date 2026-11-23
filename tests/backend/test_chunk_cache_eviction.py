@@ -17,6 +17,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core.chunk_cache_manager import ChunkCacheManager
+from core.chunk_disk_prune import ChunkDiskPruneMixin
 
 
 def _make_file(d: Path, name: str, size: int, mtime: float) -> Path:
@@ -62,7 +63,7 @@ def test_cache_chunk_path_triggers_prune_on_throttle(tmp_path):
     counter trips on the configured boundary and bounds the directory."""
     # Reset the class-level throttle so this test is deterministic regardless of
     # other tests that exercised cache_chunk_path.
-    ChunkCacheManager._write_counter = 0
+    ChunkDiskPruneMixin._write_counter = 0
 
     mgr = ChunkCacheManager({}, max_disk_bytes=250, prune_every=3)
     for i in range(3):
@@ -75,7 +76,7 @@ def test_cache_chunk_path_triggers_prune_on_throttle(tmp_path):
 
 
 def test_cache_chunk_path_no_prune_before_threshold(tmp_path):
-    ChunkCacheManager._write_counter = 0
+    ChunkDiskPruneMixin._write_counter = 0
     mgr = ChunkCacheManager({}, max_disk_bytes=50, prune_every=10)
     for i in range(3):
         p = _make_file(tmp_path, f"c{i}.wav", 100, mtime=3000 + i)
@@ -94,9 +95,9 @@ def test_cache_chunk_path_no_prune_before_threshold(tmp_path):
 def _reset_prune_state():
     """Fresh locks + counter so a prior test's state (or a crashed mid-scan
     hold) can't bleed into these — the class-level locks are shared."""
-    ChunkCacheManager._write_counter = 0
-    ChunkCacheManager._prune_lock = threading.Lock()
-    ChunkCacheManager._prune_scan_lock = threading.Lock()
+    ChunkDiskPruneMixin._write_counter = 0
+    ChunkDiskPruneMixin._prune_lock = threading.Lock()
+    ChunkDiskPruneMixin._prune_scan_lock = threading.Lock()
 
 
 def test_counter_check_does_not_block_on_an_in_progress_scan(tmp_path):
@@ -200,7 +201,7 @@ def test_scan_lock_is_released_even_if_the_scan_raises(tmp_path):
         except RuntimeError:
             pass
 
-    assert ChunkCacheManager._prune_scan_lock.acquire(blocking=False), (
+    assert ChunkDiskPruneMixin._prune_scan_lock.acquire(blocking=False), (
         "scan lock was left held after the scan raised"
     )
-    ChunkCacheManager._prune_scan_lock.release()
+    ChunkDiskPruneMixin._prune_scan_lock.release()

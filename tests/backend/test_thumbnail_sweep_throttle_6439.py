@@ -17,7 +17,7 @@ _BACKEND = Path(__file__).resolve().parents[2] / "auralis-web" / "backend"
 sys.path.insert(0, str(_BACKEND))
 
 from config.startup.thumbnail_store import sweep_thumbnail_store  # noqa: E402
-from core.chunk_cache_manager import ChunkCacheManager  # noqa: E402
+from core.chunk_disk_prune import ChunkDiskPruneMixin  # noqa: E402
 from core.thumbnail_cache import THUMB_TMP_PREFIX, prune_thumbnail_cache  # noqa: E402
 from core.thumbnail_sweep import (  # noqa: E402
     THUMBNAIL_SWEEP_EVERY_N_RENDERS,
@@ -124,8 +124,8 @@ def test_startup_sweep_failure_is_not_fatal():
 
 
 def test_thumbnail_throttle_is_independent_of_the_chunk_cache():
-    assert ThumbnailSweeper._prune_lock is not ChunkCacheManager._prune_lock
-    assert ThumbnailSweeper._prune_scan_lock is not ChunkCacheManager._prune_scan_lock
-    chunk_before = ChunkCacheManager._write_counter
+    assert ThumbnailSweeper._prune_lock is not ChunkDiskPruneMixin._prune_lock
+    assert ThumbnailSweeper._prune_scan_lock is not ChunkDiskPruneMixin._prune_scan_lock
+    chunk_before = ChunkDiskPruneMixin._write_counter
     thumbnail_sweeper.note_render(Path("/nonexistent-6439"))
-    assert ChunkCacheManager._write_counter == chunk_before
+    assert ChunkDiskPruneMixin._write_counter == chunk_before

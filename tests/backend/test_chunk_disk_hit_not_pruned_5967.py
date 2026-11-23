@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from core import chunk_render_miss, chunk_streaming  # noqa: E402
 from core.chunk_cache_manager import ChunkCacheManager  # noqa: E402
+from core.chunk_disk_prune import ChunkDiskPruneMixin  # noqa: E402
 from core.chunk_path_cache import ChunkPathCache  # noqa: E402
 
 
@@ -43,9 +44,9 @@ def _path_cache(tmp_path, prune_every=1):
 
 @pytest.fixture(autouse=True)
 def _reset_prune_counter():
-    ChunkCacheManager._write_counter = 0
+    ChunkDiskPruneMixin._write_counter = 0
     yield
-    ChunkCacheManager._write_counter = 0
+    ChunkDiskPruneMixin._write_counter = 0
 
 
 def test_a_disk_hit_does_not_run_the_reaper(tmp_path):
