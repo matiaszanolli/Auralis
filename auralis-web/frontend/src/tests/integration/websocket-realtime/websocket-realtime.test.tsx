@@ -671,14 +671,17 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
         wrapper: createWrapper(),
       });
 
-      // Wait for component to render (connection happens asynchronously)
-      await waitFor(() => expect(result.current).toBeDefined());
+      // Wait for the connection itself, not just the first render: the mock
+      // socket opens asynchronously, so state captured right after render
+      // could still read isConnected === false. The old assertion then
+      // required it to equal both that false and true, and the test failed
+      // whenever the connect landed late (CI on 9a375cf47).
+      await waitFor(() => expect(result.current.isConnected).toBe(true));
 
-      // Store initial connection state
-      const wasConnected = result.current.isConnected;
+      const scanHandler = vi.fn();
+      const unsubscribe = result.current.subscribe('scan_progress', scanHandler);
 
-      // Act - simulate various message types (known and unknown)
-      // The system should handle all of them gracefully
+      // Act - unknown message types around a known one
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       mockWS.simulateMessage({
@@ -696,16 +699,21 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
         data: { current: 50, total: 100, percentage: 50 },
       });
 
-      // Assert - connection should remain stable despite unknown messages
+      // Assert - the unknown types neither dropped the connection nor kept
+      // the known message that followed them from its subscriber
       await waitFor(() => {
-        expect(result.current.isConnected).toBe(wasConnected);
-        expect(result.current.isConnected).toBe(true);
+        expect(scanHandler).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: 'scan_progress',
+            data: { current: 50, total: 100, percentage: 50 },
+          })
+        );
       });
-
-      // Should not have thrown any unhandled errors
-      // (console.error calls are handled gracefully within the context)
+      expect(scanHandler).toHaveBeenCalledTimes(1);
+      expect(result.current.isConnected).toBe(true);
 
       consoleErrorSpy.mockRestore();
+      unsubscribe();
     });
   });
 });
