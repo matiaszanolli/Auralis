@@ -167,6 +167,7 @@ async def get_queue_status(
     return engine.get_queue_status()
 
 
+@with_error_handling("clean up old jobs")
 async def cleanup_old_jobs(
     max_age_hours: float = Query(JOB_CLEANUP_DEFAULT_AGE_HOURS, gt=0),
     engine: ProcessingEngine | None = Depends(_get_processing_engine),

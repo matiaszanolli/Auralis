@@ -63,8 +63,6 @@ async def get_editable_fields(
             "current_metadata": current_metadata
         }
 
-    except HTTPException:
-        raise  # Re-raise HTTPException as-is (don't wrap in 500)
     except FileNotFoundError:
         # The existence check above raises PathMissingError -> 404; this arm
         # covers the remaining race, the file disappearing between validation
@@ -115,8 +113,6 @@ async def get_track_metadata(
             "metadata": metadata
         }
 
-    except HTTPException:
-        raise  # Re-raise HTTPException as-is
     except FileNotFoundError:
         # The existence check above raises PathMissingError -> 404; this arm
         # covers the remaining race, the file disappearing between validation
@@ -224,8 +220,6 @@ async def update_track_metadata(
             "metadata": updated_metadata
         }
 
-    except HTTPException:
-        raise
     except FileNotFoundError:
         # The existence check above raises PathMissingError -> 404; this arm
         # covers the remaining race, the file disappearing between validation

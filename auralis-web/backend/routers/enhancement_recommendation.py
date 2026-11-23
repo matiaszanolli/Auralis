@@ -83,27 +83,23 @@ async def get_mastering_recommendation(
     except PathValidationError:
         raise BadRequestError(f"Track {track_id}'s file is not in an allowed location")
 
+    # Cache lookup, bounded analysis (#5248) and cache store live in one place (#5970).
     try:
-        # Cache lookup, bounded analysis (#5248) and cache store live in one place (#5970).
-        try:
-            result = await cached_or_analyzed_recommendation(
-                streamlined_cache_manager, track_id, str(filepath), confidence_threshold
-            )
-        except TimeoutError:
-            # 504 like the scan route's timeout, not a generic 500 (#5997).
-            raise HTTPException(
-                status_code=504,
-                detail="Mastering recommendation analysis timed out — "
-                "the file may be corrupt or on slow storage",
-            ) from None
+        result = await cached_or_analyzed_recommendation(
+            streamlined_cache_manager, track_id, str(filepath), confidence_threshold
+        )
+    except TimeoutError:
+        # 504 like the scan route's timeout, not a generic 500 (#5997).
+        raise HTTPException(
+            status_code=504,
+            detail="Mastering recommendation analysis timed out — "
+            "the file may be corrupt or on slow storage",
+        ) from None
 
-        if result is None:
-            # None only ever means "this file could not be analysed": the engine
-            # itself always has a fallback profile. A client-side file problem,
-            # not a server fault (#5997).
-            raise UnprocessableAudioFileError()
+    if result is None:
+        # None only ever means "this file could not be analysed": the engine
+        # itself always has a fallback profile. A client-side file problem,
+        # not a server fault (#5997).
+        raise UnprocessableAudioFileError()
 
-        return result
-
-    except HTTPException:
-        raise
+    return result

@@ -20,7 +20,7 @@ from config.limits import chunk_cache_dir
 from core.chunk_disk_prune import chunk_directory_stats
 from core.cache_cleanup import clear_all_caches, clear_track_caches
 from core.thumbnail_cache import artwork_cache_root
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, Field
 
 # The typed contracts (#3548, #4755); get_stats()'s shape matches them except tier_name, filled in below.
@@ -118,22 +118,19 @@ async def get_track_cache_status(
     Returns:
         Cache status including completion percentage and chunk counts
     """
-    try:
-        status = cache_manager.get_track_cache_status(track_id)  # on the loop with the state it reads (#6003)
+    status = cache_manager.get_track_cache_status(track_id)  # on the loop with the state it reads (#6003)
 
-        if status is None:
-            raise NotFoundError("Track", detail=f"Track {track_id} not found in cache")
+    if status is None:
+        raise NotFoundError("Track", detail=f"Track {track_id} not found in cache")
 
-        return TrackCacheStatusResponse(
-            track_id=status.track_id,
-            total_chunks=status.total_chunks,
-            cached_original=len(status.cached_chunks_original),
-            cached_processed=len(status.cached_chunks_processed),
-            completion_percent=status.get_completion_percent(),
-            fully_cached=status.is_fully_cached()
-        )
-    except HTTPException:
-        raise
+    return TrackCacheStatusResponse(
+        track_id=status.track_id,
+        total_chunks=status.total_chunks,
+        cached_original=len(status.cached_chunks_original),
+        cached_processed=len(status.cached_chunks_processed),
+        completion_percent=status.get_completion_percent(),
+        fully_cached=status.is_fully_cached()
+    )
 
 
 @with_error_handling("clear track cache")
