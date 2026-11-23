@@ -186,6 +186,14 @@ class BatchProcessor:
             ):
                 return 'skipped', None, None
 
+            # #5574's change-detection watermark, taken BEFORE the content is read (#6560): an
+            # edit that lands during the read then leaves a stored mtime older than the file,
+            # so the next scan re-reads it instead of pairing the new mtime with the old tags.
+            try:
+                pre_read = Path(file_path).stat()
+            except OSError:
+                pre_read = None  # vanished: the extraction below reports the real reason
+
             # Extract file information
             audio_info = self.audio_analyzer.extract_audio_info(file_path)
             if not audio_info:
@@ -201,16 +209,11 @@ class BatchProcessor:
             # Convert to track info format
             track_info = self.metadata_extractor.audio_info_to_track_info(audio_info)
 
-            # #5574: stamp the scanner's change-detection watermark (and the
-            # file size as a cheap secondary signal) onto the row so the next
-            # rescan compares against THIS sync, not against updated_at.
-            # Tolerates a vanished file: the extraction failure above already
-            # reports the real reason.
-            try:
-                track_info['file_mtime'] = Path(file_path).stat().st_mtime
-                track_info.setdefault('filesize', Path(file_path).stat().st_size)
-            except OSError:
-                pass
+            # #5574: stamp the watermark (and the file size as a cheap secondary signal) onto the
+            # row so the next rescan compares against THIS sync, not against updated_at.
+            if pre_read is not None:
+                track_info['file_mtime'] = pre_read.st_mtime
+                track_info.setdefault('filesize', pre_read.st_size)
 
             # Add or update track in library
             if existing_track:
