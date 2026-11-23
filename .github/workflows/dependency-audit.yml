@@ -5,7 +5,7 @@ name: Dependency Audit
 # someone ran an audit by hand (multidict PYSEC-2026-4244 and js-yaml GHSA-2883-xcg3-v3hh both sat
 # in a shipped lock this way).
 #
-# Blocking: any advisory against the hash-locked Python runtime set, and any high/critical
+# Blocking: any advisory against the hash-locked Python runtime set or uv.lock (#6530), and any high/critical
 # advisory against the *production* dependency tree of the root, desktop and frontend packages --
 # those are what ship. The dev/build trees are reported in a separate non-blocking step: their
 # remaining advisories (undici via jsdom, esbuild via vite, happy-dom) need major-version bumps and
@@ -19,6 +19,7 @@ on:
     branches: [master]
     paths:
       - 'requirements-lock.txt'
+      - 'uv.lock'
       - 'pnpm-lock.yaml'
       - 'desktop/pnpm-lock.yaml'
       - 'auralis-web/frontend/pnpm-lock.yaml'
@@ -26,6 +27,7 @@ on:
   pull_request:
     paths:
       - 'requirements-lock.txt'
+      - 'uv.lock'
       - 'pnpm-lock.yaml'
       - 'desktop/pnpm-lock.yaml'
       - 'auralis-web/frontend/pnpm-lock.yaml'
@@ -54,6 +56,15 @@ jobs:
         run: |
           python -m pip install pip-audit
           pip-audit -r requirements-lock.txt --no-deps --disable-pip
+
+      - name: Audit uv.lock
+        # The developer and CI environments are built from uv.lock, not requirements-lock.txt, and it
+        # drifted: it kept advisory-listed certifi/urllib3/msgpack/multidict after the runtime lock
+        # was fixed (#6530). Export its resolved graph and audit it the same way.
+        run: |
+          python -m pip install uv
+          uv export --frozen --no-hashes --no-emit-project > "$RUNNER_TEMP/uv-lock.txt"
+          pip-audit -r "$RUNNER_TEMP/uv-lock.txt" --no-deps --disable-pip
 
   npm-production-trees:
     runs-on: ubuntu-latest
