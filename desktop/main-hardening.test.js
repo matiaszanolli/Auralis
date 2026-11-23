@@ -34,3 +34,16 @@ test('the packaged app flips the Electron fuses that expose Node to the environm
 test('nothing in main.js relies on ELECTRON_RUN_AS_NODE, which the runAsNode fuse disables', () => {
   assert.equal(/RUN_AS_NODE/.test(MAIN_SRC), false);
 });
+
+test('the app stops only the backend it spawned, never a listener it found on the port (#6518)', () => {
+  // cleanupPort() used to look up whatever listened on 8765 and SIGTERM/SIGKILL it when its command
+  // line merely contained "auralis-backend" or ".../backend/main.py", so an unrelated same-user service
+  // was killed on every launch. A second launch is now refused by the single-instance lock (#6157).
+  const sources = fs.readdirSync(__dirname)
+    .filter((name) => name.endsWith('.js') && !name.endsWith('.test.js'))
+    .map((name) => [name, fs.readFileSync(path.join(__dirname, name), 'utf8')]);
+  for (const [name, src] of sources) {
+    assert.equal(/\b(lsof|netstat|fuser)\b|sTCP:LISTEN/.test(src), false, `${name} discovers port listeners`);
+  }
+  assert.ok(MAIN_SRC.includes('requestSingleInstanceLock('), 'a second launch must be refused, not resolved by killing');
+});
