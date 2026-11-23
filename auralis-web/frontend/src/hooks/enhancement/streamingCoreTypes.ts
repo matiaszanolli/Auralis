@@ -70,7 +70,7 @@ export interface StreamingCoreReturn {
   /** Bounds handleStreamError's auto-resume to one attempt per (trackId, recovery_position), so a
    *  chunk that keeps failing at the same point cannot loop the stream (#4655). A user-initiated
    *  play or seek starts a fresh stream and clears it (#6585). */
-  lastRecoveryAttemptRef: React.MutableRefObject<{ trackId: number; position: number } | null>;
+  lastRecoveryAttemptRef: React.MutableRefObject<RecoveryAttempt | null>;
   /** Set by a user pause; while set, buffered audio never starts on its own (#5459).
    *  A new play command clears it. */
   pauseHoldRef: React.MutableRefObject<boolean>;
@@ -94,4 +94,12 @@ export interface StreamingCoreReturn {
   pausePlayback: () => void;
   resumePlayback: () => void;
   setVolume: (volume: number) => void;
+}
+
+/** An auto-resume issued by handleStreamError (#4655). `epoch` is the FAILED stream's: its own
+ *  trailing audio_stream_end{errored} must not end the recovered session (#6557). */
+export interface RecoveryAttempt {
+  trackId: number;
+  position: number;
+  epoch?: number;
 }

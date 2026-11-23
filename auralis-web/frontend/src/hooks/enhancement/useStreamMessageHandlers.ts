@@ -26,7 +26,7 @@ import type {
 } from '@/contexts/WebSocketContext';
 import type { PCMStreamBuffer } from '@/services/audio/PCMStreamBuffer';
 import type { AudioPlaybackEngine } from '@/services/audio/AudioPlaybackEngine';
-import type { StreamingMetadata, StreamType } from './streamingCoreTypes';
+import type { RecoveryAttempt, StreamingMetadata, StreamType } from './streamingCoreTypes';
 import { useStreamChunkHandler } from './useStreamChunkHandler';
 
 /** Everything the handlers and the subscription effect act on. The refs are
@@ -54,7 +54,7 @@ export interface StreamMessageHandlerDeps {
   streamEpochRef: React.MutableRefObject<number | null>;
   /** Bounds handleStreamError's auto-resume to one attempt per distinct
    *  (trackId, recovery_position) pair (#4655). */
-  lastRecoveryAttemptRef: React.MutableRefObject<{ trackId: number; position: number } | null>;
+  lastRecoveryAttemptRef: React.MutableRefObject<RecoveryAttempt | null>;
 
   // Parent callbacks
   acceptsStreamType: (incoming: StreamType | undefined) => boolean;
@@ -96,6 +96,9 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     const reason = message.data.reason ?? 'completed';
     const trackId = message.data.track_id;
     if (isSupersededTrack(trackId)) return;
+    // The failed stream's own trailing end after an auto-resume must not end the recovered one (#6557).
+    const epoch = message.data.stream_epoch;
+    if (epoch != null && epoch === lastRecoveryAttemptRef.current?.epoch) return;
 
     DEBUG && console.log(`${logPrefix} Stream ended:`, {
       trackId,
@@ -137,7 +140,7 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     }
     // 'stopped': whatever stopped it supersedes it — a new play command, or the
     // play_normal re-issue that disabling enhancement sends — so nothing to record.
-  }, [dispatch, streamType, logPrefix, acceptsStreamType, playbackEngineRef, isSupersededTrack, startPlaybackWhenBuffered]);
+  }, [dispatch, streamType, logPrefix, acceptsStreamType, playbackEngineRef, isSupersededTrack, startPlaybackWhenBuffered, lastRecoveryAttemptRef]);
 
   const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
     // Only process messages intended for this stream (#2104)
@@ -161,22 +164,18 @@ export function useStreamMessageHandlers(deps: StreamMessageHandlerDeps) {
     dispatch(setStreamingError({ streamType, error: errorMsg, trackId: message.data.track_id }));
     cleanupStreaming();
 
-    // #4655: when the backend names a safe resume offset, auto-resume the
-    // stream from there instead of leaving playback dead after a mid-stream
-    // chunk failure. Bounded to one attempt per distinct (trackId,
-    // recovery_position) pair — a persistently failing chunk would otherwise
-    // keep re-arriving with the SAME recovery_position and loop forever.
+    // #4655: when the backend names a safe resume offset, auto-resume from there instead of
+    // leaving playback dead. One attempt per (trackId, recovery_position): a chunk that keeps
+    // failing would re-arrive with the SAME recovery_position and loop forever.
     const { recovery_position: recoveryPosition, track_id: trackId } = message.data;
     const alreadyAttempted =
       lastRecoveryAttemptRef.current?.trackId === trackId &&
       lastRecoveryAttemptRef.current?.position === recoveryPosition;
 
     if (typeof recoveryPosition === 'number' && Number.isFinite(recoveryPosition) && !alreadyAttempted) {
-      lastRecoveryAttemptRef.current = { trackId, position: recoveryPosition };
-      // message.data.stream_type is the PRODUCER's label (absent on some
-      // error paths) — 'normal' means play_normal, everything else
-      // (including undefined, since the enhanced/seek paths are this
-      // stream's default) re-issues as play_enhanced.
+      lastRecoveryAttemptRef.current = { trackId, position: recoveryPosition, epoch: message.data.stream_epoch };
+      // stream_type is the PRODUCER's label (absent on some error paths): 'normal' means
+      // play_normal; anything else, undefined included, re-issues as play_enhanced.
       const reissueType = message.data.stream_type === 'normal' ? 'play_normal' : 'play_enhanced';
       const reissued = reissueActiveStreamAs(reissueType, {}, recoveryPosition);
       if (reissued) {

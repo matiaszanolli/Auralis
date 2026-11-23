@@ -46,10 +46,7 @@ import type {
   AudioChunkMessage,
 } from '@/contexts/WebSocketContext';
 import type {
-  StreamingCoreOptions,
-  StreamingCoreReturn,
-  StreamingMetadata,
-  StreamType,
+  RecoveryAttempt, StreamingCoreOptions, StreamingCoreReturn, StreamingMetadata, StreamType,
 } from './streamingCoreTypes';
 
 // Re-exported, not redefined: the timer itself now lives in
@@ -109,7 +106,7 @@ export function useAudioStreamingCore(
   const bufferEpochRef = useRef<number | null>(null);
   const lastDispatchedProgressRef = useRef<number>(-1);
   /** One auto-resume per (trackId, recovery_position) per play (#4655, #6585). */
-  const lastRecoveryAttemptRef = useRef<{ trackId: number; position: number } | null>(null);
+  const lastRecoveryAttemptRef = useRef<RecoveryAttempt | null>(null);
 
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);

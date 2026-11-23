@@ -105,6 +105,32 @@ describe('useAudioStreamingCore session end (#5876)', () => {
     expect(connState.streamActive).toBe(true);
   });
 
+  it("an auto-resumed stream's trailing errored end does not end the recovered session (#6557)", () => {
+    render();
+    ws.reissueActiveStreamAs.mockReturnValueOnce(true);
+    act(() => {
+      ws.emit('audio_stream_error', {
+        data: { stream_type: 'enhanced', track_id: 1, error: 'x', code: 'E', recovery_position: 20, stream_epoch: 7 },
+      });
+    });
+    // The failed stream (epoch 7) then closes with audio_stream_end{errored} before the
+    // recovered stream's start: it must not end the session the re-issue just started.
+    act(() => {
+      ws.emit('audio_stream_end', {
+        data: { stream_type: 'enhanced', track_id: 1, reason: 'errored', total_samples: 0, duration: 0, stream_epoch: 7 },
+      });
+    });
+    expect(connState.streamActive).toBe(true);
+
+    // The recovered stream's own end (a newer epoch) still counts.
+    act(() => {
+      ws.emit('audio_stream_end', {
+        data: { stream_type: 'enhanced', track_id: 1, reason: 'completed', total_samples: 0, duration: 0, stream_epoch: 8 },
+      });
+    });
+    expect(connState.streamActive).toBe(false);
+  });
+
   it('a terminal stream error ends it; an auto-resumed one does not', () => {
     render();
     ws.reissueActiveStreamAs.mockReturnValueOnce(true);
