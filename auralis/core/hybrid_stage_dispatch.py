@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from ..dsp.dc_blocker import remove_dc
+from ..dsp.dc_blocker import remove_dc, remove_dc_dual_mono
 from ..utils.audio_validation import validate_audio_finite
 from ..utils.logging import debug, info, warning
 from .processors import apply_reference_matching
@@ -34,6 +34,8 @@ if TYPE_CHECKING:
 #: channels-first load, so a short (samples, channels) array is never mistaken for one.
 MAX_CHANNELS = 8
 MIN_SAMPLES = 1024
+#: Largest |sample| still treated as digital silence: returned unprocessed, as NaN-safe.
+_SILENCE_ATOL = 1e-10
 
 
 def validate_and_normalize_input(
@@ -80,7 +82,9 @@ def validate_and_normalize_input(
             f"Audio looks channels-first {target_audio.shape}; expected (samples, channels). "
             "Transpose it (audio.T)."
         )
+    mono_source = None
     if target_audio.ndim == 1:
+        mono_source = target_audio
         target_audio = np.column_stack([target_audio, target_audio])
         debug(f"Converted mono audio to stereo: shape now {target_audio.shape}")
 
@@ -102,11 +106,17 @@ def validate_and_normalize_input(
         )
         return target_audio, target_audio.copy()
 
-    # Handle silence (all zeros) - return as-is to avoid NaN production in downstream processing
-    if np.allclose(target_audio, 0.0, atol=1e-10):
+    # Handle silence (all zeros) - return as-is to avoid NaN production in downstream processing.
+    # allclose(x, 0, atol)'s test, |x| <= atol everywhere, read off max and min instead of its
+    # full-size temporaries (#6717); exact, NaN having been refused above.
+    if target_audio.max() <= _SILENCE_ATOL and target_audio.min() >= -_SILENCE_ATOL:
         return target_audio, target_audio.copy()
 
     # Before any measurement, so an offset biases neither loudness nor peak normalisation (#5187).
+    # Mono input is filtered once rather than as its stacked copy, which is released first (#6717).
+    if mono_source is not None:
+        del target_audio
+        return remove_dc_dual_mono(mono_source, processor.config.internal_sample_rate), None
     return remove_dc(target_audio, processor.config.internal_sample_rate), None
 
 
