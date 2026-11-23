@@ -43,8 +43,13 @@ vi.mock('@/hooks/player/usePlaybackQueue', () => ({
 
 // QueuePanel hands a removed playing row to the playback session (#6016).
 const mockFollowRemovedTrack = vi.fn().mockResolvedValue(undefined);
+// ...and stops playback after Clear Queue (#6561).
+const mockStopForClearedQueue = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/contexts/PlaybackSessionContext', () => ({
-  usePlaybackControls: () => ({ followRemovedTrack: mockFollowRemovedTrack }),
+  usePlaybackControls: () => ({
+    followRemovedTrack: mockFollowRemovedTrack,
+    stopForClearedQueue: mockStopForClearedQueue,
+  }),
 }));
 
 // Import the mocked module for manipulation
@@ -407,6 +412,11 @@ describe('QueuePanel', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Clear' }));
 
     expect(mockClearQueue).toHaveBeenCalled();
+    // #6561: the session stops too, after the queue is cleared.
+    expect(mockStopForClearedQueue).toHaveBeenCalledTimes(1);
+    expect(mockClearQueue.mock.invocationCallOrder[0]).toBeLessThan(
+      mockStopForClearedQueue.mock.invocationCallOrder[0]
+    );
   });
 
   it('should not clear queue if user cancels', async () => {

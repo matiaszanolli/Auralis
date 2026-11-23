@@ -33,7 +33,7 @@ import {
   type PlaybackProgressContextValue,
 } from './playbackSessionContexts';
 import { useAutoAdvance, useStartTrackRetry, useTransportCommand } from './usePlaybackSessionHooks';
-import { useFollowRemovedTrack } from './useFollowRemovedTrack';
+import { useFollowRemovedTrack, useStopForClearedQueue } from './useFollowRemovedTrack';
 import { usePlaybackNavigation } from './usePlaybackNavigation';
 import { usePlaybackVolume } from './usePlaybackVolume';
 
@@ -99,6 +99,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   const followRemovedTrack = useFollowRemovedTrack({
     gate, stopPlayback, startTrackForSettings, isRunning: isPlaybackActive && !isPaused,
   });
+  const stopForClearedQueue = useStopForClearedQueue({ gate, stopPlayback, isPlaybackActive });
 
   const handleSeek = useCallback((position: number) => {
     if (!isStreaming && !currentTrack?.id) {
@@ -114,7 +115,8 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
   });
 
   const handlePlayPause = useCallback(async () => {
-    if (!currentTrack?.id) return startQueued(); // a queue built while idle (#6591)
+    // A queue built while idle (#6591); an active session without a track still pauses (#6561).
+    if (!currentTrack?.id && !isPlaybackActive) return startQueued();
     await runTransportCommand(async () => {
 
     try {
@@ -126,7 +128,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
         } else {
           pausePlayback();
         }
-      } else {
+      } else if (currentTrack?.id) {
         await startTrackForSettings(currentTrack.id);
       }
     } catch (err) {
@@ -155,10 +157,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     isCommandPending,
   });
 
-  // #5006: split from one combined value into two, so a consumer that only
-  // needs controls (ComfortableApp, usePlayTrack, usePlaylistContextActions)
-  // does not re-render on the 10Hz currentTime tick that only Player/
-  // ProgressBar actually need.
+  // #5006: two values, so controls-only consumers skip the 10Hz currentTime re-render.
   const controlsValue = useMemo<PlaybackControlsContextValue>(() => ({
     isStreaming,
     isPlaybackActive,
@@ -169,6 +168,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     error,
     startTrack,
     followRemovedTrack,
+    stopForClearedQueue,
     handleSeek,
     handlePlayPause,
     handleNext,
@@ -177,7 +177,7 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     handleMuteToggle,
   }), [
     isStreaming, isPlaybackActive, streamingState, isPaused, isSeeking, isCommandPending, error,
-    startTrack, followRemovedTrack, handleSeek, handlePlayPause, handleNext, handlePrevious,
+    startTrack, followRemovedTrack, stopForClearedQueue, handleSeek, handlePlayPause, handleNext, handlePrevious,
     handleVolumeChange, handleMuteToggle,
   ]);
 

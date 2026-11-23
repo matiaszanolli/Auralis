@@ -40,7 +40,7 @@ const QueuePanelComponent = ({
     isLoading,
     error,
   } = usePlaybackQueue();
-  const { followRemovedTrack } = usePlaybackControls();
+  const { followRemovedTrack, stopForClearedQueue } = usePlaybackControls();
   // The queue pointer is 0 for a queue built while nothing plays; no row is playing then (#6591).
   const hasCurrentTrack = useSelector((state: RootState) => playerSelectors.selectCurrentTrack(state) != null);
   const playingIndex = hasCurrentTrack ? currentIndex : -1;
@@ -55,6 +55,11 @@ const QueuePanelComponent = ({
     },
     [playingIndex, queue, removeTrack, followRemovedTrack]
   );
+  // #6561: Clear empties the queue under the playing track, so playback stops with it.
+  const clearQueueStoppingPlayback = useCallback(async () => {
+    await clearQueue();
+    await stopForClearedQueue();
+  }, [clearQueue, stopForClearedQueue]);
 
   if (collapsed) {
     return (
@@ -83,7 +88,7 @@ const QueuePanelComponent = ({
       reorderTrack={reorderTrack}
       toggleShuffle={toggleShuffle}
       setRepeatMode={setRepeatMode}
-      clearQueue={clearQueue}
+      clearQueue={clearQueueStoppingPlayback}
       onToggleCollapse={onToggleCollapse}
     />
   );

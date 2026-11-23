@@ -52,6 +52,8 @@ export interface PlaybackControlsContextValue {
   /** After the queue row at `index` was removed: if it was the playing track, move
    *  playback to the track now in that slot, or stop when none follows (#6016). */
   followRemovedTrack: (index: number, removedTrackId: number) => Promise<void>;
+  /** Stop the session (client and backend) after Clear Queue (#6561). */
+  stopForClearedQueue: () => Promise<void>;
 
   /** Seek to a position (seconds) in the current track. */
   handleSeek: (position: number) => void;
