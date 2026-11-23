@@ -8,6 +8,7 @@ reference.
 """
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from typing import Any, cast
 
@@ -30,7 +31,8 @@ class LibraryLoadingMixin:
     _notify_callbacks: "Callable[[dict[str, Any]], None]"
 
     def load_track_from_library(
-        self, track_id: int, on_loaded: Callable[[], None] | None = None
+        self, track_id: int, on_loaded: Callable[[], None] | None = None,
+        load_scope: Callable[[], AbstractContextManager[Any]] = nullcontext,
     ) -> bool:
         """
         Load a track from the library by ID.
@@ -40,6 +42,8 @@ class LibraryLoadingMixin:
             on_loaded: Optional callback forwarded to
                 ``file_manager.load_file`` so the caller's playback-state
                 reset runs inside the buffer-swap critical section (#5581).
+            load_scope: The caller's ``defer_notifications``, around that ``load_file`` alone,
+                never the DB reads, ``record_play`` or reference decode below (#6526).
 
         Returns:
             bool: True if successful
@@ -51,17 +55,13 @@ class LibraryLoadingMixin:
                 error(f"Track not found in library: {track_id}")
                 return False
 
-            # Load the audio file
-            if not self.file_manager.load_file(
-                cast(str, track.filepath), on_loaded=on_loaded
-            ):
+            with load_scope():
+                loaded = self.file_manager.load_file(cast(str, track.filepath), on_loaded=on_loaded)
+            if not loaded:
                 return False
 
-            # #3786: write `current_track` under the same lock used by
-            # `_on_playback_state_change` and `get_playback_info` to read
-            # it. Without this, a concurrent reader could see
-            # `current_track` pointing at the new track while
-            # `position_seconds` still reflected the previous one.
+            # #3786: write `current_track` under the lock `_on_playback_state_change` and
+            # `get_playback_info` read it with, so no reader pairs the new track with the old position.
             self.set_current_track(track)
 
             # Record play count

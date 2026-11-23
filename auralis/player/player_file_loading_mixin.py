@@ -146,11 +146,12 @@ class PlayerFileLoadingMixin:
             self.playback.load_and_stop()
             current_file = self.file_manager.current_file
 
-        # #3781: defer_notifications() outer — the hook runs under
-        # _audio_lock, so its notify must be queued and flushed only after
-        # the lock releases.
-        with self.playback.defer_notifications():
-            loaded = self.integration.load_track_from_library(track_id, on_loaded=_on_loaded)
+        # #3781: the hook runs under _audio_lock, so its notify is queued and flushed once the lock
+        # releases. Around the decode and swap only (#6526): the scope used to enclose the DB
+        # reads, record_play and the reference decode too, so `stop` reached observers seconds late.
+        loaded = self.integration.load_track_from_library(
+            track_id, on_loaded=_on_loaded, load_scope=self.playback.defer_notifications
+        )
 
         if loaded:
             # IntegrationManager.load_track_from_library() calls

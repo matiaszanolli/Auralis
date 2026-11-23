@@ -41,10 +41,11 @@ class TestFingerprintScheduling:
         # Simulate IntegrationManager.load_track_from_library() setting
         # current_file as a side effect, running the caller's on_loaded hook
         # (#5581) inside the swap section like the real file manager does.
-        def fake_load_track(track_id: int, on_loaded=None) -> bool:
+        def fake_load_track(track_id: int, on_loaded=None, load_scope=None) -> bool:
             player.file_manager.current_file = f"/library/track_{track_id}.flac"
             if on_loaded is not None:
-                on_loaded()
+                with load_scope():  # the caller's defer_notifications (#6526)
+                    on_loaded()
             return True
 
         with patch.object(player.integration, "load_track_from_library",

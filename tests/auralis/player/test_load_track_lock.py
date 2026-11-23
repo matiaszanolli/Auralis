@@ -5,6 +5,7 @@ playback.load_and_stop() (position reset) OUTSIDE that lock, creating a window w
 a concurrent get_audio_chunk() could see new audio at the old position.
 """
 import threading
+from contextlib import nullcontext
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -56,10 +57,11 @@ def _make_player():
     # Integration manager — simulate a load that takes 50ms
     intg = MagicMock()
 
-    def _slow_load(track_id, on_loaded=None):
+    def _slow_load(track_id, on_loaded=None, load_scope=nullcontext):
         # Simulate file_manager.load_file(): swap under audio_lock, and run
-        # the caller's on_loaded hook (#5581) inside the same section.
-        with fm._audio_lock:
+        # the caller's on_loaded hook (#5581) inside the same section, within
+        # the caller's load_scope (its defer_notifications, #6526).
+        with load_scope(), fm._audio_lock:
             fm.audio_data = np.zeros(44100, dtype=np.float32)
             fm.sample_rate = 44100
             if on_loaded is not None:
@@ -120,8 +122,8 @@ def test_no_audio_position_race():
 
     original_load = player.integration.load_track_from_library.side_effect
 
-    def _instrumented_load(track_id, on_loaded=None):
-        result = original_load(track_id, on_loaded=on_loaded)
+    def _instrumented_load(track_id, on_loaded=None, load_scope=nullcontext):
+        result = original_load(track_id, on_loaded=on_loaded, load_scope=load_scope)
         swap_done.set()
         return result
 
