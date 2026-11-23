@@ -8,7 +8,8 @@ content-aware mastering: instead of classifying the source into a genre
 bucket and applying a preset, we interpolate continuously across the
 reference manifold.
 
-How it works (one process() call):
+How it works (once per fingerprint -- a stream's whole-track one, a job's, or a
+fallback chunk's):
 
   1. Compute distance from source to every reference in the cloud, using only
      "character" features (tempo, rhythm, dynamics, stereo) — explicitly
@@ -25,8 +26,9 @@ How it works (one process() call):
      neighbour's own weight and capped at 10% of the total, so participation
      decays across the rank-k boundary instead of stepping to zero.
 
-  5. Return a weighted average of the references' spectral fields as the
-     target. Each band is a continuous interpolation across the manifold.
+  5. Return a weighted average of the references' band shares as the target:
+     the centers the EQ law (``parameter_generator_eq``) pulls each band toward.
+     Each band is a continuous interpolation across the manifold.
 
 No genre labels. No bucketing. A track in the middle of two clusters gets
 an interpolated target in the middle of those clusters' shapes.
@@ -71,10 +73,9 @@ DISTANCE_FEATURES: tuple[str, ...] = (
 
 # Features extracted from the matched references to form the EQ target.
 # These ARE the things we want to drive the source toward.
-TARGET_FEATURES: tuple[str, ...] = (
-    *BAND_PCT_KEYS,
-    'spectral_centroid', 'spectral_rolloff', 'bass_mid_ratio',
-)
+# Only the band shares: they are all the EQ law reads. Centroid, rolloff and
+# bass/mid ratio used to be averaged here too and were never read.
+TARGET_FEATURES: tuple[str, ...] = BAND_PCT_KEYS
 
 
 # ---------------------------------------------------------------------------

@@ -17,7 +17,8 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from ...utils.logging import debug
+from ...utils.logging import debug, warning
+from .parameter_generator_eq import band_centers_from_target
 from .target_derivation import DistanceStats, derive_target
 
 # How long a loaded, non-empty reference cloud is trusted before it is re-read.
@@ -68,6 +69,20 @@ class ReferenceCloud:
             f"(top: {result.top_ref_ids[:3]})"
         )
         return result.target
+
+    def band_centers(self, fingerprint: Any) -> dict[str, float]:
+        """The centers the EQ law pulls ``fingerprint``'s bands toward.
+
+        The cloud's soft k-NN target when one exists, the corpus centers
+        otherwise. A cloud that cannot be read or matched degrades to the corpus
+        centers rather than failing the mastering plan.
+        """
+        try:
+            target = self.target_spectrum(fingerprint)
+        except Exception as e:
+            warning(f"[Mastering] Reference-cloud target failed, using corpus centers: {e}")
+            target = None
+        return band_centers_from_target(target)
 
     def _reload(self, now: float) -> None:
         """Re-read the cloud; keep the previous one if the read fails."""

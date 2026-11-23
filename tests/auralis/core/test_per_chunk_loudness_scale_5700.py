@@ -1,18 +1,19 @@
 """Regression tests: intended and realised loudness lift agree (#5700)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``calculate_target_lufs`` builds ``fp['lufs'] + lift`` on the fingerprint's RMS
+The per-chunk target was built as ``fp['lufs'] + lift`` on the fingerprint's RMS
 proxy (``20*log10(rms of the mono mean) - 0.7``), but ``_normalize_chunk_loudness``
-chases it with the K-weighted, channel-summed meter, which reads ~3-4 dB higher
+chased it with the K-weighted, channel-summed meter, which reads ~3-4 dB higher
 on the same audio. The realised gain was ``lift - offset``: loud masters were
-attenuated although the generator never intends attenuation, and quiet material
+attenuated although the generator never intended attenuation, and quiet material
 got about half its lift.
 
-``ContinuousMode._resolve_parameters`` now converts the target onto the meter's
-scale with the offset measured on the chunk itself.
+#5700 measured that offset per chunk and added it to the target. Since #6356 the
+fingerprint path uses the streaming targets law, which carries ``source_lufs`` on
+the same proxy scale, so normalisation applies only ``target - source`` and the
+offset cancels. These tests pin that the planned lift is the realised one.
 """
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -21,12 +22,8 @@ import pytest
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
 from auralis.core.config import UnifiedConfig
 from auralis.core.processing.continuous_mode import ContinuousMode
-from auralis.core.processing.parameter_generator_dynamics import calculate_target_lufs
-from auralis.dsp.utils.adaptive import (
-    MAX_PROXY_TO_K_OFFSET_DB,
-    calculate_loudness_units,
-    proxy_to_k_offset_db,
-)
+from auralis.core.processing.mastering_targets import plan_level
+from auralis.dsp.utils.adaptive import calculate_loudness_units
 
 SR = 44100
 
@@ -63,10 +60,10 @@ def mode() -> ContinuousMode:
 
 
 def _intended_lift(mode: ContinuousMode, audio: np.ndarray) -> float:
-    """The generator's own lift, on the proxy scale it was computed on."""
+    """The plan's own lift, on the proxy scale it was computed on."""
     fp = mode.fingerprint_analyzer.analyze(audio, SR)
-    coords = mode.space_mapper.map_fingerprint_to_space(fp)
-    return calculate_target_lufs(coords) - fp["lufs"]
+    target_lufs, _crest = plan_level(fp["lufs"], fp["crest_db"], fp["phase_correlation"])
+    return target_lufs - fp["lufs"]
 
 
 def _realised_lift(mode: ContinuousMode, audio: np.ndarray) -> float:
@@ -75,76 +72,24 @@ def _realised_lift(mode: ContinuousMode, audio: np.ndarray) -> float:
     return calculate_loudness_units(out, SR) - calculate_loudness_units(audio, SR)
 
 
-class TestProxyToKOffset:
-    def test_correlated_stereo_reads_a_few_db_above_the_proxy(self):
-        """The issue measured +4.0 dB on correlated stereo pink noise."""
-        audio = _correlated_pink(-20.0)
-        fp = AudioFingerprintAnalyzer().analyze(audio, SR)
-
-        offset = proxy_to_k_offset_db(audio, fp["lufs"], SR)
-
-        assert 1.5 < offset < 6.0
-
-    def test_the_offset_depends_on_the_spectrum_so_it_must_be_measured(self):
-        """White noise reads ~7 dB further above its proxy than pink does; a
-        constant would be wrong for one of them."""
-        analyzer = AudioFingerprintAnalyzer()
-        pink, white = _correlated_pink(-20.0), _correlated_noise(-20.0)
-
-        pink_offset = proxy_to_k_offset_db(pink, analyzer.analyze(pink, SR)["lufs"], SR)
-        white_offset = proxy_to_k_offset_db(white, analyzer.analyze(white, SR)["lufs"], SR)
-
-        assert white_offset - pink_offset > 3.0
-
-    def test_silence_and_non_finite_inputs_give_no_offset(self):
-        silence = np.zeros((SR, 2), dtype=np.float32)
-        audio = _correlated_noise(-16.0)
-
-        assert proxy_to_k_offset_db(silence, -70.0, SR) == 0.0
-        assert proxy_to_k_offset_db(audio, float("nan"), SR) == 0.0
-        assert proxy_to_k_offset_db(audio, float("inf"), SR) == 0.0
-
-    def test_offset_is_bounded(self):
-        audio = _correlated_pink(-20.0)
-
-        assert proxy_to_k_offset_db(audio, -100.0, SR) == MAX_PROXY_TO_K_OFFSET_DB
-        assert proxy_to_k_offset_db(audio, 100.0, SR) == -MAX_PROXY_TO_K_OFFSET_DB
-
-
 class TestIntendedLiftIsRealised:
-    @pytest.mark.parametrize("k_lufs", [-31.0, -27.0, -23.0, -19.0, -15.0])
-    def test_realised_lift_matches_the_generator_across_a_level_sweep(self, mode, k_lufs):
+    @pytest.mark.parametrize("k_lufs", [-31.0, -27.0, -23.0, -19.0, -15.0, -10.0, -8.5])
+    def test_realised_lift_matches_the_plan_across_a_level_sweep(self, mode, k_lufs):
         audio = _correlated_noise(k_lufs)
 
         intended = _intended_lift(mode, audio)
         realised = _realised_lift(mode, audio)
 
-        assert intended >= 0.0
         assert realised == pytest.approx(intended, abs=0.5)
 
-    @pytest.mark.parametrize("k_lufs", [-10.0, -8.5])
-    def test_a_loud_master_is_never_attenuated(self, mode, k_lufs):
-        audio = _correlated_noise(k_lufs)
-
-        assert _intended_lift(mode, audio) >= 0.0
-        assert _realised_lift(mode, audio) >= -0.5
-
-    def test_per_chunk_and_fixed_target_paths_land_the_same_loudness(self, mode):
-        """Same audio through both normalisation branches: the fixed-target
-        branch applies target - source on the proxy scale (#5552), the
-        per-chunk branch re-measures. They must agree on the lift."""
-        audio = _correlated_noise(-22.0)
+    def test_the_plan_is_not_shifted_onto_the_k_meter_scale(self, mode):
+        """The K-weighted meter reads ~3-4 dB above the proxy on this audio; a
+        target moved onto its scale would show up as that much extra lift."""
+        audio = _correlated_pink(-22.0)
         fp = mode.fingerprint_analyzer.analyze(audio, SR)
-        coords = mode.space_mapper.map_fingerprint_to_space(fp)
-        proxy_target = calculate_target_lufs(coords)
+        assert calculate_loudness_units(audio, SR) - fp["lufs"] > 2.0
 
-        per_chunk = mode._apply_final_normalization(
-            audio.copy(), mode._resolve_parameters(audio.copy(), None)
-        )
-        fixed = mode._apply_final_normalization(
-            audio.copy(), SimpleNamespace(target_lufs=proxy_target, source_lufs=fp["lufs"])
-        )
+        params = mode._resolve_parameters(audio.copy(), None)
 
-        assert calculate_loudness_units(per_chunk, SR) == pytest.approx(
-            calculate_loudness_units(fixed, SR), abs=1.0
-        )
+        assert params.source_lufs == pytest.approx(fp["lufs"])
+        assert params.target_lufs - params.source_lufs == pytest.approx(_intended_lift(mode, audio))

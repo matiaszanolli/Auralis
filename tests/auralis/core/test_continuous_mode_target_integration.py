@@ -1,10 +1,10 @@
 """
-Integration test: ContinuousMode wires the reference cloud into delta EQ.
+Integration test: ContinuousMode wires the reference cloud into the EQ law.
 
-Phase 4 wiring: when ContinuousMode is constructed with a fingerprint
-repository that returns a non-empty reference cloud, the EQ curve is
-derived via delta-from-target. When no repository or empty cloud, the
-legacy deficit-based curve is used (backwards-compatible fallback).
+When ContinuousMode is constructed with a fingerprint repository that returns a
+non-empty reference cloud, the targets law receives the cloud's soft k-NN band
+centers. With no repository or an empty cloud it receives the corpus centers.
+Either way it is the one law the streaming fixed targets use too (#6356).
 """
 
 from __future__ import annotations
@@ -20,7 +20,9 @@ from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
 from auralis.core.analysis.content_analyzer import ContentAnalyzer
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
+from auralis.core.processing import continuous_mode as cm
 from auralis.core.processing.continuous_mode import ContinuousMode
+from auralis.dsp.constants import CORPUS_BAND_CENTERS
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -85,18 +87,23 @@ def config():
     return c
 
 
+def _centers_used(mode, audio):
+    """The band_centers ContinuousMode handed the targets law for one process()."""
+    with patch.object(
+        cm, 'generate_targets_from_fingerprint', wraps=cm.generate_targets_from_fingerprint,
+    ) as law:
+        mode.process(audio.copy(), _IdentityEQ())
+    assert law.call_count == 1
+    return law.call_args.args[1]
+
+
 # ---------------------------------------------------------------------------
-# Fallback paths (backwards compatibility)
+# No cloud: corpus centers
 # ---------------------------------------------------------------------------
 
-def test_no_repository_uses_legacy_eq_path(config, audio_5s):
-    """Constructed without a repo → delta path is not exercised."""
+def test_no_repository_uses_corpus_centers(config, audio_5s):
     mode = ContinuousMode(config, ContentAnalyzer(), AudioFingerprintAnalyzer())
-    with patch(
-        'auralis.core.processing.parameter_generator.ContinuousParameterGenerator._generate_eq_curve_from_target'
-    ) as delta_path:
-        mode.process(audio_5s.copy(), _IdentityEQ())
-    assert delta_path.call_count == 0
+    assert _centers_used(mode, audio_5s) == CORPUS_BAND_CENTERS
 
 
 def test_mastering_path_has_no_recording_type_classifier(config):
@@ -110,43 +117,31 @@ def test_mastering_path_has_no_recording_type_classifier(config):
         assert not hasattr(instance, 'last_adaptive_params')
 
 
-def test_empty_cloud_uses_legacy_eq_path(config, audio_5s):
-    """Repo present but cloud empty → still falls back to legacy curve."""
+def test_empty_cloud_uses_corpus_centers(config, audio_5s):
     mode = ContinuousMode(
         config, ContentAnalyzer(), AudioFingerprintAnalyzer(),
         fingerprint_repository=_FakeRepo([]),
     )
-    with patch(
-        'auralis.core.processing.parameter_generator.ContinuousParameterGenerator._generate_eq_curve_from_target'
-    ) as delta_path:
-        mode.process(audio_5s.copy(), _IdentityEQ())
-    assert delta_path.call_count == 0
+    assert _centers_used(mode, audio_5s) == CORPUS_BAND_CENTERS
 
 
 # ---------------------------------------------------------------------------
-# Active delta path
+# Non-empty cloud: k-NN centers
 # ---------------------------------------------------------------------------
 
-def test_non_empty_cloud_invokes_delta_eq_path(config, audio_5s):
-    """Non-empty cloud → param_generator receives target_spectrum from cloud."""
+def test_non_empty_cloud_supplies_the_band_centers(config, audio_5s):
+    """Identical references -> the k-NN target is exactly their band shares."""
     cloud = [_fake_reference(i) for i in range(5)]
-    repo = _FakeRepo(cloud)
     mode = ContinuousMode(
         config, ContentAnalyzer(), AudioFingerprintAnalyzer(),
-        fingerprint_repository=repo,
+        fingerprint_repository=_FakeRepo(cloud),
     )
 
-    with patch(
-        'auralis.core.processing.parameter_generator.ContinuousParameterGenerator._generate_eq_curve_from_target',
-        wraps=mode.param_generator._generate_eq_curve_from_target,
-    ) as delta_path:
-        mode.process(audio_5s.copy(), _IdentityEQ())
+    centers = _centers_used(mode, audio_5s)
 
-    # Delta path called exactly once for this process()
-    assert delta_path.call_count == 1
-    # target_spectrum kwarg was passed
-    call_kwargs = delta_path.call_args
-    assert call_kwargs is not None
+    assert centers['bass'] == pytest.approx(0.20)
+    assert centers['mid'] == pytest.approx(0.25)
+    assert centers['presence'] == pytest.approx(0.10)
 
 
 def test_cloud_loaded_only_once_across_multiple_process_calls(config, audio_5s):
@@ -163,13 +158,13 @@ def test_cloud_loaded_only_once_across_multiple_process_calls(config, audio_5s):
     assert repo.get_calls == 1
 
 
-def test_cloud_changes_eq_curve_versus_legacy(config, audio_5s):
+def test_cloud_changes_eq_curve_versus_corpus_centers(config, audio_5s):
     """Smoking-gun integration test: feeding a cloud must produce a measurably
-    different EQ curve than the legacy deficit path on the same source.
+    different EQ curve than the corpus centers on the same source.
 
-    Asserts the delta path is actually doing something, not just being called.
+    Asserts the cloud's centers actually reach the curve, not just the call.
     """
-    # Strongly bass-heavy mono+noise — should drive delta math toward a CUT.
+    # Strongly bass-heavy mono+noise — should drive the EQ law toward a CUT.
     sr = config.internal_sample_rate
     rng = np.random.default_rng(7)
     t = np.arange(sr * 5) / sr
@@ -177,32 +172,33 @@ def test_cloud_changes_eq_curve_versus_legacy(config, audio_5s):
     noise = rng.standard_normal(sr * 5).astype(np.float64) * 0.05
     stereo = np.column_stack([bass_signal + noise, bass_signal + noise])
 
-    # Run 1: no cloud → corpus-centered continuous fallback
-    mode_legacy = ContinuousMode(config, ContentAnalyzer(), AudioFingerprintAnalyzer())
-    mode_legacy.process(stereo.copy(), _IdentityEQ())
-    legacy_eq = dict(mode_legacy.last_parameters.eq_curve)
+    # Run 1: no cloud → corpus centers
+    mode_corpus = ContinuousMode(config, ContentAnalyzer(), AudioFingerprintAnalyzer())
+    mode_corpus.process(stereo.copy(), _IdentityEQ())
+    corpus_eq = dict(mode_corpus.last_parameters.eq_curve)
 
-    # Run 2: balanced cloud → delta path
+    # Run 2: a cloud with far less bass than the corpus → k-NN centers
     cloud = [_fake_reference(i, bass_pct=0.10, air_pct=0.20) for i in range(10)]
-    mode_delta = ContinuousMode(
+    mode_cloud = ContinuousMode(
         config, ContentAnalyzer(), AudioFingerprintAnalyzer(),
         fingerprint_repository=_FakeRepo(cloud),
     )
-    mode_delta.process(stereo.copy(), _IdentityEQ())
-    delta_eq = dict(mode_delta.last_parameters.eq_curve)
+    mode_cloud.process(stereo.copy(), _IdentityEQ())
+    cloud_eq = dict(mode_cloud.last_parameters.eq_curve)
 
     # The two continuous target sources should differ on at least one gain.
     differences = {
-        k: delta_eq[k] - legacy_eq[k]
+        k: cloud_eq[k] - corpus_eq[k]
         for k in ('low_shelf_gain', 'low_mid_gain', 'mid_gain',
                   'high_mid_gain', 'high_shelf_gain')
     }
     assert any(abs(d) > 0.1 for d in differences.values()), (
-        f"Delta path produced same curve as legacy: {differences}"
+        f"Cloud centers produced the same curve as corpus centers: {differences}"
     )
-    # Both paths respond with a signed cut on this bass-heavy source.
-    assert delta_eq['low_shelf_gain'] < 0.0
-    assert legacy_eq['low_shelf_gain'] < 0.0, (
-        f"Bass-heavy source: legacy low_shelf={legacy_eq['low_shelf_gain']:+.2f}, "
-        f"delta low_shelf={delta_eq['low_shelf_gain']:+.2f}"
+    # Both respond with a signed cut on this bass-heavy source, the cloud harder.
+    assert cloud_eq['low_shelf_gain'] < 0.0
+    assert cloud_eq['low_shelf_gain'] < corpus_eq['low_shelf_gain']
+    assert corpus_eq['low_shelf_gain'] < 0.0, (
+        f"Bass-heavy source: corpus low_shelf={corpus_eq['low_shelf_gain']:+.2f}, "
+        f"cloud low_shelf={cloud_eq['low_shelf_gain']:+.2f}"
     )

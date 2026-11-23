@@ -111,6 +111,8 @@ class ContinuousDSPOpsMixin:
         # Validate input - handle empty or very short audio gracefully
         if len(audio) == 0:
             return audio  # Return as-is if empty
+        if comp_params['amount'] <= 0.0:  # identity blend: no copy, so the journal reuses its reading
+            return audio
 
         return CompressionStrategies.apply_clip_blend_compression(audio, comp_params)
 
@@ -132,6 +134,8 @@ class ContinuousDSPOpsMixin:
         # decorrelation reading is for logging only; it must never be compared
         # with or subtracted from a width factor.
         target_width = params.stereo_width_target
+        if target_width == WIDTH_FACTOR_UNITY:  # unity side gain is the identity: no pass, no copy
+            return audio
         pre_decorrelation = stereo_width_analysis(audio)
         pre_peak_db = StereoWidthProcessor.get_peak_db(audio)
 
@@ -155,8 +159,8 @@ class ContinuousDSPOpsMixin:
     ) -> np.ndarray:
         """Per-chunk LUFS normalisation, for targets with no track-level source loudness.
 
-        Used when the chunk is all we know about the track (the per-chunk
-        fingerprint path, and legacy fixed targets without ``source_lufs``).
+        Used only for fixed targets without ``source_lufs`` (legacy sidecars); every
+        fingerprint-derived target carries it.
         ``measure_lufs`` replaces ``calculate_loudness_units`` for the reading,
         so a caller that already measured ``audio`` (the journal) is not re-run.
         """
@@ -240,17 +244,16 @@ class ContinuousDSPOpsMixin:
         # R128 *target* (-23.0) as if it were a dBFS->LUFS offset, so it read
         # ~25 LU below `target_lufs`'s true-LUFS scale and this step became a
         # ~+25 dB over-boost that Step 2 clawed back to the ceiling. It is now
-        # genuinely K-weighted per BS.1770-4. The per-chunk fingerprint path's
-        # target is converted onto that scale in
-        # ContinuousMode._resolve_parameters (#5700); the fixed-target path
-        # keeps source and target both on the fingerprint's proxy scale, so
-        # only their difference (the lift) is used.
+        # genuinely K-weighted per BS.1770-4. Targets carry source and target
+        # both on the fingerprint's proxy scale, so only their difference (the
+        # lift) is used and the meter's ~3-4 dB offset from the proxy cancels
+        # (#5700); only a legacy target without source_lufs is metered here.
         target_lufs = params.target_lufs
         source_lufs = getattr(params, 'source_lufs', None)
 
         if source_lufs is not None and np.isfinite(source_lufs):
-            # Fixed-targets path: the targets describe the WHOLE track, so move
-            # every chunk by the same gain. Re-measuring each chunk and pulling
+            # The targets describe everything their fingerprint covered (a whole
+            # track for streams and jobs), so move every chunk by the same gain. Re-measuring each chunk and pulling
             # it to the track-wide target made a -36 LUFS verse and a -11 LUFS
             # chorus both land at -14 (#5552). Silence needs no special case:
             # a constant gain on zeros is zeros.

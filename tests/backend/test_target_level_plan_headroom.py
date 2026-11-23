@@ -17,7 +17,7 @@ if _BACKEND not in sys.path:
 
 from auralis.dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB  # noqa: E402
 from auralis.dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB  # noqa: E402
-from core.mastering_target_generation import (  # noqa: E402
+from auralis.core.processing.mastering_targets import (  # noqa: E402
     CREST_BUDGET_DB,
     channel_peak_offset_db,
     generate_targets_from_fingerprint,

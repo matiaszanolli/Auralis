@@ -27,20 +27,3 @@ def test_fingerprint_default_rejects_unknown_dimensions():
 
 def test_loudness_constants_agree_with_the_typical_track_default():
     assert DEFAULT_TARGET_LUFS == STREAMING_TARGET_LUFS == fingerprint_default('lufs')
-
-
-def test_stereo_width_fallback_follows_the_unpacker():
-    from auralis.core.processing.parameter_generator_stereo import calculate_stereo_width
-    from auralis.core.processing.continuous_space import ProcessingCoordinates
-
-    def width(fingerprint):
-        return calculate_stereo_width(
-            ProcessingCoordinates(
-                spectral_balance=0.5, dynamic_range=0.5,
-                fingerprint=fingerprint,
-            ),
-        )
-
-    # Was 0.7 locally (the one site that disagreed with the unpacker's 0.5).
-    assert width({}) == width({'stereo_width': fingerprint_default('stereo_width')})
-    assert width({}) != width({'stereo_width': 0.7})

@@ -9,8 +9,8 @@ original mastering engineer avoided.
 
 Album mode derives ONE target for the set. These tests pin what "one target"
 means and — just as importantly — what it does not mean. Unifying the target
-unifies the *destination*, not the EQ curve: `compute_delta_eq` is a symmetric
-delta from (source, target), so tracks starting from different places still get
+unifies the *destination*, not the EQ curve: `eq_curve_from_fingerprint` is a signed
+gain from (source, centers), so tracks starting from different places still get
 different curves. That is the convergence mechanism, and
 `test_curves_still_differ_because_sources_do` exists so a future reader does not
 "fix" it into a single shared curve, which would preserve the album's existing
@@ -25,7 +25,10 @@ from auralis.core.processing.album_target import (
     average_targets,
     derive_album_target,
 )
-from auralis.core.processing.delta_eq import compute_delta_eq
+from auralis.core.processing.parameter_generator_eq import (
+    band_centers_from_target,
+    eq_curve_from_fingerprint,
+)
 from auralis.core.processing.target_derivation import (
     TARGET_FEATURES,
     DistanceStats,
@@ -43,7 +46,7 @@ def _fingerprint(**overrides: float) -> dict[str, float]:
     `bass_pct` alone changes a track's EQ curve but not its target.
     """
     base = {
-        # TARGET_FEATURES — the destination, and the source side of delta_eq.
+        # TARGET_FEATURES — the destination, and the source side of the EQ law.
         'sub_bass_pct': 0.10, 'bass_pct': 0.20, 'low_mid_pct': 0.20,
         'mid_pct': 0.20, 'upper_mid_pct': 0.15, 'presence_pct': 0.10,
         'air_pct': 0.05, 'spectral_centroid': 2000.0,
@@ -246,10 +249,11 @@ class TestUnifiesDestinationNotCurve:
         album = derive_album_target([dark, bright], cloud, stats)
         assert album is not None
 
-        dark_curve = compute_delta_eq(dark, album.target)
-        bright_curve = compute_delta_eq(bright, album.target)
-        assert dark_curve.low_shelf_gain != pytest.approx(
-            bright_curve.low_shelf_gain
+        centers = band_centers_from_target(album.target)
+        dark_curve = eq_curve_from_fingerprint(dark, centers)
+        bright_curve = eq_curve_from_fingerprint(bright, centers)
+        assert dark_curve['low_shelf_gain'] != pytest.approx(
+            bright_curve['low_shelf_gain']
         )
 
     def test_shared_target_pulls_tracks_closer_together(self, cloud, stats):
@@ -261,8 +265,8 @@ class TestUnifiesDestinationNotCurve:
 
         def _bass_after(source):
             # Post-EQ bass, in dB relative to where it started.
-            return 10.0 * np.log10(source['bass_pct']) + \
-                compute_delta_eq(source, album.target).low_shelf_gain
+            curve = eq_curve_from_fingerprint(source, band_centers_from_target(album.target))
+            return 10.0 * np.log10(source['bass_pct']) + curve['low_shelf_gain']
 
         gap_before = abs(
             10.0 * np.log10(dark['bass_pct']) - 10.0 * np.log10(bright['bass_pct'])

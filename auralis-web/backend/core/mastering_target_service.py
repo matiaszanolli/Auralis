@@ -16,7 +16,8 @@ from typing import Any
 from core.file_signature import FileSignatureService
 
 from . import fingerprint_loading
-from .mastering_target_generation import generate_targets_from_fingerprint
+from auralis.core.processing.mastering_targets import generate_targets_from_fingerprint
+from auralis.core.processing.reference_cloud import ReferenceCloud
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +31,9 @@ class MasteringTargetService:
     2. .25d file (fast - pre-computed)
     3. Extract from audio (slow - requires full analysis)
 
-    Features:
-    - Thread-safe caching with RLock
-    - Automatic target generation from fingerprints
-    - One-stop method for getting fingerprint + targets
-    - Supports saving extracted fingerprints
-    - Repository pattern via dependency injection
+    Targets pull toward the reference cloud's k-NN band centers (#6356). A plan is
+    cached per track and file signature and outlives a cloud refresh, so a processor
+    rebuilt mid-track keeps the plan already heard; only a cache clear starts a new one.
     """
 
     def __init__(
@@ -56,6 +54,8 @@ class MasteringTargetService:
         self.cache: OrderedDict[str, Any] = OrderedDict(cache) if cache is not None else OrderedDict()
         self._max_cache_entries = 256
         self._get_fingerprints_repository = get_fingerprints_repository
+        # The same cloud ContinuousMode reads, so streams and jobs share one plan.
+        self._reference_cloud = ReferenceCloud(lambda: get_fingerprints_repository and get_fingerprints_repository())
         self._lock = threading.RLock()
         logger.debug("MasteringTargetService initialized")
 
@@ -178,11 +178,11 @@ class MasteringTargetService:
         return None
 
     def generate_targets_from_fingerprint(self, fingerprint: dict[str, float]) -> dict[str, Any]:
-        """Derive mastering targets from a 25D fingerprint.
+        """Mastering targets for a fingerprint, toward the reference cloud's k-NN centers.
 
-        See :func:`mastering_target_generation.generate_targets_from_fingerprint`.
+        See :func:`auralis.core.processing.mastering_targets.generate_targets_from_fingerprint`.
         """
-        return generate_targets_from_fingerprint(fingerprint)
+        return generate_targets_from_fingerprint(fingerprint, self._reference_cloud.band_centers(fingerprint))
 
     def clear_track(self, track_id: int) -> None:
         """Drop one track's cached fingerprint/targets (every file signature)."""

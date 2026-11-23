@@ -19,9 +19,9 @@ from auralis.dsp.utils.conversion import db_to_amplitude, peak_abs
 # The keys the clip-blend compressor indexes with `[...]` — i.e. the ones whose
 # absence is a KeyError, not a defaulted value.
 #
-# Two independent producers build compression_params: the fixed-targets fast path in
-# `fixed_target_params.convert_targets_to_parameters` and the fingerprint path
-# in `ContinuousParameterGenerator`. Nothing tied their schemas together, so they
+# Two independent producers used to build compression_params: the fixed-targets fast path in
+# `fixed_target_params.convert_targets_to_parameters` and the fingerprint path's own
+# generator (one law since #6356). Nothing tied their schemas together, so they
 # drifted: an expansion dict the fast path built without `target_crest_increase`
 # crashed every `.25d`-sidecar track (#4856; that stage and its params are gone, #5561,
 # #6650). Declared next to the reader so a contract test can assert every producer

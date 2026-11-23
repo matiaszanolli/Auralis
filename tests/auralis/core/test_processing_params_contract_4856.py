@@ -1,14 +1,18 @@
 """
 Contract tests for the ProcessingParameters compression dict — issue #4856.
 
-Two independent producers build `compression_params`:
+Two independent producers used to build `compression_params`:
 
   * `fixed_target_params.convert_targets_to_parameters` — the fixed-targets fast
     path taken when a track has a `.25d` fingerprint sidecar, which skips
     fingerprint extraction entirely;
   * `ContinuousParameterGenerator` — the fingerprint path.
 
-Nothing tied their schemas together, so they drifted. The fast path's expansion dict omitted
+Nothing tied their schemas together, so they drifted. Since #6356 the fingerprint
+path builds its targets with `mastering_targets.generate_targets_from_fingerprint`
+and converts them through the same function, so the dicts it may receive -- a
+hand-written or legacy sidecar dict, and the targets law's own -- are what is
+pinned here. The fast path's expansion dict omitted
 `target_crest_increase`, which the expansion stage indexed unconditionally: a deterministic
 KeyError for every sidecar-backed track. That stage (#5561) and its params (#6650) are gone;
 compression had survived the same drift only by coincidence, so its keys stay pinned here.
@@ -33,8 +37,7 @@ FIXED_TARGETS = {
     'stereo_width': 1.0,
 }
 
-# A complete 25D fingerprint — ContinuousParameterGenerator indexes these
-# directly (e.g. `bass_pct`), so an empty dict is not a valid stand-in.
+# A complete 25D fingerprint, as the fingerprint path hands the targets law.
 FINGERPRINT_25D = {
     'sub_bass_pct': 1.0, 'bass_pct': 1.0, 'low_mid_pct': 1.0, 'mid_pct': 1.0,
     'upper_mid_pct': 1.0, 'presence_pct': 1.0, 'air_pct': 1.0,
@@ -51,6 +54,13 @@ FINGERPRINT_25D = {
 def _fixed_target_params():
     """Build params via the fast path (a free function since #4254)."""
     return convert_targets_to_parameters(FIXED_TARGETS)
+
+
+def _fingerprint_params(fingerprint=FINGERPRINT_25D):
+    """Build params the way ContinuousMode's fingerprint path does."""
+    from auralis.core.processing.mastering_targets import generate_targets_from_fingerprint
+
+    return convert_targets_to_parameters(generate_targets_from_fingerprint(fingerprint))
 
 
 def _audio(seed: int = 0) -> np.ndarray:
@@ -78,16 +88,7 @@ class TestGeneratorPathSchema:
 
     @pytest.fixture
     def generator_params(self):
-        from auralis.core.processing.continuous_space import ProcessingCoordinates
-        from auralis.core.processing.parameter_generator import (
-            ContinuousParameterGenerator,
-        )
-
-        gen = ContinuousParameterGenerator()
-        coords = ProcessingCoordinates(
-            spectral_balance=0.5, dynamic_range=0.5, fingerprint=FINGERPRINT_25D
-        )
-        return gen.generate_parameters(coords)
+        return _fingerprint_params()
 
     def test_generator_compression_carries_every_required_key(self, generator_params):
         missing = COMPRESSION_REQUIRED_KEYS - generator_params.compression_params.keys()
@@ -103,20 +104,10 @@ class TestBothProducersAgree:
     """The regression guard: one consumer, two producers, one schema."""
 
     def test_every_producer_satisfies_every_consumer(self):
-        from auralis.core.processing.continuous_space import ProcessingCoordinates
-        from auralis.core.processing.parameter_generator import (
-            ContinuousParameterGenerator,
-        )
-
-        gen = ContinuousParameterGenerator()
         produced = [
             _fixed_target_params(),
-            gen.generate_parameters(
-                ProcessingCoordinates(
-                    spectral_balance=0.2, dynamic_range=0.8,
-                    fingerprint=FINGERPRINT_25D,
-                )
-            ),
+            _fingerprint_params(),
+            _fingerprint_params({**FINGERPRINT_25D, 'lufs': -30.0, 'crest_db': 20.0}),
         ]
 
         for params in produced:

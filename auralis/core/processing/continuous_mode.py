@@ -16,7 +16,6 @@ done with those parameters lives alongside it (#4254) --
 the guard knees, and ``fixed_target_params.py`` the fixed-targets conversion.
 """
 
-import dataclasses
 from typing import Any
 
 import numpy as np
@@ -24,14 +23,13 @@ import numpy as np
 from auralis.analysis.fingerprint import fingerprint_preloaded
 from auralis.core.analysis import ContentAnalyzer
 
-from ...dsp.utils.adaptive import calculate_loudness_units, proxy_to_k_offset_db
+from ...dsp.utils.adaptive import calculate_loudness_units
 from ...utils.logging import debug
-from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from .continuous_space import ProcessingSpaceMapper
 from .continuous_space_types import ProcessingParameters
 from .continuous_stages import ContinuousStagesMixin
 from .fixed_target_params import convert_targets_to_parameters
-from .parameter_generator import ContinuousParameterGenerator
+from .mastering_targets import generate_targets_from_fingerprint
 from .reference_cloud import ReferenceCloud
 
 
@@ -39,9 +37,10 @@ class ContinuousMode(ContinuousStagesMixin):
     """
     Continuous space processing mode - intelligent mastering using fingerprints.
 
-    Instead of discrete presets, this mode maps the audio's 25D fingerprint
-    to a continuous 3D processing space and generates optimal parameters
-    for that specific position.
+    Instead of discrete presets, this mode fingerprints the audio it is given
+    and derives its parameters with the same targets law as the streaming fixed
+    targets (``mastering_targets``), pulling the EQ toward the reference cloud's
+    soft k-NN target when one exists. Fixed targets skip the fingerprint.
     """
 
     def __init__(
@@ -75,7 +74,6 @@ class ContinuousMode(ContinuousStagesMixin):
 
         # Initialize continuous space components
         self.space_mapper = ProcessingSpaceMapper()
-        self.param_generator = ContinuousParameterGenerator()
 
         # Store last fingerprint and parameters for debugging/learning
         self.last_fingerprint = None
@@ -107,7 +105,7 @@ class ContinuousMode(ContinuousStagesMixin):
         """
         debug("Applying continuous space processing")
         input_lufs = calculate_loudness_units(target_audio, self.config.internal_sample_rate)
-        params = self._resolve_parameters(target_audio, fixed_params, input_lufs)
+        params = self._resolve_parameters(target_audio, fixed_params)
         if params is None:
             return target_audio.copy()
         # Never bound here: a local would pin this copy through every stage (#6717).
@@ -116,12 +114,12 @@ class ContinuousMode(ContinuousStagesMixin):
     def _resolve_parameters(
         self,
         processed_audio: np.ndarray,
-        fixed_params: dict[str, Any] | None, input_lufs: float | None = None,
+        fixed_params: dict[str, Any] | None,
     ) -> Any:
         """Resolve processing parameters from fixed params or fingerprint.
 
         Fast path: convert ``fixed_params`` dict directly (8× faster, no fingerprint).
-        Fingerprint path: extract 25D fingerprint → map coordinates → generate params.
+        Fingerprint path: extract 25D fingerprint → k-NN band centers → targets → params.
         Returns the resolved ``ProcessingParameters``, or ``None`` when the audio is too
         short to fingerprint (skip, return the copy). An engine failure raises
         ``FingerprintUnavailable`` instead of bypassing silently as success (#6107).
@@ -145,31 +143,22 @@ class ContinuousMode(ContinuousStagesMixin):
 
         debug(f"[Continuous Space] Fingerprint extracted: Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
 
-        # Step 2: Map to 3D processing space
+        # Step 2: Map to the processing space. The coordinates are telemetry for
+        # the processing-parameters endpoint; no parameter is derived from them.
         coords = self.space_mapper.map_fingerprint_to_space(fingerprint)
         self.last_coordinates = coords
         debug(f"[Continuous Space] Coordinates: {coords}")
 
-        # Step 3: Derive a continuous target spectrum from the reference
-        # cloud (Phase 4). If no cloud is available (no repository, or
-        # nothing flagged is_reference yet), target_spectrum is None and
-        # generate_parameters falls back to the legacy deficit-based curve.
-        target_spectrum = self.reference_cloud.target_spectrum(fingerprint)
+        # Step 3: The band centers to pull toward -- the soft k-NN target from the
+        # reference cloud, or the corpus centers when there is no cloud yet.
+        band_centers = self.reference_cloud.band_centers(fingerprint)
 
-        # Step 4: Generate processing parameters
-        params = self.param_generator.generate_parameters(coords, target_spectrum=target_spectrum)
-
-        # #5700: target_lufs was built on the fingerprint's RMS-proxy scale but the
-        # final normalisation chases it with the K-weighted meter, which reads ~3-4 dB
-        # higher, so the realised gain was `lift - offset` and loud masters were
-        # attenuated. Express the target on the meter's scale with the offset measured
-        # on THIS chunk (the fixed-target path keeps both on the proxy scale).
-        k_offset = proxy_to_k_offset_db(
-            processed_audio,
-            FingerprintUnpacker.from_dict(fingerprint).lufs,
-            self.config.internal_sample_rate, measured_lufs=input_lufs,
-        )
-        params = dataclasses.replace(params, target_lufs=params.target_lufs + k_offset)
+        # Step 4: The same targets law the streaming fixed targets come from, so a
+        # whole-file job and a stream of the same audio are mastered alike (#6356).
+        # source_lufs and target_lufs are both on the fingerprint's scale, and final
+        # normalisation applies only their difference.
+        targets = generate_targets_from_fingerprint(fingerprint, band_centers)
+        params = convert_targets_to_parameters(targets)
         self.last_parameters = params
-        debug(f"[Continuous Space] Parameters: {params} (K-scale offset {k_offset:+.2f} dB)")
+        debug(f"[Continuous Space] Parameters: {params}")
         return params

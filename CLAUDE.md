@@ -244,8 +244,9 @@ Cached chunk files are 16-bit PCM WAV, not float32.
    Prose deferrals are invisible to any marker sweep, so `/audit-tech-debt` has
    to fall back to a high-recall prose grep that cannot distinguish a deferral
    from an ordinary sentence (#4564). Genuine marker debt in shipped code —
-   `auralis/`, `auralis-web/`, `vendor/` — is **3** (2026-11-21: #5484,
-   #5098, #6356 — the last two were prose deferrals until #6599/#6600),
+   `auralis/`, `auralis-web/`, `vendor/` — is **3** (2026-11-23: #5484,
+   #5098, #6721 — #5098 and the air-band deferral were prose until
+   #6599/#6600; #6356 merged the EQ laws and handed that marker to #6721),
    each citing an OPEN issue; `tests/` holds **0** (2026-11-22: the two #6715
    markers went with the 1-hour processing tests they skipped). A
    marker citing a closed issue is itself a finding (the `TODO(#5537)` in

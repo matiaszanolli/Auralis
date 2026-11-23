@@ -24,7 +24,7 @@ from auralis.analysis.fingerprint.schema import (
     rolloff_to_hz,
 )
 from auralis.core.processing.continuous_space import ProcessingSpaceMapper
-from auralis.core.processing.parameter_generator import ContinuousParameterGenerator
+from auralis.core.processing.parameter_generator_eq import eq_curve_from_fingerprint
 from auralis.core.recording_type_detector import RecordingType, RecordingTypeDetector
 
 
@@ -144,35 +144,29 @@ def test_spectral_axis_varies_with_source_brightness():
 
 
 # ---------------------------------------------------------------------------
-# EQ generator must vary
+# EQ law must vary
 # ---------------------------------------------------------------------------
 
 def test_eq_curve_varies_with_source_brightness():
     """Pre-fix: every source got ≈ +4 dB low_shelf and ≈ +3 dB high_shelf.
     Post-fix: dark sources get more lift, bright sources get less (or none)."""
-    mapper = ProcessingSpaceMapper()
-    generator = ContinuousParameterGenerator()
-
-    dark_coords = mapper.map_fingerprint_to_space(_fp(
+    dark = eq_curve_from_fingerprint(_fp(
         bass_pct=0.45, air_pct=0.02, presence_pct=0.02, mid_pct=0.20,
     ))
-    bright_coords = mapper.map_fingerprint_to_space(_fp(
+    bright = eq_curve_from_fingerprint(_fp(
         bass_pct=0.10, air_pct=0.20, presence_pct=0.18, mid_pct=0.30,
     ))
 
-    dark_params = generator.generate_parameters(dark_coords)
-    bright_params = generator.generate_parameters(bright_coords)
-
     # Signed corrections vary continuously around corpus centers.
-    assert abs(dark_params.eq_curve['low_shelf_gain']) < 0.1
-    assert bright_params.eq_curve['low_shelf_gain'] > 1.5
+    assert abs(dark['low_shelf_gain']) < 0.1
+    assert bright['low_shelf_gain'] > 1.5
 
     # The high shelf no longer follows the air share (unmeasurable above the
     # fingerprint's 11 kHz Nyquist): dark and bright sources get the same shelf.
-    assert dark_params.eq_curve['high_shelf_gain'] == bright_params.eq_curve['high_shelf_gain'] == 0.0
+    assert dark['high_shelf_gain'] == bright['high_shelf_gain'] == 0.0
 
     # The low shelf still differs between them.
-    assert dark_params.eq_curve['low_shelf_gain'] != bright_params.eq_curve['low_shelf_gain']
+    assert dark['low_shelf_gain'] != bright['low_shelf_gain']
 
 
 # ---------------------------------------------------------------------------

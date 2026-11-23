@@ -15,9 +15,8 @@ from dataclasses import dataclass
 @dataclass
 class ProcessingCoordinates:
     """
-    Position in 3D processing space.
-
-    The processing space has two axes derived from the 25D fingerprint:
+    Position in the 2D processing space: telemetry in the app (no parameter is
+    derived from it), read by the offline CLI. Two axes from the 25D fingerprint:
     - Spectral Balance: relative high-band to low-band energy
     - Dynamic Range: short-term peak/RMS and loudness variation
     """
@@ -36,7 +35,7 @@ class ProcessingParameters:
     """
     Complete set of DSP processing parameters.
 
-    Generated from processing space coordinates. Every field is read by a ContinuousMode stage
+    Built from mastering targets (``convert_targets_to_parameters``). Every field is read by a ContinuousMode stage
     (pinned by tests/auralis/core/test_processing_parameters_have_readers_5576.py); fields that
     no stage read were deleted rather than kept for display (#6650).
     """

@@ -1,21 +1,32 @@
 """
-Mastering-target derivation from a 25D fingerprint (split from
-mastering_target_service.py, #5833). Pure functions of the fingerprint.
+Mastering Targets
+~~~~~~~~~~~~~~~~~
+
+The one law that turns a 25D fingerprint into mastering targets (loudness plan,
+EQ curve, compression), for every render path: streaming fixed targets
+(``MasteringTargetService``), whole-file jobs and the per-chunk fallback
+(``ContinuousMode``). Each path differs only in what audio was fingerprinted and
+whether a reference cloud supplied the band centers, never in the arithmetic.
+
+Moved here from the backend's ``mastering_target_generation.py`` (split from
+``mastering_target_service.py``, #5833) so the engine can use it too.
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
 import math
-
-from auralis.dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB
-from auralis.dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB
-from auralis.core.processing.parameter_generator_eq import eq_curve_from_fingerprint
-from auralis.core.utils import fingerprint_default
+from collections.abc import Mapping
 from typing import Any
 
-from auralis.dsp.constants import CORPUS_BAND_CENTERS
-from auralis.dsp.utils.loudness_targets import DEFAULT_TARGET_LUFS, STREAMING_TARGET_LUFS
+from ...dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB
+from ...dsp.utils.loudness_targets import (
+    DEFAULT_TARGET_LUFS,
+    OUTPUT_PEAK_CEILING_DB,
+    STREAMING_TARGET_LUFS,
+)
+from ..utils import fingerprint_default
+from .parameter_generator_eq import eq_curve_from_fingerprint
 
 # The fingerprint's `lufs` is a K-weighted-style RMS proxy: 20*log10(rms) - 0.691.
 # Adding the offset back to `lufs + crest_db` recovers the peak of the MONO MIX in dBFS.
@@ -32,21 +43,21 @@ _MAX_CHANNEL_PEAK_OFFSET_DB = 6.02
 CREST_BUDGET_DB = 0.5
 
 
-def generate_targets_from_fingerprint(fingerprint: dict[str, float]) -> dict[str, Any]:
-    """
-    Generate mastering targets from 25D fingerprint.
-
-    Consolidates logic from chunked_processor._generate_targets_from_fingerprint().
-
-    This converts acoustic characteristics into processing parameters.
-    Targets remain fixed for the entire track, enabling fast processing.
+def generate_targets_from_fingerprint(
+    fingerprint: Mapping[str, float],
+    band_centers: Mapping[str, float] | None = None,
+) -> dict[str, Any]:
+    """Mastering targets for a fingerprint, fixed for everything that fingerprint describes.
 
     Args:
         fingerprint: the flat 25-key fingerprint dict that every tier of
-            fingerprint_loading returns (#5938, #6687)
+            fingerprint_loading returns (#5938, #6687), or ContinuousMode's own.
+        band_centers: The band shares the EQ pulls toward, keyed like
+            ``CORPUS_BAND_CENTERS`` -- the soft k-NN target from the reference
+            cloud (``band_centers_from_target``). None means the corpus centers.
 
     Returns:
-        Dictionary of mastering targets
+        Dictionary of mastering targets (see ``convert_targets_to_parameters``).
     """
     # Target loudness: nudge toward streaming standard (-14 LUFS) while
     # preserving the track's original loudness character (fixes #2726).
@@ -56,14 +67,6 @@ def generate_targets_from_fingerprint(fingerprint: dict[str, float]) -> dict[str
         current_lufs, current_crest, fingerprint.get('phase_correlation', 1.0)
     )
 
-    # One EQ law for both render paths: what a track's band balance needs, as the
-    # per-chunk path computes it. A band missing from the fingerprint falls back
-    # to its own corpus center (no correction).
-    shares = {
-        f'{band}_pct': fingerprint.get(f'{band}_pct', center)
-        for band, center in CORPUS_BAND_CENTERS.items()
-    }
-
     return {
         'target_lufs': target_lufs,
         # Track-level source loudness (fingerprint scale). Final
@@ -72,7 +75,7 @@ def generate_targets_from_fingerprint(fingerprint: dict[str, float]) -> dict[str
         # level (#5552).
         'source_lufs': current_lufs,
         'target_crest_db': target_crest,
-        'eq_curve_db': eq_curve_from_fingerprint(shares),
+        'eq_curve_db': eq_curve_from_fingerprint(fingerprint, band_centers),
         # The offline "compression" is a soft-clip waveshaper blended in at `amount`:
         # it shaves every chunk's peaks (crest down ~0.5 dB, plus clipping
         # distortion), on masters with 13-21 dB crest and on a brick-walled one

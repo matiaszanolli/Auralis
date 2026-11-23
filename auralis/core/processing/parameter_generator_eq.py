@@ -1,31 +1,27 @@
 """
-EQ-Family Parameter Generation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+EQ Law
+~~~~~~
 
-Frequency-curve parameter generation for the continuous processing space:
-the legacy deficit-based curve and the delta-from-target curve, plus the
-EQ blend factor.
+The single law for "what this track's tonal balance needs": five EQ gains from a
+fingerprint's band shares and the band centers they are pulled toward.
 
-Split out of ``parameter_generator.py`` (#4511) so each parameter family
-lives in its own module behind the ``ContinuousParameterGenerator`` facade.
-Pure functions of their inputs — no state, no behavior change from the
-original methods they replace.
+Every render path calls ``eq_curve_from_fingerprint`` through
+``mastering_targets.generate_targets_from_fingerprint`` -- streaming fixed
+targets, whole-file jobs and the per-chunk fallback -- so no two paths can tone
+the same fingerprint differently. The centers are the corpus centers, or the soft
+k-NN target when a reference cloud exists. A second band-to-gain law used to run
+on the reference-cloud path (``delta_eq``) and put air-share correction back on
+the high shelf this one deliberately leaves flat (#6356).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from collections.abc import Mapping
+
 import numpy as np
 
 from ...dsp.constants import CORPUS_BAND_CENTERS
-from .continuous_space_types import ProcessingCoordinates
-
-# Corpus-calibrated band centers live in dsp/constants.CORPUS_BAND_CENTERS —
-# the single table shared with the fixed-target path (#5695). When a band is
-# missing the fallback is its own center, i.e. a zero correction --
-# deliberately not the FingerprintUnpacker typical-track default.
-_LOW_MID_CENTER = CORPUS_BAND_CENTERS['low_mid']
-_UPPER_MID_CENTER = CORPUS_BAND_CENTERS['upper_mid']
 
 
 def _signed_band_gain(
@@ -42,26 +38,40 @@ def _signed_band_gain(
     return float(limit_db * np.tanh(delta_db / transition_db))
 
 
-def _band_gains(fp: dict[str, float]) -> dict[str, float]:
+def band_centers_from_target(target: Mapping[str, float] | None) -> dict[str, float]:
+    """``CORPUS_BAND_CENTERS``-keyed centers from a k-NN target's ``*_pct`` shares.
+
+    A band the target does not carry keeps its corpus center; None (no cloud)
+    gives the corpus centers themselves.
+    """
+    if not target:
+        return dict(CORPUS_BAND_CENTERS)
+    return {
+        band: float(target.get(f'{band}_pct', center))
+        for band, center in CORPUS_BAND_CENTERS.items()
+    }
+
+
+def _band_gains(fp: Mapping[str, float], centers: Mapping[str, float]) -> dict[str, float]:
     """Raw signed gain per EQ band (dB) from a fingerprint's band shares.
 
-    Robust centers from the deterministic 512-track corpus sample. They define the
-    origin of a signed continuous correction, not an ideal profile or a pass/fail
-    range. ``tanh`` approaches the DSP envelope smoothly instead of clipping bands
-    into deficit/excess classes.
+    The centers are the origin of a signed continuous correction, not an ideal
+    profile or a pass/fail range. ``tanh`` approaches the DSP envelope smoothly
+    instead of clipping bands into deficit/excess classes. A band missing from
+    the fingerprint sits at its own center, i.e. gets no correction.
     """
-    high_mid_source = fp.get('upper_mid_pct', _UPPER_MID_CENTER) + fp['presence_pct']
+    def share(band: str) -> float:
+        return float(fp.get(f'{band}_pct', centers[band]))
+
     return {
-        'low_shelf_gain': _signed_band_gain(fp['bass_pct'], CORPUS_BAND_CENTERS['bass'], 4.0),
-        'low_mid_gain': _signed_band_gain(
-            fp.get('low_mid_pct', _LOW_MID_CENTER), _LOW_MID_CENTER, 2.0
-        ),
-        'mid_gain': _signed_band_gain(fp['mid_pct'], CORPUS_BAND_CENTERS['mid'], 2.0),
+        'low_shelf_gain': _signed_band_gain(share('bass'), centers['bass'], 4.0),
+        'low_mid_gain': _signed_band_gain(share('low_mid'), centers['low_mid'], 2.0),
+        'mid_gain': _signed_band_gain(share('mid'), centers['mid'], 2.0),
+        # One combined band: the corpus pins its center for the SUM of the two
+        # (presence alone has no separate measurement).
         'high_mid_gain': _signed_band_gain(
-            high_mid_source,
-            # Combined center: the corpus pins 0.1030 for the SUM of the two
-            # bands (presence alone has no separate measurement).
-            CORPUS_BAND_CENTERS['upper_mid'] + CORPUS_BAND_CENTERS['presence'],
+            share('upper_mid') + share('presence'),
+            centers['upper_mid'] + centers['presence'],
             3.0,
         ),
         # No correction is derived from the air share. The fingerprint analyses at
@@ -69,8 +79,9 @@ def _band_gains(fp: dict[str, float]) -> dict[str, float]:
         # corpus center comes from the same truncated spectrum. On six reference
         # records it was the largest remaining EQ move on excellent masters (+1.8 dB
         # on one, +2.5 dB on another) and the cause of every remaining bench miss.
-        # TODO(#6356): revisit once the fingerprint measures above 11 kHz; #6356 owns
-        # the air-band behaviour, including the reference-cloud path's own air correction.
+        # It stays flat with a reference-cloud target too: the references' air
+        # shares are truncated the same way.
+        # TODO(#6721): derive it once the fingerprint measures above 11 kHz.
         'high_shelf_gain': 0.0,
     }
 
@@ -89,94 +100,15 @@ def _saturate(gains: dict[str, float]) -> dict[str, float]:
     }
 
 
-def eq_curve_from_fingerprint(fp: dict[str, float]) -> dict[str, float]:
+def eq_curve_from_fingerprint(
+    fp: Mapping[str, float],
+    centers: Mapping[str, float] | None = None,
+) -> dict[str, float]:
     """The five EQ gains (dB) for a track.
 
-    The single law for "what this track's tonal balance needs": the per-chunk path
-    (``generate_eq_curve``) and the fixed-target path the app streams with
-    (``mastering_target_generation``) both use it, so the two cannot disagree about
-    the same fingerprint.
-    """
-    return _saturate(_band_gains(fp))
-
-
-def generate_eq_curve(coords: ProcessingCoordinates) -> dict[str, float]:
-    """
-    Generate frequency-specific EQ adjustments.
-
-    Strategy:
-    - Analyze what's missing (bass deficit, air deficit)
-    - Boost deficits to bring balance
-    - Use actual frequency percentages from fingerprint
-
     Args:
-        coords: Processing space coordinates
-
-    Returns:
-        Dictionary with EQ curve parameters
+        fp: The track's fingerprint (only the ``*_pct`` band shares are read).
+        centers: Band shares to pull toward, keyed like ``CORPUS_BAND_CENTERS``;
+            None means the corpus centers.
     """
-    return {
-        # Gains (dB)
-        **eq_curve_from_fingerprint(coords.fingerprint),
-
-        # Frequencies (Hz)
-        'low_shelf_freq': 200,
-        'low_mid_freq': 500,
-        'mid_freq': 1500,
-        'high_mid_freq': 4000,
-        'high_shelf_freq': 8000,
-    }
-
-
-def generate_eq_curve_from_target(
-    coords: ProcessingCoordinates,
-    target_spectrum: dict[str, float],
-) -> dict[str, float]:
-    """Compute the 5-shelf curve via delta-from-target (Phase 4).
-
-    Replaces the deficit-based math when the mastering pipeline has a
-    reference cloud and was able to derive a target. Symmetric (can cut),
-    capped per-band, smoothly saturated via tanh — see delta_eq.py.
-    """
-    from .delta_eq import compute_delta_eq, to_eq_curve
-
-    delta_result = compute_delta_eq(coords.fingerprint, target_spectrum)
-    curve = to_eq_curve(delta_result)
-
-    # Re-clamp to the existing ProcessingParameters envelope so
-    # downstream EQProcessor sees values it expects.
-    curve['low_shelf_gain']  = float(np.clip(curve['low_shelf_gain'],  -5.0, 5.0))
-    curve['low_mid_gain']    = float(np.clip(curve['low_mid_gain'],    -3.0, 3.0))
-    curve['mid_gain']        = float(np.clip(curve['mid_gain'],        -2.0, 2.0))
-    curve['high_mid_gain']   = float(np.clip(curve['high_mid_gain'],   -4.0, 4.0))
-    curve['high_shelf_gain'] = float(np.clip(curve['high_shelf_gain'], -4.0, 4.0))
-
-    return curve
-
-
-def calculate_eq_blend(coords: ProcessingCoordinates) -> float:
-    """
-    Calculate how much EQ to apply.
-
-    Strategy:
-    - Unbalanced material: More EQ (blend closer to 1.0)
-    - Already balanced: Less EQ (blend closer to 0.5)
-
-    Args:
-        coords: Processing space coordinates
-
-    Returns:
-        EQ blend factor (0.0 to 1.0)
-    """
-    fp = coords.fingerprint
-
-    epsilon = 1e-8
-    deviations = (
-        abs(np.log((fp['bass_pct'] + epsilon) / CORPUS_BAND_CENTERS['bass'])),
-        abs(np.log((fp['air_pct'] + epsilon) / CORPUS_BAND_CENTERS['air'])),
-        abs(np.log((fp['mid_pct'] + epsilon) / CORPUS_BAND_CENTERS['mid'])),
-    )
-    mean_deviation = float(np.mean(deviations))
-    eq_blend = 0.35 + 0.55 * (1.0 - np.exp(-mean_deviation))
-
-    return float(eq_blend)
+    return _saturate(_band_gains(fp, centers if centers is not None else CORPUS_BAND_CENTERS))

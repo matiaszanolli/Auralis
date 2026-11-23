@@ -8,8 +8,11 @@ Pins three contracts that together represent "the user's complaint is fixed":
      curve because the unit-mismatch bug collapsed the continuous space.
 
   2. A bright source gets LESS HF boost than a dark source — the pipeline
-     reads the reference cloud and corrects asymmetrically. The legacy
-     deficit math could only boost; the delta-from-target math can also cut.
+     reads the reference cloud and corrects in both directions. The legacy
+     deficit math could only boost; the signed EQ law can also cut. The HF
+     band it corrects is high-mid (upper-mid + presence): the high shelf stays
+     flat on every path until the fingerprint measures above 11 kHz (#6356,
+     #6721).
 
   3. HF transient crest factor is preserved through the safety limiter
      (within ~1 dB) — no wideband-limiter "crush" on cymbals/sibilance.
@@ -176,22 +179,24 @@ def test_bright_source_gets_less_hf_boost_than_dark_source(config):
     dark_eq = _process(_dark_audio(), config, cloud=cloud).last_parameters.eq_curve
 
     # Dark source must request more HF lift than bright source.
-    assert dark_eq['high_shelf_gain'] > bright_eq['high_shelf_gain'], (
-        f"Dark source HF lift ({dark_eq['high_shelf_gain']:+.2f}) must exceed "
-        f"bright source HF lift ({bright_eq['high_shelf_gain']:+.2f}) — "
+    assert dark_eq['high_mid_gain'] > bright_eq['high_mid_gain'], (
+        f"Dark source HF lift ({dark_eq['high_mid_gain']:+.2f}) must exceed "
+        f"bright source HF lift ({bright_eq['high_mid_gain']:+.2f}) — "
         f"content-awareness regression"
     )
+    # The shelf is not where that happens: the air share drives no correction.
+    assert dark_eq['high_shelf_gain'] == bright_eq['high_shelf_gain'] == 0.0
 
 
 def test_bass_heavy_source_can_get_bass_cut(config):
-    """Delta-from-target must produce NEGATIVE gain on bands where the
+    """The signed EQ law must produce NEGATIVE gain on bands where the
     source exceeds the cloud's target. Legacy deficit path was clipped
     at >= 0 so this would have been impossible."""
     cloud = _balanced_cloud()
     dark_eq = _process(_dark_audio(), config, cloud=cloud).last_parameters.eq_curve
 
     # Dark source has bass_pct ≈ 0.60-0.80 vs cloud average bass_pct ≈ 0.22.
-    # Delta math should produce a low_shelf CUT.
+    # The EQ law should produce a low_shelf CUT.
     assert dark_eq['low_shelf_gain'] < 0, (
         f"Bass-heavy source must get bass cut, got {dark_eq['low_shelf_gain']:+.2f} dB"
     )

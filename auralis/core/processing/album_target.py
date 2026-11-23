@@ -19,11 +19,12 @@ hand the cloud a source that no track actually sounds like; matching per track
 keeps each track's own character in the interpolation and unifies only where
 they are all headed.
 
-What this unifies is the DESTINATION, not the EQ curve. `delta_eq` computes a
-symmetric delta from (source, target), so tracks starting from different places
-still receive different curves — that is the mechanism by which they converge,
-not a bug. Per-track dynamics, loudness and stereo width are untouched: only the
-target spectrum is shared.
+What this unifies is the DESTINATION, not the EQ curve. The EQ law
+(`parameter_generator_eq.eq_curve_from_fingerprint`) computes a signed gain from
+(source, centers), so tracks starting from different places still receive
+different curves — that is the mechanism by which they converge, not a bug.
+Per-track dynamics, loudness and stereo width are untouched: only the target
+spectrum is shared.
 """
 
 from collections.abc import Mapping, Sequence
