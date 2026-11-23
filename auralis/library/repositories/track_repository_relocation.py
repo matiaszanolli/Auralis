@@ -47,10 +47,17 @@ class TrackRepositoryRelocationMixin(BaseRepository):
         Returns:
             The relocated track, or None when *filepath* is not a moved file
             (no or several candidates, or no size/duration to match on).
+
+        Raises:
+            A database failure propagates (#6569). It used to be swallowed into
+            None, which the scanner reads as 'not a moved file': it added a twin
+            at the new path, and the post-scan prune then deleted the original
+            row with its playlists, favourite and play count. The scanner now
+            reports the file as failed and retries it on the next scan.
         """
         if not filesize or duration is None:
             return None
-        with self._guarded("Failed to relocate moved track") as session:
+        with self._session_scope() as session:
             rows = session.execute(
                 select(Track.id, Track.filepath).where(
                     Track.filesize == filesize,
@@ -71,4 +78,3 @@ class TrackRepositoryRelocationMixin(BaseRepository):
             session.commit()
             info(f"Relocated moved file for track {moved[0].id}: {Path(filepath).name}")
             return _reload_detached(session, Track.id == moved[0].id)
-        return None

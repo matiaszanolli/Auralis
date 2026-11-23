@@ -95,12 +95,20 @@ class ScanResult:
     # Set when the scan aborted on an unexpected exception (#5877); the
     # emitters then send library_scan_error instead of scan_complete.
     error: str | None = None
+    # New paths whose moved-file check failed (#6569). Each may be an existing
+    # row's file under a new name, so that row must not be pruned on this scan.
+    unresolved_moves: int = 0
 
     def record_failure(self, filepath: str, reason: str) -> None:
         """Count a failed file, retaining its path/reason up to the cap (#4841)."""
         self.files_failed += 1
         if len(self.failures) < MAX_RECORDED_FAILURES:
             self.failures.append(ScanFailure(filepath=filepath, reason=reason))
+
+    def record_unresolved_move(self, filepath: str, reason: str) -> None:
+        """A failed file that may be a moved track: also holds back this scan's prune (#6569)."""
+        self.record_failure(filepath, reason)
+        self.unresolved_moves += 1
 
     def record_directory_error(self, path: str, reason: str) -> None:
         """Record an unreadable folder once (the walk can run twice, #4840)."""
@@ -122,6 +130,15 @@ class ScanResult:
         """Every folder was read. When False, a file that looks missing may only
         be unreachable, so callers must not prune tracks on this scan (#5877)."""
         return not self.directory_errors and self.error is None
+
+    @property
+    def prune_safe(self) -> bool:
+        """Missing-track pruning may run after this scan: every folder was read
+        (walk_complete) and every new path was checked for being a moved file. A
+        failed check (#6569) leaves the old row's file looking missing; pruning
+        it would delete the playlists, favourite and play count a later scan
+        could still relocate."""
+        return self.walk_complete and not self.unresolved_moves
 
     def __str__(self) -> str:
         return (f"Scan Results: {self.files_found} found, {self.files_added} added, "

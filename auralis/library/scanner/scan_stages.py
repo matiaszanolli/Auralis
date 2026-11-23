@@ -203,16 +203,16 @@ class BatchFeeder:
         result.files_updated += batch_result.files_updated
         result.files_skipped += batch_result.files_skipped
         result.files_failed += batch_result.files_failed
+        result.unresolved_moves += batch_result.unresolved_moves  # holds back the prune (#6569)
         # #4841: carry the per-file failures up too, still capped, so
         # the caller can name the files instead of only counting them.
         if batch_result.failures:
             room = MAX_RECORDED_FAILURES - len(result.failures)
             if room > 0:
                 result.failures.extend(batch_result.failures[:room])
-        # Accumulate added tracks so the async caller can enqueue
-        # fingerprints in the event loop after to_thread() returns.
-        # asyncio.create_task() cannot be called from this worker
-        # thread — it raises RuntimeError: no running event loop (#2382).
+        # Accumulate added tracks so the async caller enqueues fingerprints in the event
+        # loop after to_thread() returns: asyncio.create_task() cannot be called from
+        # this worker thread (RuntimeError: no running event loop, #2382).
         result.added_tracks.extend(batch_result.added_tracks)
         result.updated_tracks.extend(batch_result.updated_tracks)
         self._report({

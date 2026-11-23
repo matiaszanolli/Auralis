@@ -33,17 +33,18 @@ async def publish_scan_result(connection_manager: Any, library_database: Any, re
     ``scan_complete`` (useScanProgress counts a removal frame only while the
     scan is in progress); the count feeds the library_updated condition
     (#5515). Not when a folder could not be read: its files look missing
-    (an unplugged drive, a permission-denied album) and would be deleted.
+    (an unplugged drive, a permission-denied album) and would be deleted, nor
+    when a moved-file check failed (#6569): that track's old row looks missing too.
     """
     if result.error:
         await broadcast_scan_error(connection_manager, result.error)
         return
     await enqueue_scanned_for_fingerprinting(result)
     removed = 0
-    if result.walk_complete:
+    if result.prune_safe:
         removed = await prune_missing_tracks(library_database, connection_manager)
     else:
-        logger.warning("Scan could not read every folder; skipping missing-track pruning")
+        logger.warning("Scan could not read every folder or check every moved file; skipping missing-track pruning")
     await broadcast_scan_complete(connection_manager, result, removed)
 
 

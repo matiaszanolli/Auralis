@@ -86,6 +86,8 @@ class BatchProcessor:
                         result.updated_tracks.append(ScannedTrackRef(track_record.id))
                 elif file_result == 'skipped':
                     result.files_skipped += 1
+                elif file_result == 'unresolved_move':
+                    result.record_unresolved_move(file_path, reason or 'Moved-file check failed')
                 else:  # failed
                     # #4841: keep the path and reason, not just a tally.
                     result.record_failure(file_path, reason or 'Unknown error')
@@ -157,9 +159,10 @@ class BatchProcessor:
 
         Returns:
             Tuple of (status, track_record, reason) where status is 'added',
-            'updated', 'skipped', or 'failed'; track_record is the Track object
-            if newly added or updated (#5719), None otherwise; and reason explains a 'failed'
-            status and is None for every other status (#4841 — the caller used
+            'updated', 'skipped', 'failed', or 'unresolved_move' (a failed file whose
+            moved-file check raised, #6569); track_record is the Track object
+            if newly added or updated (#5719), None otherwise; and reason explains a
+            failure and is None for every other status (#4841 — the caller used
             to receive a bare 'failed' with nothing to tell the user).
         """
         try:
@@ -220,9 +223,15 @@ class BatchProcessor:
                 # A path new to the library may be a moved/renamed file: keep
                 # that row (id, playlists, favorite, play count, fingerprint)
                 # instead of adding a twin the post-scan prune then orphans (#5880).
-                moved = tracks_repo.relocate_missing_track(
-                    file_path, track_info.get('filesize'), track_info.get('duration')
-                )
+                try:
+                    moved = tracks_repo.relocate_missing_track(
+                        file_path, track_info.get('filesize'), track_info.get('duration')
+                    )
+                except Exception as e:
+                    # Not 'not moved': adding here would make a twin of a row the
+                    # post-scan prune then deletes with its user data (#6569).
+                    warning(f"Moved-file check failed for {file_path}: {e}")
+                    return 'unresolved_move', None, f"Could not check for a moved file: {e}"
                 if moved:
                     return 'updated', tracks_repo.update_by_filepath(file_path, track_info, replace_tags=True) or moved, None
             # Add new track

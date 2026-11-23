@@ -231,7 +231,7 @@ class LibraryAutoScanner(WatchdogMixin):
         # manual scan route, #5458) — unless a folder was unreadable: a
         # configured folder on an unplugged drive would lose every track (#5877).
         removed = 0
-        if scan_result.walk_complete:
+        if scan_result.prune_safe:  # also held back by a failed moved-file check (#6569)
             removed = await prune_missing_tracks(self._library_database, self._connection_manager)
 
         # Shared with the manual route, so an update-only rescan refreshes the views too (#6574).
