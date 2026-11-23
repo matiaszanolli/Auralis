@@ -19,12 +19,13 @@ anything else is converted once to a temp WAV held in the shared
 import threading
 from pathlib import Path
 
+from core.chunk_stream_state import ChunkCancelledError
 from core.converted_wav_registry import ConversionKey, ConvertedWavRegistry, converted_wavs
 from core.seekable_probe import can_seek_natively
 
 
-class SeekableSourceClosed(RuntimeError):
-    """`SeekableSource.close()` ran while a `resolve()` was still converting."""
+class SeekableSourceClosed(ChunkCancelledError):
+    """`resolve()` after or during `close()`: the stream is gone, so a cancel, not a failure (#6545)."""
 
 
 class SeekableSource:
@@ -40,11 +41,11 @@ class SeekableSource:
         self._registry = registry if registry is not None else converted_wavs
         self._resolved: str | None = None
         self._key: ConversionKey | None = None
-        # resolve() converts in a worker thread while close() may run from the
-        # cancelled stream's finally. `_epoch` lets close() invalidate an
-        # in-flight resolve so the late acquire releases itself (#5946).
+        # resolve() converts in a worker thread while close() may run from the cancelled
+        # stream's finally. close() is terminal: an in-flight resolve releases its late
+        # acquire (#5946), and one that starts afterwards acquires nothing (#6545).
         self._state_lock = threading.Lock()
-        self._epoch = 0
+        self._closed = False
 
     @property
     def converted(self) -> bool:
@@ -59,16 +60,15 @@ class SeekableSource:
         """
         if self._resolved is not None:
             return self._resolved
+        if self._closed:
+            raise SeekableSourceClosed(f"{Path(self._filepath).name} was closed")
 
         if can_seek_natively(self._filepath):
             self._resolved = self._filepath
             return self._resolved
 
-        with self._state_lock:
-            epoch = self._epoch
         key, path = self._registry.acquire(self._filepath)
-
-        superseded, redundant, path = self._install(epoch, key, path)
+        superseded, redundant, path = self._install(key, path)
         if superseded:
             self._registry.release(key)
             raise SeekableSourceClosed(f"closed while converting {Path(self._filepath).name}")
@@ -76,16 +76,16 @@ class SeekableSource:
             self._registry.release(key)
         return path
 
-    def _install(self, epoch: int, key: ConversionKey, path: str) -> tuple[bool, bool, str]:
+    def _install(self, key: ConversionKey, path: str) -> tuple[bool, bool, str]:
         """Record a finished acquire as this source's hold.
 
-        Returns ``(superseded, redundant, path)``: *superseded* when `close()`
-        ran since *epoch*, *redundant* when a concurrent `resolve()` already
+        Returns ``(superseded, redundant, path)``: *superseded* once `close()`
+        ran, *redundant* when a concurrent `resolve()` already
         installed its own hold (then *path* is theirs). Either way the caller
         releases *key*; otherwise it is now held by this source.
         """
         with self._state_lock:
-            if self._epoch != epoch:
+            if self._closed:
                 return True, False, path
             if self._key is not None and self._resolved is not None:
                 return False, True, self._resolved
@@ -95,11 +95,11 @@ class SeekableSource:
     def close(self) -> None:
         """Release the conversion this source holds, if any. Safe to call twice.
 
-        Also invalidates a `resolve()` that is still converting: its late
-        `acquire` releases itself instead of installing a hold nobody will close.
+        Terminal: a `resolve()` still converting releases its late `acquire`, and a
+        later one raises `SeekableSourceClosed` instead of taking a hold nobody closes.
         """
         with self._state_lock:
-            self._epoch += 1
+            self._closed = True
             key, self._key = self._key, None
             self._resolved = None
         if key is not None:

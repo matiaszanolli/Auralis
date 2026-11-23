@@ -153,19 +153,6 @@ class TestSeekableSourceCloseDuringResolve:
         source.close()
         assert registry.refs == 0
 
-    def test_source_is_reusable_after_close(self):
-        registry = _SlowRegistry()
-        registry.unblock.set()
-        source = self._source(registry)
-
-        with patch.object(seekable_source, "can_seek_natively", return_value=False):
-            first = source.resolve()
-            source.close()
-            second = source.resolve()
-
-        assert first != second
-        assert registry.refs == 1
-
 
 class TestStreamNormalCancelledDuringConversion:
     @pytest.mark.asyncio
