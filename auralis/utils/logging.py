@@ -12,6 +12,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 
 import logging as _stdlib_logging
 import os as _os
+import re as _re
 from collections.abc import Callable
 
 # Characters that must not reach a log line verbatim: C0 range (0x00-0x1F) except tab, DEL (0x7F)
@@ -76,6 +77,26 @@ def sanitize_log_value(value: object, max_length: int = 500) -> str:
     if not any(ch in _LOG_UNSAFE_CHARS for ch in text):
         return text  # fast path: nothing to escape
     return "".join(_escape_char(ch) if ch in _LOG_UNSAFE_CHARS else ch for ch in text)
+
+
+# An absolute path (POSIX, drive-letter or UNC) quoted inside a message, or ending it after ": ".
+_ABSOLUTE = r"(?:/|[A-Za-z]:[\\/]|\\\\)"
+_QUOTED_PATH = _re.compile(rf"'({_ABSOLUTE}[^']*)'")
+_TRAILING_PATH = _re.compile(rf"(?<=: ){_ABSOLUTE}.*$")
+
+
+def _file_name(path: str) -> str:
+    return _re.split(r"[\\/]", path.rstrip("\\/"))[-1]
+
+
+def absolute_paths_to_file_names(text: str) -> str:
+    """``text`` with every absolute path reduced to its file name, for a persisted log line (#6537).
+
+    The absolute path is the commonest thing users paste into public issues (#6189); in messages it
+    is quoted ('...', as an OSError renders it) or trailing (``reason: /path``).
+    """
+    text = _QUOTED_PATH.sub(lambda m: f"'{_file_name(m.group(1))}'", text)
+    return _TRAILING_PATH.sub(lambda m: _file_name(m.group(0)), text)
 
 
 class Code:

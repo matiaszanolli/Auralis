@@ -11,36 +11,22 @@ split from path_security.py (#6271).
 
 import functools
 import logging
-import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from auralis.utils.logging import absolute_paths_to_file_names
+
 logger = logging.getLogger(__name__)
-
-
-# An absolute path (POSIX, drive-letter or UNC) quoted inside a message, or ending it after ": ".
-_ABSOLUTE = r"(?:/|[A-Za-z]:[\\/]|\\\\)"
-_QUOTED_PATH = re.compile(rf"'({_ABSOLUTE}[^']*)'")
-_TRAILING_PATH = re.compile(rf"(?<=: ){_ABSOLUTE}.*$")
-
-
-def _file_name(path: str) -> str:
-    return re.split(r"[\\/]", path.rstrip("\\/"))[-1]
 
 
 class PathValidationError(Exception):
     """Raised when path validation fails."""
 
     def log_text(self) -> str:
-        """The message to persist at WARNING, every absolute path in it reduced to its file name.
-
-        The absolute path is the commonest thing users paste into public issues (#6189), and the
-        unreadable/not-a-directory/OS-error messages carried one as much as the missing-file ones
-        did (#6537): quoted ('...', as an OSError renders it) or trailing (``reason: /path``).
-        """
-        text = _QUOTED_PATH.sub(lambda m: f"'{_file_name(m.group(1))}'", str(self))
-        return _TRAILING_PATH.sub(lambda m: _file_name(m.group(0)), text)
+        """The message to persist at WARNING, absolute paths reduced to file names (#6189, #6537)."""
+        text: str = absolute_paths_to_file_names(str(self))
+        return text
 
 
 class PathMissingError(PathValidationError):
