@@ -32,6 +32,8 @@ import tempfile
 import time
 from pathlib import Path
 
+import numpy as np
+
 REPO = Path(__file__).resolve().parents[1]
 
 # Must happen before anything imports auralis: caches and the library resolve
@@ -41,8 +43,14 @@ os.environ["HOME"] = _HOME
 sys.path[:0] = [str(REPO), str(REPO / "auralis-web" / "backend")]
 
 
-def render(path: str, track_id: int) -> Path:
-    """Render ``path`` through the chunked adaptive path; return the full-file WAV."""
+def render(path: str, track_id: int) -> tuple[np.ndarray, int]:
+    """Render ``path`` through the chunked adaptive path; return the whole track and its rate.
+
+    Each chunk is what a stream serves (``process_chunk_safe``, level smoothing
+    included); chunks are contiguous and non-overlapping, so the track is their
+    concatenation. ``ChunkedAudioProcessor.get_full_processed_audio_path`` did
+    this until #5088 deleted it as unused; the bench is its only caller.
+    """
     from core.chunked_processor import ChunkedAudioProcessor
     from core.file_signature import FileSignatureService
     from core.mastering_target_service import get_mastering_target_service
@@ -55,7 +63,12 @@ def render(path: str, track_id: int) -> Path:
     )
     processor = ChunkedAudioProcessor(track_id=track_id, filepath=path, preset="adaptive", intensity=1.0)
     try:
-        return Path(asyncio.run(processor.get_full_processed_audio_path()))
+        assert processor.total_chunks is not None and processor.sample_rate is not None
+
+        async def all_chunks() -> list[np.ndarray]:
+            return [(await processor.process_chunk_safe(i))[1] for i in range(processor.total_chunks)]
+
+        return np.concatenate(asyncio.run(all_chunks()), axis=0), processor.sample_rate
     finally:
         processor.close()
 
@@ -80,8 +93,7 @@ def main() -> int:
     for index, ref in enumerate(refs):
         started = time.time()
         before_audio, before_sr = load_audio(ref["path"])
-        rendered = render(ref["path"], 900_000 + index)
-        after_audio, after_sr = load_audio(str(rendered))
+        after_audio, after_sr = render(ref["path"], 900_000 + index)
         before, after = profile_audio(before_audio, before_sr), profile_audio(after_audio, after_sr)
 
         print(f"{ref['name']} [{ref['role']}]  ({time.time() - started:.0f}s)")
