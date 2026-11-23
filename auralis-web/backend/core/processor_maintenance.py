@@ -57,6 +57,21 @@ class ProcessorMaintenanceMixin:
             self._active_processors.clear()
             logger.info(f"Cleared {count} cached processor(s)")
 
+    def drop_cached(self, track_id: int | None = None) -> int:
+        """Close and drop the warm (released) processors, for one track or all; returns how many.
+
+        Cache clears and a library reset reached every tier but this one (#6503): the next stream
+        re-leased an instance carrying the previous stream's DSP state, and after a reset a new
+        track reusing an id inherited another track's. A leased processor is not in the cache, so
+        nothing in use is touched; ``_active_processors`` is left alone too.
+        """
+        with self._lock:
+            keys = [k for k in self._processor_cache if track_id is None or k.track_id == track_id]
+            dropped = [self._processor_cache.pop(k) for k in keys]
+        for processor in dropped:
+            processor.close()
+        return len(dropped)
+
     @property
     def active_processors(self) -> dict[int, Any]:
         """

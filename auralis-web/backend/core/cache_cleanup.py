@@ -15,6 +15,7 @@ from core.mastering_target_service import (
     clear_global_mastering_target_cache,
     clear_global_mastering_target_entry,
 )
+from core.processor_registry import drop_warm_processors
 from core.thumbnail_cache import clear_artwork_cache
 
 logger = logging.getLogger(__name__)
@@ -110,6 +111,7 @@ async def clear_track_caches(
             delete_chunk_files, chunk_dir if chunk_dir is not None else chunk_cache_dir(), track_id
         )
     clear_global_mastering_target_entry(track_id)
+    drop_warm_processors(track_id)  # warm HybridProcessors too: a clean re-render (#6503)
     return removed
 
 
@@ -125,24 +127,22 @@ async def clear_all_caches(
 
     ``cache_manager`` may be absent during a library reset when the streamlined
     cache feature is disabled; the filesystem and analysis tiers are still
-    cleared. The analysis tier is MasteringTargetService's per-track
-    fingerprint/target cache (#5085); ``analysis_cache_cleared`` is False only
-    when that service was never created in this process. Source artwork is
+    cleared. The analysis tier is MasteringTargetService's per-track cache (#5085);
+    ``analysis_cache_cleared`` is False only when that service never existed here. Source artwork is
     retained by default because live album rows point at those files; a
     destructive library reset passes ``clear_source_artwork=True`` after
     deleting those rows. Blocking directory work runs off the event loop.
 
-    The on-disk chunk directory (``chunk_dir``, default the shared chunk cache)
-    is swept whether or not ``cache_manager`` exists (#5340): the manager's
-    tiers only record the streamlined worker's chunks, while live playback
-    writes its own files there, found later by name alone.
+    The on-disk chunk directory (``chunk_dir``, default the shared cache) is swept whether or not
+    ``cache_manager`` exists (#5340): live playback writes files there the manager never recorded.
 
     The central ``.25d`` fingerprint store (#6004) only ever has its dead entries swept here - a
-    Clear Cache click must not throw away live, expensive analysis - unless
-    ``clear_fingerprint_store`` is set, which a library reset does: every track it described is gone.
+    Clear Cache click must not throw away live analysis - unless ``clear_fingerprint_store``
+    is set, which a library reset does. Warm ProcessorFactory processors are dropped too (#6503).
     """
     if cache_manager is not None:
         await cache_manager.clear_all()
+    drop_warm_processors()  # warm HybridProcessors too (#6503)
     chunk_files_removed = await asyncio.to_thread(
         delete_chunk_files, chunk_dir if chunk_dir is not None else chunk_cache_dir()
     )

@@ -67,3 +67,8 @@ def all_processor_factories() -> list[ProcessorFactory]:
     """Every consumer's factory created so far (shutdown clears them all)."""
     with _factory_lock:
         return list(_processor_factories.values())
+
+
+def drop_warm_processors(track_id: int | None = None) -> int:
+    """Drop every consumer's warm processors for ``track_id`` (all when None); returns how many (#6503)."""
+    return sum(factory.drop_cached(track_id) for factory in all_processor_factories())
