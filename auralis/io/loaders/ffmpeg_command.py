@@ -20,8 +20,9 @@ def build_ffmpeg_cmd(
     source_channels: int,
     offset: float | None,
     duration: float | None,
+    output_limits: tuple[str, ...] | list[str] = (),
 ) -> list[str]:
-    """The ffmpeg argv converting the input to a float32 temp WAV."""
+    """The ffmpeg argv converting the input to a float32 temp WAV; ``output_limits`` (e.g. ``-fs``, #6511)."""
     # #3672: `-ac 2` lets FFmpeg apply its proper surround downmix matrix (center
     # at -3 dB into L+R, surrounds distributed); `-ac {source_channels}` plus a
     # `[:, :2]` truncation in soundfile_loader silently dropped the center channel.
@@ -40,12 +41,8 @@ def build_ffmpeg_cmd(
         ffmpeg_cmd += ['-ss', f'{offset:.6f}']
     ffmpeg_cmd += [
         '-i', file_path_str,
-        # 32-bit float PCM, not 16-bit (#5317): a source with more than
-        # 16 bits of real precision (24-bit ALAC-in-M4A, WMA Lossless)
-        # was being truncated to ~96 dB of dynamic range before any DSP
-        # or fingerprinting ran. load_with_soundfile() reads the temp WAV
-        # back as float32 regardless of its sample format, so this loses
-        # nothing and needs no bits_per_raw_sample probe.
+        # 32-bit float PCM, not 16-bit (#5317): 24-bit ALAC/WMA Lossless was cut to ~96 dB of
+        # dynamic range before any DSP ran. The temp WAV is read back as float32 anyway.
         '-acodec', 'pcm_f32le',
         '-ar', str(source_sample_rate),    # Preserve native sample rate
     ]
@@ -54,6 +51,7 @@ def build_ffmpeg_cmd(
     if needs_downmix:
         ffmpeg_cmd += ['-ac', '2']         # Surround → stereo (#3672)
     ffmpeg_cmd += [
+        *output_limits,
         '-rf64', 'auto',                   # RF64 past 4 GiB, not a wrapped RIFF size (#5566)
         '-y',                              # Overwrite output
         str(temp_wav)

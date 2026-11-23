@@ -74,11 +74,12 @@ class TestCommandConstruction:
             source.unlink(missing_ok=True)
         return seen.get("cmd", [])
 
-    def test_no_window_requested_emits_no_ss_or_t(self, monkeypatch):
-        """Backward compatibility: every existing caller is unaffected."""
+    def test_no_window_requested_emits_no_ss_and_only_the_policy_bounds(self, monkeypatch):
+        """No seek; the -t and -fs present bound the decode by policy, not a window (#6511)."""
         cmd = self._captured_cmd(monkeypatch)
         assert "-ss" not in cmd
-        assert "-t" not in cmd
+        assert "-fs" in cmd
+        assert float(cmd[cmd.index("-t") + 1]) >= 30.0  # the declared length plus margin, not a window
 
     def test_offset_is_placed_before_input(self, monkeypatch):
         cmd = self._captured_cmd(monkeypatch, offset=300.0)

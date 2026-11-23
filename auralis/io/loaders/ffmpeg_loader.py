@@ -22,6 +22,7 @@ import numpy as np
 
 from ...utils.logging import Code, ModuleError, debug, warning
 from .decode_temp import DECODE_TEMP_PREFIX
+from .ffmpeg_decode_bounds import check_decode_bounds, decode_cap_seconds, size_limit_args
 from .ffmpeg_command import build_ffmpeg_cmd, check_truncation_frames
 from .ffmpeg_path_guard import ffmpeg_input_path
 from .ffmpeg_space import require_decode_space
@@ -50,17 +51,14 @@ def _validate_input(file_path: Path) -> tuple[Path, str]:
     if not check_ffmpeg():
         raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFmpeg required for {file_path.suffix}")
 
-    # ffprobe is a separate binary used by _probe_audio below; guard it here so
-    # its absence surfaces as ERROR_FFMPEG_NOT_FOUND rather than being
-    # mislabeled ERROR_FFMPEG_CONVERSION further down (#4119).
+    # ffprobe is a separate binary: its absence is ERROR_FFMPEG_NOT_FOUND, not a conversion error (#4119).
     if not check_ffprobe():
         raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: ffprobe required for {file_path.suffix}")
 
     # Ensure the input path is a regular file and not a URL/protocol
     file_path = Path(file_path)
     if not file_path.exists() or not file_path.is_file():
-        # Absolute path at DEBUG only, not in the exception's string form
-        # (#4806) -- it embeds the OS username + install layout.
+        # Absolute path at DEBUG only, never in the exception text: it carries the OS username (#4806).
         debug(f"File not found: {file_path}")
         raise ModuleError(Code.ERROR_FILE_NOT_FOUND, path=str(file_path))
     # Guard against ffmpeg protocol specifiers (http://, pipe:, concat:, data:, etc.)
@@ -107,9 +105,8 @@ def _probe_or_fail(file_path: Path) -> tuple[float | None, int, int]:
             debug(f"Decoded-size cap exceeded for: {file_path}")
             raise ModuleError(f"{Code.ERROR_FFMPEG_CONVERSION}: {detail}", path=str(file_path))
     else:
-        # #4128: ffprobe returned no duration (true-VBR MP3 without Xing/VBRI).
-        # Fall back to a file-size-based lower-bound estimate so an oversized
-        # file is rejected before FFmpeg decodes it to a multi-hundred-MB temp WAV.
+        # #4128: no ffprobe duration (true-VBR MP3 without Xing/VBRI): reject by a size-based lower
+        # bound before FFmpeg writes a multi-hundred-MB temp WAV.
         min_duration = (file_path.stat().st_size * 8) / _MAX_PLAUSIBLE_BITRATE_BPS
         if min_duration > MAX_DURATION_SECONDS:
             debug(f"Size-implied duration cap exceeded for: {file_path}")
@@ -149,12 +146,14 @@ def _decode_wav(
     """
     file_path, file_path_str = _validate_input(file_path)
     expected_duration, source_sample_rate, source_channels = _probe_or_fail(file_path)
-    window = expected_duration if not duration else min(duration, expected_duration or duration)
-    require_decode_space(temp_folder, window, source_sample_rate, source_channels)
+    # Bounded by policy, not the header (#6511): -t at the cap, -fs at the decoded-size cap.
+    window = None if not duration else min(duration, expected_duration or duration)
+    cap = decode_cap_seconds(expected_duration, window)
+    require_decode_space(temp_folder, cap, source_sample_rate, source_channels)
     temp_wav = _temp_wav_path(temp_folder)
     try:
         ffmpeg_cmd = build_ffmpeg_cmd(
-            file_path_str, temp_wav, source_sample_rate, source_channels, offset, duration
+            file_path_str, temp_wav, source_sample_rate, source_channels, offset, cap, size_limit_args()
         )
         result = _run_ffmpeg_cancellable(
             ffmpeg_cmd, timeout=FFMPEG_DECODE_TIMEOUT_S, cancel_event=cancel_event
@@ -166,6 +165,7 @@ def _decode_wav(
                 f"{redact_subprocess_output(result.stderr, known_path=str(file_path))}",
                 path=str(file_path),
             )
+        check_decode_bounds(temp_wav, cap, windowed=bool(duration), path=str(file_path))
         return temp_wav, expected_duration
     except BaseException as e:
         _remove_temp_wav(temp_wav)
