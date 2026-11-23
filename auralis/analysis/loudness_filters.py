@@ -88,10 +88,19 @@ class KWeightingMixin:
         Same values, order and dtype as squaring the columns of
         ``apply_k_weighting(audio_chunk)``, a column at a time (#6717).
         """
-        return sum(
-            np.mean(column.astype(audio_chunk.dtype, copy=False) ** 2)
-            for column in self._k_weighted_channels(audio_chunk)
-        )
+        # A loop, not sum(genexpr): the expression would keep the previous column
+        # bound while the next is filtered (#6717). Same order and start as sum().
+        total: Any = 0
+        for column in self._k_weighted_channels(audio_chunk):
+            total += np.mean(_squared(column.astype(audio_chunk.dtype, copy=False)))
+            del column
+        return total
+
+
+def _squared(column: np.ndarray) -> np.ndarray:
+    """``column ** 2`` in place: each filtered column is a fresh array nothing else holds (#6717)."""
+    np.square(column, out=column)
+    return column
 
 
 def mean_square_to_lufs(mean_square: Any) -> float:

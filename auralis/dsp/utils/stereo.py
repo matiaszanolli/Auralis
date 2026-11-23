@@ -72,8 +72,14 @@ def stereo_width_analysis(stereo_audio: np.ndarray) -> float:
     if np.std(left) < SILENCE_STD_THRESHOLD or np.std(right) < SILENCE_STD_THRESHOLD:
         return 0.0
 
-    # Calculate correlation
-    correlation = np.corrcoef(left, right)[0, 1]
+    # Calculate correlation: np.corrcoef's value, from two centred float64 channels
+    # rather than its stacked 2 x N copy and centred copy (#6717); equal to ~1e-15.
+    left_c = left.astype(np.float64)
+    left_c -= left_c.mean()
+    right_c = right.astype(np.float64)
+    right_c -= right_c.mean()
+    correlation = np.dot(left_c, right_c) / np.sqrt(np.dot(left_c, left_c)) / np.sqrt(np.dot(right_c, right_c))
+    del left_c, right_c
 
     # Convert correlation to width (inverse relationship)
     # correlation = 1.0 -> width = 0.0 (mono)

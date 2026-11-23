@@ -16,7 +16,7 @@ processor state and must stay individually callable, which several regression
 tests (#4104, #4237, #4503, #5108) do directly.
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db
+from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
 from collections.abc import Callable
 from typing import Any
 
@@ -160,6 +160,14 @@ class ContinuousDSPOpsMixin:
         ``measure_lufs`` replaces ``calculate_loudness_units`` for the reading,
         so a caller that already measured ``audio`` (the journal) is not re-run.
         """
+        gain_db = self._chunk_loudness_gain_db(audio, target_lufs, measure_lufs)
+        return amplify(audio, gain_db) if gain_db else audio
+
+    def _chunk_loudness_gain_db(
+        self, audio: np.ndarray, target_lufs: float,
+        measure_lufs: Callable[[np.ndarray], float] | None = None,
+    ) -> float:
+        """The gain ``_normalize_chunk_loudness`` applies, in dB; 0.0 for none."""
         if measure_lufs is not None:
             current_lufs = measure_lufs(audio)
         else:
@@ -176,7 +184,7 @@ class ContinuousDSPOpsMixin:
                 f"[LUFS Normalization] SKIPPED - {current_lufs:.1f} LUFS is at or "
                 f"below the silence floor ({SILENCE_FLOOR_LUFS:.0f} LUFS)"
             )
-            return audio
+            return 0.0
 
         adjustment = float(np.clip(
             target_lufs - current_lufs,
@@ -192,11 +200,11 @@ class ContinuousDSPOpsMixin:
             * smooth_gate(abs(adjustment), 0.0, 0.5)
             * smooth_gate(current_lufs, SILENCE_FLOOR_LUFS, SILENCE_FLOOR_LUFS + SILENCE_KNEE_DB)
         )
-        if abs(effective_adjustment) > 1e-6:
-            audio = amplify(audio, effective_adjustment)
-            # A plain gain moves the K-weighted reading by exactly that many dB.
-            debug(f"[LUFS Normalization] {current_lufs:.1f} → {current_lufs + effective_adjustment:.1f} LUFS")
-        return audio
+        if abs(effective_adjustment) <= 1e-6:
+            return 0.0
+        # A plain gain moves the K-weighted reading by exactly that many dB.
+        debug(f"[LUFS Normalization] {current_lufs:.1f} → {current_lufs + effective_adjustment:.1f} LUFS")
+        return effective_adjustment
 
     def _apply_final_normalization(
         self, audio: np.ndarray, params: Any,
@@ -251,14 +259,13 @@ class ContinuousDSPOpsMixin:
                 -MAX_NORMALIZATION_GAIN_DB,
                 MAX_NORMALIZATION_GAIN_DB,
             ))
-            if abs(adjustment) > 1e-3:
-                audio = amplify(audio, adjustment)
+            gain_db = adjustment if abs(adjustment) > 1e-3 else 0.0
             debug(
                 f"[LUFS Normalization] track-level gain {adjustment:+.2f} dB "
                 f"(source {source_lufs:.1f}, target {target_lufs:.1f})"
             )
         else:
-            audio = self._normalize_chunk_loudness(audio, target_lufs, measure_lufs)
+            gain_db = self._chunk_loudness_gain_db(audio, target_lufs, measure_lufs)
 
         # Step 2: peak ceiling at -0.3 dBFS (headroom for inter-sample peaks).
         # #5701: this used to be ONE gain for the whole buffer
@@ -269,13 +276,21 @@ class ContinuousDSPOpsMixin:
         # look-ahead limiter touches only the neighbourhood of the peak, so
         # both renderings of the shared audio agree away from it. The constant
         # track-level gain of Step 1 (#5552) is left intact.
-        final_peak_pre = amplitude_to_db(np.max(np.abs(audio)))
+        #
+        # #6717: Step 1's gain is not applied as its own full-length copy beside the
+        # limiter's: the limiter takes it as input_gain, and the peak is the gain times
+        # max |audio| (from max/min, no |audio| copy). Both equal what amplify-then-
+        # limit computed, since rounding x * g is sign-symmetric and monotone.
+        gain = db_to_amplitude(gain_db) if gain_db else 1.0
+        final_peak_pre = amplitude_to_db(max(audio.max(), -audio.min()) * gain)
         if final_peak_pre > OUTPUT_PEAK_CEILING_DB:
             audio = create_brick_wall_limiter(
                 self.config.internal_sample_rate, threshold_db=OUTPUT_PEAK_CEILING_DB
-            ).process(audio)
+            ).process(audio, input_gain=gain)
             debug(f"[Peak Limiting] {final_peak_pre:.2f} → {OUTPUT_PEAK_CEILING_DB:.2f} dB (sample-local limiter)")
         else:
             debug(f"[Peak Limiting] SKIPPED - audio peak at {final_peak_pre:.2f} dB is safe")
+            if gain_db:
+                audio = amplify(audio, gain_db)
 
         return audio

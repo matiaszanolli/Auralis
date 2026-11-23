@@ -92,12 +92,14 @@ class BrickWallLimiter:
         # Formula: gain approaches 1.0 with this time constant
         self.release_coef = np.exp(-1.0 / self.release_samples) if self.release_samples > 0 else 0.0
 
-    def process(self, audio: np.ndarray) -> np.ndarray:
+    def process(self, audio: np.ndarray, input_gain: float = 1.0) -> np.ndarray:
         """
         Apply brick-wall limiting to audio
 
         Args:
             audio: Input audio (samples,) or (samples, channels)
+            input_gain: Linear gain applied first; the result equals limiting ``amplify(audio)``
+                without that full-length copy existing beside the limiter's own (#6717)
 
         Returns:
             Limited audio with same shape as input
@@ -121,19 +123,16 @@ class BrickWallLimiter:
         np.abs(audio[:, 0], out=per_sample_max[:num_samples])
         for ch in range(1, num_channels):
             np.maximum(per_sample_max[:num_samples], np.abs(audio[:, ch]), out=per_sample_max[:num_samples])
+        if input_gain != 1.0:  # exact: rounding x * g is sign-symmetric and monotone, so |.| and max commute
+            per_sample_max *= input_gain
 
         # maximum_filter1d origin convention (#5562): a POSITIVE origin shifts
         # the window toward EARLIER samples (a post-peak hold), a NEGATIVE one
         # toward FUTURE samples. origin = -(lookahead // 2) makes the output at
         # i the max over [i, i + lookahead), i.e. a true look-ahead.
         lookahead = self.lookahead_samples
-        peak_envelope = maximum_filter1d(
-            per_sample_max,
-            size=lookahead,
-            mode='constant',
-            cval=0.0,
-            origin=-(lookahead // 2),
-        )[:num_samples]  # trim padding tail
+        peak_envelope = maximum_filter1d(  # the padding tail trimmed
+            per_sample_max, size=lookahead, mode='constant', cval=0.0, origin=-(lookahead // 2))[:num_samples]
 
         # Vectorized target-gain computation: threshold / peak where above
         # threshold, else 1.0.  Clamp denominator to avoid division by zero.
@@ -155,8 +154,11 @@ class BrickWallLimiter:
         gain_curve = self._release_envelope(target_gains, audio.dtype)
         del target_gains
 
-        # Apply gain curve to audio
-        output: np.ndarray = audio * gain_curve.reshape(-1, 1)
+        # Apply gain curve to audio: (audio * g) * curve, amplify's order then this one's
+        output: np.ndarray = audio.copy() if input_gain != 1.0 else audio * gain_curve.reshape(-1, 1)
+        if input_gain != 1.0:
+            output *= input_gain
+            output *= gain_curve.reshape(-1, 1)
 
         # Return in same format as input
         if is_mono:

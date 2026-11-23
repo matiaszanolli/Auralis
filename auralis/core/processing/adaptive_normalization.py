@@ -9,7 +9,7 @@ peak/LUFS normalization pass, as a function over the mode processor.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db
+from auralis.dsp.utils.conversion import amplitude_to_db, peak_abs
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -90,7 +90,7 @@ def apply_final_normalization(mode: "AdaptiveMode", audio: np.ndarray, spectrum_
     target_peak, target_peak_db = AdaptiveLoudnessControl.calculate_adaptive_peak_target(source_lufs)
 
     # Check current peak before normalizing
-    current_peak = np.max(np.abs(audio))
+    current_peak = peak_abs(audio)
     current_peak_db = amplitude_to_db(current_peak)
 
     # Only normalize if peak is significantly below adaptive target (> 1.5 dB headroom)

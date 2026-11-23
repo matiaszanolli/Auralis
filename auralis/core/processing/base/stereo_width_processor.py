@@ -11,7 +11,7 @@ Unified stereo width processing with safety checks. Both modes'
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db
+from auralis.dsp.utils.conversion import amplitude_to_db, peak_abs
 import numpy as np
 
 from ....dsp.utils.stereo import WIDTH_FACTOR_UNITY, adjust_stereo_width_multiband
@@ -49,8 +49,7 @@ class StereoWidthProcessor:
         Returns:
             Peak in dB using amplitude_to_db
         """
-        peak = np.max(np.abs(audio))
-        return amplitude_to_db(peak)
+        return amplitude_to_db(peak_abs(audio))
 
     @staticmethod
     def apply_stereo_width_safe(

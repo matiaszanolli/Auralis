@@ -10,7 +10,7 @@ Consolidates safety checks and peak normalization across pipelines.
 """
 
 
-from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude
+from auralis.dsp.utils.conversion import amplitude_to_db, db_to_amplitude, peak_abs
 import numpy as np
 
 from ....dsp.dynamics.soft_clipper import soft_clip
@@ -40,7 +40,7 @@ class SafetyLimiter:
         Returns:
             Tuple of (processed audio, was_limiter_applied: bool)
         """
-        final_peak = np.max(np.abs(audio))
+        final_peak = peak_abs(audio)
         final_peak_db = amplitude_to_db(final_peak)
 
         if final_peak_db > SafetyLimiter.SAFETY_THRESHOLD_DB:
@@ -48,7 +48,7 @@ class SafetyLimiter:
             audio = soft_clip(audio, threshold=SafetyLimiter.SOFT_CLIP_THRESHOLD)
 
             # Measure result
-            final_peak = np.max(np.abs(audio))
+            final_peak = peak_abs(audio)
             final_peak_db = amplitude_to_db(final_peak)
             ProcessingLogger.safety_check("Safety Limiter (post)", final_peak_db)
 
@@ -83,7 +83,7 @@ class PeakNormalizer:
         Returns:
             Tuple of (normalized audio, previous_peak_db)
         """
-        peak = np.max(np.abs(audio))
+        peak = peak_abs(audio)
         peak_db = amplitude_to_db(peak)
 
         if preset_name:

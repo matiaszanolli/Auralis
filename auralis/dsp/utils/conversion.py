@@ -8,7 +8,7 @@ Conversion functions between different audio representations
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import numpy as np
 
@@ -42,9 +42,15 @@ def db_to_amplitude(db: float) -> float:
     return float(10 ** (db / 20))
 
 
+def peak_abs(audio: np.ndarray) -> Any:
+    """``np.max(np.abs(audio))``, NaN propagation included, without the full-length
+    ``|audio|`` copy that allocates: abs is exact, so max and -min give the same value (#6717)."""
+    return max(audio.max(), -audio.min())
+
+
 def peak_db(audio: np.ndarray, silence_db: float = -np.inf) -> float:
     """Peak level of ``audio`` in dBFS (``silence_db`` if it is all zeros/empty-peak)."""
-    return amplitude_to_db(np.max(np.abs(audio)), silence_db)
+    return amplitude_to_db(peak_abs(audio), silence_db)
 
 
 def rms_db(audio: np.ndarray, silence_db: float = -np.inf) -> float:
@@ -80,7 +86,7 @@ def level_stats(audio: np.ndarray) -> LevelStats:
     """
     from ..basic import rms
 
-    peak = float(np.max(np.abs(audio)))
+    peak = float(peak_abs(audio))
     rms_value = float(rms(audio))
     peak_level, rms_level = amplitude_to_db(peak), amplitude_to_db(rms_value)
     return LevelStats(peak, peak_level, rms_value, rms_level, crest_db(peak_level, rms_level))

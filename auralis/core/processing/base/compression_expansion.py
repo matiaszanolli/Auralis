@@ -14,7 +14,7 @@ import numpy as np
 
 from ....dsp.dynamics.soft_clipper import soft_clip
 from .audio_measurement import MeasurementUtilities
-from auralis.dsp.utils.conversion import db_to_amplitude
+from auralis.dsp.utils.conversion import db_to_amplitude, peak_abs
 
 # The keys the clip-blend compressor indexes with `[...]` — i.e. the ones whose
 # absence is a KeyError, not a defaulted value.
@@ -136,7 +136,7 @@ class CompressionStrategies:
         ratio = min(max(float(comp_params['ratio']), 1.0), _MAX_CLIP_BLEND_RATIO)
         amount = min(max(float(comp_params['amount']), 0.0), 1.0)
 
-        peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+        peak = float(peak_abs(audio)) if audio.size else 0.0
         if not np.isfinite(peak) or peak < _SILENCE_PEAK:
             # Silence (nothing to compress) or non-finite samples (not this
             # stage's to repair; soft_clip would only spread the NaN).
