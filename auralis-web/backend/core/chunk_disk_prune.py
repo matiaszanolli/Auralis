@@ -12,6 +12,7 @@ is class-level on purpose: ``ChunkCacheManager`` inherits it, and
 
 import logging
 import threading
+from typing import cast
 from pathlib import Path
 
 from core.dir_sweep import prune_directory_lru
@@ -79,7 +80,11 @@ class ChunkDiskPruneMixin:
         shared-executor exhaustion #4727 describes by holding every other
         writer's thread hostage too, not just the scanning one.
         """
-        cls = type(self)
+        # The class that owns the throttle state: the nearest one defining _prune_lock. Through
+        # type(self), `cls._write_counter += 1` on a plain subclass read the owner's value but wrote
+        # a new subclass-level counter, splitting one directory's cadence in two (#6552);
+        # ThumbnailSweeper declares its own state on purpose (a separate directory).
+        cls = cast(type[ChunkDiskPruneMixin], next(k for k in type(self).__mro__ if "_prune_lock" in vars(k)))
         with cls._prune_lock:
             cls._write_counter += 1
             if cls._write_counter < self._prune_every:
