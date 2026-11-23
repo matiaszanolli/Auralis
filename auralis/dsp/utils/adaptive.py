@@ -135,7 +135,9 @@ def calculate_loudness_units(audio: np.ndarray, sample_rate: int) -> float:
     return float(lufs)
 
 
-def proxy_to_k_offset_db(audio: np.ndarray, fingerprint_lufs: float, sample_rate: int) -> float:
+def proxy_to_k_offset_db(
+    audio: np.ndarray, fingerprint_lufs: float, sample_rate: int, measured_lufs: float | None = None
+) -> float:
     """dB to add to a fingerprint-proxy loudness to put it on this module's K scale.
 
     The fingerprint's ``lufs`` is an RMS proxy and ``calculate_loudness_units``
@@ -148,8 +150,10 @@ def proxy_to_k_offset_db(audio: np.ndarray, fingerprint_lufs: float, sample_rate
     Measuring the offset on the chunk itself keeps the correction exact for that
     chunk's spectrum and channel correlation instead of assuming a constant.
     Returns 0.0 when either side is unusable (silence, non-finite).
+    ``measured_lufs`` is ``calculate_loudness_units(audio, sample_rate)`` when the
+    caller already has it, so the buffer is not K-weighted a second time.
     """
-    measured = calculate_loudness_units(audio, sample_rate)
+    measured = calculate_loudness_units(audio, sample_rate) if measured_lufs is None else measured_lufs
     if not (np.isfinite(measured) and np.isfinite(fingerprint_lufs)):
         return 0.0
     if measured <= SILENCE_FLOOR_LUFS:

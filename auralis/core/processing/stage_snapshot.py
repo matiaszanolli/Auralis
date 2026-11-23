@@ -10,6 +10,7 @@ without adding significant latency (~2ms per snapshot).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import weakref
 from auralis.dsp.utils.conversion import SILENCE_STD_THRESHOLD
 from dataclasses import dataclass
 
@@ -17,6 +18,7 @@ import numpy as np
 from scipy.fft import rfft, rfftfreq
 
 from .base import FullAudioMeasurement, StereoWidthProcessor
+from ...dsp.utils.adaptive import calculate_loudness_units
 from ...dsp.utils.audio_info import to_mono
 from ...dsp.utils.stereo import stereo_width_analysis
 from ...utils.logging import debug
@@ -110,10 +112,18 @@ class PipelineJournal:
     def __init__(self, sample_rate: int) -> None:
         self.sample_rate = sample_rate
         self._snapshots: list[StageSnapshot] = []
+        # The latest snapshot's buffer and LUFS. Held weakly: a strong reference
+        # would keep a whole-track copy alive through every later stage (#6717).
+        self._latest_lufs: tuple[weakref.ref[np.ndarray], float] | None = None
 
-    def snapshot(self, audio: np.ndarray, stage_name: str) -> StageSnapshot:
-        """Capture a snapshot (~2ms for 15-second stereo chunk)."""
-        m = FullAudioMeasurement(audio, self.sample_rate, label=stage_name)
+    def snapshot(self, audio: np.ndarray, stage_name: str, lufs: float | None = None) -> StageSnapshot:
+        """Capture a snapshot (~2ms for 15-second stereo chunk).
+
+        ``lufs`` is ``audio``'s K-weighted loudness when the caller already has it.
+        """
+        m = FullAudioMeasurement(audio, self.sample_rate, label=stage_name, lufs=lufs)
+        if m.lufs is not None:
+            self._latest_lufs = (weakref.ref(audio), m.lufs)
         bass, mid, high = _compute_3band_energy(audio, self.sample_rate)
 
         is_stereo = StereoWidthProcessor.validate_stereo(audio)
@@ -135,8 +145,21 @@ class PipelineJournal:
         self._snapshots.append(snap)
         debug(f"[Journal] {stage_name}: peak={snap.peak_db:.1f}dB rms={snap.rms_db:.1f}dB "
               f"crest={snap.crest_db:.1f}dB bass={bass:.0%} mid={mid:.0%} high={high:.0%}"
+              + (f" lufs={snap.lufs:.1f}" if snap.lufs is not None else "")
               + (f" width={width:.2f} phase={phase:.2f}" if is_stereo else ""))
         return snap
+
+    def lufs(self, audio: np.ndarray) -> float:
+        """K-weighted loudness of ``audio``, reusing the latest snapshot's reading.
+
+        A stage measures the buffer a snapshot has just measured (the EQ guard's
+        before and after, the chunk normaliser's input), and K-weighting a whole
+        track costs as much as a DSP stage. The match is by identity, not content:
+        pipeline buffers are never modified in place, every stage returns a new array.
+        """
+        if self._latest_lufs is not None and self._latest_lufs[0]() is audio:
+            return self._latest_lufs[1]
+        return calculate_loudness_units(audio, self.sample_rate)
 
     def get(self, stage_name: str) -> StageSnapshot | None:
         """Retrieve a snapshot by stage name."""

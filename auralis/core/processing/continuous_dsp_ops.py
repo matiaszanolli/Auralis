@@ -16,7 +16,8 @@ processor state and must stay individually callable, which several regression
 tests (#4104, #4237, #4503, #5108) do directly.
 """
 
-from auralis.dsp.utils.conversion import amplitude_to_db, level_stats
+from auralis.dsp.utils.conversion import amplitude_to_db
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -148,13 +149,21 @@ class ContinuousDSPOpsMixin:
 
         return audio
 
-    def _normalize_chunk_loudness(self, audio: np.ndarray, target_lufs: float) -> np.ndarray:
+    def _normalize_chunk_loudness(
+        self, audio: np.ndarray, target_lufs: float,
+        measure_lufs: Callable[[np.ndarray], float] | None = None,
+    ) -> np.ndarray:
         """Per-chunk LUFS normalisation, for targets with no track-level source loudness.
 
         Used when the chunk is all we know about the track (the per-chunk
         fingerprint path, and legacy fixed targets without ``source_lufs``).
+        ``measure_lufs`` replaces ``calculate_loudness_units`` for the reading,
+        so a caller that already measured ``audio`` (the journal) is not re-run.
         """
-        current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
+        if measure_lufs is not None:
+            current_lufs = measure_lufs(audio)
+        else:
+            current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
 
         # Silence / near-silence needs no normalisation. The meter floors
         # silence at a finite -70 LUFS (it never returns -inf), so the old
@@ -185,12 +194,19 @@ class ContinuousDSPOpsMixin:
         )
         if abs(effective_adjustment) > 1e-6:
             audio = amplify(audio, effective_adjustment)
-            new_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
-            debug(f"[LUFS Normalization] {current_lufs:.1f} → {new_lufs:.1f} LUFS")
+            # A plain gain moves the K-weighted reading by exactly that many dB.
+            debug(f"[LUFS Normalization] {current_lufs:.1f} → {current_lufs + effective_adjustment:.1f} LUFS")
         return audio
 
-    def _apply_final_normalization(self, audio: np.ndarray, params: Any) -> np.ndarray:
-        """Apply final loudness and peak normalization using unified pipeline"""
+    def _apply_final_normalization(
+        self, audio: np.ndarray, params: Any,
+        measure_lufs: Callable[[np.ndarray], float] | None = None,
+    ) -> np.ndarray:
+        """Apply final loudness and peak normalization using unified pipeline.
+
+        ``measure_lufs`` is passed to the per-chunk path; see ``_normalize_chunk_loudness``.
+        The stage journal snapshots the output, so nothing is measured here after the limiter.
+        """
 
         # Catch general NaN/Inf from upstream stages before any measurement
         # below (fixes #4237). This is IN ADDITION to the #4104 guard just
@@ -242,7 +258,7 @@ class ContinuousDSPOpsMixin:
                 f"(source {source_lufs:.1f}, target {target_lufs:.1f})"
             )
         else:
-            audio = self._normalize_chunk_loudness(audio, target_lufs)
+            audio = self._normalize_chunk_loudness(audio, target_lufs, measure_lufs)
 
         # Step 2: peak ceiling at -0.3 dBFS (headroom for inter-sample peaks).
         # #5701: this used to be ONE gain for the whole buffer
@@ -261,11 +277,5 @@ class ContinuousDSPOpsMixin:
             debug(f"[Peak Limiting] {final_peak_pre:.2f} → {OUTPUT_PEAK_CEILING_DB:.2f} dB (sample-local limiter)")
         else:
             debug(f"[Peak Limiting] SKIPPED - audio peak at {final_peak_pre:.2f} dB is safe")
-
-        # Final measurements
-        final = level_stats(audio)
-        final_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
-        debug(f"[Final] Peak: {final.peak_db:.2f} dB, RMS: {final.rms_db:.2f} dB, "
-              f"Crest: {final.crest_db:.2f} dB, LUFS: {final_lufs:.1f}")
 
         return audio

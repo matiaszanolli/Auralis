@@ -24,7 +24,6 @@ from typing import Any
 import numpy as np
 
 from ...dsp.basic import amplify
-from ...dsp.utils.adaptive import calculate_loudness_units
 from ...utils.logging import debug
 from .base import StereoWidthProcessor
 from .continuous_dsp_ops import ContinuousDSPOpsMixin
@@ -75,6 +74,7 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         processed_audio: np.ndarray,
         eq_processor: Any,
         params: Any,
+        input_lufs: float | None = None,
     ) -> np.ndarray:
         """Apply all DSP processing stages to ``processed_audio``.
 
@@ -82,13 +82,14 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         its cross-dimensional guard), then the final side-effect report
         and the sampled advisory quality measurements. ``target_audio`` is the
         unmodified original, used only by the before/after comparison.
+        ``input_lufs`` is its K-weighted loudness when the caller has measured it.
 
         The stage sequence is the ordered ``stages`` list below and nothing else,
         so adding, removing, or reordering a stage is a one-line edit here rather
         than a rewrite of this method (#4254).
         """
         journal = PipelineJournal(self.config.internal_sample_rate)
-        journal.snapshot(processed_audio, STAGE_INPUT)
+        journal.snapshot(processed_audio, STAGE_INPUT, lufs=input_lufs)
 
         # Ordered DSP stages (steps 5b-5e). Single source of truth for order.
         stages: list[Callable[[np.ndarray], np.ndarray]] = [
@@ -120,20 +121,20 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         the old 1.5 dB threshold so the correction ramps instead of snapping
         on (#4860).
         """
-        pre_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+        # Both readings come from the journal: the input snapshot measured this
+        # buffer when EQ runs first, and the STAGE_EQ snapshot measures the output.
+        pre_eq_lufs = journal.lufs(processed_audio)
         processed_audio = self._apply_eq(processed_audio, eq_processor, params)
         journal.snapshot(processed_audio, STAGE_EQ)
-        if self.config.enable_cross_dimensional_guard and pre_eq_lufs is not None:
-            post_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-            if post_eq_lufs is not None:
-                lufs_drift = post_eq_lufs - pre_eq_lufs
-                # Ramp 0 -> full compensation across |drift| in [1.0, 2.0] dB
-                # instead of jumping to -1.5 dB the instant 1.5 is crossed.
-                gate = smooth_gate(abs(lufs_drift), EQ_DRIFT_KNEE_START, EQ_DRIFT_KNEE_END)
-                correction = max(-3.0, min(3.0, -lufs_drift)) * gate
-                if abs(correction) > GUARD_EPSILON_DB:
-                    processed_audio = amplify(processed_audio, correction)
-                    debug(f"[Guard] EQ LUFS compensation: {correction:+.2f} dB (drift was {lufs_drift:+.2f}, gate {gate:.2f})")
+        if self.config.enable_cross_dimensional_guard:
+            lufs_drift = journal.lufs(processed_audio) - pre_eq_lufs
+            # Ramp 0 -> full compensation across |drift| in [1.0, 2.0] dB
+            # instead of jumping to -1.5 dB the instant 1.5 is crossed.
+            gate = smooth_gate(abs(lufs_drift), EQ_DRIFT_KNEE_START, EQ_DRIFT_KNEE_END)
+            correction = max(-3.0, min(3.0, -lufs_drift)) * gate
+            if abs(correction) > GUARD_EPSILON_DB:
+                processed_audio = amplify(processed_audio, correction)
+                debug(f"[Guard] EQ LUFS compensation: {correction:+.2f} dB (drift was {lufs_drift:+.2f}, gate {gate:.2f})")
         return processed_audio
 
     def _stage_dynamics(
@@ -221,6 +222,8 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         in this pipeline (EQ->LUFS, dynamics->tilt, stereo->phase) are
         unaffected — each corrects the quantity it measures.
         """
-        processed_audio = self._apply_final_normalization(processed_audio, params)
+        # journal.lufs: the chunk normaliser's input is the STAGE_STEREO snapshot's
+        # buffer whenever the phase guard left it alone.
+        processed_audio = self._apply_final_normalization(processed_audio, params, journal.lufs)
         journal.snapshot(processed_audio, STAGE_NORMALIZATION)
         return processed_audio

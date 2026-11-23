@@ -25,7 +25,7 @@ import numpy as np
 from auralis.analysis.fingerprint import fingerprint_preloaded
 from auralis.core.analysis import ContentAnalyzer
 
-from ...dsp.utils.adaptive import proxy_to_k_offset_db
+from ...dsp.utils.adaptive import calculate_loudness_units, proxy_to_k_offset_db
 from ...utils.logging import debug
 from ..utils.fingerprint_unpacker import FingerprintUnpacker
 from .continuous_space import ProcessingSpaceMapper
@@ -179,20 +179,21 @@ class ContinuousMode(ContinuousStagesMixin):
                 fixed_params: dict[str, Any] | None = None) -> np.ndarray:
         """Process audio using continuous parameter space.
 
-        Dispatches to parameter resolution then DSP application.
-        ``fixed_params`` selects the fast path (no fingerprint extraction).
+        Dispatches to parameter resolution then DSP application, which share one
+        loudness reading of the input. ``fixed_params`` selects the fast path.
         """
         debug("Applying continuous space processing")
-        params = self._resolve_parameters(target_audio, fixed_params)
+        input_lufs = calculate_loudness_units(target_audio, self.config.internal_sample_rate)
+        params = self._resolve_parameters(target_audio, fixed_params, input_lufs)
         if params is None:
             return target_audio.copy()
         # Never bound here: a local would pin this copy through every stage (#6717).
-        return self._apply_dsp_stages(target_audio, target_audio.copy(), eq_processor, params)
+        return self._apply_dsp_stages(target_audio, target_audio.copy(), eq_processor, params, input_lufs)
 
     def _resolve_parameters(
         self,
         processed_audio: np.ndarray,
-        fixed_params: dict[str, Any] | None,
+        fixed_params: dict[str, Any] | None, input_lufs: float | None = None,
     ) -> Any:
         """Resolve processing parameters from fixed params or fingerprint.
 
@@ -235,16 +236,15 @@ class ContinuousMode(ContinuousStagesMixin):
         # Step 4: Generate processing parameters
         params = self.param_generator.generate_parameters(coords, target_spectrum=target_spectrum)
 
-        # #5700: target_lufs was built on the fingerprint's RMS-proxy scale but
-        # the final normalisation chases it with the K-weighted meter, which
-        # reads ~3-4 dB higher, so the realised gain was `lift - offset` and
-        # loud masters were attenuated. Express the target on the meter's scale
-        # with the offset measured on THIS chunk (the fixed-target path keeps
-        # both sides on the proxy scale and needs no conversion).
+        # #5700: target_lufs was built on the fingerprint's RMS-proxy scale but the
+        # final normalisation chases it with the K-weighted meter, which reads ~3-4 dB
+        # higher, so the realised gain was `lift - offset` and loud masters were
+        # attenuated. Express the target on the meter's scale with the offset measured
+        # on THIS chunk (the fixed-target path keeps both on the proxy scale).
         k_offset = proxy_to_k_offset_db(
             processed_audio,
             FingerprintUnpacker.from_dict(fingerprint).lufs,
-            self.config.internal_sample_rate,
+            self.config.internal_sample_rate, measured_lufs=input_lufs,
         )
         params = dataclasses.replace(params, target_lufs=params.target_lufs + k_offset)
         self.last_parameters = params

@@ -22,7 +22,10 @@ class FullAudioMeasurement:
     Consolidates all measurement types (peak, RMS, crest, LUFS) in one place.
     """
 
-    def __init__(self, audio: np.ndarray, sample_rate: int | None = None, label: str | None = None) -> None:
+    def __init__(
+        self, audio: np.ndarray, sample_rate: int | None = None, label: str | None = None,
+        lufs: float | None = None,
+    ) -> None:
         """
         Initialize with comprehensive audio analysis.
 
@@ -30,6 +33,8 @@ class FullAudioMeasurement:
             audio: Audio array to measure
             sample_rate: Sample rate (optional, for LUFS calculation)
             label: Optional label for identification
+            lufs: ``calculate_loudness_units(audio, sample_rate)`` when the caller
+                already measured it; skips the K-weighting pass
         """
         self.label: str | None = label
         stats = level_stats(audio)  # crest 0.0 for silence, not NaN (#6597)
@@ -38,9 +43,9 @@ class FullAudioMeasurement:
         self.rms: float = stats.rms
         self.rms_db: float = stats.rms_db
         self.crest: float = stats.crest_db
-        self.lufs: float | None = None
+        self.lufs: float | None = lufs
 
-        if sample_rate:
+        if lufs is None and sample_rate:
             self.lufs = calculate_loudness_units(audio, sample_rate)
 
     def to_dict(self) -> dict[str, float]:

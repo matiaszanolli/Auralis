@@ -20,14 +20,14 @@ def test_only_the_stages_hold_the_working_copy(monkeypatch):
     released = []
     real = ContinuousMode._apply_dsp_stages
 
-    def spy(self, target_audio, processed_audio, eq_processor, params):
+    def spy(self, target_audio, processed_audio, eq_processor, params, *rest):
         assert processed_audio is not target_audio, "the stages must get a copy, not the input"
         probe = weakref.ref(processed_audio)
         working = processed_audio.copy()
         del processed_audio
         gc.collect()
         released.append(probe() is None)
-        return real(self, target_audio, working, eq_processor, params)
+        return real(self, target_audio, working, eq_processor, params, *rest)
 
     monkeypatch.setattr(ContinuousMode, "_apply_dsp_stages", spy)
     audio = 0.2 * np.random.default_rng(4).standard_normal((44100 * 6, 2))
