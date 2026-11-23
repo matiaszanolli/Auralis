@@ -109,7 +109,7 @@ def process_with_psychoacoustic_eq(eq: Any, audio: np.ndarray, eq_curve: dict[st
     # the desired sample).
     eps = np.finfo(audio.dtype).eps
     zero_coverage = window_norm[:original_length] <= eps
-    safe_norm = np.maximum(window_norm[:original_length], eps)
+    safe_norm = np.maximum(window_norm[:original_length], eps, out=window_norm[:original_length])  # in place (#6717)
     if audio.ndim == 2:
         processed_audio[:original_length] /= safe_norm[:, np.newaxis]
     else:

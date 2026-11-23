@@ -34,6 +34,8 @@ _SILENCE_PEAK = 1e-6
 # The clip-blend threshold is 0.8 - (ratio - 1) * 0.1 of the reference level: it reaches 0 at 9:1
 # and goes negative beyond, so the ratio is held to 8:1 (threshold 0.1) (#6117).
 _MAX_CLIP_BLEND_RATIO = 8.0
+# Samples per step of the clip blend's dry term: big enough to vectorise, small next to a track.
+_BLEND_BLOCK = 1 << 16
 
 
 class CompressionStrategies:
@@ -154,12 +156,15 @@ class CompressionStrategies:
         # the old expression's two terms summed in the other order (addition
         # commutes exactly, so the result is bit-identical). Accumulating into
         # the first product and dropping `compressed` before the second keeps
-        # two full-length arrays alive instead of four (#6717). soft_clip's
+        # two full-length arrays alive instead of four (#6717), and the second
+        # term is added a block at a time so it never exists whole. soft_clip's
         # result is never written in place, so this stays correct if it ever
         # hands back its input unchanged.
         blended = compressed * amount
         del compressed
-        blended += audio * (1.0 - amount)
+        dry = 1.0 - amount
+        for start in range(0, len(audio), _BLEND_BLOCK):
+            blended[start:start + _BLEND_BLOCK] += audio[start:start + _BLEND_BLOCK] * dry
         audio = blended
 
         after = MeasurementUtilities.measure_audio(audio)

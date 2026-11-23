@@ -50,11 +50,13 @@ def soft_clip(audio: np.ndarray, threshold: float = 0.9, ceiling: float = 0.99) 
     # Below threshold: pass through unchanged (linear region). This is
     # CRITICAL - signals below threshold should not be distorted. Starting from
     # a copy and touching only the samples over the threshold keeps the working
-    # set at the output plus one transient |audio|, where full-size abs, sign
-    # and below-threshold gather arrays used to coexist (#6717). `~(x <= t)`,
+    # set at the output plus boolean masks (#6717): |x| <= t is tested as
+    # -t <= x <= t, exactly the same set, without a full-size |audio|. `~(...)`,
     # not `x > t`, so a NaN still takes the saturation branch as it always has.
     output = audio.copy(order='K')
-    above_mask = ~(np.abs(audio) <= threshold)
+    above_mask = audio <= threshold
+    above_mask &= audio >= -threshold
+    np.logical_not(above_mask, out=above_mask)
 
     # Above threshold: apply soft saturation only to the excess
     # The excess above threshold gets compressed via tanh

@@ -22,8 +22,10 @@ relaxed to preserve sample count.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+from typing import cast
+
 import numpy as np
-from scipy.signal import sosfiltfilt
+from scipy.signal import sosfilt, sosfilt_zi, sosfiltfilt
 
 from ...utils.logging import debug
 
@@ -57,6 +59,25 @@ def sosfiltfilt_padlen(sos: np.ndarray) -> int:
     """
     n_sections = int(np.asarray(sos).shape[0])
     return 3 * (2 * n_sections + 1)
+
+
+def _sosfiltfilt_1d(sos: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """``scipy.signal.sosfiltfilt(sos, x)`` for a 1-D signal, holding two padded buffers at once.
+
+    scipy keeps its odd extension, the forward pass and the reverse pass's
+    contiguous copy alive together. These are its operations in its order
+    (padlen, odd extension, zi seeded from each pass's first sample), with each
+    buffer dropped after its last use, so the values are the same (#6717).
+    """
+    ntaps = 2 * sos.shape[0] + 1 - min(int((sos[:, 2] == 0).sum()), int((sos[:, 5] == 0).sum()))
+    edge = 3 * ntaps
+    ext = np.concatenate((2 * x[:1] - x[edge:0:-1], x, 2 * x[-1:] - x[-2:-(edge + 2):-1]))
+    zi = sosfilt_zi(sos)
+    forward = sosfilt(sos, ext, zi=zi * ext[:1])[0]
+    del ext
+    backward = sosfilt(sos, forward[::-1], zi=zi * forward[-1:])[0]
+    del forward
+    return cast(np.ndarray, backward[::-1][edge:-edge])
 
 
 def is_long_enough_for_sosfiltfilt(sos: np.ndarray, n_samples: int) -> bool:
@@ -126,4 +147,6 @@ def sosfiltfilt_safe(
         )
         return np.zeros_like(audio) if on_too_short == "zeros" else audio.copy()
 
+    if audio.ndim == 1:
+        return np.asarray(_sosfiltfilt_1d(np.asarray(sos, dtype=np.float64), audio), dtype=audio.dtype)
     return np.asarray(sosfiltfilt(sos, audio, axis=axis), dtype=audio.dtype)
