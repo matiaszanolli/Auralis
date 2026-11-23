@@ -18,6 +18,7 @@ from ..utils.logging import info, warning
 from .constants import DEFAULT_DB_PATH, SQLITE_BUSY_TIMEOUT_MS, SQLITE_CONNECT_TIMEOUT_S
 from .models import Base
 from .schema_indexes import create_missing_declared_indexes
+from .sqlite_wal import enable_wal
 
 
 def resolve_database_path(database_path: str | None) -> str:
@@ -76,8 +77,7 @@ def create_library_engine(database_path: str) -> Engine:
     def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
         """Set SQLite pragmas for safe, fast writes"""
         cursor = dbapi_connection.cursor()
-        # Enable Write-Ahead Logging for better concurrent write performance
-        cursor.execute("PRAGMA journal_mode=WAL")
+        enable_wal(cursor)  # retried: a new file's switch can race other connections
         # Set synchronous to NORMAL (safer than OFF, faster than FULL)
         # Ensures fingerprints are durably written to WAL before returning
         cursor.execute("PRAGMA synchronous=NORMAL")

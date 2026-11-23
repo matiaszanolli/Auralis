@@ -30,6 +30,7 @@ from auralis.analysis.fingerprint.schema import DIMENSION_NAMES, band_pct_valid
 from auralis.analysis.fingerprint.windowed_compute import compute_windowed_fingerprint
 from auralis.io.formats import FFMPEG_FORMATS
 from auralis.library.constants import SQLITE_BUSY_TIMEOUT_MS, SQLITE_CONNECT_TIMEOUT_S
+from auralis.library.sqlite_wal import enable_wal
 from auralis.library.repositories.fingerprint_repository import FingerprintRepository
 from auralis.library.repositories.track_repository import TrackRepository
 
@@ -51,7 +52,7 @@ def _make_engine(db_path: Path) -> Engine:
     @event.listens_for(engine, "connect")
     def _set_pragmas(dbapi_conn: Any, _record: Any) -> None:
         cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
+        enable_wal(cursor)  # retried: a new file's switch can race other connections
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
         # #4510: foreign-key enforcement is per-connection in SQLite, and the

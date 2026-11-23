@@ -35,6 +35,7 @@ PRAGMA_ONLY_FILES = {
     "auralis/library/database_engine.py": "per-connection SQLite settings (WAL, foreign keys, busy timeout)",
     "auralis/library/database.py": "WAL checkpoint and PRAGMA optimize on shutdown",
     "auralis/library/migration_engine.py": "the migration connection's SQLite settings",
+    "auralis/library/sqlite_wal.py": "the WAL switch every engine's connect hook shares, retried on lock contention",
     "auralis/analysis/fingerprint/fingerprint_service.py": "its connection's SQLite settings",
 }
 

@@ -21,6 +21,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 
 from .constants import SQLITE_BUSY_TIMEOUT_MS, SQLITE_CONNECT_TIMEOUT_S
+from .sqlite_wal import enable_wal
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def create_migration_engine(db_path: Path) -> Engine:
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
         cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
+        enable_wal(cursor)  # retried: a new file's switch can race other connections
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.execute("PRAGMA foreign_keys=ON")
         # Explicit busy timeout at PRAGMA level for consistent behavior
