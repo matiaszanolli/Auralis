@@ -120,7 +120,11 @@ class PipelineJournal:
         """Capture a snapshot (~2ms for 15-second stereo chunk).
 
         ``lufs`` is ``audio``'s K-weighted loudness when the caller already has it.
+        A stage that returns its input unchanged hands back the very buffer the
+        latest reading measured, which is then reused rather than re-metered.
         """
+        if lufs is None and self._latest_lufs is not None and self._latest_lufs[0]() is audio:
+            lufs = self._latest_lufs[1]
         m = FullAudioMeasurement(audio, self.sample_rate, label=stage_name, lufs=lufs)
         if m.lufs is not None:
             self._latest_lufs = (weakref.ref(audio), m.lufs)
@@ -148,6 +152,20 @@ class PipelineJournal:
               + (f" lufs={snap.lufs:.1f}" if snap.lufs is not None else "")
               + (f" width={width:.2f} phase={phase:.2f}" if is_stereo else ""))
         return snap
+
+    def moved(self, old: np.ndarray, new: np.ndarray) -> None:
+        """``old``'s contents are being copied into ``new`` (the stage loop's working buffer, #6717).
+
+        A reading of ``old`` now belongs to ``new``; a reading of ``new`` itself is
+        dropped, since its contents are about to change.
+        """
+        if self._latest_lufs is None:
+            return
+        held = self._latest_lufs[0]()
+        if held is old:
+            self._latest_lufs = (weakref.ref(new), self._latest_lufs[1])
+        elif held is new:
+            self._latest_lufs = None
 
     def lufs(self, audio: np.ndarray) -> float:
         """K-weighted loudness of ``audio``, reusing the latest snapshot's reading.

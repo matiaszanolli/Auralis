@@ -75,6 +75,7 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         eq_processor: Any,
         params: Any,
         input_lufs: float | None = None,
+        overwrite_input: bool = False,
     ) -> np.ndarray:
         """Apply all DSP processing stages to ``processed_audio``.
 
@@ -83,6 +84,12 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
         and the sampled advisory quality measurements. ``target_audio`` is the
         unmodified original, used only by the before/after comparison.
         ``input_lufs`` is its K-weighted loudness when the caller has measured it.
+
+        ``overwrite_input`` (#6717): ``processed_audio`` is the caller's to give
+        away, so each stage's output is copied back into it and released. One
+        whole-track buffer then carries the pipeline instead of that buffer, held
+        by the caller's frames, plus each stage's separate input. An output of
+        another dtype or shape is kept as is, as without the flag.
 
         The stage sequence is the ordered ``stages`` list below and nothing else,
         so adding, removing, or reordering a stage is a one-line edit here rather
@@ -99,7 +106,14 @@ class ContinuousStagesMixin(ContinuousQualityMixin, ContinuousDSPOpsMixin):
             lambda a: self._stage_normalization(a, params, journal),
         ]
         for stage in stages:
-            processed_audio = stage(processed_audio)
+            output = stage(processed_audio)
+            if overwrite_input and output is not processed_audio \
+                    and output.dtype == processed_audio.dtype and output.shape == processed_audio.shape:
+                journal.moved(output, processed_audio)
+                processed_audio[...] = output
+            else:
+                processed_audio = output
+            del output
 
         # Step 6: Cross-dimensional side-effect detection (final report)
         guard = CrossDimensionalGuard()

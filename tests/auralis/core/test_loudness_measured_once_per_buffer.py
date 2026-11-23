@@ -65,8 +65,9 @@ def test_process_measures_each_distinct_buffer_once(monkeypatch, make_audio):
     seen = _record_measurements(monkeypatch)
     processor.process(audio)
 
-    # Input, after EQ, after dynamics, after stereo, after normalisation at least.
-    assert len(seen) >= 5
+    # Input, after EQ and after normalisation at least; dynamics and stereo width may
+    # hand back their input unchanged (no compression, unity width), adding nothing new.
+    assert len(seen) >= 3
     repeated = len(seen) - len(set(seen))
     assert repeated == 0, f"{repeated} of {len(seen)} loudness measurements re-measured an already-measured buffer"
 
@@ -104,3 +105,36 @@ def test_journal_does_not_keep_the_snapshot_buffer_alive():
     del audio
     gc.collect()
     assert ref() is None
+
+
+def test_a_snapshot_of_the_buffer_just_measured_reuses_the_reading(monkeypatch):
+    # A stage that returns its input unchanged (no compression, unity width) snapshots the same
+    # object the previous snapshot measured.
+    journal = PipelineJournal(SR)
+    audio = _uncorrelated_noise(2.0)
+    first = journal.snapshot(audio, "input")
+    seen = _record_measurements(monkeypatch)
+
+    again = journal.snapshot(audio, "dynamics")
+
+    assert again.lufs == first.lufs
+    assert seen == []
+
+
+def test_moved_rehomes_a_reading_and_drops_one_of_the_overwritten_buffer(monkeypatch):
+    journal = PipelineJournal(SR)
+    work = _uncorrelated_noise(2.0)
+    journal.snapshot(work, "input")
+    stage_output = work * 0.5
+    journal.snapshot(stage_output, "eq")
+    seen = _record_measurements(monkeypatch)
+
+    journal.moved(stage_output, work)  # the loop copies the output into its working buffer
+    work[...] = stage_output
+    assert journal.lufs(work) == pytest.approx(adaptive.calculate_loudness_units(work, SR))
+    assert len(seen) == 1  # only the assertion's own reading: the journal reused its value
+    seen.clear()
+
+    journal.moved(work * 2.0, work)  # a reading of `work` itself is about to go stale
+    journal.lufs(work)
+    assert len(seen) == 1
