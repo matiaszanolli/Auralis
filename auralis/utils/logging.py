@@ -12,9 +12,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 
 import logging as _stdlib_logging
 import os as _os
-import traceback as _traceback
 from collections.abc import Callable
-from types import TracebackType
 
 # Control characters that must not reach a log line verbatim: C0 range
 # (0x00-0x1F) except tab, plus DEL (0x7F) and the C1 range (0x80-0x9F).
@@ -212,83 +210,5 @@ def _sanitizing_log_record_factory(*args: object, **kwargs: object) -> _stdlib_l
 _stdlib_logging.setLogRecordFactory(_sanitizing_log_record_factory)
 
 
-class SanitizingFormatter(_stdlib_logging.Formatter):
-    """Formatter that sanitizes attacker-controlled traceback text (#5393).
-
-    ``exc_info`` / ``logger.exception()`` output never passes through
-    getMessage() or the sanitizing LogRecordFactory above — the Formatter
-    renders it via the traceback module, whose final ``{Type}: {message}``
-    line is exactly ``str(exc)``. A loader exception embedding a crafted
-    path could therefore reach the persisted log with its CR/LFs intact.
-
-    A post-render escape cannot fix this: by the time the text is split
-    into lines, an embedded ``\\n`` has already become a line boundary. So
-    the traceback is rebuilt from the stdlib's own frame rendering
-    (``traceback.format_tb``, structural, not attacker-controlled) while
-    the exception summary line — the only attacker-controlled part — goes
-    through ``sanitize_log_value()``. Cause/context chains are rendered
-    recursively, matching the stdlib's structure.
-    """
-
-    _CAUSE_DIVIDER = (
-        "\nThe above exception was the direct cause of the following exception:\n\n"
-    )
-    _CONTEXT_DIVIDER = (
-        "\nDuring handling of the above exception, another exception occurred:\n\n"
-    )
-
-    def formatException(
-        self,
-        ei: tuple[type[BaseException], BaseException, TracebackType | None]
-        | tuple[None, None, None],
-    ) -> str:
-        return self._format_chain(ei[1], ei[2], set())
-
-    def _format_chain(
-        self,
-        exc: BaseException | None,
-        tb: TracebackType | None,
-        seen: set[int],
-    ) -> str:
-        if exc is None or id(exc) in seen:
-            return ""
-        seen.add(id(exc))
-        parts: list[str] = []
-        if exc.__cause__ is not None:
-            parts.append(self._format_chain(exc.__cause__, exc.__cause__.__traceback__, seen))
-            parts.append(self._CAUSE_DIVIDER)
-        elif exc.__context__ is not None and not exc.__suppress_context__:
-            parts.append(self._format_chain(exc.__context__, exc.__context__.__traceback__, seen))
-            parts.append(self._CONTEXT_DIVIDER)
-        parts.append("Traceback (most recent call last):\n")
-        # Frames are built field by field: sanitizing a whole format_tb() entry
-        # escaped its own structural newlines, collapsing every traceback onto
-        # one line (#6161). The newlines below are ours; every value that could
-        # carry one (a path, a function name, a source line) is escaped first.
-        for frame in _traceback.extract_tb(tb):
-            parts.append(
-                f'  File "{sanitize_log_value(frame.filename)}", line {frame.lineno}, '
-                f"in {sanitize_log_value(frame.name)}\n"
-            )
-            if frame.line:
-                parts.append(f"    {sanitize_log_value(frame.line)}\n")
-        # The one attacker-controlled line: fully sanitized (including any
-        # embedded \r\n) before it is ever joined into the output.
-        parts.append(sanitize_log_value(f"{type(exc).__name__}: {exc}") + "\n")
-        return "".join(parts)
-
-
-def install_sanitizing_formatter(
-    logger: _stdlib_logging.Logger | None = None, fmt: str | None = None
-) -> None:
-    """Swap a SanitizingFormatter onto every handler of `logger` (root default).
-
-    basicConfig() instantiates a plain Formatter internally and accepts no
-    custom Formatter class, so this re-wraps the handlers it created. When
-    `fmt` is omitted, each handler's existing format string is reused.
-    Handlers created later still need setFormatter() themselves.
-    """
-    target = _stdlib_logging.getLogger() if logger is None else logger
-    for handler in target.handlers:
-        format_string = fmt if fmt is not None else getattr(handler.formatter, "_fmt", None)
-        handler.setFormatter(SanitizingFormatter(format_string))
+# The traceback formatter lives in log_formatter.py (#6534); re-exported so callers keep importing it from here.
+from .log_formatter import SanitizingFormatter, install_sanitizing_formatter  # noqa: E402, F401
