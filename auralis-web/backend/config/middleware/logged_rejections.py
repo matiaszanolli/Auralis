@@ -32,7 +32,7 @@ class LoggingTrustedHostMiddleware(TrustedHostMiddleware):
                 for pattern in self.allowed_hosts
             )
             if not allowed:
-                warn_throttled(logger, "untrusted_host", f"Untrusted Host header refused: {host!r}")
+                warn_throttled(logger, "untrusted_host", f"Untrusted Host header refused: {host!r}", detail=host)
         await super().__call__(scope, receive, send)
 
 
@@ -46,5 +46,6 @@ class LoggingCORSMiddleware(CORSMiddleware):
                 logger, "cors_preflight_refused",
                 f"CORS preflight refused for origin {request_headers.get('origin')!r}: "
                 f"{bytes(response.body).decode()}",
+                detail=str(request_headers.get("origin")),  # each distinct origin per window (#6541)
             )
         return response

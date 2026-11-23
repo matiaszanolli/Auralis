@@ -116,6 +116,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                         warn_throttled(
                             logger, "origin_check.untrusted_origin",
                             f"Rejected {request.method} {request.url.path}: untrusted origin {origin!r}",
+                            detail=origin,  # a second origin in the window is logged too (#6541)
                         )
                         return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
                 else:
@@ -127,6 +128,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                             logger, "origin_check.non_loopback_no_origin",
                             f"Rejected {request.method} {request.url.path}: "
                             f"empty Origin from non-loopback host {client_host!r}",
+                            detail=client_host,
                         )
                         return JSONResponse(status_code=403, content={"detail": "Untrusted origin"})
         except Exception as exc:

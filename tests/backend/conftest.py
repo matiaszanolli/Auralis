@@ -31,8 +31,9 @@ def _reset_rejection_log_throttle():
     silenced by an earlier test that already logged the same reason inside the window."""
     from config import log_throttle
 
-    log_throttle._state.clear()
+    log_throttle.reset()
     yield
+    log_throttle.reset()  # and no flush timer a test armed fires into a later one (#6541)
 
 
 @pytest.fixture(autouse=True)

@@ -1,5 +1,5 @@
 """
-RateLimitMiddleware logs its 429s, throttled per client and rule (#5375)
+RateLimitMiddleware logs its 429s, throttled per rule and client (#5375, #6541)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Every other rejection path in the backend logs a WARNING, but the 429 branch
@@ -27,6 +27,7 @@ from httpx import ASGITransport
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 import config.middleware.rate_limit as middleware_module  # owns `time` and the logger (#5479)
+from config import log_throttle
 from config.limits import RATE_LIMIT_SCAN_MAX, RATE_LIMIT_SCAN_WINDOW
 from config.middleware import RateLimitMiddleware
 
@@ -57,8 +58,10 @@ def _warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
 @pytest.mark.asyncio
 async def test_a_lockout_logs_once_per_window_naming_client_and_rule(monkeypatch, caplog):
     clock = SimpleNamespace(now=1000.0)
-    # Replace only the middleware's `time` reference; the event loop keeps the real clock.
-    monkeypatch.setattr(middleware_module, "time", SimpleNamespace(monotonic=lambda: clock.now))
+    # Replace only the middleware's and the throttle's `time`; the event loop keeps the real clock.
+    fake_time = SimpleNamespace(monotonic=lambda: clock.now)
+    monkeypatch.setattr(middleware_module, "time", fake_time)
+    monkeypatch.setattr(log_throttle, "time", fake_time)
     caplog.set_level(logging.WARNING, logger=middleware_module.logger.name)
 
     async with httpx.AsyncClient(transport=ASGITransport(app=_app()), base_url="http://test") as client:
@@ -73,14 +76,17 @@ async def test_a_lockout_logs_once_per_window_naming_client_and_rule(monkeypatch
         assert (await _statuses(client, RATE_LIMIT_SCAN_MAX + 1)).count(429) == 1
 
     warnings = _warnings(caplog)
+    assert len(warnings) == 3  # the next window's warning is preceded by the suppressed count
+    assert "19 more rate_limit /api/library/scan rejection(s)" in warnings[1]
+    assert "127.0.0.1" in warnings[2]
+
+
+def test_each_new_client_inside_the_window_is_logged(caplog):
+    caplog.set_level(logging.WARNING, logger=middleware_module.logger.name)
+
+    for ip in ("10.0.0.1", "10.0.0.2", "10.0.0.1"):
+        RateLimitMiddleware._log_rejection(ip, "/api/similarity", 60, 5)
+
+    warnings = _warnings(caplog)
     assert len(warnings) == 2
-    assert "19 more rejection(s)" in warnings[1]
-
-
-def test_throttle_entries_are_evicted_with_their_windows():
-    middleware = RateLimitMiddleware(None)
-    middleware._rejection_log["10.0.0.2:/api/similarity"] = (0.0, 5)
-
-    middleware._evict_stale_keys(now=1_000_000.0)
-
-    assert middleware._rejection_log == {}
+    assert "10.0.0.1" in warnings[0] and "10.0.0.2" in warnings[1]
