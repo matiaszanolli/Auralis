@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isSafeExternalUrl, escapeControlChars } = require('./url-safety');
+const { isSafeExternalUrl, escapeControlChars, backendLogLines } = require('./url-safety');
 
 test('allows https URLs', () => {
   assert.equal(isSafeExternalUrl('https://example.com'), true);
@@ -156,4 +156,25 @@ test('escapeControlChars also escapes Unicode line separators and bidi controls 
   assert.equal(/[\u0080-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/.test(escaped), false);
   assert.equal(escaped, 'a\\u2028b\\u2029c\\u202ed\\u2066e\\u200bf\\x85g');
   assert.equal(escapeControlChars('Bj\u00f6rk \u2013 J\u00f3ga \u266a'), 'Bj\u00f6rk \u2013 J\u00f3ga \u266a');
+});
+
+test('backendLogLines escapes each line and keeps its Python level (#6540)', () => {
+  const chunk = [
+    '2026-11-23 10:00:00,001 - auralis.player - INFO - Playing track',
+    '2026-11-23 10:00:01,002 - auralis.scan - WARNING - Odd tag',
+    'ERROR:    Exception in ASGI application',
+    'Traceback (most recent call last):',
+    'ValueError: bad tag\u001b[2J',
+    '',
+  ].join('\n');
+
+  const entries = backendLogLines(chunk, 'error');
+
+  assert.deepEqual(entries.map((e) => e.level), ['info', 'warn', 'error', 'error', 'error']);
+  assert.equal(entries[4].line, 'ValueError: bad tag\\x1b[2J');
+  assert.equal(entries.every((e) => !/[\u0000-\u001f]/.test(e.line)), true);
+});
+
+test('backendLogLines gives unlevelled stdout lines the stdout fallback', () => {
+  assert.deepEqual(backendLogLines('Uvicorn running\r\n', 'info'), [{ level: 'info', line: 'Uvicorn running' }]);
 });

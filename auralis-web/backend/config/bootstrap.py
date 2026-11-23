@@ -145,11 +145,11 @@ def install_log_sanitizer() -> None:
     The sanitizing LogRecordFactory (auralis.utils.logging, imported at config
     import time) covers message/args, but traceback text from
     exc_info/logger.exception() is rendered by the handler's Formatter, which
-    basicConfig instantiated as a plain Formatter. Attacker-controlled text
-    inside an exception message must not be able to forge log lines in the
-    persisted electron-log output. Call only after configure_sys_path():
-    importing auralis.* earlier breaks the PyInstaller-frozen case.
+    basicConfig instantiated as a plain Formatter; uncaught exceptions and warnings go
+    through logging too (#6540), so no attacker text forges lines in electron-log.
+    Call only after configure_sys_path(): importing auralis.* earlier breaks the frozen case.
     """
-    from auralis.utils.logging import install_sanitizing_formatter
+    from auralis.utils.log_formatter import install_sanitizing_formatter, route_uncaught_to_logging
 
     install_sanitizing_formatter(fmt=_LOG_FORMAT)
+    route_uncaught_to_logging()

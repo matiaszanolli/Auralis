@@ -6,7 +6,7 @@ const { randomUUID } = require('node:crypto');
 const { setTimeout: delay } = require('node:timers/promises');
 const path = require('node:path');
 const fs = require('node:fs');
-const { isSafeExternalUrl, isAllowedAppNavigation, isTrustedIpcSender, escapeControlChars, DEV_ORIGIN_FLAG, APP_PORT, APP_ORIGIN, DEV_ORIGIN } = require('./url-safety');
+const { isSafeExternalUrl, isAllowedAppNavigation, isTrustedIpcSender, escapeControlChars, backendLogLines, DEV_ORIGIN_FLAG, APP_PORT, APP_ORIGIN, DEV_ORIGIN } = require('./url-safety');
 const { buildBackendEnv } = require('./backend-env');
 const { terminateBackend } = require('./backend-shutdown');
 const STARTUP_TIMEOUT_MS = 45000;
@@ -95,8 +95,12 @@ class AuralisApp {
       },
     });
 
-    this.pythonProcess.stdout.on('data', (output) => log.info('[Backend]', output.toString().trim()));
-    this.pythonProcess.stderr.on('data', (output) => log.error('[Backend Error]', output.toString().trim()));
+    // Line by line, escaped, at each line's own Python level (#6540).
+    const pipeBackend = (fallbackLevel) => (output) => {
+      for (const { level, line } of backendLogLines(output, fallbackLevel)) log[level]('[Backend]', line);
+    };
+    this.pythonProcess.stdout.on('data', pipeBackend('info'));
+    this.pythonProcess.stderr.on('data', pipeBackend('error'));
     this.pythonProcess.on('error', (error) => {
       this.backendSpawnError = error;
       log.error('Failed to start backend:', error);

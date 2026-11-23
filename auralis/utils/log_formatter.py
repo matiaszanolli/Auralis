@@ -11,6 +11,8 @@ The ``logging.Formatter`` that renders ``exc_info`` without letting attacker-con
 """
 
 import logging as _stdlib_logging
+import sys as _sys
+import threading as _threading
 import traceback as _traceback
 from types import TracebackType
 
@@ -41,6 +43,13 @@ class SanitizingFormatter(_stdlib_logging.Formatter):
     _CONTEXT_DIVIDER = (
         "\nDuring handling of the above exception, another exception occurred:\n\n"
     )
+
+    def format(self, record: _stdlib_logging.LogRecord) -> str:
+        # logging caches the first handler's traceback text on the record and every later handler
+        # reuses it: a plain Formatter running first would hand us its unsanitized rendering (#6540).
+        # Rendering ours afterwards also leaves the sanitized text for any handler after us.
+        record.exc_text = None
+        return super().format(record)
 
     def formatException(
         self,
@@ -113,3 +122,32 @@ def install_sanitizing_formatter(
     for handler in target.handlers:
         format_string = fmt if fmt is not None else getattr(handler.formatter, "_fmt", None)
         handler.setFormatter(SanitizingFormatter(format_string))
+
+
+def route_uncaught_to_logging() -> None:
+    """Send uncaught exceptions and warnings through logging, so they are sanitized too (#6540).
+
+    The sanitizer is the record factory plus the formatter; anything printed to stderr directly
+    reached the persisted log verbatim: the traceback of an uncaught exception in a bare thread
+    (fingerprint workers, gapless prebuffer, resource monitor) or the main thread, and
+    ``warnings.warn`` output, either of which can carry a tag or file name. Install before any
+    worker thread starts. Ctrl-C and a thread's SystemExit keep their default handling.
+    """
+    log = _stdlib_logging.getLogger("auralis.uncaught")
+
+    def _excepthook(exc_type: type[BaseException], exc: BaseException, tb: TracebackType | None) -> None:
+        if issubclass(exc_type, KeyboardInterrupt):
+            _sys.__excepthook__(exc_type, exc, tb)
+            return
+        log.critical("Uncaught exception", exc_info=(exc_type, exc, tb))
+
+    def _thread_excepthook(args: _threading.ExceptHookArgs) -> None:
+        if args.exc_type is SystemExit or args.exc_value is None:
+            return
+        name = args.thread.name if args.thread is not None else "?"
+        log.critical("Uncaught exception in thread %s", name,
+                     exc_info=(args.exc_type, args.exc_value, args.exc_traceback))
+
+    _sys.excepthook = _excepthook
+    _threading.excepthook = _thread_excepthook
+    _stdlib_logging.captureWarnings(True)

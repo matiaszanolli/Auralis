@@ -115,7 +115,29 @@ function escapeControlChars(value) {
   });
 }
 
+const PYTHON_LEVELS = { DEBUG: 'debug', INFO: 'info', WARNING: 'warn', ERROR: 'error', CRITICAL: 'error' };
+// The backend's log format ("<time> - <logger> - LEVEL - msg") or uvicorn's ("LEVEL:   msg").
+const LEVEL_FIELD = /^\S+ \S+ - \S+ - (DEBUG|INFO|WARNING|ERROR|CRITICAL) - |^(DEBUG|INFO|WARNING|ERROR|CRITICAL):/;
+
+/**
+ * Backend output as log entries: one per line, each escaped, at the Python level it carries (#6540).
+ * Python logging writes to stderr, so treating every stderr chunk as one error made every INFO line an
+ * error and wrote a chunk's lines unescaped. A line with no level (native output, a traceback
+ * continuation) takes the stream's fallback.
+ */
+function backendLogLines(output, fallbackLevel) {
+  return String(output)
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== '')
+    .map((line) => {
+      const match = LEVEL_FIELD.exec(line);
+      const level = match ? PYTHON_LEVELS[match[1] || match[2]] : fallbackLevel;
+      return { level, line: escapeControlChars(line) };
+    });
+}
+
 module.exports = {
+  backendLogLines,
   escapeControlChars,
   isSafeExternalUrl,
   ALLOWED_EXTERNAL_SCHEMES,
