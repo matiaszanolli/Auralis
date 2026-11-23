@@ -18,7 +18,7 @@ from auralis.utils import logging as alog
 
 @pytest.fixture
 def fake_home(monkeypatch):
-    monkeypatch.setattr(alog, "_HOME_PREFIX", "/home/alice")
+    monkeypatch.setattr(alog, "_HOME_PREFIXES", ("/home/alice",))
 
 
 def test_a_path_under_home_is_shortened(fake_home):
@@ -35,7 +35,7 @@ def test_paths_outside_home_are_untouched(fake_home):
 
 
 def test_a_missing_or_root_home_redacts_nothing(monkeypatch):
-    monkeypatch.setattr(alog, "_HOME_PREFIX", "")
+    monkeypatch.setattr(alog, "_HOME_PREFIXES", ())
     assert alog.sanitize_log_value("/home/alice/x") == "/home/alice/x"
 
 

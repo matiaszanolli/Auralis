@@ -35,13 +35,20 @@ def _escape_char(ch: str) -> str:
 
 
 # The user's home directory carries their OS account name and the install layout; every path under it
-# reads as "~/..." in persisted logs (#6189). Resolved once: a log call must not hit the filesystem.
-try:
-    _HOME_PREFIX = _os.path.expanduser("~")
-except Exception:  # noqa: BLE001 - no resolvable home (a bare service account): nothing to redact
-    _HOME_PREFIX = ""
-if len(_HOME_PREFIX) < 2:  # "" or "/": redacting would mangle every path
-    _HOME_PREFIX = ""
+# reads as "~/..." in persisted logs (#6189). Both spellings: validators log resolved paths, which under
+# a symlinked HOME (/home -> /var/home) start with its real target instead (#6537). Longer first, so
+# one cannot leave a fragment of the other. Resolved once: a log call must not hit the filesystem.
+def _home_prefixes() -> tuple[str, ...]:
+    try:
+        home = _os.path.expanduser("~")
+        spellings = {home, _os.path.realpath(home)}
+    except Exception:  # noqa: BLE001 - no resolvable home (a bare service account): nothing to redact
+        return ()
+    # "" or "/" would mangle every path.
+    return tuple(sorted((h for h in spellings if len(h) >= 2), key=len, reverse=True))
+
+
+_HOME_PREFIXES = _home_prefixes()
 
 
 def sanitize_log_value(value: object, max_length: int = 500) -> str:
@@ -61,8 +68,9 @@ def sanitize_log_value(value: object, max_length: int = 500) -> str:
         A single-line, control-character-free string safe for logging.
     """
     text = str(value)
-    if _HOME_PREFIX and _HOME_PREFIX in text:
-        text = text.replace(_HOME_PREFIX, "~")
+    for home in _HOME_PREFIXES:
+        if home in text:
+            text = text.replace(home, "~")
     if len(text) > max_length:
         text = text[:max_length] + "…"
     if not any(ch in _LOG_UNSAFE_CHARS for ch in text):

@@ -11,6 +11,7 @@ split from path_security.py (#6271).
 
 import functools
 import logging
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -18,12 +19,28 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+# An absolute path (POSIX, drive-letter or UNC) quoted inside a message, or ending it after ": ".
+_ABSOLUTE = r"(?:/|[A-Za-z]:[\\/]|\\\\)"
+_QUOTED_PATH = re.compile(rf"'({_ABSOLUTE}[^']*)'")
+_TRAILING_PATH = re.compile(rf"(?<=: ){_ABSOLUTE}.*$")
+
+
+def _file_name(path: str) -> str:
+    return re.split(r"[\\/]", path.rstrip("\\/"))[-1]
+
+
 class PathValidationError(Exception):
     """Raised when path validation fails."""
 
     def log_text(self) -> str:
-        """The message to persist at WARNING; containment/traversal messages are already path-free."""
-        return str(self)
+        """The message to persist at WARNING, every absolute path in it reduced to its file name.
+
+        The absolute path is the commonest thing users paste into public issues (#6189), and the
+        unreadable/not-a-directory/OS-error messages carried one as much as the missing-file ones
+        did (#6537): quoted ('...', as an OSError renders it) or trailing (``reason: /path``).
+        """
+        text = _QUOTED_PATH.sub(lambda m: f"'{_file_name(m.group(1))}'", str(self))
+        return _TRAILING_PATH.sub(lambda m: _file_name(m.group(0)), text)
 
 
 class PathMissingError(PathValidationError):
@@ -33,11 +50,6 @@ class PathMissingError(PathValidationError):
     track (offer relocate/remove) from a malformed request. Subclassing ``PathValidationError`` keeps every
     existing ``except PathValidationError`` handler working; a caller that wants the distinction catches this first.
     """
-
-    def log_text(self) -> str:
-        """The absolute path is the commonest thing users paste into public issues: log the file name (#6189)."""
-        reason, _, path = str(self).rpartition(": ")
-        return f"{reason}: {Path(path).name}" if reason else Path(path).name
 
 
 def _logs_rejections(fn: Callable[..., Path]) -> Callable[..., Path]:
