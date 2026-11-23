@@ -13,7 +13,6 @@ registers it.
 import asyncio
 import json
 import logging
-import tempfile
 import uuid
 from pathlib import Path
 
@@ -24,6 +23,7 @@ from core.job_models import ProcessingStatus
 from core.processing_engine import ProcessingEngine
 
 from .errors import BadRequestError, ServiceUnavailableError
+from .files_upload_budget import MAX_PROCESSING_UPLOAD_DIR_BYTES, UploadBudget
 from .files_validation import _has_valid_audio_magic
 from .dependencies import require_processing_engine, with_error_handling
 from .processing_deps import _get_processing_engine
@@ -37,7 +37,8 @@ logger = logging.getLogger(__name__)
 from auralis.io.formats import AUDIO_EXTENSIONS as _ALLOWED_AUDIO_EXTENSIONS
 
 from config.limits import MAX_UPLOAD_BYTES as _MAX_UPLOAD_BYTES
-from config.limits import UPLOAD_TEMP_DIRNAME, create_secure_temp_dir
+from config.limits import create_secure_temp_dir
+from core.job_cleanup import upload_temp_dir
 
 
 def _write_upload(temp_dir: Path, input_path: Path, content: bytes) -> None:
@@ -89,7 +90,7 @@ async def upload_and_process(
         )
 
     # Save uploaded file to temp location
-    temp_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
+    temp_dir = upload_temp_dir()
 
     # Reject oversized uploads (#2560). Starlette's multipart parser has
     # already spooled the whole body into the UploadFile by the time this
@@ -109,6 +110,15 @@ async def upload_and_process(
         raise HTTPException(
             status_code=415,
             detail="Unsupported or invalid audio file format"
+        )
+
+    # Bound the bytes waiting in the uploads temp dir, like /api/files/upload's directory (#6517).
+    budget = UploadBudget(_MAX_UPLOAD_BYTES, MAX_PROCESSING_UPLOAD_DIR_BYTES, temp_dir)
+    if not await budget.admit_storage(len(content)):
+        raise HTTPException(
+            status_code=413,
+            detail=f"Upload storage is full ({MAX_PROCESSING_UPLOAD_DIR_BYTES // 2**30} GiB of queued "
+            "uploads); try again once queued jobs finish",
         )
 
     # Use a UUID filename to prevent client-controlled path injection (#2560).

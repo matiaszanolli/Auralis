@@ -17,14 +17,41 @@ offloaded filesystem sweep are unchanged (preserves #2435, #3327, #4754).
 
 import asyncio
 import logging
+import tempfile
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 
-from core.job_models import TERMINAL_STATUSES, ProcessingJob
+from core.job_models import TERMINAL_STATUSES, ProcessingJob, ProcessingStatus
+from config.limits import UPLOAD_TEMP_DIRNAME
 from config.retention import SECONDS_PER_HOUR
 
 logger = logging.getLogger(__name__)
+
+
+def upload_temp_dir() -> Path:
+    """Where upload-and-process writes its inputs; the job sweeps and the startup reclaim look here."""
+    return Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
+
+
+def discard_upload_input(job: ProcessingJob, upload_dir: Path | None = None) -> None:
+    """Delete a FAILED or CANCELLED job's input when it is an upload the job owns (#6517).
+
+    Nothing can use it again: there is no retry, and the output is the only thing
+    a client fetches. Left for the TTL sweep, a client loop posting large uploads
+    that fail at decode held ~500 MB each for an hour. A COMPLETED job's input is
+    left to that sweep, like its output; an input outside the uploads directory
+    (a library track) is never touched, the same rule the sweep applies.
+    """
+    if job.status not in (ProcessingStatus.FAILED, ProcessingStatus.CANCELLED):
+        return
+    input_path = Path(job.input_path)
+    if not input_path.is_relative_to(upload_dir or upload_temp_dir()):
+        return
+    try:
+        input_path.unlink(missing_ok=True)
+    except OSError as e:
+        logger.warning(f"Failed to delete the input of job {job.job_id}: {e}")
 
 
 async def cleanup_expired_jobs(

@@ -54,6 +54,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.job_cleanup import discard_upload_input
 from core.job_error_mapping import _safe_error_message
 from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_store import persist
@@ -114,6 +115,7 @@ async def process_job(engine: "ProcessingEngine", job: ProcessingJob) -> None:
     """
     # Guard: if cancel_job() fired before the worker started this job, skip it.
     if job.status == ProcessingStatus.CANCELLED:
+        await asyncio.to_thread(discard_upload_input, job)  # normally gone already (#6517)
         return
 
     processor = None
@@ -206,6 +208,8 @@ async def process_job(engine: "ProcessingEngine", job: ProcessingJob) -> None:
             # Never let a cancellation during cleanup skip registry
             # removal (#4496/#4759).
             engine._cancel_events.pop(job.job_id, None)
+            # A failed or cancelled job's uploaded input is never used again (#6517).
+            await asyncio.shield(asyncio.to_thread(discard_upload_input, job))
             # Every exit path above leaves a terminal status; record it
             # (#5278). If this write is lost, the next startup reports the
             # job as interrupted rather than dropping it.
@@ -227,6 +231,7 @@ async def cancel_job(engine: "ProcessingEngine", job_id: str) -> bool:
         if job.status not in [ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING]:
             return False
 
+        was_queued = job.status == ProcessingStatus.QUEUED
         job.status = ProcessingStatus.CANCELLED
         job.completed_at = datetime.now()
 
@@ -245,6 +250,10 @@ async def cancel_job(engine: "ProcessingEngine", job_id: str) -> bool:
     # its #4575 contract requires.
     engine._worker.cancel_task(job_id)
     # A queued job never reaches process_job's finally, so this is its only
-    # record of the cancellation (#5278).
+    # record of the cancellation (#5278), and the only prompt release of its
+    # uploaded input (#6517). A running job's input is still open in its
+    # decode; process_job's finally removes that one.
+    if was_queued:
+        await asyncio.to_thread(discard_upload_input, job)
     await persist(engine, job)
     return True

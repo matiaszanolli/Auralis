@@ -14,12 +14,10 @@ Split out of the former single-file config/startup.py (#5236).
 
 import asyncio
 import logging
-import tempfile
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
-from config.limits import UPLOAD_TEMP_DIRNAME
+from core.job_cleanup import upload_temp_dir
 
 from .tempfiles import reclaim_stale_temp_entries
 
@@ -132,7 +130,7 @@ async def _init_processing_engine(HAS_PROCESSING: bool, globals_dict: dict[str, 
         # can be gigabytes of decoded temp after a crash (#5068).
         await asyncio.to_thread(reclaim_stale_temp_entries, globals_dict['processing_engine'].temp_dir, _ttl)
         await asyncio.to_thread(
-            reclaim_stale_temp_entries, Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME, _ttl
+            reclaim_stale_temp_entries, upload_temp_dir(), _ttl
         )
 
         # Start the processing worker — retain strong reference to prevent GC,

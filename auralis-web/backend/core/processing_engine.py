@@ -37,8 +37,8 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
 
-from config.limits import PROCESSING_TEMP_DIRNAME, UPLOAD_TEMP_DIRNAME, create_secure_temp_dir
-from core.job_cleanup import cleanup_expired_jobs
+from config.limits import PROCESSING_TEMP_DIRNAME, create_secure_temp_dir
+from core.job_cleanup import cleanup_expired_jobs, upload_temp_dir
 from core.job_config import create_processor_config
 
 # A test patches load_audio()/save() at 'core.job_execution.load_audio' /
@@ -260,9 +260,8 @@ class ProcessingEngine:
         Returns:
             int: Number of jobs removed
         """
-        upload_dir = Path(tempfile.gettempdir()) / UPLOAD_TEMP_DIRNAME
         return await cleanup_expired_jobs(
-            self.jobs, self._jobs_lock, upload_dir, max_age_hours,
+            self.jobs, self._jobs_lock, upload_temp_dir(), max_age_hours,
             on_removed=self.job_store.forget,
         )
 

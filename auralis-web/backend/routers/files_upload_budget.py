@@ -1,5 +1,6 @@
 """
-Byte budgets for POST /api/files/upload (#6167): one request's total, and the uploads directory.
+Byte budgets for uploads: POST /api/files/upload's request total and uploads directory (#6167),
+and the temp directory upload-and-process inputs wait in (#6517).
 
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
@@ -7,6 +8,11 @@ Byte budgets for POST /api/files/upload (#6167): one request's total, and the up
 
 import asyncio
 from pathlib import Path
+
+# Ceiling on the bytes waiting in the upload-and-process temp dir (#6517). It can be a tmpfs (RAM),
+# so this is far below MAX_UPLOAD_DIR_BYTES: four maximum-size uploads in flight, plenty for one
+# user, while a client loop posting failing 500 MB files is refused with 413.
+MAX_PROCESSING_UPLOAD_DIR_BYTES: int = 2 * 1024 * 1024 * 1024
 
 
 def _directory_bytes(directory: Path) -> int:
