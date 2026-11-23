@@ -199,7 +199,9 @@ def _sanitizing_log_record_factory(*args: object, **kwargs: object) -> _stdlib_l
     """
     record = _original_log_record_factory(*args, **kwargs)
     if isinstance(record.msg, str):
-        record.msg = sanitize_log_value(record.msg)
+        # A template with args is escaped, never truncated: a cut-off %s left args unconverted,
+        # so getMessage() raised and the record was lost (#6544). The args keep their own cap.
+        record.msg = sanitize_log_value(record.msg, len(record.msg) if record.args else 500)
     if isinstance(record.args, tuple):
         record.args = tuple(_sanitized_log_arg(arg) for arg in record.args)
     elif isinstance(record.args, dict):  # %(key)s style: sanitize the values
@@ -237,10 +239,10 @@ class SanitizingFormatter(_stdlib_logging.Formatter):
 
     def formatException(
         self,
-        exc_info: tuple[type[BaseException], BaseException, TracebackType | None]
+        ei: tuple[type[BaseException], BaseException, TracebackType | None]
         | tuple[None, None, None],
     ) -> str:
-        return self._format_chain(exc_info[1], exc_info[2], set())
+        return self._format_chain(ei[1], ei[2], set())
 
     def _format_chain(
         self,
