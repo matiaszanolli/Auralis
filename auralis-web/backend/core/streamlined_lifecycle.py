@@ -14,7 +14,8 @@ from typing import Any
 
 from helpers import spawn_background_task
 
-from .streamlined_processor_disposal import close_dropped_processor, wait_for_pending_closes
+from .processor_close import wait_for_pending_closes
+from .streamlined_processor_disposal import close_dropped_processor
 from .task_cancellation import await_cancelled_task
 
 logger = logging.getLogger(__name__)

@@ -23,7 +23,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core import streamlined_worker
-from core.streamlined_processor_disposal import wait_for_pending_closes
+from core.processor_close import wait_for_pending_closes
 from core.streamlined_worker import StreamlinedCacheWorker
 from core.file_signature import FileSignatureService
 

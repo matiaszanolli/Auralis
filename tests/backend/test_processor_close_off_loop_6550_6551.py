@@ -18,7 +18,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from core import proactive_buffer  # noqa: E402
-from core.streamlined_processor_disposal import close_dropped_processor, leased, wait_for_pending_closes  # noqa: E402
+from core.processor_close import wait_for_pending_closes  # noqa: E402
+from core.streamlined_processor_disposal import close_dropped_processor, leased  # noqa: E402
 from core.streamlined_worker import StreamlinedCacheWorker  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
