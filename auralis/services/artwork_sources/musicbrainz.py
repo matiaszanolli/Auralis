@@ -15,6 +15,7 @@ import urllib.parse
 import urllib.request
 from typing import TYPE_CHECKING, Any
 
+from auralis.utils.artwork_security import musicbrainz_phrase
 from auralis.utils.logging import sanitize_log_value
 
 from ._common import _validated_artwork_result, fetch_metadata_json
@@ -78,14 +79,12 @@ def fetch_from_musicbrainz(service: "ArtworkService", artist_name: str) -> dict[
         Dict with artwork_url and source, or None
     """
     try:
-        # URL-encode artist name
-        encoded_name = urllib.parse.quote(artist_name)
-
-        # Search for artist
-        search_url = (
-            f"https://musicbrainz.org/ws/2/artist/"
-            f"?query=artist:{encoded_name}&fmt=json&limit=1"
+        # Search for artist. The tag text is one quoted, escaped phrase, never
+        # query syntax (#6516); urlencode then protects the HTTP layer.
+        query = urllib.parse.urlencode(
+            {"query": f"artist:{musicbrainz_phrase(artist_name)}", "fmt": "json", "limit": 1}
         )
+        search_url = f"https://musicbrainz.org/ws/2/artist/?{query}"
 
         req = urllib.request.Request(search_url)
         req.add_header('User-Agent', service.user_agent)

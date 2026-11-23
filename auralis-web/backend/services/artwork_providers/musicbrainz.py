@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from auralis.utils.artwork_security import (
     MAX_ARTWORK_PAYLOAD_BYTES as _MAX_ARTWORK_BYTES,
+    musicbrainz_phrase,
 )
 from services.artwork_providers.bounded_read import read_bounded, read_bounded_json
 from services.artwork_providers.trust import _get_trusted_artwork
@@ -47,7 +48,8 @@ async def try_musicbrainz(
         session = downloader._get_session()
         search_url = f"{downloader.musicbrainz_api}/release/"
         params: dict[str, str | int] = {
-            "query": f'artist:"{artist}" AND release:"{album}"',
+            # Tag text is quoted and escaped, never parsed as query syntax (#6516).
+            "query": f"artist:{musicbrainz_phrase(artist)} AND release:{musicbrainz_phrase(album)}",
             "fmt": "json",
             "limit": 1
         }

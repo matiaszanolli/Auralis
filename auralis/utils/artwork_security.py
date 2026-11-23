@@ -22,6 +22,19 @@ TRUSTED_ARTWORK_DOMAINS = frozenset({
 })
 
 
+def musicbrainz_phrase(text: str) -> str:
+    """``text`` as one quoted Lucene phrase for a MusicBrainz search field (#6516).
+
+    Artist and album names come from file tags. Interpolated raw, a ``"`` closes
+    the phrase and whatever follows (``OR``, ``release:``, wildcards) is parsed as
+    query syntax, steering the search to another release and so another cover.
+    Inside quotes only ``\\`` and ``"`` are special, so escaping those two keeps
+    every other character literal.
+    """
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 def validate_artwork_url(url: str) -> bool:
     """Return whether *url* uses HTTPS on a trusted artwork host.
 
