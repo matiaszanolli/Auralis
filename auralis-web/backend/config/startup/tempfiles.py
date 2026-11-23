@@ -32,6 +32,7 @@ from core.dir_sweep import reap_older_than
 from core.encoding.atomic_io import PARTIAL_MAX_AGE_SECONDS, cleanup_partial_files
 
 from .decode_temps import reclaim_leftover_decode_wavs
+from .owner_marker import read_owned_marker, write_owned_marker
 from config.retention import SECONDS_PER_HOUR, STALE_TEMP_MAX_AGE_HOURS
 
 logger = logging.getLogger(__name__)
@@ -159,23 +160,18 @@ def claim_chunk_cache(chunk_dir: Path, owner_marker: Path) -> bool:
     the *next* start sees this process as the owner.
     """
     may_wipe = True
-    try:
-        if owner_marker.exists():
-            recorded = owner_marker.read_text(errors="replace").strip()  # corrupt marker = not a PID (#6432)
-            if recorded.isdigit():
-                other_pid = int(recorded)
-                if other_pid != os.getpid() and pid_is_alive(other_pid):
-                    logger.info(
-                        f"🔒 Chunk cache is claimed by live PID {other_pid}; "
-                        f"leaving {chunk_dir.name} alone (#4713)"
-                    )
-                    may_wipe = False
-    except OSError as e:
-        logger.debug(f"Could not read chunk-cache owner marker: {e}")
+    # Only this user's own regular file counts (#6514): a marker another account pre-created, or a
+    # symlink, is ignored rather than trusted to suppress the wipe.
+    recorded = read_owned_marker(owner_marker) or ""
+    if recorded.isdigit():
+        other_pid = int(recorded)
+        if other_pid != os.getpid() and pid_is_alive(other_pid):
+            logger.info(f"🔒 Chunk cache is claimed by live PID {other_pid}; leaving {chunk_dir.name} alone (#4713)")
+            may_wipe = False
 
     try:
         owner_marker.parent.mkdir(parents=True, exist_ok=True)
-        owner_marker.write_text(str(os.getpid()))
+        write_owned_marker(owner_marker, str(os.getpid()))
     except OSError as e:
         logger.debug(f"Could not claim chunk-cache owner marker: {e}")
 
