@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from auralis.utils.logging import sanitize_log_value
 
-from ._common import _read_json_response, _validated_artwork_result
+from ._common import _validated_artwork_result, fetch_metadata_json
 
 if TYPE_CHECKING:
     from ..artwork_service import ArtworkService
@@ -90,8 +90,7 @@ def fetch_from_musicbrainz(service: "ArtworkService", artist_name: str) -> dict[
         req = urllib.request.Request(search_url)
         req.add_header('User-Agent', service.user_agent)
 
-        with urllib.request.urlopen(req, timeout=service.timeout) as response:
-            data = _read_json_response(response)
+        data = fetch_metadata_json(req, service.timeout)
 
         if not data.get('artists') or len(data['artists']) == 0:
             return None
@@ -111,8 +110,7 @@ def fetch_from_musicbrainz(service: "ArtworkService", artist_name: str) -> dict[
         req = urllib.request.Request(relations_url)
         req.add_header('User-Agent', service.user_agent)
 
-        with urllib.request.urlopen(req, timeout=service.timeout) as response:
-            relations_data = _read_json_response(response)
+        relations_data = fetch_metadata_json(req, service.timeout)
 
         # Look for image URLs in relations
         return _first_trusted_image(relations_data.get('relations', []))

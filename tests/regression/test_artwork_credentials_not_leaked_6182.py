@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 from auralis.cli.fetch_artwork import resolve_credentials
 from auralis.services.artwork_service import ArtworkService
 from auralis.services.artwork_sources.discogs import fetch_from_discogs
+from auralis.utils.host_throttle import HostThrottle
 
 
 def _args(token=None, key=None):
@@ -57,7 +58,8 @@ def test_the_discogs_token_is_not_carried_to_a_redirect_target():
         return response
 
     service = ArtworkService(discogs_token="SECRET")
-    with patch("urllib.request.urlopen", fake_urlopen):
+    with patch("auralis.services.artwork_sources._common._OPENER.open", fake_urlopen), \
+         patch("auralis.services.artwork_sources._common._THROTTLE", HostThrottle({})):
         fetch_from_discogs(service, "Some Band")
 
     req = captured["req"]

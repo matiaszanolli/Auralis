@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from services.artwork_providers.host_throttle import HostThrottle  # noqa: E402
+from auralis.utils.host_throttle import HostThrottle  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
 

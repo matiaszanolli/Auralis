@@ -17,15 +17,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from auralis.services.artwork_service import (
-    ArtworkService,
-    _artwork_opener,
-    _TrustedArtworkRedirectHandler,
-)
+from auralis.services.artwork_service import ArtworkService
+from auralis.services.artwork_sources import _common
 from auralis.utils.artwork_security import (
     MAX_ARTWORK_PAYLOAD_BYTES,
     validate_artwork_url,
 )
+from auralis.utils.host_throttle import HostThrottle
+
+# Every provider request goes through this opener (#6546).
+_OPEN = "auralis.services.artwork_sources._common._OPENER.open"
+
+
+@pytest.fixture(autouse=True)
+def _unthrottled(monkeypatch):
+    """The per-host spacing (#6548) has its own tests; here it would only add seconds."""
+    monkeypatch.setattr(_common, "_THROTTLE", HostThrottle({}))
 
 
 class TestArtworkServiceInit:
@@ -209,7 +216,7 @@ class TestArtworkURLSafety:
         )
 
         with patch(
-            "auralis.services.artwork_service.urllib.request.urlopen",
+            _OPEN,
             side_effect=[search_cm, relations_cm],
         ):
             assert svc._fetch_from_musicbrainz("Poisoned Artist") is None
@@ -227,7 +234,7 @@ class TestArtworkURLSafety:
         )
 
         with patch(
-            "auralis.services.artwork_service.urllib.request.urlopen",
+            _OPEN,
             side_effect=[search_cm, relations_cm],
         ):
             assert svc._fetch_from_musicbrainz("Trusted Artist") == {
@@ -242,7 +249,7 @@ class TestArtworkURLSafety:
         )
 
         with patch(
-            "auralis.services.artwork_service.urllib.request.urlopen",
+            _OPEN,
             return_value=response_cm,
         ):
             assert svc._fetch_from_discogs("Artist") is None
@@ -254,13 +261,13 @@ class TestArtworkURLSafety:
         )
 
         with patch(
-            "auralis.services.artwork_service.urllib.request.urlopen",
+            _OPEN,
             return_value=response_cm,
         ):
             assert svc._fetch_from_lastfm("Artist") is None
 
-    def test_untrusted_redirect_hop_is_never_requested(self):
-        """#5330: urlopen used to follow the chain before geturl() was checked."""
+    def test_a_provider_redirect_is_never_followed(self):
+        """#5330 / #6546: a metadata request's redirect is refused, so its target gets no GET."""
         requested: list[str] = []
 
         class _Redirector(http.server.BaseHTTPRequestHandler):
@@ -276,26 +283,15 @@ class TestArtworkURLSafety:
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Redirector)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
-            # Open the loopback start URL directly: only the redirect handler
-            # decides here whether the next hop is requested.
-            with pytest.raises(urllib.error.HTTPError, match="Untrusted artwork redirect"):
-                _artwork_opener.open(
-                    f"http://127.0.0.1:{server.server_port}/front", timeout=5
-                )
+            req = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/front")
+            with pytest.raises(urllib.error.HTTPError) as refused:
+                _common.fetch_metadata_json(req, timeout=5)
         finally:
             server.shutdown()
             server.server_close()
 
+        assert refused.value.code == 302
         assert requested == ["/front"]
-
-    def test_trusted_redirect_hop_is_followed(self):
-        handler = _TrustedArtworkRedirectHandler()
-        req = urllib.request.Request("https://coverartarchive.org/release-group/x/front")
-        mirror = "https://ia801.us.archive.org/items/x/front.jpg"
-
-        follow = handler.redirect_request(req, None, 307, "Temporary Redirect", {}, mirror)
-
-        assert follow is not None and follow.full_url == mirror
 
     def test_metadata_response_read_is_size_limited(self):
         svc = ArtworkService(discogs_token="token")
@@ -306,7 +302,7 @@ class TestArtworkURLSafety:
         cm.__exit__.return_value = False
 
         with patch(
-            "auralis.services.artwork_service.urllib.request.urlopen",
+            _OPEN,
             return_value=cm,
         ):
             assert svc._fetch_from_discogs("Artist") is None

@@ -97,7 +97,7 @@ For each category, check the specific items listed. Do NOT limit yourself to the
 
 ### A10: Server-Side Request Forgery (SSRF)
 - [ ] Artwork fetching — can user-supplied URLs cause the backend to make arbitrary requests? Provider responses are read through `read_bounded` / the JSON helper in `auralis-web/backend/services/artwork_providers/bounded_read.py`, which cap the body and return `None` over the limit (#6190, #6191; `tests/backend/test_artwork_bounded_read_6190.py`): does any provider call the response object's own read or json methods directly?
-- [ ] Outbound artwork requests are spaced per host by `artwork_providers/host_throttle.py` (#5069, ad232b194), since the per-album route cannot be rate-limited by path prefix. Does a new provider bypass it?
+- [ ] Outbound artwork requests are spaced per host by `auralis/utils/host_throttle.py` (#5069, ad232b194), since the per-album route cannot be rate-limited by path prefix; the `fetch_artwork` CLI's provider calls go through it too, via `artwork_sources/_common.fetch_metadata_json`, which also refuses redirects (#6546, #6548). Does a new provider bypass either?
 - [ ] Any endpoints that accept URLs and fetch them server-side?
 - [ ] Metadata lookup services — do they accept user-controlled URLs?
 

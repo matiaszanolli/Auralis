@@ -14,50 +14,15 @@ Supported sources (in priority order):
 """
 
 import logging
-import urllib.error
-import urllib.parse
-import urllib.request
 from typing import Any
 
-from auralis.utils.artwork_security import validate_artwork_url
 from auralis.utils.logging import sanitize_log_value
-
-logger = logging.getLogger(__name__)
-
-
-class _TrustedArtworkRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Refuse a redirect to an untrusted host before requesting it (#5330).
-
-    ``urlopen`` follows redirects on its own, so validating ``geturl()``
-    afterwards only saw the last hop: a loopback or LAN hop in the middle of
-    the chain had already been sent a real GET by then.
-    """
-
-    def redirect_request(
-        self,
-        req: urllib.request.Request,
-        fp: Any,
-        code: int,
-        msg: str,
-        headers: Any,
-        newurl: str,
-    ) -> urllib.request.Request | None:
-        if not validate_artwork_url(newurl):
-            logger.warning("Rejecting untrusted artwork redirect: %r", newurl)
-            raise urllib.error.HTTPError(
-                newurl, code, "Untrusted artwork redirect", headers, fp
-            )
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
-
-
-# Opener for requests to image hosts, whose redirects are followed.
-# Metadata API calls still use plain urlopen.
-_artwork_opener = urllib.request.build_opener(_TrustedArtworkRedirectHandler)
-
 
 from .artwork_sources.discogs import fetch_from_discogs
 from .artwork_sources.lastfm import fetch_from_lastfm
 from .artwork_sources.musicbrainz import fetch_from_musicbrainz
+
+logger = logging.getLogger(__name__)
 
 class ArtworkService:
     """
