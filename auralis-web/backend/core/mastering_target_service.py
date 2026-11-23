@@ -16,6 +16,7 @@ from typing import Any
 from core.file_signature import FileSignatureService
 
 from . import fingerprint_loading
+from .fingerprint_single_flight import extract_once
 from auralis.core.processing.mastering_targets import generate_targets_from_fingerprint
 from auralis.core.processing.reference_cloud import ReferenceCloud
 
@@ -58,6 +59,20 @@ class MasteringTargetService:
         self._reference_cloud = ReferenceCloud(lambda: get_fingerprints_repository and get_fingerprints_repository())
         self._lock = threading.RLock()
         logger.debug("MasteringTargetService initialized")
+
+    def cached(self, key: str) -> tuple[Any, dict[str, Any] | None] | None:
+        """The cached (fingerprint, targets) for ``key`` (refreshing its LRU position), or None."""
+        with self._lock:
+            value = self.cache.get(key)
+            if not (isinstance(value, tuple) and len(value) == 2):
+                return None
+            self.cache.move_to_end(key)
+            return value
+
+    def store(self, key: str, value: Any) -> None:
+        """Cache ``value`` under ``key`` (LRU-bounded, #3532)."""
+        with self._lock:
+            self._store_in_cache(key, value)
 
     def _store_in_cache(self, key: str, value: Any) -> None:
         """Insert into the LRU cache and evict the oldest entry if over cap."""
@@ -132,13 +147,10 @@ class MasteringTargetService:
             Tuple of (fingerprint, mastering_targets) or None if not found
         """
         cache_key = self._get_cache_key(track_id, filepath, file_signature)
-        with self._lock:
-            if cache_key in self.cache:
-                cached = self.cache[cache_key]
-                if isinstance(cached, tuple) and len(cached) == 2:
-                    self.cache.move_to_end(cache_key)
-                    logger.debug(f"Using cached fingerprint for track {track_id}")
-                    return cached
+        cached = self.cached(cache_key)
+        if cached is not None:
+            logger.debug(f"Using cached fingerprint for track {track_id}")
+            return cached
 
         # Tier 1: Try database
         fingerprint = self.load_fingerprint_from_database(track_id)
@@ -146,32 +158,19 @@ class MasteringTargetService:
             # Generate targets from database fingerprint
             targets = self.generate_targets_from_fingerprint(fingerprint)
             result = (fingerprint, targets)
-
-            # Cache result (LRU-bounded, #3532)
-            with self._lock:
-                self._store_in_cache(cache_key, result)
-
+            self.store(cache_key, result)
             return result
 
         # Tier 2: Try .25d file
         file_result = self.load_fingerprint_from_file(filepath)
         if file_result is not None:
-            # Cache result (LRU-bounded, #3532)
-            with self._lock:
-                self._store_in_cache(cache_key, file_result)
-
+            self.store(cache_key, file_result)
             return file_result
 
-        # Tier 3: Extract from audio (if requested)
+        # Tier 3: extract from audio, once per (track, signature) however many callers ask (#6504)
         if extract_if_missing:
-            extract_result = self.extract_fingerprint_from_audio(
-                filepath, save_to_file=save_extracted, should_stop=should_stop
-            )
+            extract_result = extract_once(self, cache_key, filepath, save_extracted, should_stop)
             if extract_result is not None:
-                # Cache result (LRU-bounded, #3532)
-                with self._lock:
-                    self._store_in_cache(cache_key, extract_result)
-
                 return extract_result
 
         logger.debug(f"No fingerprint found for track {track_id}")
@@ -182,7 +181,8 @@ class MasteringTargetService:
 
         See :func:`auralis.core.processing.mastering_targets.generate_targets_from_fingerprint`.
         """
-        return generate_targets_from_fingerprint(fingerprint, self._reference_cloud.band_centers(fingerprint))
+        targets: dict[str, Any] = generate_targets_from_fingerprint(fingerprint, self._reference_cloud.band_centers(fingerprint))
+        return targets
 
     def clear_track(self, track_id: int) -> None:
         """Drop one track's cached fingerprint/targets (every file signature)."""
