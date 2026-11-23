@@ -19,6 +19,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .database_engine import restrict_to_owner
 from .migration_backup_retention import backup_filename
 
 if TYPE_CHECKING:
@@ -69,10 +70,7 @@ def backup_database(db_path: str, backup_dir: str | None = None) -> str:
     # journal too; the chmod also tightens a same-second file that already
     # existed, which os.open's mode would leave as it was.
     os.close(os.open(backup_file, os.O_WRONLY | os.O_CREAT, 0o600))
-    try:
-        os.chmod(backup_file, 0o600)
-    except OSError:
-        pass
+    restrict_to_owner(backup_file, 0o600)
     #
     # closing(), not the connection's own `with`: that only commits or rolls
     # back, and never closes. The connection to the live file then lingered

@@ -21,22 +21,26 @@ from .schema_indexes import create_missing_declared_indexes
 from .sqlite_wal import enable_wal
 
 
+def restrict_to_owner(path: Path, mode: int) -> None:
+    """chmod ``path`` to an owner-only ``mode``; a refusal is a WARNING naming the file, not
+    silence (#6543): exFAT, some network mounts or another owner leave the library readable."""
+    try:
+        os.chmod(path, mode)
+    except OSError as exc:
+        warning(f"Could not restrict {path.name} to owner-only access ({exc.strerror or exc}); "
+                "other local accounts may be able to read it")
+
+
 def resolve_database_path(database_path: str | None) -> str:
     """Return the database path, hardening ``~/.auralis`` when it is the location."""
-    # #4824: harden ~/.auralis whenever the database lives at the default
-    # location, not only when the caller omitted the path. fetch_artwork.py
-    # passes DEFAULT_DB_PATH explicitly, so it skipped this block and the
-    # directory was created later by migration_lock's plain mkdir at the
-    # process umask (typically 0o755). A caller-chosen location elsewhere
-    # is deliberately left alone — that directory is not ours to chmod.
+    # #4824: harden ~/.auralis whenever the database lives there, also when the path is
+    # passed explicitly (fetch_artwork.py), or migration_lock's mkdir made it at the umask.
+    # A caller-chosen location elsewhere is left alone: that directory is not ours to chmod.
     if database_path is None or os.path.realpath(database_path) == os.path.realpath(DEFAULT_DB_PATH):
         DEFAULT_DB_PATH.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         # mkdir(mode=) is ignored when the dir already exists, so re-restrict
         # it to owner-only even for a pre-existing ~/.auralis (#4347).
-        try:
-            os.chmod(DEFAULT_DB_PATH.parent, 0o700)
-        except OSError:
-            pass
+        restrict_to_owner(DEFAULT_DB_PATH.parent, 0o700)
     if database_path is None:
         database_path = str(DEFAULT_DB_PATH)
     return database_path
@@ -67,10 +71,7 @@ def create_library_engine(database_path: str) -> Engine:
     # Restrict database file permissions to owner-only (#2577)
     db_path = Path(database_path)
     if db_path.exists():
-        try:
-            os.chmod(db_path, 0o600)
-        except OSError:
-            pass
+        restrict_to_owner(db_path, 0o600)
 
     # Configure SQLite pragmas for reliable fingerprinting persistence
     @event.listens_for(engine, "connect")
@@ -127,7 +128,4 @@ def restrict_wal_sidecars(database_path: str) -> None:
     for suffix in ("-wal", "-shm"):
         sidecar = Path(database_path + suffix)
         if sidecar.exists():
-            try:
-                os.chmod(sidecar, 0o600)
-            except OSError:
-                pass
+            restrict_to_owner(sidecar, 0o600)
