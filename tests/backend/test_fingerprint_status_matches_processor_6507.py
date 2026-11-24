@@ -45,7 +45,20 @@ async def test_an_extracted_fingerprint_is_reported_cached_and_still_persisted()
 
 
 @pytest.mark.asyncio
-async def test_without_a_fingerprint_the_stream_is_reported_as_standard_mastering():
+async def test_without_processor_information_a_missing_fingerprint_is_queued():
+    controller = _controller(in_db=False)
+    queue = MagicMock()
+    queue.enqueue.return_value = True
+    with patch("analysis.fingerprint_queue.get_fingerprint_queue", return_value=queue):
+        ready = await stream_fingerprint.check_or_queue_fingerprint(controller, 7, MagicMock())
+
+    assert ready is False
+    assert _status(controller)["status"] == "queued"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_whole_track_analysis_is_reported_failed_and_retried():
+    """#6492: in_use=False means the processor's extraction ran and failed for this track."""
     controller = _controller(in_db=False)
     queue = MagicMock()
     queue.enqueue.return_value = True
@@ -53,7 +66,9 @@ async def test_without_a_fingerprint_the_stream_is_reported_as_standard_masterin
         ready = await stream_fingerprint.check_or_queue_fingerprint(controller, 7, MagicMock(), in_use=False)
 
     assert ready is False
-    assert _status(controller)["status"] == "queued"
+    assert _status(controller)["status"] == "failed"
+    assert "each chunk" in _status(controller)["message"]
+    queue.enqueue.assert_called_once_with(7)  # a background retry
 
 
 @pytest.mark.parametrize("module", ["stream_enhanced.py", "stream_seek.py"])

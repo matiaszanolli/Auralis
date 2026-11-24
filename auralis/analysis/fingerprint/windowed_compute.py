@@ -31,7 +31,7 @@ import numpy as np
 
 from ...dsp.utils.audio_info import to_mono
 from .analysis_budget import AnalysisCancelled, analysis_budget
-from .audio_fingerprint_analyzer import require_finite
+from .audio_fingerprint_analyzer import FingerprintUnavailable, require_finite
 from .track_audio import analysis_span_s, load_track_audio
 from auralis.dsp.basic import rms
 from auralis.dsp.utils.conversion import amplitude_to_db
@@ -107,12 +107,13 @@ def compute_windowed_fingerprint(
     *,
     interactive: bool = False,
     should_stop: Callable[[], bool] | None = None,
+    raise_unavailable: bool = False,
 ) -> dict[str, Any] | None:
     """Compute fingerprint using AudioFingerprintAnalyzer.
 
-    The ``analysis_budget`` slot is taken BEFORE decoding, so a waiting job holds
-    no buffer (#6338). ``interactive`` (a listener is waiting) goes ahead of the
-    background queue; ``should_stop`` abandons the wait and returns None (#6336).
+    The ``analysis_budget`` slot is taken BEFORE decoding (#6338); ``interactive`` goes ahead of the
+    background queue, ``should_stop`` abandons the wait (#6336), and ``raise_unavailable`` lets an
+    engine failure propagate rather than read as "no fingerprint" (#6107, #6492).
     """
     try:
         span_s, total_s = analysis_span_s(audio_path, audio, sr)
@@ -124,12 +125,8 @@ def compute_windowed_fingerprint(
 
         _apply_probe_correction(fingerprint, audio, probe_audios)
 
-        # #3767: a partial (e.g. 12 of 25 dimensions) would cache as valid; retry it.
-        if fingerprint and len(fingerprint) < 25:
-            logger.warning(
-                f"Incomplete fingerprint for {audio_path.name}: "
-                f"{len(fingerprint)} of 25 dimensions present — discarding"
-            )
+        if fingerprint and len(fingerprint) < 25:  # #3767: a partial result would cache as valid
+            logger.warning(f"Incomplete fingerprint for {audio_path.name}: {len(fingerprint)} of 25 dimensions")
             return None
 
         # #5103: last guard before the value leaves (the DB row, the .25d sidecar and
@@ -138,12 +135,13 @@ def compute_windowed_fingerprint(
             require_finite(fingerprint, audio_path.name)
 
         fingerprint_clean: dict[str, Any] = _numpy_to_python(fingerprint)
-
         return fingerprint_clean
 
     except AnalysisCancelled:
         logger.info(f"Fingerprint analysis of {audio_path.name} cancelled while waiting")
         return None
     except Exception as e:
+        if raise_unavailable and isinstance(e, FingerprintUnavailable):
+            raise
         logger.error(f"Fingerprint computation failed: {e}")
         return None

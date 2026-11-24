@@ -152,9 +152,9 @@ def init_fingerprint_and_processor(
             # Tier 3 is live: a track with no DB row and no .25d (freshly
             # scanned, queue not there yet) is analysed once, up front, instead
             # of being rendered un-targeted and re-targeted mid-stream. The
-            # constructor already runs off the event loop (to_thread). If
-            # extraction itself fails the result is None and the renderer falls
-            # back to per-chunk analysis, as before.
+            # constructor already runs off the event loop (to_thread). A track
+            # failure yields None (per-chunk analysis, reported "failed"); a broken
+            # engine raises FingerprintUnavailable and fails the stream (#6492).
             extract_if_missing=True,
             save_extracted=True,
             file_signature=file_signature,

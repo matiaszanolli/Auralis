@@ -16,6 +16,7 @@ from typing import Any
 
 from auralis.__version__ import FINGERPRINT_ALGORITHM_VERSION
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import FingerprintUnavailable
 from auralis.analysis.fingerprint.windows import FINGERPRINT_SAMPLE_RATE
 from auralis.library.repositories.track_audio_change import _audio_changed
 from mutagen import File as MutagenFile
@@ -59,7 +60,7 @@ def _replaced_since_scan(fp_record: Any) -> bool:
         stat = os.stat(track.filepath)
     except OSError:
         return False
-    return _audio_changed(track, {"filesize": stat.st_size, "file_mtime": stat.st_mtime})
+    return bool(_audio_changed(track, {"filesize": stat.st_size, "file_mtime": stat.st_mtime}))
 
 
 def load_from_database(
@@ -243,7 +244,8 @@ def extract_from_audio(
         # cached under its new signature (#6558).
         pre_analysis = Path(filepath).stat()
         fingerprint_data: dict[str, Any] | None = compute_windowed_fingerprint(
-            AudioFingerprintAnalyzer(), Path(filepath), interactive=True, should_stop=should_stop
+            AudioFingerprintAnalyzer(), Path(filepath), interactive=True, should_stop=should_stop,
+            raise_unavailable=True,  # a broken engine fails the master, never per-chunk (#6107, #6492)
         )
         if not fingerprint_data:
             logger.warning(f"Windowed fingerprint extraction failed for {Path(filepath).name}")
@@ -283,6 +285,8 @@ def extract_from_audio(
 
         return (fingerprint_data, mastering_targets)
 
+    except FingerprintUnavailable:
+        raise  # the engine is broken: the stream must fail, not master per chunk (#6107, #6492)
     except Exception as e:
         logger.error(f"Fingerprint extraction failed for {Path(filepath).name}: {e}")
         logger.debug(traceback.format_exc())

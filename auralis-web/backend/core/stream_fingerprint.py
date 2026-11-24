@@ -54,15 +54,17 @@ async def check_or_queue_fingerprint(
     track_id: int,
     websocket: WebSocket | None = None,
     *,
-    in_use: bool = False,
+    in_use: bool | None = None,
 ) -> bool:
     """Report the fingerprint status of a stream, and queue background generation when missing.
 
-    ``in_use``: the stream's processor already holds a fingerprint (DB row, ``.25d`` sidecar, or the
-    whole-track extraction it ran at construction). That stream is fingerprint-mastered whatever
-    the database says, so it is reported as such (#6507); a missing DB row is still queued, quietly,
-    to persist it. Without one, a missing fingerprint is queued and the client told the stream uses
-    standard mastering. Never blocks the stream on generation.
+    ``in_use``: whether the stream's processor holds a fingerprint. True (a DB row, a ``.25d``
+    sidecar, or the whole-track extraction it ran at construction): the stream is fingerprint-
+    mastered whatever the database says, so it is reported as such (#6507); a missing DB row is
+    still queued, quietly, to persist it. False: the processor tried that extraction and it failed
+    for this track, so the client is told so and that each chunk is mastered on its own (#6492);
+    a background retry is still queued. None (no processor information): a missing fingerprint is
+    queued and the stream reported as standard mastering. Never blocks the stream on generation.
 
     Returns:
         True when the stream is fingerprint-mastered, False when it is not.
@@ -84,6 +86,16 @@ async def check_or_queue_fingerprint(
                     websocket, track_id=track_id, status="cached", message="Using cached audio analysis"
                 )
             return True
+
+        if in_use is False:
+            logger.warning(f"Whole-track analysis failed for track {track_id}; mastering each chunk on its own")
+            await _enqueue(track_id)  # a background retry, which may succeed where this one failed
+            if websocket:
+                await controller._send_fingerprint_progress(
+                    websocket, track_id=track_id, status="failed",
+                    message="Audio analysis failed for this track, mastering each chunk on its own",
+                )
+            return False
 
         logger.info(f"📋 Fingerprint not cached for track {track_id}, queuing for background generation")
         pending = await _enqueue(track_id)
