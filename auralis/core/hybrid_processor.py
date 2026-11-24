@@ -196,7 +196,7 @@ class HybridProcessor:
         if self.config.is_reference_mode() and reference is not None:
             return self._process_reference_mode(target_audio, reference)
         elif self.config.is_adaptive_mode():
-            return self._process_adaptive_mode(target_audio)
+            return self._process_adaptive_mode(target_audio, consume_input=True)  # validated above: ours (#6717)
         elif self.config.is_hybrid_mode():
             return self._process_hybrid_mode(target_audio, reference)
         else:
@@ -207,9 +207,9 @@ class HybridProcessor:
         """Reference-based matching; body in processing/mode_dispatch.py (#6272)."""
         return _dispatch_reference(self, target_audio, reference)
 
-    def _process_adaptive_mode(self, target_audio: np.ndarray) -> np.ndarray:
-        """Adaptive mastering; body in processing/mode_dispatch.py (#6272)."""
-        return _dispatch_adaptive(self, target_audio)
+    def _process_adaptive_mode(self, target_audio: np.ndarray, consume_input: bool = False) -> np.ndarray:
+        """Adaptive mastering; body in mode_dispatch.py (#6272). consume_input: a buffer we created (#6717)."""
+        return _dispatch_adaptive(self, target_audio, consume_input)
 
     def _process_hybrid_mode(self, target_audio: np.ndarray,
                             reference: np.ndarray | None) -> np.ndarray:

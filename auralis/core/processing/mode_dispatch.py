@@ -37,7 +37,7 @@ def process_reference_mode(processor: "HybridProcessor", target_audio: np.ndarra
     return _reference_stage_dispatch(processor, target_audio, reference)
 
 def process_adaptive_mode(
-    processor: "HybridProcessor", target_audio: np.ndarray
+    processor: "HybridProcessor", target_audio: np.ndarray, consume_input: bool = False
 ) -> np.ndarray:
     """
     Process using adaptive mastering without reference.
@@ -54,8 +54,8 @@ def process_adaptive_mode(
     fixed_params = processor.current_targets if processor.current_targets is not None else None
 
     # Delegate to continuous mode processor
-    processed = processor.continuous_mode.process(target_audio, processor.eq_processor,  # consume: our own copy (#6717)
-                                            fixed_params=fixed_params, consume_input=True)
+    processed = processor.continuous_mode.process(target_audio, processor.eq_processor,  # only a buffer we made (#6717)
+                                            fixed_params=fixed_params, consume_input=consume_input)
 
     # Store fingerprint and parameters for debugging
     processor.last_content_profile = {

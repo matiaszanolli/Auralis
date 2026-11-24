@@ -80,3 +80,16 @@ def test_output_does_not_depend_on_which_buffer_the_stages_used(quality_gate_ena
     reference.quality_gate_enabled = not quality_gate_enabled
 
     np.testing.assert_array_equal(HybridProcessor(config).process(audio), HybridProcessor(reference).process(audio))
+
+
+def test_a_direct_adaptive_mode_call_never_overwrites_the_callers_array():
+    # Only _process_impl knows its buffer is its own validated copy. _process_adaptive_mode called
+    # directly gets the caller's array, which the stages must not use as their working buffer.
+    processor = HybridProcessor(UnifiedConfig())
+    audio = 0.3 * np.random.default_rng(4).standard_normal((SR * 3, 2))
+    original = audio.copy()
+
+    out = processor._process_adaptive_mode(audio)
+
+    np.testing.assert_array_equal(audio, original)
+    assert out is not audio and not np.array_equal(out, original)
