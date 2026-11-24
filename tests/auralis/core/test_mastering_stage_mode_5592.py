@@ -53,12 +53,20 @@ def _load_stage_module():
             pass
 
     fake_soundfile.SoundFile = _SoundFile
+    # The container choice and read-back (#6357) are tested in test_wav_rf64_container_6357.py;
+    # here the payload is not audio, so the format passes through and the read-back is a no-op.
+    fake_formats = types.ModuleType("auralis.io.formats")
+    fake_formats.soundfile_format_name = lambda path: "WAV"
+    fake_formats.wav_container = lambda format_name, *args: format_name
+    fake_formats.verify_written_frames = lambda *args: None
     stubbed = {
         "auralis.utils": types.ModuleType("auralis.utils"),
         "auralis.utils.atomic_write": atomic_write,
         "auralis.core.mastering_chunk_assembly": fake_assembly,
         "auralis": types.ModuleType("auralis"),
         "auralis.core": types.ModuleType("auralis.core"),
+        "auralis.io": types.ModuleType("auralis.io"),
+        "auralis.io.formats": fake_formats,
         "auralis.core.mastering_process_chunk": fake_peak,
         "numpy": types.ModuleType("numpy"),
         "soundfile": fake_soundfile,

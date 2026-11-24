@@ -73,8 +73,7 @@ def convert_to_temp_wav(filepath: str, *, prefix: str = SEEKABLE_TEMP_PREFIX) ->
     write, so a failure partway leaves the dir behind (the #4365 lesson from
     `stream_normal.py`).
     """
-    import soundfile as sf
-
+    from auralis.io.saver import save as save_audio
     from auralis.io.unified_loader import load_audio
 
     temp_dir = tempfile.mkdtemp(prefix=prefix)
@@ -92,7 +91,7 @@ def convert_to_temp_wav(filepath: str, *, prefix: str = SEEKABLE_TEMP_PREFIX) ->
         else:
             _require_free_space(filepath, temp_dir)
             audio, sample_rate = load_audio(filepath, "audio", temp_dir)
-            sf.write(wav_path, audio, sample_rate, format="WAV", subtype="FLOAT")
+            save_audio(wav_path, audio, sample_rate, subtype="FLOAT")  # RF64 past 4 GiB, read back (#6357)
         return temp_dir, wav_path
     except Exception:
         shutil.rmtree(temp_dir, ignore_errors=True)

@@ -44,6 +44,37 @@ FFMPEG_FORMATS = set(FFMPEG_FORMAT_NAMES)
 AUDIO_EXTENSIONS = set(SUPPORTED_FORMATS)
 
 
+# RIFF's size field is 32 bits; libsndfile does not promote a WAV past it to RF64 by itself, it
+# writes 0xFFFFFFFF and the frames beyond 4 GiB become unreadable (#6357). 64 KiB of headroom
+# covers the header and any metadata chunks.
+_RIFF_DATA_LIMIT_BYTES = 0xFFFFFFFF - (1 << 16)
+_SUBTYPE_BYTES = {"PCM_S8": 1, "PCM_U8": 1, "PCM_16": 2, "PCM_24": 3, "PCM_32": 4, "FLOAT": 4, "DOUBLE": 8}
+
+
+def wav_container(format_name: str | None, frames: int, channels: int, subtype: str) -> str | None:
+    """``format_name``, or ``RF64`` for a WAV whose data would pass RIFF's 4 GiB limit (#6357).
+
+    An unknown subtype counts as 8 bytes a sample, so a guess errs toward RF64.
+    """
+    if format_name != "WAV":
+        return format_name
+    data_bytes = frames * channels * _SUBTYPE_BYTES.get(subtype.upper(), 8)
+    return "RF64" if data_bytes > _RIFF_DATA_LIMIT_BYTES else format_name
+
+
+def verify_written_frames(path: str | os.PathLike[str], expected: int) -> None:
+    """Raise OSError unless the file at ``path`` reads back ``expected`` frames.
+
+    libsndfile reports no error when a container cannot hold what was written; the read-back is
+    the only way a writer learns its output is short (#6357).
+    """
+    import soundfile as sf  # lazy: the registry above is imported where soundfile is not needed
+
+    written = sf.info(os.fspath(path)).frames
+    if written != expected:
+        raise OSError(f"{os.path.basename(os.fspath(path))} reads back {written} of {expected} frames written")
+
+
 def soundfile_format_name(path: str | os.PathLike[str]) -> str | None:
     """libsndfile's format name for *path*'s extension, or None when it is not a native format.
 

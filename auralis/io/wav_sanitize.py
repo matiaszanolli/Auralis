@@ -22,6 +22,7 @@ import numpy as np
 import soundfile as sf
 
 from ..utils.audio_validation import validate_audio_finite
+from .formats import verify_written_frames, wav_container
 
 SANITIZE_BLOCK_FRAMES = 1 << 20
 
@@ -47,10 +48,11 @@ def sanitize_wav_in_place(path: Path, block_frames: int = SANITIZE_BLOCK_FRAMES)
         try:
             with sf.SoundFile(
                 str(repaired), "w", samplerate=source.samplerate, channels=source.channels,
-                format="WAV", subtype="FLOAT",
+                format=wav_container("WAV", source.frames, source.channels, "FLOAT"), subtype="FLOAT",
             ) as sink:
                 for block in source.blocks(blocksize=block_frames, dtype="float32", always_2d=True):
                     sink.write(validate_audio_finite(block, context="decoded stream", repair=True))
+            verify_written_frames(repaired, source.frames)  # a decode past 4 GiB is RF64 (#6357)
         except BaseException:
             repaired.unlink(missing_ok=True)
             raise

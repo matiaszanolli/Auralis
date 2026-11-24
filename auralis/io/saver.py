@@ -15,7 +15,7 @@ import soundfile as sf
 
 from ..utils.audio_validation import validate_audio_finite
 from ..utils.logging import debug, info
-from .formats import soundfile_format_name
+from .formats import soundfile_format_name, verify_written_frames, wav_container
 
 
 _FLOAT_SUBTYPES = frozenset({'FLOAT', 'DOUBLE'})
@@ -60,8 +60,12 @@ def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str 
             audio_data = np.clip(audio_data, -1.0, 1.0)
 
         # Save the audio file
-        # An explicit format for `.aif`, which libsndfile cannot infer from the extension (#6319).
-        sf.write(file_path, audio_data, sample_rate, subtype=subtype, format=soundfile_format_name(file_path))
+        # An explicit format for `.aif`, which libsndfile cannot infer from the extension (#6319), and
+        # RF64 for a WAV past 4 GiB, read back so a container that could not hold it raises (#6357).
+        channels = 1 if audio_data.ndim == 1 else audio_data.shape[1]
+        container = wav_container(soundfile_format_name(file_path), audio_data.shape[0], channels, subtype)
+        sf.write(file_path, audio_data, sample_rate, subtype=subtype, format=container)
+        verify_written_frames(file_path, audio_data.shape[0])
 
         info(f"Saved: {file_path} ({audio_data.shape[0]} samples)")
 

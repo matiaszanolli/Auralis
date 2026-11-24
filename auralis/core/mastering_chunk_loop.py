@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import soundfile as sf
 
+from ..io.formats import soundfile_format_name, verify_written_frames, wav_container
 from ..utils.atomic_write import publish_atomically
 from .mastering_chunk_assembly import (
     assemble_write_region,
@@ -93,7 +94,8 @@ def process_chunks(
     # had been paid for (#6321).
     def render_to(tmp_path: Path) -> tuple[dict[str, Any], int]:
         sf.SoundFile(
-            str(tmp_path), mode='w', samplerate=sr, channels=out_channels, subtype='PCM_24'
+            str(tmp_path), mode='w', samplerate=sr, channels=out_channels, subtype='PCM_24',
+            format=_output_container(tmp_path, total_frames, out_channels),
         ).close()
         _, _, measured_sample_peak, measured_true_peak = _render_to_sink(
             pipeline, input_path, None, sr, total_frames, fingerprint,
@@ -108,9 +110,15 @@ def process_chunks(
             intensity, config, verbose, crossfade_samples, chunk_size,
             out_channels, correction_gain=correction_gain,
         )
+        verify_written_frames(tmp_path, total_frames)  # a full WAV past 4 GiB must read back whole (#6357)
         return info, chunks_processed
 
     return publish_atomically(Path(output_path), render_to)
+
+
+def _output_container(path: Path, total_frames: int, channels: int) -> str | None:
+    """The output's libsndfile format: its extension's, or RF64 for a WAV past 4 GiB (#6357)."""
+    return wav_container(soundfile_format_name(path), total_frames, channels, 'PCM_24')
 
 
 def _render_to_sink(
@@ -159,7 +167,8 @@ def _render_to_sink(
                 mode='w',
                 samplerate=sr,
                 channels=out_channels,
-                subtype='PCM_24'
+                subtype='PCM_24',
+                format=_output_container(output_path, total_frames, out_channels),
             )
         ) as output_file:
             chunks_processed = 0
