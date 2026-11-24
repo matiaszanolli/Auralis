@@ -153,8 +153,15 @@ pub fn compute_complete_fingerprint(
     let freq_dist = frequency_analysis::band_distribution(&power, fft_size, sample_rate);
 
     // 2. Dynamics (3D)
-    let lufs = estimate_lufs(&mono_audio);
-    let crest_db = compute_crest_factor(&mono_audio);
+    // Loudness and crest read the channels, not the mono mix (#6355): over interleaved
+    // stereo the RMS is the power mean of both channels and the peak is the loudest
+    // channel's, the one the limiter sees. (L+R)/2 cancelled out-of-phase content, so a
+    // polarity-inverted rip read -120 LUFS and was planned the maximum lift; like the
+    // BS.1770 meter, this does not depend on inter-channel correlation. Mono and
+    // in-phase material read as before. The spectral dimensions stay on the mono mix:
+    // the EQ law's band centers are calibrated on it.
+    let lufs = estimate_lufs(audio);
+    let crest_db = compute_crest_factor(audio);
     let bass_mid_ratio = bass_mid_ratio_of(&power, fft_size, sample_rate);
 
     // 3. Temporal (4D)
@@ -811,6 +818,27 @@ mod tests {
                 "chroma_energy {value} out of the valid [1/12, 1.0] range"
             );
         }
+    }
+
+    #[test]
+    fn loudness_and_crest_read_the_channels_not_the_mono_mix() {
+        // #6355: an exactly anti-phase pair cancels in (L+R)/2 and read -120 LUFS.
+        let rate = 22050;
+        let left: Vec<f32> = (0..rate * 10)
+            .map(|i| (i as f32 * 0.01).sin() * 0.3 + ((i * 7919) % 997) as f32 / 997.0 * 0.1 - 0.05)
+            .collect();
+        let interleave = |sign: f32| -> Vec<f32> {
+            left.iter().flat_map(|&l| [l, sign * l]).collect()
+        };
+        let in_phase = compute_complete_fingerprint(&interleave(1.0), rate as u32, 2).unwrap();
+        let anti_phase = compute_complete_fingerprint(&interleave(-1.0), rate as u32, 2).unwrap();
+        let mono = compute_complete_fingerprint(&left, rate as u32, 1).unwrap();
+
+        assert!((anti_phase.lufs - in_phase.lufs).abs() < 0.01, "{} vs {}", anti_phase.lufs, in_phase.lufs);
+        assert!((anti_phase.crest_db - in_phase.crest_db).abs() < 0.01);
+        // In-phase stereo of a signal reads exactly like that signal in mono.
+        assert!((in_phase.lufs - mono.lufs).abs() < 0.01);
+        assert!((in_phase.crest_db - mono.crest_db).abs() < 0.01);
     }
 
     #[test]

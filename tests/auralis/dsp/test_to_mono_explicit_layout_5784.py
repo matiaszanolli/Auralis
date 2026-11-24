@@ -79,9 +79,10 @@ DOWNMIX_SITES = [
     'auralis/core/mastering_prepare.py',
     'auralis/core/dsp/resonance_notcher.py',
     'auralis/analysis/ml/feature_extractor.py',
-    'auralis/analysis/fingerprint/windowed_compute.py',
     'auralis/analysis/fingerprint/audio_fingerprint_analyzer.py',
 ]
+# windowed_compute.py left this list in #6355: its loudness/crest probe reads the channels
+# (power-mean RMS, loudest channel's peak), not a downmix, so it has no downmix to share.
 
 
 @pytest.mark.parametrize("rel", DOWNMIX_SITES)

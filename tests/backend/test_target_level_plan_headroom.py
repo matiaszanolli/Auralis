@@ -19,12 +19,12 @@ from auralis.dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB  # noqa: E402
 from auralis.dsp.utils.loudness_targets import OUTPUT_PEAK_CEILING_DB  # noqa: E402
 from auralis.core.processing.mastering_targets import (  # noqa: E402
     CREST_BUDGET_DB,
-    channel_peak_offset_db,
     generate_targets_from_fingerprint,
     plan_level,
 )
 
-# Fingerprint `lufs` is the RMS proxy (20*log10(rms) - 0.691): peak = lufs + 0.691 + crest.
+# Fingerprint `lufs` is the RMS proxy (20*log10(rms) - 0.691) on the channels and `crest_db`
+# is against the loudest channel's peak (#6355): peak = lufs + 0.691 + crest.
 
 
 def _gain(lufs: float, crest: float) -> float:
@@ -99,64 +99,21 @@ def test_a_near_silent_file_does_not_plan_more_than_the_renderer_will_apply():
 
 
 # ---------------------------------------------------------------------------
-# #6337: the fingerprint's peak is the MONO MIX's; the limiter sees the loudest channel.
+# #6337/#6355: the limiter sees the loudest channel, and so does the fingerprint.
 # ---------------------------------------------------------------------------
-
-_WIDE = {"lufs": -20.0, "crest_db": 14.95}  # mono-mix peak ~ -4.4 dBFS, wants +3.6 dB
-
-
-class TestChannelPeakOffset:
-    def test_mono_has_no_offset_and_decorrelated_channels_about_3_db(self):
-        assert channel_peak_offset_db(1.0) == pytest.approx(0.0, abs=1e-9)
-        assert channel_peak_offset_db(0.0) == pytest.approx(3.01, abs=0.01)
-        assert channel_peak_offset_db(0.5) == pytest.approx(1.25, abs=0.01)
-
-    def test_the_offset_never_shrinks_as_the_channels_decorrelate(self):
-        offsets = [channel_peak_offset_db(rho) for rho in (1.0, 0.9, 0.7, 0.4, 0.0)]
-        assert offsets == sorted(offsets)
-
-    @pytest.mark.parametrize("rho", [float("nan"), float("inf"), None, "0.5"])
-    def test_a_missing_or_unusable_correlation_means_no_correction(self, rho):
-        assert channel_peak_offset_db(rho) == 0.0
-
-    def test_an_anti_phase_reading_is_treated_as_decorrelated_not_extreme(self):
-        assert channel_peak_offset_db(-1.0) == pytest.approx(channel_peak_offset_db(0.0))
 
 
 class TestWideMastersAreNotCreditedPhantomHeadroom:
-    def test_a_decorrelated_master_is_capped_at_its_real_headroom(self):
-        mono_peak = _WIDE["lufs"] + 0.691 + _WIDE["crest_db"]
-        real_headroom = OUTPUT_PEAK_CEILING_DB - (mono_peak + channel_peak_offset_db(0.0))
-
-        target, _ = plan_level(_WIDE["lufs"], _WIDE["crest_db"], phase_correlation=0.0)
-
-        assert target - _WIDE["lufs"] == pytest.approx(real_headroom + CREST_BUDGET_DB, abs=1e-9)
-
-    def test_a_mono_compatible_master_is_planned_exactly_as_before(self):
-        assert plan_level(**{"current_lufs": -20.0, "current_crest": 14.95}, phase_correlation=1.0) == plan_level(-20.0, 14.95)
-        assert _gain(-20.0, 14.95) == pytest.approx(3.6, abs=0.05)  # the full pull toward -14 LUFS
-
-    def test_a_wide_master_is_boosted_less_than_a_mono_one_of_the_same_numbers(self):
-        mono, wide = plan_level(-20.0, 14.95, 1.0), plan_level(-20.0, 14.95, 0.0)
-        assert wide[0] < mono[0]
-        assert wide[1] <= mono[1]
-
-    def test_the_targets_read_the_correlation_from_the_fingerprint(self):
-        base = {**_WIDE, "bass_pct": 0.456, "low_mid_pct": 0.101, "mid_pct": 0.198,
-                "upper_mid_pct": 0.073, "presence_pct": 0.03, "air_pct": 0.006}
-
-        correlated = generate_targets_from_fingerprint({**base, "phase_correlation": 0.99})
-        decorrelated = generate_targets_from_fingerprint({**base, "phase_correlation": 0.0})
-        legacy = generate_targets_from_fingerprint(base)  # a fingerprint without the field
-
-        assert decorrelated["target_lufs"] < correlated["target_lufs"]
-        assert legacy["target_lufs"] == pytest.approx(
-            generate_targets_from_fingerprint({**base, "phase_correlation": 1.0})["target_lufs"]
-        )
+    def test_the_plan_reads_the_peak_straight_from_lufs_and_crest(self):
+        """No correlation model any more: lufs + 0.691 + crest IS the per-channel peak."""
+        lufs, crest = -20.0, 14.95  # peak -4.4 dBFS
+        headroom = OUTPUT_PEAK_CEILING_DB - (lufs + 0.691 + crest)
+        target, _ = plan_level(lufs, crest)
+        assert target - lufs == pytest.approx(min(0.6 * (-14.0 - lufs), headroom + CREST_BUDGET_DB))
 
     def test_through_the_real_fingerprint_a_decorrelated_master_stays_within_its_true_headroom(self):
-        """End to end: the plan's gain beyond the loudest channel's real headroom stays within
-        the crest allowance (plus the ~0.5 dB the correlation model can miss by)."""
+        """End to end: the plan's gain beyond the loudest channel's real headroom is exactly
+        the crest allowance; the old correlation estimate could miss by ~0.5 dB."""
         import numpy as np
 
         from pathlib import Path
@@ -176,7 +133,7 @@ class TestWideMastersAreNotCreditedPhantomHeadroom:
         targets = generate_targets_from_fingerprint(fingerprint)
         planned = targets["target_lufs"] - targets["source_lufs"]
 
-        assert planned - true_headroom <= CREST_BUDGET_DB + 0.75
+        assert planned - true_headroom <= CREST_BUDGET_DB + 0.05
 
 
 class TestSilenceFloor:

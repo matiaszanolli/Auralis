@@ -62,7 +62,7 @@ def mode() -> ContinuousMode:
 def _intended_lift(mode: ContinuousMode, audio: np.ndarray) -> float:
     """The plan's own lift, on the proxy scale it was computed on."""
     fp = mode.fingerprint_analyzer.analyze(audio, SR)
-    target_lufs, _crest = plan_level(fp["lufs"], fp["crest_db"], fp["phase_correlation"])
+    target_lufs, _crest = plan_level(fp["lufs"], fp["crest_db"])
     return target_lufs - fp["lufs"]
 
 

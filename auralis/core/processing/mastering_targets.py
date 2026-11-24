@@ -15,7 +15,6 @@ Moved here from the backend's ``mastering_target_generation.py`` (split from
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import math
 from collections.abc import Mapping
 from typing import Any
 
@@ -29,13 +28,11 @@ from ..utils import fingerprint_default
 from .cross_dimensional_guard import smooth_gate
 from .parameter_generator_eq import eq_curve_from_fingerprint
 
-# The fingerprint's `lufs` is a K-weighted-style RMS proxy: 20*log10(rms) - 0.691.
-# Adding the offset back to `lufs + crest_db` recovers the peak of the MONO MIX in dBFS.
+# The fingerprint's `lufs` is an RMS proxy, 20*log10(rms) - 0.691, measured on the channels
+# (power mean) and its `crest_db` against the loudest channel's peak (#6355). Adding the
+# offset back to `lufs + crest_db` recovers that per-channel peak in dBFS: the one the
+# limiter sees.
 _PROXY_OFFSET_DB = 0.691
-
-# The most the per-channel peak is assumed to exceed the mono-mix peak: hard-panned content,
-# where one channel carries everything and the mix is that channel at half level.
-_MAX_CHANNEL_PEAK_OFFSET_DB = 6.02
 
 # How much crest factor (dB) the plan may spend on loudness. A gain beyond the
 # track's headroom to the limiter ceiling is paid for in crest: the limiter has to
@@ -64,9 +61,7 @@ def generate_targets_from_fingerprint(
     # preserving the track's original loudness character (fixes #2726).
     current_lufs = fingerprint.get('lufs', DEFAULT_TARGET_LUFS)
     current_crest = fingerprint.get('crest_db', fingerprint_default('crest_db'))
-    target_lufs, target_crest = plan_level(
-        current_lufs, current_crest, fingerprint.get('phase_correlation', 1.0)
-    )
+    target_lufs, target_crest = plan_level(current_lufs, current_crest)
 
     return {
         'target_lufs': target_lufs,
@@ -89,27 +84,7 @@ def generate_targets_from_fingerprint(
     }
 
 
-def channel_peak_offset_db(phase_correlation: float) -> float:
-    """dB by which the loudest channel's peak exceeds the fingerprint's mono-mix peak.
-
-    The fingerprint measures `lufs` and `crest_db` on (L+R)/2, but the limiter acts on the
-    per-channel sample peak. For two equal-level channels with correlation rho the mix has
-    (1+rho)/2 of a channel's power, so the channel peak sits ``-10*log10((1+rho)/2)`` above
-    the mix peak: 0 dB for mono, ~3 dB for decorrelated channels. Measured on Gaussian
-    stereo this predicts the gap within ~0.5 dB. Channels of unequal level (hard-panned
-    content) are under-corrected, since correlation cannot see the level difference; the
-    result is capped at the hard-panned limit. A missing or non-finite correlation means no
-    correction (the previous behaviour).
-    """
-    if not isinstance(phase_correlation, (int, float)) or not math.isfinite(phase_correlation):
-        return 0.0
-    rho = min(1.0, max(0.0, float(phase_correlation)))
-    return min(_MAX_CHANNEL_PEAK_OFFSET_DB, -10.0 * math.log10((1.0 + rho) / 2.0))
-
-
-def plan_level(
-    current_lufs: float, current_crest: float, phase_correlation: float = 1.0
-) -> tuple[float, float]:
+def plan_level(current_lufs: float, current_crest: float) -> tuple[float, float]:
     """(target_lufs, forecast crest) for a track, spending crest only on free loudness.
 
     Wants a 60 % move toward the streaming target. A boost is capped at the
@@ -120,9 +95,9 @@ def plan_level(
     -65 dBFS fingerprints at -93 LUFS) used to plan +47 dB that the renderer then
     quietly clamped. The crest returned is the forecast after the planned gain.
 
-    The peak is the per-channel one the limiter sees, not the fingerprint's mono-mix peak:
-    ``phase_correlation`` lifts it by ``channel_peak_offset_db`` so a wide master is not
-    credited with headroom it does not have (#6337).
+    The peak is the per-channel one the limiter sees: the fingerprint measures loudness and
+    crest on the channels, so a wide master is not credited with headroom it lacks (#6337)
+    and an out-of-phase one is not mistaken for silence (#6355).
 
     Near-silence is not lifted: a boost fades out across the renderer's silence
     floor (``SILENCE_FLOOR_LUFS`` plus the ``SILENCE_KNEE_DB`` knee, #5551/#6108),
@@ -132,7 +107,7 @@ def plan_level(
     higher in metered terms: it errs toward not lifting. An attenuation is never gated.
     """
     wanted_gain = (current_lufs * 0.4 + STREAMING_TARGET_LUFS * 0.6) - current_lufs
-    peak_dbfs = current_lufs + _PROXY_OFFSET_DB + current_crest + channel_peak_offset_db(phase_correlation)
+    peak_dbfs = current_lufs + _PROXY_OFFSET_DB + current_crest
     headroom = max(0.0, OUTPUT_PEAK_CEILING_DB - peak_dbfs)
     gain = min(wanted_gain, headroom + CREST_BUDGET_DB, MAX_NORMALIZATION_GAIN_DB)
     if gain > 0.0:

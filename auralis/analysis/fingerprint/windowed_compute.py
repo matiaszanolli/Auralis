@@ -29,7 +29,6 @@ from typing import Any
 
 import numpy as np
 
-from ...dsp.utils.audio_info import to_mono
 from .analysis_budget import AnalysisCancelled, analysis_budget
 from .audio_fingerprint_analyzer import FingerprintUnavailable, require_finite
 from .track_audio import analysis_span_s, load_track_audio
@@ -63,12 +62,15 @@ def _numpy_to_python(obj: Any) -> Any:
 
 
 def _rms_lufs_crest(a: np.ndarray) -> tuple[float, float] | None:
-    """Return (lufs_approx, crest_db) from a mono/stereo array, or None if silent or non-finite."""
-    mono = to_mono(a, 'channels_samples')  # librosa layout: (channels, samples)
-    level = rms(mono.astype(np.float64))
+    """(lufs_approx, crest_db) of a mono/stereo array, or None if silent or non-finite.
+
+    On the channels, as the Rust engine measures (#6355): power-mean RMS, loudest channel's
+    peak. ``(L+R)/2`` cancelled out-of-phase content into silence."""
+    channels = np.atleast_2d(a).astype(np.float64)  # librosa layout: (channels, samples)
+    level = rms(channels.ravel())
     if not np.isfinite(level) or level < 1e-9:  # NaN < 1e-9 is False: a glitch sample was a NaN median (#6144)
         return None
-    peak = float(np.max(np.abs(mono)))
+    peak = float(np.max(np.abs(channels)))
     lufs = amplitude_to_db(level) - 0.691   # K-weighted proxy
     crest = amplitude_to_db(peak / max(level, 1e-9))
     return lufs, crest

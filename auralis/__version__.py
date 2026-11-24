@@ -105,7 +105,16 @@ __db_schema_version__ = 34  # user_settings drops the unconsumed crossfade/gaple
 #             music spans ~0.4 (distorted guitars) to ~0.8 (orchestral) instead of
 #             0.7-0.9. loudness_variation_std is clamped to its schema range (0-10 dB).
 #             Every v15 row must be recomputed.
-FINGERPRINT_ALGORITHM_VERSION = 16
+# v17 (#6362, #6363, #6355): whole-track sums are f64 (an f32 running sum drifted with
+#             length: 900 s of pink noise read rolloff 50% low, lufs/crest 0.1-0.2 dB
+#             low, phase_correlation 0.90 for 0.88). Centroid and rolloff read the band
+#             shares' frame spectrum instead of one Hann-windowed whole-track FFT that
+#             described the middle of the track. lufs and crest_db are measured on the
+#             channels (power-mean RMS, loudest channel's peak) instead of (L+R)/2,
+#             which read an out-of-phase rip as -120 LUFS; typical stereo now reads
+#             ~1 dB louder, mono and in-phase material unchanged. Every v16 row must be
+#             recomputed.
+FINGERPRINT_ALGORITHM_VERSION = 17
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app

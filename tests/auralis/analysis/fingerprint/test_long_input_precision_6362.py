@@ -12,7 +12,7 @@ noise read its rolloff 50% low, `lufs` 0.1-0.2 dB low and `phase_correlation`
 The reference below is numpy in f64 with the engine's definitions: 65536-sample
 frames (a tail under half a frame is dropped), a periodic Hann window over each
 frame, power summed over frames, 85% rolloff, ``20*log10(rms) - 0.7`` loudness on
-the mono mix, and the Pearson correlation of the two channels.
+the channels' power mean (#6355), and the Pearson correlation of the two channels.
 """
 
 import numpy as np
@@ -72,11 +72,12 @@ def test_centroid_and_rolloff_match_the_f64_reference(stereo):
 
 
 def test_loudness_and_crest_match_the_f64_reference(stereo):
+    # Measured on the channels since #6355: power-mean RMS, loudest channel's peak.
     left, right, fp = stereo
-    mono = _mono(left, right).astype(np.float64)
-    rms = np.sqrt(np.mean(mono ** 2))
+    channels = np.stack([left, right]).astype(np.float64)
+    rms = np.sqrt(np.mean(channels ** 2))
     assert fp["lufs"] == pytest.approx(20 * np.log10(rms) - 0.7, abs=0.01)
-    assert fp["crest_db"] == pytest.approx(20 * np.log10(np.max(np.abs(mono)) / rms), abs=0.01)
+    assert fp["crest_db"] == pytest.approx(20 * np.log10(np.max(np.abs(channels)) / rms), abs=0.01)
 
 
 def test_phase_correlation_matches_the_f64_reference(stereo):
