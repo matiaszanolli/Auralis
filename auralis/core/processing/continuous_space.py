@@ -140,8 +140,11 @@ class ProcessingSpaceMapper:
             self._LOUDNESS_VARIATION_LOG_SCALE,
         )
 
-        # ``dynamic_range_variation`` is intentionally excluded here. The
-        # July-2026 corpus pass found the existing metric saturated at 1.0 for
-        # every one of 508 successful tracks, so it carries no mastering signal.
+        # ``dynamic_range_variation`` is intentionally excluded here. It was
+        # saturated at 1.0 on all 508 tracks of the July-2026 corpus pass; the
+        # current whole-track fingerprint varies (p10-p90 0.15-0.25 on an 80-track
+        # sample, 2026-11-23), but it did not separate the reference records
+        # judged well mastered from those judged to need work, and no listening
+        # result ties it to a mastering decision, so it still drives nothing.
         return float(0.75 * crest_coordinate + 0.25 * variation_coordinate)
 
