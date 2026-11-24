@@ -61,28 +61,42 @@ impl FrequencyBands {
     }
 }
 
-/// Compute power spectral density from frequency bins.
+/// The power spectrum of `audio` summed over its analysis frames, in f64, and the frame size.
 ///
-/// #5570: no per-bin floor. The old absolute `1e-10` floor set most bins on
-/// quiet material, making the 7-band fractions depend on loudness instead of
-/// spectral shape (pink noise at -37 dBFS read air=0.24 vs 0.05 at -14 dBFS).
-/// The consumer normalises by the band sum, which is guarded by
-/// `total > 0.0` (pure silence falls back to the uniform distribution), so
-/// the floor bought nothing but level dependence.
-fn compute_psd(spectrum: &[Complex<f32>]) -> Vec<f32> {
-    spectrum
-        .iter()
-        .map(|c| c.norm_sqr() / (spectrum.len() as f32).powi(2))
-        .collect()
+/// Bins `0..=fft_size / 2` (DC to Nyquist), unnormalised: every consumer reads ratios
+/// (band shares, bass/mid, centroid, rolloff), so the scale cancels. One spectrum feeds all
+/// of them, so they describe the same frames (#6341) and the same whole track (#6363). The
+/// sum is f64 because a track is thousands of frames: an f32 running sum stops absorbing
+/// the quiet bins and drifts with track length (#6362). An empty input gives an all-zero
+/// spectrum.
+///
+/// #5570: no per-bin floor. An absolute floor on quiet material made the band shares depend
+/// on loudness instead of spectral shape; consumers guard their own zero totals.
+pub(crate) fn accumulated_power(audio: &[f32]) -> (Vec<f64>, usize) {
+    let fft_size = frame_size(audio.len().max(2));
+    let mut power = vec![0.0f64; fft_size / 2 + 1];
+    if audio.is_empty() {
+        return (power, fft_size);
+    }
+    let fft = FftPlanner::new().plan_fft_forward(fft_size);
+    let mut buf: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
+    for frame in analysis_frames(audio, fft_size) {
+        windowed_into(frame, &mut buf);
+        fft.process(&mut buf);
+        for (p, c) in power.iter_mut().zip(&buf) {
+            *p += c.norm_sqr() as f64;
+        }
+    }
+    (power, fft_size)
 }
 
-/// Integrate power across frequency range
-fn integrate_power_range(psd: &[f32], start_bin: usize, end_bin: usize) -> f32 {
-    if start_bin >= psd.len() {
+/// Sum of `power` over bins `start..end`, clamped to the spectrum.
+pub(crate) fn band_power(power: &[f64], start: usize, end: usize) -> f64 {
+    let end = end.min(power.len());
+    if start >= end {
         return 0.0;
     }
-    let end = end_bin.min(psd.len());
-    psd[start_bin..end].iter().sum::<f32>()
+    power[start..end].iter().sum()
 }
 
 /// Compute frequency distribution across 7 perceptual bands
@@ -93,64 +107,25 @@ fn integrate_power_range(psd: &[f32], start_bin: usize, end_bin: usize) -> f32 {
 ///
 /// # Returns
 /// Array of 7 normalized frequency distribution values (sum = 1.0)
-///
-/// # Panics
-/// If audio is empty or sample_rate is 0
 pub fn compute_frequency_distribution(audio: &[f32], sample_rate: u32) -> FrequencyBands {
-    if audio.is_empty() {
-        return FrequencyBands {
-            sub_bass: 1.0 / 7.0,
-            bass: 1.0 / 7.0,
-            low_mid: 1.0 / 7.0,
-            mid: 1.0 / 7.0,
-            upper_mid: 1.0 / 7.0,
-            presence: 1.0 / 7.0,
-            air: 1.0 / 7.0,
-        };
-    }
+    let (power, fft_size) = accumulated_power(audio);
+    band_distribution(&power, fft_size, sample_rate)
+}
 
-    // Analyse the WHOLE input, not a head sample. This used to read only the first
-    // 30 s as one FFT ("representative sample"); the fingerprint hands in the whole
-    // track, and an intro (a quiet 35 s opening with no bass) is not the track.
-    // Energy is accumulated frame by frame, so memory stays at one frame however long
-    // the track is.
-    let fft_size = frame_size(audio.len());
-    let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(fft_size);
-
-    // Map frequency bands
+/// The 7 band shares of an accumulated spectrum (see `accumulated_power`). A spectrum with
+/// no energy (empty or silent input) gives the uniform distribution.
+pub(crate) fn band_distribution(power: &[f64], fft_size: usize, sample_rate: u32) -> FrequencyBands {
     let nyquist = sample_rate as f32 / 2.0;
-    let freqs = [20.0, 60.0, 250.0, 500.0, 2000.0, 4000.0, 8000.0, 20000.0];
+    let freqs = [20.0f32, 60.0, 250.0, 500.0, 2000.0, 4000.0, 8000.0, 20000.0];
+    let bins = freqs.map(|freq| hz_to_bin(freq.min(nyquist), sample_rate, fft_size));
 
-    let mut bins = [0usize; 8];
-    for (i, &freq) in freqs.iter().enumerate() {
-        bins[i] = hz_to_bin((freq as f32).min(nyquist), sample_rate, fft_size);
-    }
-
-    // f64 accumulators: thousands of frames of f32 power would lose the quiet bands.
     let mut distribution = [0.0f64; 7];
-    let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
-    for frame in analysis_frames(audio, fft_size) {
-        windowed_into(frame, &mut fft_input);
-        fft.process(&mut fft_input);
-
-        let psd = compute_psd(&fft_input);
-        for i in 0..7 {
-            distribution[i] += integrate_power_range(&psd, bins[i], bins[i + 1]) as f64;
-        }
+    for i in 0..7 {
+        distribution[i] = band_power(power, bins[i], bins[i + 1]);
     }
-
-    // Normalize
     let total: f64 = distribution.iter().sum();
-    if total > 0.0 {
-        for band in &mut distribution {
-            *band /= total;
-        }
-    } else {
-        // All zeros - return uniform distribution
-        for band in &mut distribution {
-            *band = 1.0 / 7.0;
-        }
+    for band in &mut distribution {
+        *band = if total > 0.0 { *band / total } else { 1.0 / 7.0 };
     }
 
     FrequencyBands {

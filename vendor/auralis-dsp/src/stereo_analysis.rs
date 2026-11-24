@@ -1,6 +1,6 @@
 /// Stereo field analysis
 /// Measures stereo width and phase correlation between channels
-use crate::dsp_math::{compute_rms, std_dev_about};
+use crate::dsp_math::compute_rms;
 
 /// Compute mid-side decomposition
 /// mid = (L + R) / 2
@@ -64,42 +64,26 @@ pub fn compute_phase_correlation(left: &[f32], right: &[f32]) -> f32 {
         return 1.0; // Assume mono = perfect correlation
     }
 
-    // Normalize to [-1, 1]
-    let left_norm = normalize_signal(left);
-    let right_norm = normalize_signal(right);
-
-    // Compute correlation coefficient
-    let mut sum_product = 0.0f32;
-    let mut sum_left2 = 0.0f32;
-    let mut sum_right2 = 0.0f32;
-
-    for (l, r) in left_norm.iter().zip(right_norm.iter()) {
-        sum_product += l * r;
-        sum_left2 += l * l;
-        sum_right2 += r * r;
+    // Pearson correlation, two passes in f64 (#6362): the f32 sums over a whole track
+    // biased it (0.9026 vs 0.8823 on 900 s), and normalising each channel first only
+    // allocated two track-length copies the coefficient does not need.
+    let n = left.len() as f64;
+    let mean_left = left.iter().map(|&s| s as f64).sum::<f64>() / n;
+    let mean_right = right.iter().map(|&s| s as f64).sum::<f64>() / n;
+    let (mut sum_product, mut sum_left2, mut sum_right2) = (0.0f64, 0.0f64, 0.0f64);
+    for (&l, &r) in left.iter().zip(right) {
+        let (a, b) = (l as f64 - mean_left, r as f64 - mean_right);
+        sum_product += a * b;
+        sum_left2 += a * a;
+        sum_right2 += b * b;
     }
 
-    let denominator = (sum_left2 * sum_right2).sqrt();
-    if denominator < 1e-10 {
+    // A constant channel has no correlation to measure: treat it as mono.
+    if sum_left2 == 0.0 || sum_right2 == 0.0 {
         return 1.0;
     }
 
-    (sum_product / denominator).clamp(-1.0, 1.0)
-}
-
-/// Normalize signal to zero mean and unit variance
-fn normalize_signal(signal: &[f32]) -> Vec<f32> {
-    if signal.is_empty() {
-        return vec![];
-    }
-
-    let mean: f32 = signal.iter().sum::<f32>() / signal.len() as f32;
-    let std_dev = std_dev_about(signal, mean).max(1e-10);
-
-    signal
-        .iter()
-        .map(|&s| (s - mean) / std_dev)
-        .collect()
+    ((sum_product / (sum_left2 * sum_right2).sqrt()) as f32).clamp(-1.0, 1.0)
 }
 
 #[cfg(test)]
@@ -165,20 +149,34 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_signal() {
-        let signal = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let normalized = normalize_signal(&signal);
+    fn test_phase_correlation_ignores_gain_and_offset() {
+        // What the removed per-channel normalisation guaranteed: correlation does not
+        // depend on either channel's level or DC offset.
+        let left = vec![0.1, -0.4, 0.3, 0.2, -0.1, 0.5];
+        let right = vec![0.2, -0.3, 0.1, 0.4, -0.2, 0.3];
+        let reference = compute_phase_correlation(&left, &right);
+        let scaled: Vec<f32> = right.iter().map(|s| s * 0.01 + 0.25).collect();
+        assert!((compute_phase_correlation(&left, &scaled) - reference).abs() < 1e-5);
+    }
 
-        // Mean of normalized should be ~0
-        let mean: f32 = normalized.iter().sum::<f32>() / normalized.len() as f32;
-        assert!(mean.abs() < 0.01);
-
-        // Std dev of normalized should be ~1
-        let variance: f32 = normalized
-            .iter()
-            .map(|&s| s * s)
-            .sum::<f32>()
-            / normalized.len() as f32;
-        assert!((variance.sqrt() - 1.0).abs() < 0.01);
+    #[test]
+    fn test_phase_correlation_of_a_long_input_is_exact() {
+        // #6362: f32 sums over 900 s read 0.9026 where the truth was 0.8823. Left and
+        // right share one deterministic source plus independent parts of known power, so
+        // the correlation is known in closed form: 1 / (1 + 0.25) = 0.8 for equal levels.
+        let n = 22050 * 900;
+        let mut state = 0x9E37_79B9_u32;
+        let mut next = || {
+            state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            (state as f32 / u32::MAX as f32 - 0.5) * 2.0
+        };
+        let (mut left, mut right) = (Vec::with_capacity(n), Vec::with_capacity(n));
+        for _ in 0..n {
+            let common = next();
+            left.push(0.4 * common + 0.2 * next());
+            right.push(0.4 * common + 0.2 * next());
+        }
+        let correlation = compute_phase_correlation(&left, &right);
+        assert!((correlation - 0.8).abs() < 0.002, "{correlation}");
     }
 }

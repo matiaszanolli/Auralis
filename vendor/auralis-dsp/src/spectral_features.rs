@@ -1,69 +1,55 @@
 /// Spectral feature analysis (centroid, rolloff, flatness)
 /// These features describe the "shape" and "color" of the audio spectrum
 
-use crate::dsp_math::hann_weight;
-
 /// Compute spectral centroid (center of mass of spectrum)
 /// Higher values = brighter/more high-frequency content
 /// Range: 0.0 - Nyquist frequency (Hz)
 ///
 /// # Arguments
-/// * `psd` - Power spectral density (from FFT)
-/// * `freqs` - Frequency values for each bin (Hz)
+/// * `power` - Power per bin from DC, accumulated over the track's frames
+///   (`frequency_analysis::accumulated_power`)
+/// * `bin_hz` - Width of one bin in Hz
 ///
 /// # Returns
 /// Spectral centroid in Hz
-pub fn compute_spectral_centroid(psd: &[f32], freqs: &[f32]) -> f32 {
-    if psd.is_empty() || psd.len() != freqs.len() {
+///
+/// #6362/#6363: this used one whole-track f32 FFT (up to 2^25 points) with f32 sums, which
+/// described the middle of the track (the Hann window) and drifted with its length; it now
+/// reads the band shares' f64 frame spectrum.
+pub fn compute_spectral_centroid(power: &[f64], bin_hz: f64) -> f32 {
+    let total: f64 = power.iter().sum();
+    if total <= 0.0 {
         return 0.0;
     }
-
-    let total_power: f32 = psd.iter().sum();
-    if total_power < 1e-10 {
-        return 0.0;
-    }
-
-    let weighted_sum: f32 = psd
-        .iter()
-        .zip(freqs.iter())
-        .map(|(power, freq)| power * freq)
-        .sum();
-
-    weighted_sum / total_power
+    let weighted: f64 = power.iter().enumerate().map(|(k, p)| p * k as f64 * bin_hz).sum();
+    (weighted / total) as f32
 }
 
-/// Compute spectral rolloff (frequency containing 85% of energy)
+/// Compute spectral rolloff (frequency below which `rolloff` of the energy lies)
 /// Lower = more concentrated energy, Higher = spread energy
 /// Range: 0.0 - Nyquist frequency (Hz)
 ///
 /// # Arguments
-/// * `psd` - Power spectral density
-/// * `freqs` - Frequency values for each bin
-/// * `rolloff` - Threshold percentage (0.0 - 1.0), typically 0.85
+/// * `power` - Power per bin from DC (see `compute_spectral_centroid`)
+/// * `bin_hz` - Width of one bin in Hz
+/// * `rolloff` - Threshold fraction (0.0 - 1.0), typically 0.85
 ///
 /// # Returns
 /// Rolloff frequency in Hz
-pub fn compute_spectral_rolloff(psd: &[f32], freqs: &[f32], rolloff: f32) -> f32 {
-    if psd.is_empty() || psd.len() != freqs.len() {
+pub fn compute_spectral_rolloff(power: &[f64], bin_hz: f64, rolloff: f64) -> f32 {
+    let total: f64 = power.iter().sum();
+    if total <= 0.0 {
         return 0.0;
     }
-
-    let total_power: f32 = psd.iter().sum();
-    if total_power < 1e-10 {
-        return 0.0;
-    }
-
-    let threshold = rolloff * total_power;
-    let mut cumulative = 0.0;
-
-    for (power, freq) in psd.iter().zip(freqs.iter()) {
-        cumulative += power;
+    let threshold = rolloff * total;
+    let mut cumulative = 0.0f64;
+    for (k, p) in power.iter().enumerate() {
+        cumulative += p;
         if cumulative >= threshold {
-            return *freq;
+            return (k as f64 * bin_hz) as f32;
         }
     }
-
-    freqs[freqs.len() - 1]
+    ((power.len() - 1) as f64 * bin_hz) as f32
 }
 
 /// Lower edge of the flatness scale: a mean frame flatness this far below 0 dB
@@ -153,93 +139,53 @@ fn frame_flatness(power: &[f64]) -> f64 {
     (log_sum / n).exp() / (sum / n)
 }
 
-/// Helper: Convert audio to frequency domain
-/// Returns (frequencies, psd)
-pub fn audio_to_freq_domain(audio: &[f32], sample_rate: u32) -> (Vec<f32>, Vec<f32>) {
-    use rustfft::num_complex::Complex;
-    use rustfft::FftPlanner;
-
-    if audio.is_empty() {
-        return (vec![], vec![]);
-    }
-
-    // FFT setup
-    let fft_size = (audio.len() as f32).log2().ceil() as u32;
-    let fft_size = 2usize.pow(fft_size);
-
-    let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
-    for (i, &sample) in audio.iter().enumerate() {
-        fft_input[i].re = sample;
-    }
-
-    // Apply Hann window
-    let n = audio.len() as f32;
-    for (i, sample) in fft_input.iter_mut().enumerate().take(audio.len()) {
-        let window = hann_weight(i, n);
-        sample.re *= window;
-    }
-
-    // Compute FFT
-    let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(fft_size);
-    fft.process(&mut fft_input);
-
-    // Compute PSD
-    let psd: Vec<f32> = fft_input
-        .iter()
-        .map(|c| c.norm_sqr() / (fft_size as f32).powi(2))
-        .collect();
-
-    // Compute frequencies
-    let freqs: Vec<f32> = (0..fft_size / 2)
-        .map(|i| (i as f32 * sample_rate as f32) / fft_size as f32)
-        .collect();
-
-    (freqs, psd[..fft_size / 2].to_vec())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_spectral_centroid_bass() {
-        // Bass dominated spectrum
-        let mut freqs = vec![];
-        let mut psd = vec![];
-
-        for i in 0..100 {
-            freqs.push(i as f32 * 10.0);
-            psd.push(if i < 20 { 1.0 } else { 0.1 }); // Bass concentrated
-        }
-
-        let centroid = compute_spectral_centroid(&psd, &freqs);
-        assert!(centroid < 500.0); // Should be in bass range
+        // Bass dominated spectrum, 10 Hz bins
+        let power: Vec<f64> = (0..100).map(|i| if i < 20 { 1.0 } else { 0.1 }).collect();
+        assert!(compute_spectral_centroid(&power, 10.0) < 500.0);
     }
 
     #[test]
     fn test_spectral_centroid_treble() {
-        // Treble dominated spectrum
-        let mut freqs = vec![];
-        let mut psd = vec![];
-
-        for i in 0..100 {
-            freqs.push(i as f32 * 100.0);
-            psd.push(if i > 80 { 1.0 } else { 0.1 }); // Treble concentrated
-        }
-
-        let centroid = compute_spectral_centroid(&psd, &freqs);
-        assert!(centroid > 5000.0); // Should be in treble range
+        // Treble dominated spectrum, 100 Hz bins
+        let power: Vec<f64> = (0..100).map(|i| if i > 80 { 1.0 } else { 0.1 }).collect();
+        assert!(compute_spectral_centroid(&power, 100.0) > 5000.0);
     }
 
     #[test]
     fn test_spectral_rolloff() {
-        let freqs: Vec<f32> = (0..100).map(|i| i as f32 * 100.0).collect();
-        let psd: Vec<f32> = (0..100).map(|_| 1.0).collect(); // Uniform spectrum
-
-        let rolloff = compute_spectral_rolloff(&psd, &freqs, 0.85);
-        // 85% should be around 85% of max frequency
+        // Uniform spectrum: 85% of the energy lies below 85% of the top bin
+        let power = vec![1.0f64; 100];
+        let rolloff = compute_spectral_rolloff(&power, 100.0, 0.85);
         assert!(rolloff > 7000.0 && rolloff < 9000.0);
+    }
+
+    #[test]
+    fn test_centroid_and_rolloff_of_silence_are_zero() {
+        assert_eq!(compute_spectral_centroid(&[0.0; 16], 10.0), 0.0);
+        assert_eq!(compute_spectral_rolloff(&[0.0; 16], 10.0, 0.85), 0.0);
+        assert_eq!(compute_spectral_centroid(&[], 10.0), 0.0);
+    }
+
+    #[test]
+    fn test_centroid_and_rolloff_do_not_drift_with_length() {
+        // #6362: the f32 whole-track path read 900 s of pink noise 50% low. The frame
+        // spectrum is a per-frame sum, so a long input must read like a short one.
+        let short = noise(22050 * 30, 0.3);
+        let long: Vec<f32> = short.iter().cycle().take(22050 * 600).copied().collect();
+        let read = |audio: &[f32]| {
+            let (power, fft_size) = crate::frequency_analysis::accumulated_power(audio);
+            let bin_hz = 22050.0 / fft_size as f64;
+            (compute_spectral_centroid(&power, bin_hz), compute_spectral_rolloff(&power, bin_hz, 0.85))
+        };
+        let ((c_short, r_short), (c_long, r_long)) = (read(&short), read(&long));
+        assert!((c_long / c_short - 1.0).abs() < 0.01, "centroid {c_short} -> {c_long}");
+        assert!((r_long / r_short - 1.0).abs() < 0.01, "rolloff {r_short} -> {r_long}");
     }
 
     /// Deterministic white-ish noise (LCG, no rand crate).

@@ -7,7 +7,8 @@
 //! `+1.0`) — so tuning one left the other computing a different loudness.
 //! Consolidated here to a single implementation.
 //!
-//! `hz_to_bin`, the f32 Hann weight and the population standard deviation moved
+//! Sums over a signal are f64 (#6362). `hz_to_bin`, the f32 Hann weight and the
+//! population standard deviation moved
 //! here in #6622 from the two to three copies each had in `fingerprint_compute`,
 //! `frequency_analysis`, `spectral_features`, `stereo_analysis` and
 //! `variation_analysis`. The f64 periodic Hann window in `rhythm.rs`
@@ -17,13 +18,16 @@
 use std::f32::consts::PI;
 
 /// Compute RMS energy of a signal.
+///
+/// Summed in f64: a whole track is up to ~20M samples, and an f32 running sum stops
+/// absorbing small terms, so `lufs` and the crest factor drifted with track length (#6362).
 pub(crate) fn compute_rms(signal: &[f32]) -> f32 {
     if signal.is_empty() {
         return 0.0;
     }
 
-    let sum_sq: f32 = signal.iter().map(|s| s * s).sum();
-    (sum_sq / signal.len() as f32).sqrt()
+    let sum_sq: f64 = signal.iter().map(|&s| (s as f64) * (s as f64)).sum();
+    (sum_sq / signal.len() as f64).sqrt() as f32
 }
 
 /// Estimate LUFS (loudness units relative to full scale) from signal RMS.
@@ -72,7 +76,8 @@ pub(crate) fn hann_weight(i: usize, n: f32) -> f32 {
 /// Population standard deviation of `values` about a `mean` the caller already
 /// has (every caller needs the mean as well). `values` must not be empty.
 pub(crate) fn std_dev_about(values: &[f32], mean: f32) -> f32 {
-    let variance: f32 =
-        values.iter().map(|&v| (v - mean).powi(2)).sum::<f32>() / values.len() as f32;
-    variance.sqrt()
+    let mean = mean as f64;
+    let variance: f64 =
+        values.iter().map(|&v| (v as f64 - mean).powi(2)).sum::<f64>() / values.len() as f64;
+    variance.sqrt() as f32
 }

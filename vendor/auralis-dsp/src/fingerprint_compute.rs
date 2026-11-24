@@ -67,43 +67,27 @@ fn compute_crest_factor(signal: &[f32]) -> f32 {
         return 0.0;
     }
 
-    // Convert to dB. Peak >= RMS, so the ratio is >= 1 (>= 0 dB); f32
-    // accumulation in compute_rms can put a constant signal's RMS a hair above
-    // its peak, which read as a tiny negative crest (#5859).
+    // Convert to dB. Peak >= RMS, so the ratio is >= 1 (>= 0 dB); rounding in
+    // compute_rms can put a constant signal's RMS a hair above its peak, which
+    // read as a tiny negative crest (#5859).
     (20.0 * (peak / rms).log10()).max(0.0)
 }
 
-/// Compute bass/mid energy ratio
+/// Bass/mid energy ratio of `audio` (the fingerprint reuses its spectrum via `bass_mid_ratio_of`).
+#[cfg(test)]
 fn compute_bass_mid_ratio(audio: &[f32], sample_rate: u32) -> f32 {
-    use rustfft::num_complex::Complex;
-    use rustfft::FftPlanner;
+    let (power, fft_size) = frequency_analysis::accumulated_power(audio);
+    bass_mid_ratio_of(&power, fft_size, sample_rate)
+}
 
-    if audio.is_empty() {
-        return 0.5;
-    }
-
-    // #5571: the same frames the band analysis reads (the whole input, one frame iterator,
-    // one tail rule -- #6341): the dimensions of one fingerprint must not have inconsistent
-    // scopes.
-    let fft_size = frequency_analysis::frame_size(audio.len());
-    let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(fft_size);
-
+/// Bass (< 200 Hz) share of the bass + mid (200 Hz - 2 kHz) energy of an accumulated
+/// spectrum. #5571/#6341: the same frames the band analysis reads, since both now come from
+/// one `frequency_analysis::accumulated_power`. No energy gives 0.5.
+fn bass_mid_ratio_of(power: &[f64], fft_size: usize, sample_rate: u32) -> f32 {
     let bass_bin = hz_to_bin(200.0, sample_rate, fft_size);
     let mid_bin = hz_to_bin(2000.0, sample_rate, fft_size);
-
-    // f64 accumulators, as in the band analysis.
-    let mut bass_total: f64 = 0.0;
-    let mut mid_total: f64 = 0.0;
-    let mut fft_input: Vec<Complex<f32>> = vec![Complex { re: 0.0, im: 0.0 }; fft_size];
-
-    for frame in frequency_analysis::analysis_frames(audio, fft_size) {
-        frequency_analysis::windowed_into(frame, &mut fft_input);
-        fft.process(&mut fft_input);
-
-        bass_total += fft_input[..bass_bin].iter().map(|c| c.norm_sqr() as f64).sum::<f64>();
-        mid_total += fft_input[bass_bin..mid_bin].iter().map(|c| c.norm_sqr() as f64).sum::<f64>();
-    }
+    let bass_total = frequency_analysis::band_power(power, 0, bass_bin);
+    let mid_total = frequency_analysis::band_power(power, bass_bin, mid_bin);
 
     let total = bass_total + mid_total;
     if total < 1e-10 {
@@ -161,13 +145,17 @@ pub fn compute_complete_fingerprint(
         (audio.to_vec(), None, None)
     };
 
-    // 1. Frequency Distribution (7D) - Real FFT
-    let freq_dist = frequency_analysis::compute_frequency_distribution(&mono_audio, sample_rate);
+    // One f64 frame spectrum for every spectral dimension (#6341, #6362, #6363).
+    let (power, fft_size) = frequency_analysis::accumulated_power(&mono_audio);
+    let bin_hz = sample_rate as f64 / fft_size as f64;
+
+    // 1. Frequency Distribution (7D)
+    let freq_dist = frequency_analysis::band_distribution(&power, fft_size, sample_rate);
 
     // 2. Dynamics (3D)
     let lufs = estimate_lufs(&mono_audio);
     let crest_db = compute_crest_factor(&mono_audio);
-    let bass_mid_ratio = compute_bass_mid_ratio(&mono_audio, sample_rate);
+    let bass_mid_ratio = bass_mid_ratio_of(&power, fft_size, sample_rate);
 
     // 3. Temporal (4D)
     // #4533: rhythm_stability and silence_ratio come from the librosa-parity
@@ -183,9 +171,8 @@ pub fn compute_complete_fingerprint(
     let transient_density = estimate_transient_density(&mono_audio, sample_rate);
 
     // 4. Spectral (3D)
-    let (freqs, psd) = spectral_features::audio_to_freq_domain(&mono_audio, sample_rate);
-    let spectral_centroid = spectral_features::compute_spectral_centroid(&psd, &freqs);
-    let spectral_rolloff = spectral_features::compute_spectral_rolloff(&psd, &freqs, 0.85);
+    let spectral_centroid = spectral_features::compute_spectral_centroid(&power, bin_hz);
+    let spectral_rolloff = spectral_features::compute_spectral_rolloff(&power, bin_hz, 0.85);
     let spectral_flatness = spectral_features::compute_spectral_flatness(&mono_audio, sample_rate);
 
     // 5. Harmonic (3D). harmonic_ratio is flatness's complement (0 = noise, 1 =
