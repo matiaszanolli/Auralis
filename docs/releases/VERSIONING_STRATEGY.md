@@ -2,10 +2,6 @@
 
 **Status:** Living reference
 
-**Last reviewed:** 2026-07-24
-
-**Current source version:** 1.5.1, unreleased recovery milestone
-
 ## Principles
 
 Auralis follows Semantic Versioning 2.0.0 for the product version:
@@ -27,16 +23,15 @@ to the tool before using it in a release version.
 | Concern | Authority | Notes |
 |---------|-----------|-------|
 | Product version | `auralis/version.py` | Human-authored source of truth |
-| Legacy product imports | `auralis/__version__.py` | Compatibility mirror, synchronized automatically |
 | Python package metadata | `pyproject.toml` | Derived |
+| Container image label | `Dockerfile` (`LABEL version`) | Derived |
 | Root/frontend/desktop package metadata | each `package.json` | Derived |
-| Degraded backend fallback | `auralis-web/backend/routers/health.py` | Derived for builds missing the core import |
 | Database schema | `auralis/__version__.py::__db_schema_version__` | Independent; bump only with a migration/schema change |
 | Fingerprint algorithm | `auralis/__version__.py::FINGERPRINT_ALGORITHM_VERSION` | Independent; bump only when identical audio yields different fingerprints |
 
-The backend imports the product version from `auralis/version.py` and the database schema
-version from `auralis/__version__.py`. Do not use the compatibility mirror as a second
-authority.
+The backend reports the product version from `auralis/version.py`, which re-exports the
+database schema version from `auralis/__version__.py`. That module holds only the two independent
+data-format versions; it has no product-version mirror, so do not treat it as a second authority.
 
 ## Selecting a version
 
@@ -80,23 +75,19 @@ python -m pytest tests/regression/test_release_version_consistency.py -q
 git diff --check
 ```
 
-The synchronizer updates the canonical source, compatibility mirror, Python packaging,
-JavaScript packages, and degraded backend fallback. Review the diff; it deliberately does not
-edit changelogs, release notes, database schema, or fingerprint algorithm versions.
+The synchronizer updates the canonical source, `pyproject.toml`, the `Dockerfile` label, and
+the three `package.json` files. Review the diff; it deliberately does not edit changelogs,
+release notes, database schema, or fingerprint algorithm versions.
+`scripts/validate_release_metadata.py` is the dependency-free check that the canonical source,
+`pyproject.toml`, and the `package.json` files agree.
 
-## Current state
+## Current release state
 
-- Source version: `1.5.1`
-- Release state: prepared and blocked; no v1.5.1 tag or binaries
-- Latest local source tag: `v1.2.1-beta.1`
-- Latest documented binary release: `v1.2.0-beta.2`
-- Database schema: `16`
-- Fingerprint algorithm: `3`
+The release checklist and notes for the current candidate record its state, its latest tag
+(`git tag`), and its latest published binary release:
 
-The current release contract is:
-
-- [v1.5.1 release notes](../releases/RELEASE_NOTES_1_5_1.md)
-- [v1.5.1 release checklist](../releases/RELEASE_CHECKLIST_1_5_1.md)
+- [v1.5.1 release notes](RELEASE_NOTES_1_5_1.md)
+- [v1.5.1 release checklist](RELEASE_CHECKLIST_1_5_1.md)
 - [working-state recovery audit](../audits/AUDIT_RECOVERY_2026-07-24.md)
 
 ## Release gates
@@ -118,8 +109,11 @@ known high-severity working-state blocker may remain.
 
 Tags matching `v*` start `.github/workflows/build-release.yml`. The workflow builds Linux x64
 AppImage, Flatpak, and `.deb`, Windows x64, and macOS Apple Silicon artifacts. It validates the
-tag against repository metadata and creates a draft GitHub release only after every required
-artifact and checksum exists.
+tag against repository metadata with `scripts/validate_release_metadata.py` and creates a draft
+GitHub release only after every required artifact and `SHA256SUMS.txt` exist. A prerelease
+version (`-alpha.N`, `-beta.N`, `-rc.N`) marks the draft as a prerelease. CI is the only release
+publisher (#6529); the artifact list, signing status, and checksum handling are in
+[RELEASE_GUIDE.md](RELEASE_GUIDE.md).
 
 Because a pushed tag causes external build and release state:
 
@@ -132,7 +126,7 @@ The operational steps are maintained in [RELEASE_GUIDE.md](RELEASE_GUIDE.md).
 
 ## Changelog policy
 
-The canonical changelog is [`docs/releases/CHANGELOG.md`](../releases/CHANGELOG.md) and follows
+The canonical changelog is [`docs/releases/CHANGELOG.md`](CHANGELOG.md) and follows
 Keep a Changelog:
 
 - Maintain one `[Unreleased]` section while work is in progress.

@@ -1,14 +1,14 @@
 # Auralis Release Guide
 
 This is the maintained procedure for preparing, building, and publishing an Auralis release.
-The current candidate-specific gate is
-[RELEASE_CHECKLIST_1_5_1.md](../releases/RELEASE_CHECKLIST_1_5_1.md).
+The current candidate-specific gate is [RELEASE_CHECKLIST_1_5_1.md](RELEASE_CHECKLIST_1_5_1.md).
+Version rules and the metadata registry are in [VERSIONING_STRATEGY.md](VERSIONING_STRATEGY.md).
 
 ## Release model
 
 - `auralis/version.py` is the product-version source of truth.
-- `sync_version.py` updates derived Python, backend fallback, packaging, root package,
-  frontend, and desktop metadata.
+- `sync_version.py` updates the derived `pyproject.toml`, `Dockerfile` label, and the root,
+  frontend, and desktop `package.json` versions.
 - Database schema and fingerprint algorithm versions are independent of the product version.
 - A `v*` tag starts `.github/workflows/build-release.yml`.
 - Successful Linux x64, Windows x64, and macOS Apple Silicon jobs create a **draft** GitHub
@@ -17,7 +17,11 @@ The current candidate-specific gate is
   release or upload installers, `SHA256SUMS.txt` or electron-updater manifests (`latest*.yml`)
   from a workstation: a local build has none of the CI controls (SHA-pinned actions,
   hash-locked tooling, signed checksums, draft review), and the update manifests are what
-  installed apps trust (#6529, #4905).
+  installed apps trust (#6529, #4905). The workflow does not upload `latest*.yml` today.
+- Artifacts per release: `Auralis-X.Y.Z.AppImage`, `auralis-desktop_X.Y.Z_amd64.deb`, one
+  `.flatpak`, `Auralis Setup X.Y.Z.exe`, `Auralis-X.Y.Z-arm64.dmg`, and `SHA256SUMS.txt`
+  (plus `SHA256SUMS.txt.asc` when the GPG key is configured). The workflow fails when any is
+  missing.
 - JavaScript workspaces use pnpm; npm is not a supported release workflow.
 
 ## 1. Choose the version and scope
@@ -46,18 +50,22 @@ git diff --check
 Review at least:
 
 - `auralis/version.py`
-- `auralis/__version__.py` compatibility exports
 - `pyproject.toml`
+- the `LABEL version` line in `Dockerfile`
 - root, frontend, and desktop `package.json`
-- the degraded `/api/version` fallback
-- `docs/releases/CHANGELOG.md`
+- [CHANGELOG.md](CHANGELOG.md)
 - candidate release notes and checklist
 
-Do not bump database schema or fingerprint algorithm versions for a product-only release.
+`scripts/validate_release_metadata.py` checks `auralis/version.py`, the three `package.json`
+files, and `pyproject.toml`; the `Dockerfile` label is updated by `sync_version.py` but not
+validated. Do not bump database schema or fingerprint algorithm versions for a product-only
+release.
 
 ## 3. Pass the candidate’s release gate
 
-The candidate checklist takes precedence over generic suite counts. At minimum:
+The candidate checklist takes precedence over generic suite counts. CI baselines
+(`pytest-baseline.json`, `pytest-slow-baseline.json`, and the frontend `test-baseline.json`)
+fail on any new failure, so confirm the release commit's CI is green before starting. At minimum:
 
 ```bash
 uv pip check
@@ -75,6 +83,7 @@ the gate must wait for initialized engine and database state.
 For v1.5.1, the full eleven-point
 [definition of “working”](../audits/AUDIT_RECOVERY_2026-07-24.md#definition-of-working) is
 mandatory. A red release blocker cannot be waived because unrelated broad suites are green.
+The startup half of that gate is `tests/integration/test_application_startup.py`.
 
 ## 4. Prepare the release commit
 
@@ -109,7 +118,8 @@ unpublished build is bad, fix the defect and use the next appropriate version.
 
 Before tagging, the same build matrix can be exercised with the workflow’s manual dispatch.
 The required version input must exactly match `auralis/version.py`; manual runs upload workflow
-artifacts but do not create a GitHub release.
+artifacts but do not create a GitHub release. A push or pull request that touches the version
+metadata files runs only the metadata preflight, not the platform builds.
 
 ## 6. Validate artifacts
 
@@ -130,10 +140,15 @@ For each platform verify:
 - Clean shutdown without orphan children
 - No uncaught UI error during the smoke flow
 
-The workflow generates `SHA256SUMS.txt`; independently verify it before publishing.
+The workflow generates `SHA256SUMS.txt`; independently verify it before publishing. When the
+repository secret `RELEASE_GPG_PRIVATE_KEY` is set, the workflow also writes a detached
+signature, `SHA256SUMS.txt.asc`; otherwise it emits a warning and publishes the checksums
+unsigned. The key fingerprint must be published out of band before the signature means anything.
 
-CI macOS builds are ad-hoc signed unless Apple signing and notarization credentials are
-configured. Do not present an unsigned and unnotarized DMG as a normal end-user release.
+No Windows Authenticode or Apple Developer ID signing or notarization is configured (#4905),
+and `desktop/package.json` leaves update-signature verification, the hardened runtime, and
+Gatekeeper assessment disabled. Do not present an unsigned Windows installer or an unsigned,
+unnotarized DMG as a normal end-user release; state the limitation in the release notes.
 
 ## 7. Publish
 

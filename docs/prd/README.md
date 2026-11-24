@@ -4,10 +4,10 @@ Use a PRD to define the user outcome, scope, and acceptance criteria for a miles
 
 ## PRD index
 
-| PRD | Milestone | Product outcome |
-|---|---|---|
-| [Application startup](application-startup.md) | v1.5.1 recovery | Launch Auralis with truthful readiness and predictable shutdown. |
-| [Library and playback recovery](library-playback-recovery.md) | v1.5.1 recovery | Scan, browse, and play a fresh library reliably. |
+| PRD | Milestone | State | Product outcome |
+|---|---|---|---|
+| [Application startup](application-startup.md) | v1.5.1 recovery | PROPOSED | Launch Auralis with truthful readiness and predictable shutdown. |
+| [Library and playback recovery](library-playback-recovery.md) | v1.5.1 recovery | PROPOSED | Scan, browse, and play a fresh library reliably. |
 
 ## Writing a PRD
 

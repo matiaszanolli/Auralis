@@ -1,6 +1,8 @@
 # v1.5.1 Release Checklist
 
-**State:** Prepared, blocked
+**State:** Prepared, blocked. Product blockers REC-02 to REC-04 and the source launcher are
+verified. Open: the packaged and installed launch, the end-to-end working-state run, the
+repeated-run gates, and artifact validation.
 
 **Rule:** Do not create or push `v1.5.1` until every release gate below is checked.
 
@@ -25,8 +27,17 @@ The [application startup](../prd/application-startup.md) and
 component evidence and define how to verify the complete workflows. Check each gate when its
 release validation passes.
 
-- [ ] **REC-01:** one documented launcher owns each required child, installs nothing at runtime,
-  reports real readiness, propagates one port, and shuts down only its own processes.
+- [x] **REC-01, source launch:** one launcher, `launch-auralis-web.py`, owns the backend and Vite,
+  installs nothing at runtime, propagates one port, and stops only its own process groups.
+  *Fixed in `9315886dc` and closed issues #4805, #5373, #5447, and #6157 (Electron no longer kills
+  by port). `pnpm run dev` delegates to the launcher via `dev.js`. The cases in
+  `tests/integration/test_application_startup.py` cover one backend owner, a ready URL printed only
+  after `/api/ready` succeeds, backend and launcher exit reaping every child, failed
+  initialization, and a port collision that leaves the unrelated listener running.*
+- [ ] **REC-01, packaged Electron:** the packaged app owns its backend (`desktop/main.js`: launch ID
+  checked against `/api/ready`, build-time backend digest #6527, backend exits with its parent
+  #6720) and shuts it down without orphans, in the default Chromium sandbox configuration, from the
+  installed artifacts. No installed artifact has been exercised yet.
 - [x] **REC-02:** fresh and migrated databases both persist and reload fingerprints.
   *Verified 2026-11-22 (#6678). Fixed by #5530 (`fdbeba651`). Fresh schema:
   `tests/auralis/library/test_fingerprint_fresh_install_defaults_5530.py` and
@@ -45,14 +56,16 @@ release validation passes.
   *Verified 2026-11-22 (#6678). Fixed in `ae18b2484`.
   `auralis-web/frontend/src/hooks/player/__tests__/usePlayTrack.test.ts` resolves the older
   request last and asserts only the second track starts.*
-- [x] `/api/ready` reports initialized engine and database state.
+- [x] **REC-05:** `/api/ready` reports initialized engine and database state and the launch ID
+  (`tests/backend/test_health_readiness_4684.py`); the launcher and Electron wait on it.
 - [x] The collected [source startup smoke](../../tests/integration/test_application_startup.py)
   exercises real backend and Vite processes with ephemeral ports and a temporary
   home/database. It verifies initialization failure, child exit, cleanup, and port collision.
 
-Linux source smoke passed on 2026-11-19. An Xvfb Electron development run loaded
-the Vite window and reaped the launcher's three child processes with a test-only
-Chromium sandbox override. Validate the default Electron configuration and the
+Linux source smoke passed on 2026-11-19, before the supervisor landed as `9315886dc` on
+2026-11-20; re-run `tests/integration/test_application_startup.py` on the release commit. An Xvfb
+Electron development run loaded the Vite window and reaped the launcher's three child processes
+with a test-only Chromium sandbox override. Validate the default Electron configuration and the
 installed artifacts on their target systems.
 
 ## Required validation
@@ -87,7 +100,8 @@ installed artifacts on their target systems.
 
 - [ ] Targeted Python library, mono, playback-selection, startup, and prior high-risk regression
   slices pass.
-- [ ] Python↔Rust boundary tests and the corrected Rust library gate pass.
+- [ ] Python↔Rust boundary tests and the Rust library gate pass (`rust-audit.yml` covers advisories
+  only; run `cargo test` in `vendor/auralis-dsp` and the boundary tests locally).
 - [ ] The eleven-point
   [definition of “working”](../audits/AUDIT_RECOVERY_2026-07-24.md#definition-of-working)
   passes against a fresh temporary home/database.
@@ -103,7 +117,13 @@ installed artifacts on their target systems.
 - [ ] Windows installer installs, launches, upgrades/uninstalls, and passes the smoke.
 - [ ] macOS Apple Silicon DMG launches and passes the smoke; unsigned and unnotarized
   limitations are stated until signing credentials are configured.
-- [ ] SHA-256 checksums are generated and verified for every published artifact.
+- [ ] Signing status is stated for each platform. Authenticode, Developer ID, and notarization
+  are not configured (#4905), and `verifyUpdateCodeSignature`, `hardenedRuntime`, and
+  `gatekeeperAssess` stay disabled in `desktop/package.json` until they are.
+- [ ] SHA-256 checksums are generated and verified for every published artifact. The workflow
+  signs `SHA256SUMS.txt` with GPG only when `RELEASE_GPG_PRIVATE_KEY` is configured; either
+  publish the key fingerprint (README, Release Verification) or state that the checksums are
+  unsigned.
 - [ ] Version displayed by `/api/version`, Electron metadata, filenames, and release title is
   exactly `1.5.1`.
 - [ ] Known limitations in the final GitHub release match the tested artifacts.

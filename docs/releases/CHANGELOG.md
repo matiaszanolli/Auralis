@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Target:** 1.5.1
 
+Database schema 16 → 34 and fingerprint algorithm 4 → 16 relative to the 1.5.0 source milestone.
+An existing library migrates on first start (a pre-migration backup is kept) and its stored
+fingerprints are recomputed in the background; see *Changed* below.
+
 ### Added
 
 - A desktop-first semantic theme contract shared by MUI, Emotion, and plain DOM controls,
@@ -22,6 +26,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   root package, frontend, and desktop version metadata.
 - Required cross-platform release packaging for Linux x64 AppImage, Flatpak, and `.deb`,
   Windows x64, and macOS Apple Silicon, with artifact and architecture assertions.
+- A single source launcher, `launch-auralis-web.py`, that owns the backend and Vite (and, with
+  `--electron`, the desktop shell), waits on `/api/ready` before reporting success, propagates
+  one port, and stops only the children it started. `pnpm run dev` delegates to it
+  (#4805, #5373, #6157).
+- `GET /api/ready`, which reports 503 until the engine and library database are initialized and
+  carries the launch ID so a supervisor can tell its own backend from a stale one (#4684).
+- A collected, isolated launch smoke, `tests/integration/test_application_startup.py`, with a
+  temporary home, ephemeral ports, a failed-initialization case, and a port-collision case.
+- `scripts/reference_bench.py` and `auralis/analysis/reference_profile.py`, which hold the
+  adaptive render to a set of reference records.
+- Durable persistence for processing jobs.
+- A fingerprint-coverage card in Library settings (#4865), a playlist detail view reached from
+  the sidebar (#6007), `PlaylistRepository.search()` (#5171), and a paged playlists endpoint.
+- Orphaned metadata-edit backups found during a scan are reported (#6177).
+- A nightly slow-suite job with its own baseline (#5966, #6502), a Python and npm dependency
+  advisory gate (#6178, #6530), and a CI job that builds the Rust module so fingerprint tests run
+  (#6657).
 
 ### Changed
 
@@ -36,11 +57,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reworked the README, documentation hub, roadmap, versioning strategy, and release guide to
   distinguish a prepared source version from a tagged, tested, published release.
 - Updated the version synchronizer to work from any current directory and propagate the
-  canonical version to compatibility, packaging, container, JavaScript, and degraded-backend
-  surfaces.
+  canonical version to the packaging, container, and JavaScript metadata.
 - Made release tags and manual CI builds validate their requested version against repository
   metadata, fail on missing artifacts, and generate SHA-256 checksums before drafting a release.
 - Moved the Flatpak target to the 25.08 runtime and made it a required release artifact.
+- **Analysis is whole-track; only rendering is chunked.** The 25D fingerprint now analyses the
+  entire track (up to 900 s; longer tracks keep a body window plus probes) instead of one 90 s
+  window, and a track with no stored fingerprint is analysed once before its first chunk renders.
+  Chunks only render one track-level plan. The analysis gate is fair, prioritised, cancellable,
+  and reserved before decode (#6336, #6338). Algorithm versions 5–16 corrected individual
+  dimensions: tempo octaves (#5742), partial trailing frames (#6322, #6341), band shares read
+  from the whole track, and silent seconds excluded from the variation dimensions (#6112, #6113).
+- **Enhancement presets narrowed to `adaptive`.** The gentle, warm, bright, punchy, and live
+  presets are gone from the engine, API, frontend, and settings; stored preset values are
+  normalized by migration (#5824).
+- **Level and EQ plan.** The adaptive peak target and makeup gain are continuous in source
+  loudness, crest, and peak (#6303, #5704, #6305); one track-level gain applies on the
+  fixed-targets path (#5552); a fixed-target plan leaves excellent masters alone; the
+  2–4 kHz correction cuts at twice the law and boosts at half.
+- **Loudness measurement** uses the BS.1770-4 K-weighting filters (#5593) and EBU Tech 3342
+  loudness range (#5741); the hot path measures K-weighted LUFS rather than an RMS offset (#5221).
+- **Toolchain.** Python 3.14 is required, and backend CI runs on it. The runtime and the release
+  build tooling install from hash-locked files (#4871, #6151); the Rust module builds as a full-API
+  cp314 wheel on pyo3/numpy 0.29, asserted in the release workflow (#5485), on Rust edition 2024
+  (#5443); every workflow action is pinned to a commit SHA (#4868); Electron is 43.8.12 (#6519).
+- **Database.** Albums are owned by the file's ALBUMARTIST tag, so the next scan re-reads every
+  track (#6332); a track's artists keep tag order (#6714); upgraded databases gain the unique
+  `filepath_key` index fresh ones have (#6335); never-written columns and unread indexes are
+  dropped (#5755, #6261); a pre-versioning library file is refused instead of stamped current
+  (#5851); pre-migration backups are owner-only, restored when a migration fails, and pruned to the
+  newest three (#5333, #5316, #5750).
+- **Performance.** `HybridProcessor.process()` no longer holds whole-track copies across its
+  stages (#6717); the fingerprint queue claims from a per-queue cursor (#5310); streaming and I/O
+  use separate thread pools (#5086); M4A/AAC/WMA decode once per track (#4737); streams of one
+  track share their converted temp WAV (#5402); long artist and cache lists are virtualized
+  (#6023, #4471); player-state snapshots are O(1) in queue length (#5960, part).
+- **Engineering gates.** The pytest, slow-suite, and frontend failure baselines are empty and
+  fail the job on stale entries (#4562, #5091, #5344, #6709). A LOC ratchet holds every closed
+  split target at its size (#6266, #6268, #6701), a breadcrumb gate rejects “was removed in #N”
+  comments (#6257, #6680), the path-reference gate rejects file-and-line-number anchors (#5144, #6248,
+  #6675), and a weak-assertion gate rejects tautological tests (#5224, #6237).
+- Client-to-server WebSocket commands are a typed discriminated union (#6050); queue, player,
+  WebSocket, and fingerprint payloads describe a track's artists and album like the library
+  does (#6508).
+
+### Removed
+
+- The crossfade, gapless, and replay-gain settings that nothing consumed, with their
+  `user_settings` columns (schema v34) and API fields (#6683).
+- The user preference-learning engine and its configuration (#5763), and the preference bias
+  layer of the continuous parameter generator (#6123).
+- Nine PyO3 bindings with no production caller (#5764) and the `process_chunks` binding with
+  its chunk processor (#5738); the Rust crate now carries the 25D fingerprint only.
+- The whole-track processed-audio export and chunk batch helper (#5088), the unwired album-target
+  plumbing and `process_album` (#6199), the unwired queue history/undo feature (#5526),
+  `AVAILABLE_PRESETS` (#6240), and the legacy `Config`/`LimiterConfig` (#4918).
+- The `mastering_recommendation` broadcast and its service (#6579), and the dead backend version
+  module with its `/api/version` fallback (#6686).
+- Design tokens, primitives, styled components, and barrel-exported components that nothing
+  reads or renders (#6062, #6442, #6443, #6612, #6613); Google Fonts links in favor of bundled
+  fonts (#6060).
+- The manual release script: CI is the only release publisher (#6529).
 
 ### Fixed
 
@@ -57,13 +134,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   described the broken root launcher as a supported path.
 - Removed the invalid Intel macOS package produced on an Apple Silicon runner with an ARM64
   Python/Rust backend; macOS release builds now target ARM64 end to end.
+- **Recovery blockers.** Fresh databases persist the first fingerprint (#5530); `(samples, 1)`
+  mono input is measured and rendered without crashing, and `HybridProcessor` refuses input that
+  violates its `(samples, channels)` float contract (#5550, #6118); rapid track selection leaves
+  the last selection active (#4426); the launcher no longer reports ready before the backend is,
+  and Electron no longer kills whatever listens on port 8765 (#6157).
+- **Packaged app.** The backend launches only when it matches its build-time digest (#6527) and
+  exits when the Electron process that started it is gone (#6720); it is pinned to the port
+  Electron loads (#6170).
+- **Engine quality.** `HybridProcessor` removes DC offset before mastering (#5187); the loudness
+  plan does not lift near-silence on any render path, and the silence floor ramps gain in
+  instead of stepping (#6108); a mono source is measured as the dual-mono it renders as (#6138);
+  true peak is no longer biased by block-edge overshoot (#6327); the brick-wall limiter looks
+  ahead and ramps its gain (#5562, #5699); chunked render no longer pads M4A/MP3 tracks with
+  encoder-delay silence (#6345); the stereo-width correlation no longer leaves BLAS threads
+  spinning after `process()` (#6717); `phase_correlation` is signed (#5743).
+- **Scanner.** A scan reports an undecodable file as a failure (#5567), keeps no rows for a folder
+  removed mid-scan (#6556), uses a watermark taken before the file is read (#6560), treats an
+  older mtime as a change (#5748), clears a tag removed from a file (#6333), and keeps a moved
+  file's row, playlists, favorite, and play count (#5880, #6569). One unreadable or looping
+  symlink no longer aborts discovery of its directory (#6116), and an incomplete walk no longer
+  prunes tracks (#5877).
+- **Playback and queue.** The gapless prebuffer is invalidated on every queue edit and survives
+  a sample-rate change (#5508, #5583, #6307); position, duration, and file swap as one snapshot
+  (#6081); the first track added to an empty queue becomes current (#5727); shuffle keeps the
+  playing track by identity (#5564); removing the playing row skips to its successor (#6016); a
+  late end or error from a superseded track no longer tears down the new stream (#6017).
+- **WebSocket.** A client evicted by a broadcast is closed with 1013 so it reconnects and
+  resyncs (#5884), and a rejected origin is closed with 1008 (#5883).
+
+### Security
+
+- **Electron.** Fuses, deny-by-default web permissions, and IPC sender validation (#6174);
+  `sandbox: true` (#4848); navigation to non-app origins and non-allowlisted URL schemes is
+  blocked (#4858, #4844); the preload exposes only channels with a handler (#4851); main-process
+  security events go to `electron-log` with control characters escaped (#6187, part).
+- **Backend boundary.** Host header checked against a loopback allowlist (#4353); state-changing
+  requests and cross-site GETs under `/api` need a trusted Origin or Referer (#6158); the
+  WebSocket origin allowlist drops `file://` and follows `AURALIS_PORT` (#5066, #5796); at most 16
+  concurrent WebSocket connections (#6171, part); uvicorn does not trust `X-Forwarded-For` (#6168);
+  CSP gains `form-action` and `base-uri` (#5363) and builds `connect-src` from the loopback policy
+  (#4712).
+- **Filesystem.** Scan roots refuse the system temp and app-data directories (#6164) and resolve
+  symlinks (#6097); persisted scan folders are revalidated when read (#6525); uploaded tracks pass
+  path validation (#6513); folder-cover lookup refuses symlinks and special files (#6160); a `.25d`
+  sidecar is trusted only if this installation wrote it (#6522); logs and scan failures carry no
+  absolute paths (#6537, #5341).
+- **Artwork and export.** Artwork downloads accept only https, validate every redirect hop, reject
+  decompression bombs, and keep API credentials off the command line (#5337, #5330, #6153, #6182);
+  M3U export strips CR/LF from tag fields (#5348).
+- **Supply chain.** Release build tooling is hash-locked (#6151) and `SHA256SUMS.txt` is
+  GPG-signed when the repository key is configured (#4905, part); signing certificates are not
+  yet configured.
 
 ### Known release blockers
 
-- The full application has no safe, truthful single-owner launcher yet.
-- Fresh databases reject the first fingerprint insert.
-- Adaptive enhancement crashes on `(samples, 1)` mono input.
-- Rapid track selection can allow an older request to win.
+The three product blockers from the recovery audit (fresh fingerprint persistence, mono
+enhancement, rapid selection) are fixed and re-verified (#6678). The source launcher is
+implemented and covered by the collected startup smoke. What still blocks a tag:
+
+- Validation of the installed Linux, Windows, and macOS artifacts, including the default Electron
+  sandbox configuration.
+- The audit's eleven-point definition of “working” against a fresh home, the repeated-run gates,
+  and a clean release commit.
+- Windows Authenticode and macOS Developer ID signing and notarization (#4905), and a published
+  GPG key fingerprint.
 
 See [RELEASE_NOTES_1_5_1.md](RELEASE_NOTES_1_5_1.md),
 [RELEASE_CHECKLIST_1_5_1.md](RELEASE_CHECKLIST_1_5_1.md), and the

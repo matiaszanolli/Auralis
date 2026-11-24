@@ -1,6 +1,6 @@
 # Application startup — Product Requirements
 
-**Status**: PROPOSED (2026-11-20). Source implementation and web startup smoke are in place. Installed release candidates still need validation.
+**Status**: PROPOSED (2026-11-23). Source launch, backend readiness, and packaged-backend supervision are implemented, and the source scenarios have a collected smoke. Installed release candidates still need validation.
 
 **Scope**: Startup, readiness, failure reporting, and shutdown for source-run web, Electron development, and packaged Electron. This is the first v1.5.1 recovery slice, covering REC-01 and REC-05.
 
@@ -30,14 +30,15 @@ Developers need a command that launches a usable application and gives a clear f
 
 A launch starts in **starting**, moves to **ready** after the backend readiness check, or reaches **failed** if a required child fails. On **stopping**, the owner shuts down its children.
 
-The snapshot below describes behavior at HEAD on 2026-11-20.
+The snapshot below describes behavior at HEAD on 2026-11-23.
 
 | Mechanism | Today |
 |---|---|
 | Source web and Electron development | The root launcher starts the backend and Vite. Electron development opens the supervised Vite frontend. [Source launcher](../../launch-auralis-web.py) · [Desktop launcher](../../desktop/main.js) |
-| Packaged Electron | Electron starts the bundled backend on its configured port and loads the bundled frontend. [Desktop launcher](../../desktop/main.js) |
+| Packaged Electron | Electron starts the bundled backend on its configured port, polls `/api/ready` for its own launch ID, and loads the bundled frontend. It launches only a backend that matches its build-time digest, and the backend exits when Electron is gone. [Desktop launcher](../../desktop/main.js) · [Shutdown](../../desktop/backend-shutdown.js) · [Integrity check](../../desktop/backend-integrity.js) |
 | Backend readiness | `/api/ready` returns 503 when the library, player state manager, or fingerprint engine is unavailable. Supervisors check the launch ID to associate the response with their own backend. [Health contract regression](../../tests/backend/test_health_readiness_4684.py) |
 | Integration isolation | A collected smoke test uses a temporary home and database and ephemeral backend and frontend ports. [Subprocess smoke](../../tests/integration/test_application_startup.py) |
+| Root command | `pnpm run dev` delegates to the source launcher with `--electron`. [Delegating script](../../dev.js) |
 
 ## 4. Goals and non-goals
 
@@ -55,7 +56,7 @@ The snapshot below describes behavior at HEAD on 2026-11-20.
 
 ### 5.1 Launch (`BOOT-RUN`)
 
-- **BOOT-RUN-001.** The setup guide MUST identify the launch entry point for each supported mode.
+- **BOOT-RUN-001.** The setup guide MUST identify the launch entry point for each supported mode. [FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md) and the README carry it.
 - **BOOT-RUN-002.** The launch entry point MUST start without installing dependencies at runtime.
 - **BOOT-RUN-003.** Each launch MUST have exactly one owner for its backend process.
 - **BOOT-RUN-004.** Each launch MUST use the same effective backend port for the backend, its readiness probe, and the client connection.
@@ -95,10 +96,10 @@ The snapshot below describes behavior at HEAD on 2026-11-20.
 
 | Scenario | Fixture and steps | Pass condition | Requirements |
 |---|---|---|---|
-| Clean startup and exit | On a prepared checkout, run the documented source entry points with a temporary home and an available port. Record child commands and PIDs, readiness, and shutdown. | One backend is supervised, the client connects to its port, readiness precedes the success signal, no dependency installer runs, and all owned children exit. | `BOOT-RUN-001`, `BOOT-RUN-002`, `BOOT-RUN-003`, `BOOT-RUN-004`, `BOOT-RDY-001`, `BOOT-RDY-002`, `BOOT-STOP-001` |
-| Failed startup | Through the collected smoke, inject a required-child failure and a backend initialization failure in separate runs with a temporary home and database and an ephemeral port. | A failure result is visible, startup success is absent, and owned children exit. | `BOOT-RUN-005`, `BOOT-RDY-001`, `BOOT-RDY-002`, `BOOT-STOP-001`, `BOOT-STOP-003`, `BOOT-STOP-004` |
-| Port collision | Hold the selected port with an unrelated listener, then invoke the launcher. | The launch reports failure and the listener remains reachable. | `BOOT-RUN-005`, `BOOT-STOP-002` |
-| Installed launch | Run the clean startup and exit scenario on the release candidates in the artifact checklist using a test profile. | Each candidate reaches readiness and leaves no child processes of the run behind. | `BOOT-RDY-002`, `BOOT-STOP-001` |
+| Clean startup and exit | On a prepared checkout, run the documented source entry points with a temporary home and an available port. Record child commands and PIDs, readiness, and shutdown. Covered by `test_source_launch_uses_one_backend_and_reaps_children`, which stops the run by launcher signal and by backend exit. | One backend is supervised, the client connects to its port, readiness precedes the success signal, no dependency installer runs, and all owned children exit. | `BOOT-RUN-001`, `BOOT-RUN-002`, `BOOT-RUN-003`, `BOOT-RUN-004`, `BOOT-RDY-001`, `BOOT-RDY-002`, `BOOT-STOP-001` |
+| Failed startup | Through the collected smoke, inject a required-child failure and a backend initialization failure in separate runs with a temporary home and database and an ephemeral port. Covered by the backend-exit case above and `test_backend_initialization_failure_cannot_report_ready`. | A failure result is visible, startup success is absent, and owned children exit. | `BOOT-RUN-005`, `BOOT-RDY-001`, `BOOT-RDY-002`, `BOOT-STOP-001`, `BOOT-STOP-003`, `BOOT-STOP-004` |
+| Port collision | Hold the selected port with an unrelated listener, then invoke the launcher. Covered by `test_port_collision_leaves_unrelated_listener_running`. | The launch reports failure and the listener remains reachable. | `BOOT-RUN-005`, `BOOT-STOP-002` |
+| Installed launch | Run the clean startup and exit scenario on the release candidates in the artifact checklist using a test profile. No automated coverage; a manual run per artifact. | Each candidate reaches readiness and leaves no child processes of the run behind. | `BOOT-RDY-002`, `BOOT-STOP-001` |
 
 ## 8. Metrics
 
@@ -111,7 +112,7 @@ The snapshot below describes behavior at HEAD on 2026-11-20.
 
 **Phase 0 — Baseline.** Identify the entry point, owner, and port for each mode and record where the current success and failure paths diverge. Exit: the evidence covers every mode in §7.1.
 
-**Phase 1 — Source launch and readiness.** Cover `BOOT-RUN`, `BOOT-RDY`, and `BOOT-STOP` through the collected subprocess smoke. Exit: the source scenarios in §7.2 pass and the startup evidence is recorded in the release checklist. This supplies the launch path for [library and playback recovery](library-playback-recovery.md).
+**Phase 1 — Source launch and readiness.** Cover `BOOT-RUN`, `BOOT-RDY`, and `BOOT-STOP` through the collected subprocess smoke. Exit: the source scenarios in §7.2 pass and the startup evidence is recorded in the release checklist. The tests and checklist entry exist; re-run the smoke on the release commit. This supplies the launch path for [library and playback recovery](library-playback-recovery.md).
 
 **Phase 2 — Installed verification.** Apply the installed-launch scenario to the release candidates. Exit: the checklist records a passing launch and shutdown for every required platform artifact.
 
@@ -133,3 +134,4 @@ No decisions required. The recovery plan supplies the ownership and readiness co
 |---|---|---|---|
 | 1 | 2026-11-19 | Drafted from the recovery scope and checked the startup baseline against the current tree. | — |
 | 2 | 2026-11-20 | Added the source supervisor, backend readiness route, packaged Electron supervision, and isolated source smoke. | — |
+| 3 | 2026-11-23 | Mapped each source scenario to its test, added packaged-backend integrity and parent-exit supervision, and recorded that installed-artifact coverage is manual. | — |

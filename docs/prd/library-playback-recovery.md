@@ -1,6 +1,6 @@
 # Library and playback recovery — Product Requirements
 
-**Status**: PROPOSED (2026-11-19). First draft from the v1.5.1 recovery scope.
+**Status**: PROPOSED (2026-11-23). First draft from the v1.5.1 recovery scope. The component regressions below pass in CI; the isolated end-to-end run is still outstanding.
 
 **Scope**: Scan and browse a local library, retain its fingerprints across restart, and play its tracks in normal and enhanced modes. This is the second v1.5.1 recovery slice, covering REC-02 through REC-04.
 
@@ -31,12 +31,12 @@ A listener should be able to open a new library, pick a track, and hear it with 
 
 The recovery scenario follows scan → persist → browse → select → stream → restart. Scoped regressions provide evidence at individual boundaries. The complete scenario exercises their interaction.
 
-The snapshot below describes behavior at HEAD on 2026-11-19.
+The snapshot below describes behavior at HEAD on 2026-11-23.
 
 | Mechanism | Today |
 |---|---|
 | First fingerprint write | Regression coverage pins fresh-install insert defaults. Fresh and migrated schemas are compared by the schema parity test. [Fresh-install regression](../../tests/auralis/library/test_fingerprint_fresh_install_defaults_5530.py) · [Schema parity regression](../../tests/auralis/library/test_schema_parity_5753.py) |
-| Column mono | Regressions pin per-channel loudness state and preservation of a one-channel input by the processor. [Loudness regression](../../tests/auralis/dsp/test_loudness_channel_counts_5550.py) · [Processor input regression](../../tests/auralis/core/test_hybrid_input_contract_6118.py) |
+| Column mono | Regressions pin per-channel loudness state and preservation of a one-channel input by the processor. A mono file plays whole and finite through `play_normal` and `play_enhanced` over a real WebSocket. [Loudness regression](../../tests/auralis/dsp/test_loudness_channel_counts_5550.py) · [Processor input regression](../../tests/auralis/core/test_hybrid_input_contract_6118.py) · [Stream regression](../../tests/backend/test_ws_streaming_end_to_end_6001.py) |
 | Rapid track selection | The frontend regression for [#4426](https://github.com/matiaszanolli/Auralis/issues/4426) covers the late response from a superseded selection. [Selection regression](../../auralis-web/frontend/src/hooks/player/__tests__/usePlayTrack.test.ts) |
 | Combined workflow | The release checklist still requires evidence from an isolated fresh-library run. [Required validation](../releases/RELEASE_CHECKLIST_1_5_1.md#required-validation) |
 
@@ -49,8 +49,8 @@ The snapshot below describes behavior at HEAD on 2026-11-19.
 
 ### 4.2 Non-goals
 
-- **PLAY-NG-001.** Cache and similarity features and visual polish are outside the working-state slice. [Recovery scope](../MASTER_ROADMAP.md#4-active--near-term) |
-- **PLAY-NG-002.** Broad suite cleanup belongs to the general maintenance backlog. The working-state checks cover the named user flows. [Definition of working](../audits/AUDIT_RECOVERY_2026-07-24.md#definition-of-working) |
+- **PLAY-NG-001.** Cache and similarity features and visual polish are outside the working-state slice. See the [recovery scope](../MASTER_ROADMAP.md#4-active--near-term).
+- **PLAY-NG-002.** Broad suite cleanup belongs to the general maintenance backlog. The working-state checks cover the named user flows. See the [definition of working](../audits/AUDIT_RECOVERY_2026-07-24.md#definition-of-working).
 
 ## 5. Requirements by area
 
@@ -95,9 +95,9 @@ The snapshot below describes behavior at HEAD on 2026-11-19.
 
 | Scenario | Fixture and steps | Pass condition | Requirements |
 |---|---|---|---|
-| Scan, browse, and restart | In temporary homes, scan the WAV/MP3 fixture and enough synthetic catalog entries for three pages. Repeat the persistence check with a migrated database. | Totals, page contents, artwork, and drill-downs match the fixture. The same fingerprints reload after restart. | `PLAY-LIB-001`, `PLAY-LIB-002` |
+| Scan, browse, and restart | In temporary homes, scan the WAV/MP3 fixture and enough synthetic catalog entries for three pages. Repeat the persistence check with a migrated database. Component evidence: `test_fingerprint_fresh_install_defaults_5530.py` (fresh) and `test_schema_parity_5753.py` (fresh against migrated); no committed test reloads fingerprints from a migrated library. | Totals, page contents, artwork, and drill-downs match the fixture. The same fingerprints reload after restart. | `PLAY-LIB-001`, `PLAY-LIB-002` |
 | Play in both modes | Play fixture tracks and exercise the transport and queue controls. Check mono at the audio boundary in vector and column form. | The controls have the expected effects. PCM is finite float32, its frame count matches the source at the stream sample rate, and its channel count matches the metadata. | `PLAY-CTRL-001`, `PLAY-PCM-001`, `PLAY-PCM-002`, `PLAY-PCM-003` |
-| Latest selection and steady connection | Select two fixture tracks quickly with the first request delayed. Keep the healthy session open for the audit's heartbeat duration and capture renderer errors. | The second track remains active, no heartbeat reconnect occurs, and no uncaught renderer error is recorded. | `PLAY-CTRL-002`, `PLAY-PCM-004`, `PLAY-PCM-005` |
+| Latest selection and steady connection | Select two fixture tracks quickly with the first request delayed. Keep the healthy session open for the audit's heartbeat duration (75 seconds) and capture renderer errors. Selection order is covered by `usePlayTrack.test.ts`; the heartbeat has component tests, but no end-to-end run exercises the 75-second soak or renderer-error capture. | The second track remains active, no heartbeat reconnect occurs, and no uncaught renderer error is recorded. | `PLAY-CTRL-002`, `PLAY-PCM-004`, `PLAY-PCM-005` |
 
 ## 8. Metrics
 
@@ -132,3 +132,4 @@ No decisions required. The recovery audit and release checklist define the initi
 | Rev | Date | Change | Review |
 |---|---|---|---|
 | 1 | 2026-11-19 | Drafted from the recovery scope and linked the scoped regressions that followed the audit. | — |
+| 2 | 2026-11-23 | Added the stream-boundary mono test, named the evidence and the gaps per acceptance scenario, and repaired the non-goal links. | — |
