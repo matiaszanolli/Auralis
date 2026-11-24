@@ -1,918 +1,152 @@
-# Backend Development Environment Setup
+# Backend Development
 
-**Version**: 1.0.0 (setup steps below last verified against 1.2.1-beta.2 on 2026-07-08 — env-var/config sections were corrected, see inline notes)
-**Last Updated**: 2026-07-08
-**Status**: Ready for Use
-**Target Audience**: Backend developers (Python)
+Per-side depth for working on the Python engine (`auralis/`) and the FastAPI backend
+(`auralis-web/backend/`): running the backend alone, configuration, debugging, tooling and common
+failures. Installing and launching the project is in [FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md);
+ground rules, CI gates and the PR flow are in [CONTRIBUTING.md](../CONTRIBUTING.md). The backend's
+design is in [subsystems/backend-api.md](../subsystems/backend-api.md).
 
----
-
-## Quick Start (5 Minutes)
-
-For experienced Python developers, here's the fastest path:
-
-```bash
-# 1. Install dependencies (uv manages the Python interpreter + venv).
-#    --python-preference only-managed stops uv picking a stale pyenv shim.
-uv venv --python-preference only-managed && source .venv/bin/activate
-uv pip install -r requirements.txt
-
-# 2. Start the backend (database auto-initializes on first run)
-cd auralis-web/backend && python main.py --dev
-
-# 3. Open API docs
-# Visit: http://localhost:8765/api/docs
-```
-
-> The commands in this guide run the backend directly from
-> `auralis-web/backend`. For a supervised launch, see the [setup guide](../../FIRST_TIME_SETUP.md#-run-your-first-development-session).
-> See [Step 6](#step-6-start-the-backend-server) for a reloading command.
+Every command assumes the repository's `.venv` is active.
 
 ---
 
-## Prerequisites
+## Running the backend alone
 
-### System Requirements
-- **OS**: Linux, macOS, or Windows (WSL2 recommended)
-- **Python**: 3.14+ (check with `python --version`)
-- **Git**: Latest version (check with `git --version`)
-- **CPU**: Intel/AMD x86-64 (ARM support depends on audio libraries)
-- **RAM**: 4GB minimum, 8GB recommended
-- **Disk**: 2GB free space for dependencies and database
-
-### Required Software
-
-#### macOS
-```bash
-# Install Homebrew if not present
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install Python 3.14
-brew install python@3.14
-
-# Install audio libraries (required for audio processing)
-brew install flac libvorbis libopus
-```
-
-#### Ubuntu/Debian
-```bash
-# Update package manager
-sudo apt update
-
-# Install Python 3.14
-sudo apt install python3.14 python3.14-dev python3.14-venv
-
-# Install audio libraries
-sudo apt install libflac-dev libvorbis-dev libopus-dev portaudio19-dev
-
-# Install build tools
-sudo apt install build-essential git
-```
-
-#### Windows (WSL2)
-```bash
-# In WSL2 Ubuntu terminal
-sudo apt update
-sudo apt install python3.14 python3.14-dev python3.14-venv
-sudo apt install libflac-dev libvorbis-dev libopus-dev portaudio19-dev
-sudo apt install build-essential git
-```
-
----
-
-## Step 1: Clone Repository
+`launch-auralis-web.py` starts the backend, waits for `/api/ready`, and supervises Vite or
+Electron. To run only the backend:
 
 ```bash
-# Clone the repository
-git clone https://github.com/matiaszanolli/Auralis.git
-cd Auralis
-
-# Verify you're on the main branch
-git status
-# Should show: On branch master
-```
-
----
-
-## Step 2: Create Python Virtual Environment
-
-**What is a virtual environment?**
-A virtual environment isolates Python packages for this project, preventing conflicts with system Python.
-
-### Using uv
-
-`uv` provisions the interpreter (pinned in `.python-version`) and creates the venv in one step — no separate Python install needed.
-
-```bash
-# Create the virtual environment at .venv.
-# --python-preference only-managed stops uv picking a stale pyenv shim
-# instead of the interpreter .python-version pins.
-uv venv --python-preference only-managed
-
-# Activate it
-# On macOS/Linux:
-source .venv/bin/activate
-
-# On Windows (PowerShell):
-# .venv\Scripts\Activate.ps1
-
-# You should see '(.venv)' prefix in terminal
-# (.venv) user@computer:~/Auralis$
-```
-
-**Verify activation:**
-```bash
-which python
-# Should show: /path/to/Auralis/.venv/bin/python
-
-python --version
-```
-
-**Deactivate later with:**
-```bash
-deactivate
-```
-
----
-
-## Step 3: Install Dependencies
-
-**What does this do?**
-Installs all Python packages the project needs (FastAPI, SQLAlchemy, NumPy, etc.).
-
-```bash
-# Make sure the virtual environment is activated
-# (.venv) should be visible in terminal prompt
-
-# Install all dependencies
-uv pip install -r requirements.txt
-
-# uv resolves and installs from its cache — typically seconds, not minutes
-```
-
-**Verify installation:**
-```bash
-# List installed packages (should be 50+)
-uv pip list | head -20
-
-# Test a few key imports
-python -c "import fastapi; import sqlalchemy; import numpy; print('All imports OK')"
-# Should output: All imports OK
-```
-
----
-
-## Step 4: Initialize Database
-
-**What does this do?**
-Creates the SQLite database and populates it with your music library.
-
-The database initializes automatically the first time the backend starts (`python main.py --dev` from `auralis-web/backend`). It creates `~/.auralis/library.db` and scans your configured music directory. To reset, delete the file: `rm ~/.auralis/library.db`
-
-**Verify database created:**
-```bash
-# Check database file exists
-ls -lh ~/.auralis/library.db
-
-# Inspect with sqlite3 (if installed)
-sqlite3 ~/.auralis/library.db "SELECT COUNT(*) as track_count FROM tracks;"
-```
-
-**Custom music directory**: Set the `MUSIC_DIRECTORY` environment variable before launching (see Step 5).
-
----
-
-## Step 5: Runtime Configuration
-
-> **Correction (2026-07-08)**: This section previously documented a `.env` file with ~15 environment variables (`SERVER_HOST`, `SERVER_PORT`, `DATABASE_URL`, `DATABASE_POOL_SIZE`, cache/WebSocket/hot-reload settings, etc.). None of them are read anywhere in the backend code — there is no `.env.example` in the repo, and the app does not use `os.environ`/`os.getenv`/`pydantic.BaseSettings` for any of these. Setting them has zero effect. The actual configuration surface is much smaller:
-
-- **Host/port**: host is hardcoded to `127.0.0.1`; the port defaults to `8765` and is read from `AURALIS_PORT` in `auralis-web/backend/main.py`'s `__main__` block (#4805), e.g. `AURALIS_PORT=8766 python main.py --dev`.
-- **Database**: hardcoded to SQLite at `~/.auralis/library.db` (`auralis/library/constants.py::DEFAULT_DB_PATH`). There is no supported Postgres/MySQL/remote-DB configuration — this is a desktop-only, localhost-only application by design (see CLAUDE.md).
-- **Dev mode**: `python main.py --dev`, or `AURALIS_DEV_MODE=1` (needed when uvicorn, not `main.py`, is the entry point). Dev mode is not hot reload — see Step 6.
-
-If you need a setting that isn't covered above, check `auralis-web/backend/main.py` directly rather than assuming an env var exists for it.
-
----
-
-## Step 6: Start the Backend Server
-
-### Run in Dev Mode
-
-```bash
-# Make sure virtual environment is activated
-# (.venv) should be visible
 cd auralis-web/backend
 python main.py --dev
-
-# You should see output like:
-# 🚀 Starting Auralis Web Backend on port 8765...
-# INFO:     Uvicorn running on http://127.0.0.1:8765
-# INFO:     Application startup complete
 ```
 
-### Run with Hot Reload
+`--dev` turns on dev mode: DEBUG logging, Swagger UI at `http://127.0.0.1:8765/api/docs` (also
+`/api/redoc` and `/api/openapi.json`), and the wider CORS and WebSocket origin allowlists that the
+Vite page needs. Without it none of those routes exist. The server binds `127.0.0.1` only.
 
-`python main.py --dev` does not reload on code changes — `main.py` calls `uvicorn.run(app)`
-without `reload`. For a server that restarts on save, run uvicorn itself from the same
-directory, and set dev mode through the env var (uvicorn's argv has no `--dev`):
+`python main.py` does not reload on code changes. For a server that restarts on save, run uvicorn
+from the same directory and set dev mode through the environment, because uvicorn's argv has no
+`--dev`:
 
 ```bash
 cd auralis-web/backend
 AURALIS_DEV_MODE=1 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8765
 ```
 
-### Access API Documentation
-
-Once running, open your browser:
-```
-http://localhost:8765/api/docs
-```
-
-You'll see an interactive Swagger UI showing all API endpoints.
-
-**Test the API:**
-```bash
-# In another terminal (keep the server running)
-curl http://localhost:8765/api/health
-
-# Should return:
-# {"status":"healthy"}
-```
-
-### Stop the Server
+Probe a running backend:
 
 ```bash
-# Press Ctrl+C in the terminal running the server
-# You should see:
-# INFO:     Shutting down
+curl http://127.0.0.1:8765/api/health   # liveness, library and fingerprint-engine status
+curl http://127.0.0.1:8765/api/ready    # 200 once the database and engine are initialized
 ```
 
 ---
 
-## Step 7: Verify Everything Works
+## Configuration
 
-Run this verification checklist:
+No `.env` file is read, and there is no database, host or hot-reload setting beyond the variables
+below. The backend uses SQLite at `~/.auralis/library.db` and listens on `127.0.0.1` by design
+(see [CLAUDE.md](../../CLAUDE.md)).
 
-```bash
-# 1. Check Python version
-python --version
-# ✅ Should be 3.14+
+| Variable | Effect |
+|----------|--------|
+| `AURALIS_PORT` | Backend port (default 8765). `launch-auralis-web.py --port` sets it, and the Vite proxy follows it |
+| `AURALIS_DEV_MODE` | `1`, `true` or `yes` is equivalent to `--dev` |
+| `AURALIS_LOG_LEVEL` | `critical`, `error`, `warning`, `info`, `debug` or `trace`. Overrides the default (DEBUG in dev mode, INFO otherwise); unknown values are ignored |
+| `AURALIS_DATA_DIR` | Moves the artwork, fingerprint and upload directories off `~/.auralis`. The database path stays fixed |
 
-# 2. Check key packages installed
-uv pip show fastapi sqlalchemy numpy
-# ✅ Should show version info for each
-
-# 3. Check database exists
-ls -l ~/.auralis/library.db
-# ✅ Should show file with size > 1KB
-
-# 4. Check database has tracks
-sqlite3 ~/.auralis/library.db "SELECT COUNT(*) as tracks FROM tracks;"
-# ✅ Should show number > 0
-
-# 5. Start server and test
-(cd auralis-web/backend && python main.py --dev) &
-sleep 5
-
-curl http://localhost:8765/api/health
-# ✅ Should return {"status":"healthy","auralis_available":true}
-
-curl http://localhost:8765/api/cache/stats
-# ✅ Should return cache statistics (there is no /api/stats endpoint)
-
-# Stop server
-fg  # Bring server to foreground
-# Ctrl+C to stop
-```
+The tunable budgets (stream caps, worker counts, scan and shutdown timeouts, rate limits) are
+documented in [auralis-web/backend/CONFIG.md](../../auralis-web/backend/CONFIG.md). An invalid
+value falls back to its default with a logged warning.
 
 ---
 
-## Troubleshooting
-
-### Problem: "python3.14: command not found"
-
-**Solution**: Install Python 3.14 or create alias
-
-You don't need a system-wide 3.14: `uv` provisions the interpreter `.python-version` pins.
-Older Pythons will not work — `requires-python = ">=3.14"`, and on 3.13 the PEP 649
-deferred annotations fail at import.
-
-```bash
-uv python install 3.14
-uv venv --python-preference only-managed && source .venv/bin/activate
-```
-
-### Problem: "No module named 'auralis'"
-
-**Solution**: Make sure virtual environment is activated
-
-```bash
-# Check activation
-which python
-# Should show: /path/to/Auralis/.venv/bin/python (not /usr/bin/python)
-
-# If not activated, activate it
-source .venv/bin/activate
-
-# Then try again
-python -c "import auralis; print('OK')"
-```
-
-### Problem: "Port 8765 already in use"
-
-**Solution**: Stop other processes or use different port
-
-```bash
-# Find what's using port 8765
-lsof -i :8765  # macOS/Linux
-netstat -ano | findstr :8765  # Windows
-
-# Kill the process
-kill -9 <PID>  # macOS/Linux
-taskkill /PID <PID> /F  # Windows
-
-# Or use a different port (there is no SERVER_PORT env var — main.py reads AURALIS_PORT)
-cd auralis-web/backend && AURALIS_PORT=8766 python main.py --dev
-# Note: the Vite dev proxy (auralis-web/frontend/vite.config.mts) targets 8765,
-# so the frontend dev server will not follow a changed backend port.
-```
-
-### Problem: "Database is locked"
-
-**Solution**: Remove stale database and rescan
-
-```bash
-# Remove database (auto-reinitializes on next launch)
-rm ~/.auralis/library.db
-
-# Start server
-cd auralis-web/backend && python main.py --dev
-```
-
-### Problem: `LibsndfileError` or audio library issues
-
-librosa 1.0 no longer falls back to audioread, so a format libsndfile cannot
-open raises instead of decoding slowly. MP3/M4A/AAC/OGG/OPUS/WMA go through
-FFmpeg (`auralis/io/formats.py`), so check that `ffmpeg` is on your `PATH`.
-
-**Solution**: Install missing audio libraries
-
-**macOS:**
-```bash
-brew install flac libvorbis libopus
-```
-
-**Linux:**
-```bash
-sudo apt install libflac-dev libvorbis-dev libopus-dev
-```
-
-**Windows (WSL2):**
-```bash
-sudo apt install libflac-dev libvorbis-dev libopus-dev
-```
-
-Then reinstall soundfile:
-```bash
-uv pip install --force-reinstall soundfile
-```
-
----
-
-## Development Workflow
-
-### Daily Development
-
-```bash
-# 1. Activate virtual environment
-source .venv/bin/activate
-
-# 2. Start backend server (in one terminal)
-cd auralis-web/backend && python main.py --dev
-
-# 3. In another terminal, make code changes
-# - Edit files in auralis/ or auralis-web/backend/
-# - Restart the server to pick them up (or use the --reload command from Step 6)
-
-# 4. Test changes
-curl http://localhost:8765/api/endpoint
-
-# 5. Run the tests for what you touched (scoped — see Running Tests)
-python -m pytest -q -m "not slow" tests/backend/test_<area>.py
-
-# 6. When done, stop server
-# Ctrl+C in server terminal
-```
-
-### Running Tests
-
-```bash
-# Scope first — one domain directory (the normal inner loop)
-python -m pytest -q -m "not slow" tests/auralis/dsp
-
-# Single test
-python -m pytest tests/path/test_file.py::test_name -vv -s
-
-# Tests matching a pattern — give -k a directory too, or it collects the whole tree
-python -m pytest -q -k "search" tests/backend
-
-# Whole backend suite: tens of minutes. These two files HANG when run as
-# whole files, so always exclude them:
-python -m pytest -q -m "not slow" \
-  --ignore=tests/backend/test_system_api.py \
-  --ignore=tests/concurrency/test_thread_safety.py
-
-# With coverage (scope it the same way)
-python -m pytest -q -m "not slow" --cov=auralis --cov-report=html tests/auralis/dsp
-
-# View coverage report
-open htmlcov/index.html  # macOS
-xdg-open htmlcov/index.html  # Linux
-```
-
-### Running Type Checks
-
-```bash
-# Type check backend
-mypy auralis/ auralis-web/backend/ --ignore-missing-imports
-
-# Fix common issues
-mypy auralis/ --ignore-missing-imports | head -10
-```
-
-### Database Inspection
-
-```bash
-# Open SQLite shell
-sqlite3 ~/.auralis/library.db
-
-# Useful queries
-sqlite> SELECT COUNT(*) FROM tracks;
-sqlite> SELECT name, COUNT(*) as count FROM artists GROUP BY name;
-sqlite> SELECT * FROM tracks LIMIT 5;
-sqlite> .quit
-```
-
----
-
-## Testing with Phase 5 Fixtures (Pytest)
-
-**Phase 5 Complete Test Suite Migration - ✅ COMPLETE**
-
-The backend test suite has been migrated to use the **RepositoryFactory pattern** with comprehensive pytest fixtures for dependency injection. This enables:
-- ✅ Cleaner test code without direct database initialization
-- ✅ Automatic cleanup between tests
-- ✅ Parametrized dual-mode testing (both LibraryManager and RepositoryFactory patterns)
-- ✅ Better test isolation and fixture reuse
-
-### Available Fixtures (20+ in hierarchy)
-
-**Main Test Fixtures** (`tests/conftest.py`):
-```python
-# Dependency injection pattern
-get_repository_factory_callable  # DI callable that returns RepositoryFactory
-repository_factory              # RepositoryFactory instance for tests
-library_manager                 # LibraryManager for backward compatibility
-track_repository                # Direct access to TrackRepository
-album_repository                # Direct access to AlbumRepository
-artist_repository               # Direct access to ArtistRepository
-playlist_repository             # Direct access to PlaylistRepository
-fingerprint_repository          # Direct access to FingerprintRepository
-# ... and 3 more repository fixtures
-```
-
-**Backend API Test Fixtures** (`tests/backend/conftest.py`):
-```python
-# Mock fixtures for API endpoint testing
-mock_repository_factory         # Mock RepositoryFactory for routers
-mock_repository_factory_callable # Mock callable for DI pattern
-mock_data_source               # Parametrized dual-mode fixture (runs tests twice)
-client                         # FastAPI TestClient
-event_loop                     # Async event loop for async tests
-```
-
-**Player Component Fixtures** (`tests/auralis/player/conftest.py`):
-```python
-queue_controller               # QueueController with DI
-playback_controller            # PlaybackController for state tests
-audio_file_manager             # AudioFileManager for file I/O tests
-realtime_processor             # RealtimeProcessor for DSP tests
-gapless_playback_engine        # GaplessPlaybackEngine for playback tests
-integration_manager            # IntegrationManager with all components
-enhanced_player                # EnhancedAudioPlayer main facade
-player_config                  # PlayerConfig for configuration tests
-```
-
-**Performance Test Fixtures** (`tests/performance/conftest.py`):
-```python
-performance_data_source        # Dual-mode performance testing
-populated_data_source          # Large dataset (1000 tracks) for load tests
-timer                          # Timer context manager for benchmarking
-```
-
-### Using Phase 5 Fixtures in Tests
-
-**Example 1: Simple Repository Test**
-```python
-def test_track_creation(track_repository):
-    """Test creating a track using repository fixture."""
-    track = track_repository.add({
-        'filepath': '/tmp/test.wav',
-        'title': 'Test Track',
-        'artists': ['Test Artist'],
-        'sample_rate': 44100
-    })
-    assert track.id is not None
-    assert track.title == 'Test Track'
-```
-
-**Example 2: Player Component Test**
-```python
-def test_enhanced_player_initialization(enhanced_player, player_config):
-    """Test player initialization with fixtures."""
-    assert enhanced_player is not None
-    assert player_config.buffer_size > 0
-    # No setup/teardown needed - fixtures handle cleanup
-```
-
-**Example 3: Dual-Mode Testing (Both Patterns)**
-```python
-@pytest.mark.phase5c
-def test_get_tracks_both_modes(mock_data_source):
-    """Test works with both LibraryManager and RepositoryFactory."""
-    mode, source = mock_data_source
-    # Test logic runs twice - once per mode
-    # mode will be "library_manager" or "repository_factory"
-    tracks, total = source.tracks.get_all(limit=10)
-    assert isinstance(tracks, list)
-    assert isinstance(total, int)
-```
-
-**Example 4: Backend Router Test**
-```python
-def test_get_artists_api(client, mock_data_source):
-    """Test API endpoint with mock fixtures."""
-    mode, mock_factory = mock_data_source
-    # Mock factory is pre-configured with proper mocks
-    response = client.get("/api/artists")
-    assert response.status_code == 200
-    assert "artists" in response.json()
-```
-
-### Running Phase 5 Tests
-
-> **Note (2026-07-08)**: `phase5` and `phase5e` are not registered pytest markers — `pytest.ini` uses `--strict-markers`, so both commands below fail immediately with "marker not found." Only `phase5c` and `phase5d` are real (registered in `tests/backend/conftest.py` and `tests/performance/conftest.py` respectively).
-
-```bash
-# Run specific Phase 5 sub-phase (only these two markers actually exist)
-pytest tests/ -m phase5c -v   # Backend API tests (Phase 5C)
-pytest tests/ -m phase5d -v   # Performance tests (Phase 5D)
-
-# Run with fixture dependency injection
-pytest tests/backend/ -v --tb=short
-
-# Run player component tests
-pytest tests/auralis/player/ -v
-
-# Run performance benchmarks
-pytest tests/performance/test_latency_benchmarks.py -v
-```
-
-### Phase 5 Architecture Patterns
-
-**Dependency Injection Pattern:**
-Components receive a callable that returns RepositoryFactory:
-```python
-# Components accept callable, not direct instance
-class QueueController:
-    def __init__(self, get_repository_factory: Callable[[], RepositoryFactory]):
-        self.get_factory = get_repository_factory
-
-    def load_track(self, track_id: int):
-        factory = self.get_factory()
-        track = factory.tracks.get_by_id(track_id)
-        # Use track...
-```
-
-**Fixture Composition:**
-Fixtures build on each other, creating a clean hierarchy:
-```python
-@pytest.fixture
-def repository_factory(session_factory):
-    """Create RepositoryFactory from session factory."""
-    return RepositoryFactory(session_factory)
-
-@pytest.fixture
-def get_repository_factory_callable(repository_factory):
-    """Create callable that returns RepositoryFactory."""
-    def get_factory():
-        return repository_factory
-    return get_factory
-
-@pytest.fixture
-def enhanced_player(get_repository_factory_callable):
-    """Create player with DI callable."""
-    config = PlayerConfig()
-    return EnhancedAudioPlayer(
-        config=config,
-        get_repository_factory=get_repository_factory_callable
-    )
-```
-
-**Parametrized Dual-Mode Testing:**
-Single test runs with both patterns automatically:
-```python
-@pytest.fixture(params=["library_manager", "repository_factory"])
-def mock_data_source(request, mock_library_manager, mock_repository_factory):
-    """Parametrized fixture provides both patterns."""
-    if request.param == "library_manager":
-        return ("library_manager", mock_library_manager)
-    else:
-        return ("repository_factory", mock_repository_factory)
-
-@pytest.mark.phase5c
-def test_api_both_modes(mock_data_source):
-    """Test automatically runs twice - once with each pattern."""
-    mode, source = mock_data_source
-    # Implementation...
-```
-
-### Common Phase 5 Testing Patterns
-
-**Pattern 1: Direct Repository Testing**
-```python
-def test_repository_operations(track_repository):
-    """Test repository methods directly."""
-    # Repositories are properly initialized with fixtures
-    tracks = track_repository.get_all(limit=10)
-    assert len(tracks) >= 0
-```
-
-**Pattern 2: Integration Testing**
-```python
-def test_player_with_database(enhanced_player, library_manager):
-    """Test multiple components working together."""
-    # Both fixtures available - good for integration tests
-    success = enhanced_player.load_file("/path/to/file.wav")
-    assert isinstance(success, bool)
-```
-
-**Pattern 3: Performance Testing**
-```python
-def test_query_performance(performance_data_source, timer):
-    """Test performance with both patterns."""
-    mode, source = performance_data_source
-    with timer() as t:
-        tracks, total = source.tracks.get_all(limit=100)
-    # Both patterns should meet same benchmark
-    assert t.elapsed < 0.5  # 500ms max
-```
-
-**Pattern 4: Mock-Based Testing**
-```python
-def test_router_endpoint(client, mock_data_source):
-    """Test API route with mocked database."""
-    mode, factory = mock_data_source
-    # Mock is pre-configured and ready to use
-    response = client.get("/api/endpoint")
-    assert response.status_code == 200
-```
-
-### Troubleshooting Phase 5 Tests
-
-**Issue: "TypeError: QueueController() missing required argument 'get_repository_factory'"**
-
-**Solution**: Use the fixture instead of instantiating directly
-```python
-# ❌ Wrong
-def test_queue(self):
-    queue = QueueController()  # Missing required parameter
-
-# ✅ Correct
-def test_queue(queue_controller):
-    queue = queue_controller  # Fixture provides proper initialization
-```
-
-**Issue: "AttributeError: 'NoneType' object has no attribute 'tracks'"**
-
-**Solution**: Check fixture is available in conftest.py location
-```python
-# Fixture must be in same directory or parent conftest.py
-# tests/conftest.py - ✅ Available to all tests
-# tests/backend/conftest.py - ✅ Available to backend tests only
-# tests/auralis/player/conftest.py - ✅ Available to player tests only
-```
-
-**Issue: "Test passes locally but fails in CI"**
-
-**Solution**: Fixture cleanup might differ in CI environment
-```python
-# Use pytest tmp_path fixture for file operations
-def test_with_files(tmp_path):
-    """Files auto-cleaned after test in CI."""
-    test_file = tmp_path / "test.wav"
-    # Use test_file...
-    # Automatically removed after test
-```
-
-See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](../phases/completed/PHASE_5_FINAL_COMPLETION_SUMMARY.md) for comprehensive architecture documentation.
-
----
-
-## Advanced Configuration
-
-> **Correction (2026-07-08)**: The three sub-sections below (`MUSIC_DIRECTORY`, `HOT_RELOAD`, `DATABASE_URL`) documented environment variables that are not read anywhere in the codebase (verified via repo-wide grep) — setting any of them has no effect. Removed rather than "fixed" since there is currently no equivalent working mechanism for any of them:
-> - There is no configurable music-library-directory env var; the library folder is chosen through the app UI/scanner, not at launch.
-> - There is no hot-reload toggle to disable: `python main.py` never reloads; only the uvicorn `--reload` command in Step 6 does.
-> - There is no external-database support. The app is hardcoded to SQLite at `~/.auralis/library.db` (desktop-only, localhost-only by design — see CLAUDE.md). If you need Postgres/MySQL support, that would be new work, not a configuration flag.
-
----
-
-## IDE Setup
-
-### VS Code
-
-```bash
-# Install Python extension
-# Open VS Code extensions, search "Python"
-# Install extension by Microsoft
-
-# Select interpreter
-Cmd+Shift+P (macOS) / Ctrl+Shift+P (Windows/Linux)
-Type: "Python: Select Interpreter"
-Choose: ./.venv/bin/python
-
-# Setup debugging
-Create .vscode/launch.json:
-```
-
-> **Correction (2026-07-08)**: `auralis_web.backend.main:app` is not a valid dotted module path — the real directory is `auralis-web` (hyphen), which Python cannot import as a package. The backend is always run from `auralis-web/backend` so `main` imports as a top-level module (`main.py`'s own `__main__` block passes `app` straight to `uvicorn.run` "to avoid module duplication"). The configs below use the same `cwd` approach instead of a dotted path, and set `AURALIS_DEV_MODE` because uvicorn's argv carries no `--dev`.
-
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Backend (FastAPI)",
-      "type": "python",
-      "request": "launch",
-      "module": "uvicorn",
-      "cwd": "${workspaceFolder}/auralis-web/backend",
-      "args": [
-        "main:app",
-        "--reload",
-        "--host", "127.0.0.1",
-        "--port", "8765"
-      ],
-      "env": { "AURALIS_DEV_MODE": "1" },
-      "jinja": true,
-      "justMyCode": true
-    }
-  ]
-}
-```
-
-Then press F5 to start debugging.
-
-### PyCharm
-
-1. Open Project → auralis root directory
-2. Configure → Project → Python Interpreter
-3. Add → Existing Environment → Select .venv/bin/python
-4. Mark folders:
-   - `auralis/` as Sources Root
-   - `tests/` as Test Sources Root
-5. Run → Edit Configurations → Add Python configuration:
-   - Module: uvicorn
-   - Working directory: `auralis-web/backend`
-   - Parameters: `main:app --reload`
-   - Environment variables: `AURALIS_DEV_MODE=1`
-
----
-
-## Performance Notes
-
-### Cache Performance (Phase 7.5)
-
-The backend includes Phase 7.5 streaming fingerprint cache for 10-500x speedup:
-
-```bash
-# Cache is automatically initialized on startup
-# Check cache stats with:
-curl http://localhost:8765/api/cache/stats
-
-# Expected output:
-{
-  "cache": {
-    "hit_rate_percent": 70.5,
-    "size_mb": 128.4,
-    "items": 2341
-  },
-  "optimizer": {
-    "total_queries": 1000,
-    "cache_hits": 705,
-    "avg_time_ms": 45.2
+## Debugging
+
+- **Logs.** INFO output is kept free of absolute paths so it can be pasted into a bug report; paths
+  appear at DEBUG. To read DEBUG on a non-dev backend, set `AURALIS_LOG_LEVEL=debug` rather than
+  `AURALIS_DEV_MODE`, which also widens the origin allowlists.
+- **HTTP.** In dev mode use `/api/docs` to call any router by hand. Handlers are `async def` and
+  report errors as `HTTPException`.
+- **WebSocket.** The protocol is in [WEBSOCKET_API.md](../../auralis-web/backend/WEBSOCKET_API.md).
+  Chunk geometry comes only from `core/chunk_boundaries.py`.
+- **Library database.** Inspect it read-only; the backend holds it open in WAL mode.
+  ```bash
+  sqlite3 -readonly ~/.auralis/library.db '.tables'
+  sqlite3 -readonly ~/.auralis/library.db 'SELECT COUNT(*) FROM tracks;'
+  ```
+  Application code reaches the database only through
+  [`auralis/library/repositories/`](../../auralis/library/repositories/); do not write SQL elsewhere.
+- **Fingerprint engine.** `/api/health` reports whether `auralis_dsp` imported. If it did not,
+  rebuild it as described in [FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md#4-build-the-rust-dsp-module).
+- **VS Code.** `.vscode/settings.json` points the interpreter at `.venv`. A debug configuration
+  that mirrors the reload command:
+  ```json
+  {
+    "name": "Backend (FastAPI)",
+    "type": "debugpy",
+    "request": "launch",
+    "module": "uvicorn",
+    "cwd": "${workspaceFolder}/auralis-web/backend",
+    "args": ["main:app", "--host", "127.0.0.1", "--port", "8765"],
+    "env": { "AURALIS_DEV_MODE": "1" },
+    "justMyCode": true
   }
-}
-```
-
-### Memory Management
-
-```bash
-# Monitor memory usage (macOS)
-top -o MEM -n 1 | grep python
-
-# Or use psutil
-uv pip install psutil
-python -c "import psutil; p = psutil.Process(); print(f'Memory: {p.memory_info().rss / 1024 / 1024:.1f}MB')"
-```
+  ```
+  `auralis-web` contains a hyphen, so it is never imported as a package: set `cwd` to
+  `auralis-web/backend` and use `main:app`.
+- **PyCharm.** Use the `.venv` interpreter, mark `auralis/` as Sources Root and `tests/` as Test
+  Sources Root, and create a Python run configuration for module `uvicorn` with working directory
+  `auralis-web/backend`, parameters `main:app`, and environment `AURALIS_DEV_MODE=1`.
 
 ---
 
-## Clean Up / Reset
+## Tooling
 
-### Full Reset (removes all data)
+| Task | Command |
+|------|---------|
+| Type check | `mypy auralis/ auralis-web/backend/ --ignore-missing-imports` |
+| Unused imports and locals (a CI gate) | `pipx run ruff==0.12.12 check --no-cache --select F401,F811,F841 auralis auralis-web/backend scripts tools` |
+| Format and lint | `pre-commit run --files <changed files>` (black, isort, pylint, mypy, ruff) |
+| Scoped tests | `python -m pytest -q -m "not slow" tests/<subdir>` |
+| Coverage for one area | `python -m pytest -q -m "not slow" --cov=auralis --cov-report=html tests/<subdir>` |
 
-```bash
-# Stop the server first
-# Ctrl+C in server terminal
+`pyproject.toml` runs mypy strict on `auralis.*`, `services.*` and `cache.*`, and with the global
+flags on the rest of the backend. `pytest.ini` puts `auralis-web/backend` on `pythonpath`, sets
+`asyncio_mode = auto`, and uses `--strict-markers`, so a new marker must be declared there. Test
+selection, the nightly `slow` set and the two files that hang when run whole are covered in
+[CONTRIBUTING.md](../CONTRIBUTING.md#4-testing).
 
-# Remove database
-rm ~/.auralis/library.db
+Fixtures live in `tests/conftest.py` and the per-directory `conftest.py` files:
 
-# Remove cache (if applicable)
-rm -rf ~/.auralis/cache
-
-# Clean Python cache
-find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null
-find . -type f -name "*.pyc" -delete
-
-# Reinstall dependencies (optional)
-uv pip install --upgrade -r requirements.txt
-
-# Database auto-initializes on next launch
-```
-
-### Just Remove Database
-
-```bash
-rm ~/.auralis/library.db
-# Database auto-initializes the next time the backend starts
-```
-
-### Update Dependencies
-
-```bash
-# Check for updates
-uv pip list --outdated
-
-# Update all packages
-uv pip install --upgrade -r requirements.txt
-
-# Or update specific package
-uv pip install --upgrade fastapi
-```
+- `temp_test_db` yields a throwaway database path and `library_database` opens a `LibraryDatabase`
+  on it. `LibraryDatabase(':memory:')` does not work because the connection pool rejects it, so
+  use a file under `tmp_path`.
+- `session_factory`, `repository_factory` and the `*_repository` fixtures use a plain SQLAlchemy
+  engine with foreign keys off. A test that depends on foreign-key enforcement uses
+  `library_database`.
+- `tests/backend/conftest.py` provides `client` (a `TestClient` on an isolated library),
+  `library_track`, `mock_track`, `mock_library_database`, `mock_repository_factory` and
+  `reset_rate_limits`.
+- Any test that boots `main.app` takes `_isolated_library_db`, and the fingerprint-store fixture
+  is applied automatically (`tests/app_isolation.py`), so `~/.auralis` is never touched.
+- Components that need a repository take a callable or a fixture instead of constructing one.
+  See [REPOSITORY_PATTERN.md](REPOSITORY_PATTERN.md) and
+  [TESTING_GUIDELINES.md](TESTING_GUIDELINES.md).
 
 ---
 
-## Next Steps
+## Common failures
 
-### Ready to develop?
-
-1. ✅ Backend running locally with hot reload
-2. ✅ API docs accessible at http://localhost:8765/api/docs
-3. ✅ Scoped tests for your area pass (e.g. `python -m pytest -q -m "not slow" tests/auralis/dsp`) — the full suite is not green yet; CI judges it against `pytest-baseline.json`
-
-### Start Phase B (Backend Foundation)
-
-See [PHASE_A_IMPLEMENTATION_PLAN.md](../phases/phase-1-10/PHASE_A_IMPLEMENTATION_PLAN.md) for Phase B tasks:
-- B.1: Endpoint standardization
-- B.2: Phase 7.5 cache integration
-- B.3: WebSocket enhancement
-
----
-
-## Getting Help
-
-**Cannot start server?**
-- Check virtual environment is activated: `which python` should show venv path
-- Check port is free: `lsof -i :8765` should be empty
-- Check logs: `cd auralis-web/backend && AURALIS_LOG_LEVEL=debug python main.py --dev`
-
-**Database issues?**
-- Reset database: `rm ~/.auralis/library.db` (auto-reinitializes on next launch)
-- Check database: `sqlite3 ~/.auralis/library.db ".tables"`
-
-**Import errors?**
-- Reinstall dependencies: `uv pip install -r requirements.txt --force-reinstall`
-- Check Python version: `python --version` should be 3.14+
-
-**Performance issues?**
-- Check cache stats: `curl http://localhost:8765/api/cache/stats`
-- Monitor memory: `top -o MEM | grep python`
-
----
-
-**Last Updated**: 2026-07-08
-**Status**: Ready for Use
-**Maintained By**: Auralis Team
+| Symptom | Cause and fix |
+|---------|---------------|
+| Collection errors or `NameError` at import on an older Python | The codebase relies on Python 3.14 deferred annotations. Recreate the venv with `uv venv --python-preference only-managed` |
+| `No module named 'auralis'` | The venv is not active, or a script runs outside the repository. `main.py` adds the repository root to `sys.path`; for other scripts set `PYTHONPATH` to the repository root |
+| `Cannot use port 8765` or an address-in-use error | Another backend is running. Stop it (`lsof -ti:8765`) or set `AURALIS_PORT` / pass `--port` |
+| `database is locked` | A second process has the library open. Stop other Auralis and Python processes. Reset only for a damaged file ([FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md#where-data-lives)) |
+| `FingerprintUnavailable`, or a fingerprint-engine error in `/api/health` | `auralis_dsp` is not built into this venv |
+| `LibsndfileError` | libsndfile cannot open the file. MP3, M4A/AAC, OGG, Opus and WMA are decoded by FFmpeg (`auralis/io/formats.py`), so check `ffmpeg` is on `PATH`. For a broken libsndfile install: `uv pip install --force-reinstall soundfile` |
+| `/api/docs` returns 404 | The backend is not in dev mode |
+| A pytest run never finishes | It included `tests/backend/test_system_api.py` or `tests/concurrency/test_thread_safety.py`. Scope the run or use `--ignore` |
+| Rust-backed tests fail only under `ulimit -v` | Rayon's thread pool cannot reserve address space. Run those tests without the cap |
+| Edits to `auralis/` are not picked up | `python main.py` does not reload. Restart it, or use the uvicorn `--reload` command above |

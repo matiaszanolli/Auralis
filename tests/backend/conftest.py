@@ -93,56 +93,6 @@ def mock_track():
     return track
 
 
-@pytest.fixture
-def sample_audio():
-    """
-    Generate sample audio data for testing.
-
-    Returns:
-        tuple: (audio_data, sample_rate)
-            - audio_data: numpy array (samples, channels) for stereo
-            - sample_rate: int (44100)
-    """
-    import numpy as np
-
-    sample_rate = 44100
-    duration = 1.0  # 1 second
-    samples = int(sample_rate * duration)
-
-    # Generate 440 Hz sine wave (A4 note)
-    t = np.linspace(0, duration, samples)
-    audio = np.sin(2 * np.pi * 440 * t)
-
-    # Make stereo
-    audio_stereo = np.column_stack([audio, audio])
-
-    return audio_stereo, sample_rate
-
-
-@pytest.fixture
-def sample_audio_long():
-    """
-    Generate longer sample audio (30 seconds) for chunk testing.
-
-    Returns:
-        tuple: (audio_data, sample_rate)
-    """
-    import numpy as np
-
-    sample_rate = 44100
-    duration = 30.0  # 30 seconds
-    samples = int(sample_rate * duration)
-
-    # Generate 440 Hz sine wave
-    t = np.linspace(0, duration, samples)
-    audio = np.sin(2 * np.pi * 440 * t)
-
-    # Make stereo
-    audio_stereo = np.column_stack([audio, audio])
-
-    return audio_stereo, sample_rate
-
-
 def _clear_rate_limit_windows() -> None:
     """Clear RateLimitMiddleware's sliding windows (#5089).
 
@@ -294,32 +244,6 @@ def library_track(client, tmp_path):
     tracks.delete(track.id)
 
 
-@pytest.fixture
-def sample_track_ids(client, mock_track):
-    """
-    Create sample tracks in the database for testing.
-
-    Returns:
-        list: List of track IDs [1, 2, 3]
-    """
-    # For now, return mock track IDs
-    # In a real implementation, this would create tracks in test database
-    return [1, 2, 3]
-
-
-@pytest.fixture
-def fingerprint_count():
-    """
-    Return the number of fingerprints in test database.
-
-    Returns:
-        int: Number of fingerprints (mock value for testing)
-    """
-    # For now, return a mock value
-    # In a real implementation, this would query the test database
-    return 100
-
-
 # ============================================================
 # Phase 5C: Mock Repository Fixtures for Dual-Mode Testing
 # ============================================================
@@ -327,10 +251,8 @@ def fingerprint_count():
 @pytest.fixture
 def mock_library_database():
     """
-    Create a mock LibraryManager for testing routers.
-
-    This mock provides all necessary repository interfaces
-    without requiring a real database connection.
+    A mock LibraryDatabase for testing routers: every repository interface,
+    no real database connection.
     """
     from unittest.mock import Mock
 
@@ -459,77 +381,6 @@ def mock_repository_factory():
     factory.settings.set = Mock(return_value=True)
 
     return factory
-
-
-@pytest.fixture
-def mock_repository_factory_callable(mock_repository_factory):
-    """Return a callable that provides mock RepositoryFactory (for DI pattern).
-
-    This fixture enables dependency injection pattern for testing router endpoints
-    with mock repositories. Use this to test components that accept a callable
-    returning a RepositoryFactory.
-
-    Phase 5A.2: Mock variant for backend API router testing.
-
-    Args:
-        mock_repository_factory: Mock RepositoryFactory fixture
-
-    Returns:
-        Callable: Function that returns the mock RepositoryFactory instance
-
-    Example:
-        def test_get_artists(mock_repository_factory_callable):
-            from auralis.player.queue_controller import QueueController
-            controller = QueueController(mock_repository_factory_callable)
-            # controller now has access to mocked repositories
-    """
-    def _get_factory():
-        """Get mock repository factory instance."""
-        return mock_repository_factory
-
-    return _get_factory
-
-
-@pytest.fixture
-def mock_track_repository():
-    """Get mock TrackRepository for testing."""
-    from unittest.mock import Mock
-    repo = Mock()
-    repo.get_all = Mock(return_value=([], 0))
-    repo.get_by_id = Mock(return_value=None)
-    repo.search = Mock(return_value=([], 0))
-    repo.create = Mock(return_value=Mock(id=1))
-    repo.update = Mock(return_value=Mock(id=1))
-    repo.delete = Mock(return_value=True)
-    return repo
-
-
-@pytest.fixture
-def mock_album_repository():
-    """Get mock AlbumRepository for testing."""
-    from unittest.mock import Mock
-    repo = Mock()
-    repo.get_all = Mock(return_value=([], 0))
-    repo.get_by_id = Mock(return_value=None)
-    repo.search = Mock(return_value=([], 0))
-    repo.create = Mock(return_value=Mock(id=1))
-    repo.update = Mock(return_value=Mock(id=1))
-    repo.delete = Mock(return_value=True)
-    return repo
-
-
-@pytest.fixture
-def mock_artist_repository():
-    """Get mock ArtistRepository for testing."""
-    from unittest.mock import Mock
-    repo = Mock()
-    repo.get_all = Mock(return_value=([], 0))
-    repo.get_by_id = Mock(return_value=None)
-    repo.search = Mock(return_value=([], 0))
-    repo.create = Mock(return_value=Mock(id=1))
-    repo.update = Mock(return_value=Mock(id=1))
-    repo.delete = Mock(return_value=True)
-    return repo
 
 
 # Configure pytest-asyncio
