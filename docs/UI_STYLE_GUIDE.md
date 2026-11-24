@@ -1,10 +1,16 @@
 # Auralis UI Style Guide
 
-**Scope**: Visual language, theming, components, motion
-**Applies to**: Desktop (primary), adaptable to tablet/mobile
-**Core idea**: Audio as a living system, not a dataset
+**Scope**: visual language, theming, components, motion
+**Platform**: the Electron desktop app (see [subsystems/frontend.md](subsystems/frontend.md))
+**Core idea**: audio as a living system, not a dataset
 
-> **Final Guiding Principle**: Every visual decision must either clarify the music or get out of its way. If an element does neither: Remove it, Hide it, or Demote it.
+**Token source of truth**: `auralis-web/frontend/src/design-system/tokens/` (merged by
+`tokens.ts`, imported as `import { tokens } from '@/design-system'`). Every value named below is
+a token key; if this page and the tokens disagree, the tokens win. Theme-aware colour goes
+through `themeVars` in `src/theme/semanticTheme.ts` (section 1.2).
+
+> Every visual decision must either clarify the music or get out of its way. If an element does
+> neither: remove it, hide it, or demote it.
 
 ---
 
@@ -12,363 +18,289 @@
 
 ### 1.1 Philosophy
 
-Color in Auralis is **stateful and atmospheric**, not decorative.
+Colour in Auralis is stateful and atmospheric, not decorative.
 
-**Rules**:
-- Color represents behavior, not categories
-- Color is rarely solid
-- Light and glow matter more than hue
-- Saturation increases only when music is active
+- Colour represents behaviour, not categories.
+- Colour is rarely solid; light and glow matter more than hue.
+- Saturation increases only when music is active.
 
-> **If a color feels "loud" when nothing is playing, it's wrong.**
+If a colour feels loud when nothing is playing, it is wrong.
 
-### 1.2 Base Colors
+### 1.2 Base colours and themes
 
-#### Dark Theme (Canonical)
+Dark is the canonical theme, and the default. Light is an option in Settings → Interface.
 
-| Role | Description |
-|------|-------------|
-| Base background | Deep blue-black, slightly cool (`#0B1020`) |
-| Surface | +4–8% luminance over base (`#101729`) |
-| Raised surface | +10–14% luminance, blurred backdrop (`#1A2338`) |
-| Overlay | Translucent, never opaque |
+| Role | Dark value | Token |
+|------|-----------|-------|
+| Canvas | `#0B1020` deep blue-black | `colors.bg.level0` |
+| Primary surface | `#101729` | `colors.bg.level1` |
+| Secondary surface | `#151D2F` | `colors.bg.level2` |
+| Raised surface | `#1A2338` | `colors.bg.level3` |
+| Dialogs and overlays | `#1F2940` | `colors.bg.level4` |
+| Glass surfaces | translucent `bg.level2` with blur | `glass.starfield`, `glass.subtle`, `glass.strong` |
 
-**Critical**:
-- No pure black
-- No flat gray
-- The background should feel like a dark studio room, not a void
+Rules:
 
-#### Light Theme (Secondary)
+- No pure black and no flat grey; the background should feel like a dark studio room, not a void.
+- Overlays sit over a translucent scrim (`themeVars.backdrop`) or use a `glass` preset; they are
+  never a hard opaque slab.
 
-Light mode is intentionally restrained.
+**Semantic theme contract.** Components do not choose a palette level. They read `themeVars`
+(`canvas`, `surfacePrimary`, `surfaceSecondary`, `surfaceRaised`, `surfaceOverlay`, `textPrimary`,
+`textSecondary`, `textMuted`, `textDisabled`, `borderSubtle`, `borderDefault`, `borderStrong`,
+`accent`, `accentText`, `success`, `warning`, `error`, `panelFill`, `hoverFill`, `selectedFill`, and
+more), which resolve to `--app-*` CSS variables for the active mode. `ThemeProvider` writes the
+variables on the document root. Fills built from white alpha (`colors.opacityScale.white`) are
+invisible in light mode, so use `panelFill`, `hoverFill` and `selectedFill` for control and
+container fills.
 
-**Rules**:
-- Never pure white
-- Use warm off-white / parchment tones
-- Reduce glow intensity by ~50%
-- Reduce saturation across the board
+**Light theme** is restrained comfort, not spectacle. Its palette is `colors.lightMode`:
 
-Light mode exists for comfort, not spectacle.
+- The canvas is a cool off-white (`#F8F9FD`); cards, menus and primary surfaces may be white.
+- Text is ink navy (`#1A1F3A`, secondary `#5A6280`).
+- Shadows are lighter (`shadows` keys `md` and `xl` where dark uses `lg` and `2xl`).
+- Status and accent text use darker variants (`lightMode.accent.*`, `lightMode.text.accent`) so
+  they meet WCAG AA contrast on the light canvas.
+- Unfilled slider rails, switch tracks and scrollbar thumbs use `themeVars.controlTrack`, which
+  keeps 3:1 contrast against the page in both modes.
 
-### 1.3 Accent Colors
+### 1.3 Accent colours
 
-Accent colors are **semantic**, not arbitrary.
+Accents are semantic, not arbitrary.
 
-| Color Family | Meaning | Token |
-|--------------|---------|-------|
-| Indigo / Violet | Identity, focus, playback | `audioSemantic.identity` |
-| Cyan / Teal | Spatial width, clarity | `audioSemantic.spatial` |
-| Green | Energy stability, balance | `audioSemantic.stability` |
-| Amber / Warm | Transients, intensity, peaks | `audioSemantic.transient` |
-| Magenta / Pink | Harmonic richness, vibrancy | `audioSemantic.harmonic` |
+| Colour | Meaning | Token |
+|--------|---------|-------|
+| Violet `#7366F0` | Identity, focus, playback (the brand accent) | `colors.audioSemantic.identity`, `colors.accent.primary` |
+| Cyan `#47D6FF` | Spatial width, clarity | `colors.audioSemantic.spatial`, `colors.accent.secondary` |
+| Magenta `#EC4899` | Harmonic richness, vibrancy | `colors.audioSemantic.harmonic` |
+| Amber `#F59E0B` | Transients, intensity, peaks | `colors.accent.energy` |
+| Green `#10B981` | Stability, success | `colors.semantic.success` |
 
-**Usage rules**:
-- Never use more than 2 accents in the same component
-- Accents fade in and out with state
-- **Glow > fill**
+Feedback states use `colors.semantic` (`success`, `warning`, `error`, `info`). `semantic.error` is
+for text, icons and borders; anything that carries white text on red uses `semantic.errorFill`
+(and `errorFillHover`) for contrast.
+
+Usage rules:
+
+- Never more than two accents in the same component.
+- Accents fade in and out with state.
+- Glow beats fill: prefer `shadows.glowSoft` / `glowMd` and translucent fills
+  (`colors.opacityScale.accent.*`) over solid colour.
 
 ### 1.4 Gradients
 
-Gradients are **first-class citizens** in Auralis.
+Gradients are first-class: they represent fingerprints, mood projections, and album identity when
+art is missing.
 
-They represent:
-- Fingerprints
-- Mood projections
-- Album identity (when art is missing)
+- Brand and surface gradients: `gradients.aurora`, `gradients.darkSubtle`, `gradients.glassShimmer`,
+  and the `shimmerSweep` hover gradient.
+- Decorative sets for placeholders: `gradients.decorative.*`.
+- The energy meter's calm-to-aggressive ramp: `energyGradient(alpha)`.
+- Fingerprint-derived gradients: `src/utils/fingerprintToGradient.ts`.
 
-**Rules**:
-- Gradients always have depth (radial or diagonal)
-- No harsh transitions
-- Slight noise or grain is encouraged
-- Gradients must feel alive, not graphic-design perfect
+Rules: gradients have depth (radial or diagonal), no harsh transitions, and should feel alive
+rather than graphic-design perfect.
 
 ---
 
-## 2. Borders, Shapes & Depth
+## 2. Borders, Shapes and Depth
 
-### 2.1 Borders (Minimal by Design)
+### 2.1 Borders
 
-Borders are **almost never visible**.
+Borders are almost never visible.
 
-**Allowed**:
-- 1px translucent borders at <10% opacity
-- Only for focus or separation in dense layouts
+- Allowed: 1 px translucent borders for focus or separation in dense layouts, from
+  `colors.border.light` / `medium` / `heavy` or `themeVars.borderSubtle` / `borderDefault`.
+- Disallowed: hard separators, table gridlines, high-contrast outlines.
 
-**Disallowed**:
-- Hard separators
-- Table gridlines
-- High-contrast outlines
+If you can see a border clearly, it is too strong.
 
-> **If you can see a border clearly, it's too strong.**
+### 2.2 Corner radius
 
-### 2.2 Corner Radius
+Corners are soft but confident. Tokens (`borderRadius`): `sm` 8 px (the minimum for any rounded
+interactive element), `md` 12 px, `lg` 16 px, `xl` 20 px, `full` 9999 px.
 
-Auralis corners are soft but confident.
-
-| Component | Radius |
+| Component | `borderRadius` key |
 |-----------|--------|
-| Buttons | Medium (`12px`) |
-| Cards | Medium–large (`12-16px`) |
-| Album art | Medium (`12px`) |
-| Pills | Fully rounded (`9999px`) |
+| Buttons | `md` |
+| Cards, panels | `md` to `lg` |
+| Album art | `md` |
+| Pills and circular buttons | `borderRadius.full` |
 
-**Never mix sharp and rounded elements in the same context.**
+Never mix sharp and rounded elements in the same context.
 
-### 2.3 Depth & Elevation
+### 2.3 Depth and elevation
 
-Depth is communicated via:
-- Shadow softness
-- Blur
-- Light falloff
+Depth comes from shadow softness, blur and light falloff, not from strong drop shadows or z-axis
+theatrics.
 
-**Not via**:
-- Strong drop shadows
-- Z-axis theatrics
-
-**Rules**:
-- Shadows are large and soft
-- Elevation increases only on interaction
-- No floating panels unless intentional (overlays)
+- Shadows are large and soft (`shadows.sm` to `2xl`); elevation increases only on interaction.
+- Glass presets (`glass.subtle`, `glass.strong`) add backdrop blur and a light-catching bevel.
+- No floating panels unless intentional (overlays). Layering uses `zIndex` (`content`, `elevated`,
+  `dropdown`, `sticky`, `fixed`, `toast`).
 
 ---
 
 ## 3. Typography
 
-### 3.1 Typeface Roles
+### 3.1 Typefaces
 
-| Typeface | Role |
-|----------|------|
-| Inter | UI, controls, metadata |
-| Manrope | Identity, titles, emphasis |
+| Family | Role | Token |
+|--------|------|-------|
+| Asap (variable, bundled) | All UI text: controls, metadata, titles | `typography.fontFamily.primary`, `header` |
+| JetBrains Mono (variable, bundled) | Technical readouts (dB, Hz, LUFS) | `typography.fontFamily.mono` |
 
-Manrope is used **sparingly**. If everything is expressive, nothing is.
+Both fonts ship with the app (`@fontsource-variable/*`), so the UI renders offline with no font
+CDN. Emphasis comes from weight and size, not from a second display face.
 
-### 3.2 Hierarchy
+### 3.2 Scale and hierarchy
 
-Hierarchy is created by:
-- Size
-- Spacing
-- Weight
-- Opacity
+Sizes: `fontSize.xs` 11 px, `sm` 13, `base` 14, `md` 16, `lg` 18, `xl` 22, `2xl` 28, `3xl` 36, `4xl`
+56, plus `display` 48 and `huge` 80 for artwork glyphs and empty-state icons. Weights: `normal` 400,
+`medium` 500, `semibold` 600, `bold` 700.
 
-**Never by color alone.**
+Hierarchy is built from size, spacing, weight and opacity, never from colour alone.
 
-### 3.3 Text Color Usage
+### 3.3 Text colour
 
-| Type | Opacity | Token |
-|------|---------|-------|
-| Primary text | 90–100% | `text.primary` |
-| Secondary text | 60–70% | `text.secondary` |
-| Metadata | 40–50% | `text.metadata` |
-| Disabled | <30% | `text.disabled` |
+| Type | Dark value | Token (`themeVars`, or `tokens.colors.text` in dark-only code) |
+|------|-----------|-------|
+| Primary | 95 % white | `textPrimary` / `text.primary` (`text.primaryFull` for peak emphasis) |
+| Secondary | 68 % white | `textSecondary` / `text.secondary` |
+| Metadata and labels | 60 % white | `textMuted` / `text.metadata` |
+| Disabled | 40 % white | `textDisabled` / `text.disabled` |
 
-> **Text should sit in space, not scream.**
-
----
-
-## 4. Cards & Thumbnails
-
-### 4.1 Album Cards
-
-Album cards are **identity anchors**.
-
-**Rules**:
-- Album art is dominant
-- Metadata is quiet
-- Context badges are subtle
-- Cards lift gently on hover
-
-> **Album cards should feel collectible, not interchangeable.**
-
-### 4.2 Placeholder Covers
-
-When no art exists:
-- Use fingerprint-derived gradient
-- Add subtle texture/noise
-- Never use flat neon blocks
-- Never repeat patterns identically
-
-**Each album must feel unique even without art.**
+Metadata is held at 60 % so small text keeps 4.5:1 contrast on `bg.level1`; do not lower it. Text
+should sit in space, not scream.
 
 ---
 
-## 5. Controls & Interaction
+## 4. Spacing
 
-### 5.1 Buttons
+Spacing is organic rhythm rather than a strict grid: tight inside groups, generous between
+sections.
 
-Buttons are **inviting, not assertive**.
+- Within elements: `spacing.xxs` 2 px, `xs` 4, `sm` 6.
+- Between elements: `md` 12, `lg` 20, `xl` 28; between sections `xxl` 40 and `xxxl` 56.
+- Named groupings: `cluster` 8 px (items in a natural cluster, and MUI's spacing unit), `group`
+  16 px, `section` 32 px.
 
-**Rules**:
-- No sharp edges
-- No aggressive colors
-- Primary buttons glow softly
-- Secondary buttons rely on outline + blur
-
-Hover states are calm, not instant.
-
-### 5.2 Sliders
-
-Sliders represent **continuous change**.
-
-**Rules**:
-- Rounded tracks
-- Soft thumbs
-- Glow increases as value increases
-- No hard ticks unless required
-
-> **Sliders should feel analog.**
-
-### 5.3 Pills & Badges
-
-Pills are used for:
-- Mood descriptors
-- Context tags
-- States
-
-**Rules**:
-- Low contrast
-- Soft glow
-- Never stacked too densely
-
-They should feel **descriptive, not categorical**.
+Use spacing instead of lines to separate things.
 
 ---
 
-## 6. Motion & Animation
+## 5. Cards and Thumbnails
 
-### 6.1 Motion Philosophy
+**Album cards** are identity anchors: album art dominates, metadata is quiet, context badges are
+subtle, and cards lift gently on hover (`components.albumCard.hoverScale`). They should feel
+collectible, not interchangeable.
 
-Motion in Auralis is:
-- **Slow**
-- **Weighted**
-- **Predictable**
-- **Purposeful**
+**Placeholder covers.** When no art exists, use a fingerprint-derived or per-album gradient (see
+1.4); never flat neon blocks, and never the same pattern for every album.
 
-> **If motion draws attention to itself, it's wrong.**
+---
 
-### 6.2 Timing Guidelines
+## 6. Controls and Interaction
+
+Control primitives live in `src/design-system/primitives/`: `Button` (`primary`, `secondary`,
+`ghost`, `danger`), `IconButton`, `Card`, `Slider`, `SegmentedControl`, `Chip`, `CircularProgress`,
+`List`, `Alert`, `Tooltip`. Layout and text use `@mui/material` directly.
+
+- **Buttons** are inviting, not assertive: no sharp edges, no aggressive colours, primary buttons
+  glow softly, secondary buttons rely on outline and blur. Hover is calm, not instant.
+- **Sliders** represent continuous change: rounded tracks, soft thumbs, glow that grows with the
+  value, no hard ticks unless required. Sliders should feel analog.
+- **Pills and badges** (`Chip`) describe mood, context or state: low contrast, soft glow, never
+  stacked densely.
+
+---
+
+## 7. Motion
+
+Motion is slow, weighted, predictable and purposeful. If motion draws attention to itself, it is
+wrong.
 
 | Interaction | Duration | Token |
 |-------------|----------|-------|
-| Hover | 120–180ms | `transitions.hover` |
-| State change | 300–600ms | `transitions.stateChange` |
-| Audio-reactive | Lag audio by ~80–120ms | (a rule; no token consumes it, #6062) |
+| Hover | 120-180 ms | `transitions.hover` (150 ms), `hover_out` with easing |
+| State change | 300-600 ms | `transitions.stateChange` (450 ms), `state_inOut` |
+| Slower state change | 600 ms | `transitions.slow`, `slow_inOut` |
+| Audio-reactive lag | 80-120 ms | `transitions.audioLag` (100 ms) |
 
-**Forbidden**:
-- No fast oscillations
-- No bounce easing
+Easing is `transitions.easeOut` or `easeInOut`. No bounce and no fast oscillation.
 
-### 6.3 Audio-Reactive Visuals
-
-**Rules**:
-- Heavy smoothing
-- No frame-perfect sync
-- Motion represents trend, not sample data
-
-> **The UI should feel like it's interpreting, not measuring.**
+Audio-reactive visuals use heavy smoothing, no frame-perfect sync, and show trend rather than
+sample data: the UI interprets, it does not measure. Motion stops gracefully when playback stops
+(the Album Character pane decays over a few seconds), and the ambient starfield background can be
+switched off with Settings → Interface → "Show visualizations". Under `prefers-reduced-motion`
+global styles suppress animation and the starfield draws a single static frame.
 
 ---
 
-## 7. Auto-Mastering & Visualization
+## 8. Auto-Mastering and Visualization
 
-### 7.1 Visualization Purpose
+Visuals answer "what is the music doing now?", not "what are the numbers?".
 
-Visuals answer: **"What is the music doing now?"**
+- Allowed: flowing waves, halos, breathing gradients, soft arcs, ambient fields.
+- Disallowed: bar graphs, meters, always-on percentage indicators.
+- Numbers exist but are hidden by default, revealed on interaction, and secondary in hierarchy.
+  Engineers can inspect; listeners can listen.
 
-Not: "What are the numbers?"
-
-### 7.2 Allowed Visual Forms
-
-- Flowing waves
-- Halos
-- Breathing gradients
-- Soft arcs
-- Ambient fields
-
-**Disallowed**:
-- Bar graphs
-- Meters
-- Percent indicators (always-on)
-
-### 7.3 Numbers Policy
-
-Numbers exist, but:
-- Hidden by default
-- Revealed on interaction
-- Secondary in hierarchy
-
-> **Engineers can inspect. Listeners can listen.**
+The Album Character pane (see
+[frontend/PLAYER_ENHANCEMENT_ARCHITECTURE.md](frontend/PLAYER_ENHANCEMENT_ARCHITECTURE.md)) is
+the reference implementation: an "Auto-Mastering" switch above a living picture of the track's
+character, with no parameter sliders.
 
 ---
 
-## 8. Layout Guidelines
+## 9. Layout
 
-### 8.1 Surfaces Over Cards
-
-Auralis is built from **surfaces**, not boxes.
-
-- Use spacing to separate
-- Avoid visual fragmentation
-- Let content breathe
-
-### 8.2 Contextual Panels
-
-Panels adapt to context:
-- Track view → Track Character
-- Album view → Album Character
-- Browse view → Mood / Discovery hints
-
-**Panels should respond, not dominate.**
+- **Surfaces over cards.** Use spacing to separate, avoid visual fragmentation, let content breathe.
+- **Contextual panels.** The right-hand pane responds to context (the playing track's character,
+  or the hovered album's aggregate) and should respond, not dominate. Component sizes such as
+  `components.playerBar.height` (96 px), `sidebar.width` (256 px) and `rightPanel.width` (360 px) are
+  tokens.
+- **Responsive.** Breakpoints are `breakpoints.xs` 0, `sm` 600, `md` 900, `lg` 1200, `xl` 1536;
+  use `mediaBelow(key)` in CSS-in-JS so a rule flips at the same pixel as MUI's
+  `breakpoints.down(key)`. The layout adapts below 900 px, but desktop is the supported target.
 
 ---
 
-## 9. Accessibility & Comfort
+## 10. Accessibility and Comfort
 
-**Rules**:
-- Contrast meets standards without harshness
-- Motion can be reduced globally
-- No flashing elements
-- No color-only state indication
+- Contrast meets WCAG AA without harshness; contrast-bearing tokens carry their ratio in a comment
+  beside the value.
+- Motion can be reduced globally.
+- No flashing elements and no colour-only state indication (connection state, for example, is also
+  announced as text).
+- Dialogs, menus and lists are keyboard-operable with visible focus (`themeVars.focusRing`).
 
-> **Accessibility should feel natural, not bolted on.**
+Accessibility should feel natural, not bolted on.
 
 ---
 
-## 10. Implementation Reference
-
-### Token Usage
+## 11. Using the tokens
 
 ```typescript
-import { tokens } from '@/design-system'
+import { tokens } from '@/design-system';
+import { themeVars } from '@/theme/semanticTheme';
 
-// Colors
-tokens.colors.bg.level0           // Base background
-tokens.colors.text.primary        // Primary text (95% opacity)
-tokens.colors.text.metadata       // Metadata (45% opacity)
-tokens.colors.audioSemantic.spatial // Cyan for spatial/width
-
-// Motion
-tokens.transitions.hover          // 150ms
-tokens.transitions.stateChange    // 450ms
+const sx = {
+  color: themeVars.textPrimary,              // theme-aware colour
+  background: themeVars.surfaceSecondary,
+  padding: tokens.spacing.md,                // spacing, radii, type, motion: tokens
+  borderRadius: tokens.borderRadius.md,
+  fontSize: tokens.typography.fontSize.base,
+  transition: tokens.transitions.hover_out,
+  boxShadow: tokens.shadows.glowSoft,
+};
 ```
 
-### Quick Reference Card
-
 | Aspect | Do | Don't |
-|--------|----|----|
-| Colors | Use glows, translucent fills | Use solid, loud colors |
-| Borders | <10% opacity, barely visible | Hard lines, gridlines |
-| Text | Opacity-based hierarchy | Color-based hierarchy |
-| Motion | 150ms hover, 450ms state | Bounce, fast oscillation |
+|--------|----|-------|
+| Colour | Glows, translucent fills, `themeVars` | Solid loud colours, hex literals in components |
+| Borders | Translucent, barely visible | Hard lines, gridlines |
+| Text | Opacity-based hierarchy | Colour-based hierarchy |
+| Motion | 150 ms hover, 450 ms state change | Bounce, fast oscillation |
 | Visuals | Waves, halos, gradients | Bar graphs, meters |
-| Numbers | Hidden, reveal on interaction | Always visible |
-
----
-
-## Changelog
-
-- **v1.0.0** (Dec 2025): Initial style guide implementation
-  - Added audio-semantic accent colors
-  - Added opacity-based text hierarchy
-  - Added audio-reactive motion tokens
-  - Added numbers policy and visualization guidelines
+| Numbers | Hidden, revealed on interaction | Always visible |

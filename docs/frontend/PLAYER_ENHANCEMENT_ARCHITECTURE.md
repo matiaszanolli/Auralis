@@ -1,37 +1,64 @@
-# Player & Enhancement Pane Architecture (Current)
+# Player and Enhancement Pane Architecture
 
-**Status:** Current as of 2026-07-09
-**Supersedes:** the V3 architecture, player-consolidation and PlayerBarV2 refactoring docs, all now under `docs/archive/frontend-history/` (#6255, #6679)
+How the bottom player bar and the right-hand enhancement pane are built. The app shell, the
+playback session and the audio pipeline are owned by
+[subsystems/frontend.md](../subsystems/frontend.md); this page covers the two UI surfaces.
 
-This is a short, code-verified description of the player and enhancement UI as it exists today, replacing the "V2"/"V3" planning docs that described components deleted in `67f82aa8` (#4089). No `-v2`/`-v3`-suffixed component, `player-bar-v2/` directory, or `usePlayer()`/`useLibrary()`/`useEnhancement()` hooks exist in the current tree.
+## Where they mount
 
-## Top-level layout
-
-`ComfortableApp.tsx` renders:
-
-- `AppContainer` — `AppSidebar` (nav) + a main column of `AppTopBar` (search/title) + `AppMainContent` (`CozyLibraryView`, lazy-loaded)
-- `Player` — a fixed bottom bar rendered as a sibling of `AppContainer`, wrapped in its own `ErrorBoundary` so a player crash doesn't take down the rest of the app
-
-There is no separate "V2" player bar — `components/player/Player.tsx` is the only player component mounted in production.
+`ComfortableApp` renders `AppContainer` (sidebar, top bar, main content) and, as a sibling, the
+`Player` bar in its own `ErrorBoundary`. The pane is not mounted by the shell: `CozyLibraryView`
+(Songs, Favourites) and `LibraryViewRouter` (Albums) hand `AlbumCharacterPane` to `ViewContainer`
+as its `rightPane`. Artist views and detail pages have no pane.
 
 ## Player bar
 
-`components/player/Player.tsx` orchestrates the bottom playback bar from smaller presentational pieces in the same directory:
+`src/components/player/Player.tsx` composes presentational pieces from the same directory and owns
+only the queue-panel open state:
 
-- `TimeDisplay`, `BufferingIndicator`, `ProgressBar`, `PlaybackControls`, `VolumeControl`, `TrackDisplay`, `QueuePanel`
+- **Top edge:** `BufferingIndicator` and `ProgressBar` (drag and keyboard seeking via
+  `useProgressBarDrag`, `useKeyboardSeek`; disabled while seeking, on error, or while a transport
+  command is pending).
+- **Left:** `TrackDisplay` (artwork, title, artist and album) and `TimeDisplay`.
+- **Centre:** `PlaybackControls` (previous, play/pause, next).
+- **Right:** `VolumeControl` (slider and mute) and the "Toggle queue" button, which shows or hides
+  `QueuePanel` (queue list, shuffle, repeat off/all/one, clear, drag and keyboard reorder, remove).
 
-Playback state comes from Redux (`store/slices/playerSlice`, `store/slices/queueSlice`, `playerSelectors`); actual audio streaming goes through the `usePlayEnhanced` WebSocket hook (`@/hooks/enhancement/usePlayEnhanced`), not a REST call.
+State comes from Redux (`playerSelectors`, `selectEnhancedStreaming`) and from the playback session
+(`usePlaybackControls`, `usePlaybackProgress` in `src/contexts/PlaybackSessionContext.tsx`). The
+bar sends no REST playback calls itself; transport commands run through the session, which starts
+streams over the WebSocket. The bar has no enhancement control. `QueuePanel` has its own error
+boundary inside `Player`, so a queue crash leaves the transport usable.
 
-## Enhancement / album-character pane
+## Enhancement pane
 
-The right-side pane is **not** `EnhancementPane` — it's `AlbumCharacterPane` (`components/library/AlbumCharacterPane/`), rendered by `CozyLibraryView.tsx` inside `ViewContainer`/`LibraryViewRouter` for every library view. It shows an aggregate fingerprint visualization, mood tags, and an energy field for the current album, with an `EnhancementToggle` (via `useEnhancementControl`) rather than the old per-track parameter sliders.
+`src/components/library/AlbumCharacterPane/AlbumCharacterPane.tsx` is a fixed-width (360 px) pane
+with two parts:
 
-There is no `EnhancementPane` component; enhancement on/off lives in `EnhancementToggle` (`components/shared/EnhancementToggle/`).
+1. **`AutoMasteringToggle`**, always at the top, in every pane state. It renders
+   `EnhancementToggle` (`src/components/shared/EnhancementToggle/`, switch variant) labelled
+   "Auto-Mastering", described as "Enhancing playback" or "Original audio". It reads
+   `useEnhancementControl()` and calls `setEnabled`; a failed request shows a toast and the switch
+   is disabled while the request is in flight.
+2. **A character view** of the audio fingerprint: waveform, glowing arc, mood tags, an energy
+   field and rotating descriptions. It shows the playing track's fingerprint, else the hovered
+   album's aggregate, and placeholder panes while nothing is playing, the analysis is pending or
+   loading, or no fingerprint exists. Motion fades out over a short decay when playback stops.
 
-## Library
+There are no preset or per-parameter controls in the pane. `adaptive` is the only valid
+enhancement preset.
 
-`components/library/CozyLibraryView.tsx` is the current library view, routing to per-view components under `components/library/Views/` via `LibraryViewRouter`.
+### Enhancement state
 
-## If you're planning new player/enhancement work
+`src/hooks/enhancement/useEnhancementControl.ts` holds `enabled`, `preset` and `intensity` in local
+state, seeded from `GET /api/player/enhancement/status` and kept current by the
+`enhancement_settings_changed` WebSocket broadcast (`useEnhancementStatusSync`). Changes post to
+`/api/player/enhancement/toggle`, `/preset` and `/intensity` (`useEnhancementCommands`) with
+optimistic updates and rollback. Because the backend binds these values when a stream starts, a
+change while audio is playing re-issues the active stream (`reissueActiveStreamAs`) from the
+current position: as `play_normal` when enhancement turns off, as `play_enhanced` otherwise.
 
-Search the actual component tree (`components/player/`, `components/library/AlbumCharacterPane/`) and check what's imported from `ComfortableApp.tsx`/`CozyLibraryView.tsx` before trusting any older planning doc under `docs/frontend/` — several were written against a `-v2`/`-v3` redesign that was abandoned or reverted.
+`PlaybackSessionProvider` reads the same hook, so the next track starts with the current setting.
+Settings → Enhancement edits the stored defaults (default preset, "Auto-enhance playback",
+"Enhancement Intensity") through `settingsService`; see
+[../getting-started/USER_GUIDE.md](../getting-started/USER_GUIDE.md) for the user-facing behaviour.
