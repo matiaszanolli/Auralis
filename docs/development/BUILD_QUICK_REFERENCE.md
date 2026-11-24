@@ -62,9 +62,8 @@ Root `package.json`:
 |--------|------|
 | `pnpm run dev` | `dev.js`: the source launcher with Electron (not a build) |
 | `pnpm run install:all` | `pnpm install` in `desktop/` and in `auralis-web/frontend/` |
-| `pnpm run clean` | Removes `dist/`, both `node_modules/` trees and `auralis-web/frontend/dist/` |
+| `pnpm run clean` | Removes `dist/`, both `node_modules/` trees, `auralis-web/frontend/dist/` and the PyInstaller output (`auralis-web/backend/dist/`, `build/`) |
 | `pnpm run test`, `test:coverage` | Whole-tree pytest; do not use it as an inner loop (see [CONTRIBUTING.md](../CONTRIBUTING.md#4-testing)) |
-| `pnpm run build`, `package`, `package:win\|mac\|linux` | `build.js` and `package.js`; see the note below |
 
 `desktop/package.json`; each build script first runs `desktop/scripts/record-backend-digest.js`, which fails
 unless `desktop/resources/backend/` holds the frozen backend:
@@ -78,9 +77,8 @@ unless `desktop/resources/backend/` holds the frozen backend:
 | `build:mac`, `build:mac:arm64` | DMG, arm64 |
 | `pack` | Unpacked app directory, no installer |
 
-`build.js` and `package.js` are local conveniences that CI does not run, and they do not follow the
-pipeline above: `build.js` expects PyInstaller to emit a directory while the spec emits a single
-file, and `package.js` derives its root one level above the checkout. Use the steps above.
+There is no root build or package script: to package locally, run the pipeline steps above in order,
+as CI does.
 
 ## Key files
 
