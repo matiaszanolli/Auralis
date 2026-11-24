@@ -215,7 +215,7 @@ async def _cleanup_temp_directories() -> None:
     # cache. A lone instance (every packaged run) still wipes on every start,
     # so #4666's stale-chunk blast radius stays intra-session.
     if await asyncio.to_thread(claim_chunk_cache, chunk_dir, owner_marker):
-        if chunk_dir.exists():
+        if await asyncio.to_thread(chunk_dir.exists):
             try:
                 await asyncio.to_thread(shutil.rmtree, chunk_dir)
                 await asyncio.to_thread(create_secure_temp_dir, chunk_dir)

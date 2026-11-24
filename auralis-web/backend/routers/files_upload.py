@@ -158,7 +158,7 @@ async def upload_files(
                 # Move to permanent library storage before committing the DB record
                 # (issue #2392: storing temp_path then deleting it made every upload
                 # unplayable immediately after the finally block ran).
-                size = Path(temp_path).stat().st_size
+                size = (await asyncio.to_thread(Path(temp_path).stat)).st_size
                 if not await budget.admit_storage(size):
                     raise UploadQuotaFull()
                 await asyncio.to_thread(upload_dir.mkdir, parents=True, exist_ok=True)

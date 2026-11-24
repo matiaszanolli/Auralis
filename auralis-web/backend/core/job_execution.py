@@ -146,7 +146,7 @@ async def execute_job(
     if job.mode == "reference" or job.mode == "hybrid":
         # Load reference audio if needed
         reference_path = job.settings.get("reference_path")
-        if reference_path and Path(reference_path).exists():
+        if reference_path and await asyncio.to_thread(Path(reference_path).exists):  # off the loop (#6494)
             # Same cooperative-cancel token as the input load (#4496 SIBLING):
             # the reference decode is the identical to_thread(load_audio)
             # pattern and must also stop its FFmpeg child on cancel.

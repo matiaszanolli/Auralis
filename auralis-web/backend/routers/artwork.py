@@ -63,6 +63,27 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 
+def _contained_artwork_path(album_id: int, artwork_dir: Path, artwork_path: str) -> Path:
+    """The artwork file, resolved and confined to ``artwork_dir`` BEFORE the existence check, so a
+    traversal is refused, not probed. Blocking (mkdir, resolve, exists): run it in a thread (#6494)."""
+    artwork_dir.mkdir(parents=True, exist_ok=True)
+    allowed_dir = artwork_dir.resolve()  # handles symlinks in the base path
+    try:
+        requested_path = Path(artwork_path).resolve(strict=False)  # non-strict: validate a missing file too
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.warning(f"Invalid artwork path for album {album_id}: {Path(artwork_path).name} - {e}")
+        raise HTTPException(status_code=403, detail="Access denied: invalid path")
+    if not requested_path.is_relative_to(allowed_dir):
+        logger.warning(
+            f"Path traversal attempt blocked for album {album_id}: "
+            f"requested={requested_path}, allowed_dir={allowed_dir}"
+        )
+        raise HTTPException(status_code=403, detail="Access denied: path outside artwork directory")
+    if not requested_path.exists():
+        raise NotFoundError("Artwork")
+    return requested_path
+
+
 @with_error_handling("get artwork")
 async def get_album_artwork(
     album_id: Annotated[int, PathParam(ge=1)],
@@ -103,33 +124,7 @@ async def get_album_artwork(
 
     # Security: the path must sit in the artwork directory (shared with the purge path, #4532)
     artwork_dir, thumb_dir = artwork_thumbnails._artwork_dirs()
-    # Off the event loop (#4653's CONSISTENCY sweep): this is inside async def.
-    await asyncio.to_thread(artwork_dir.mkdir, parents=True, exist_ok=True)
-
-    # Resolve allowed directory (handles symlinks in base path)
-    allowed_dir = artwork_dir.resolve()
-
-    # Resolve artwork path (handles symlinks and relative paths)
-    # Use strict=False to resolve path even if file doesn't exist (for security validation)
-    try:
-        requested_path = Path(artwork_path).resolve(strict=False)
-    except (OSError, RuntimeError, ValueError) as e:
-        logger.warning(f"Invalid artwork path for album {album_id}: {Path(artwork_path).name} - {e}")
-        raise HTTPException(status_code=403, detail="Access denied: invalid path")
-
-    # Security: Check that resolved path is within allowed directory
-    # This MUST happen before existence check to prevent path traversal
-    # Use is_relative_to() for safe path comparison (prevents traversal attacks)
-    if not requested_path.is_relative_to(allowed_dir):
-        logger.warning(
-            f"Path traversal attempt blocked for album {album_id}: "
-            f"requested={requested_path}, allowed_dir={allowed_dir}"
-        )
-        raise HTTPException(status_code=403, detail="Access denied: path outside artwork directory")
-
-    # Additional check: file must exist (after security validation)
-    if not requested_path.exists():
-        raise NotFoundError("Artwork")
+    requested_path = await asyncio.to_thread(_contained_artwork_path, album_id, artwork_dir, artwork_path)
 
     # Detect MIME type from file extension first, then fall back to magic bytes
     # so that PNG files with unrecognized/missing extensions are not served
@@ -168,7 +163,7 @@ async def get_album_artwork(
             serve_path, serve_media_type = thumbnail
 
     # Build ETag from the SERVED file's stat for conditional caching (#2864).
-    stat = serve_path.stat()
+    stat = await asyncio.to_thread(serve_path.stat)
     etag = f'"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
 
     # If client already has this version, return 304 (no body).

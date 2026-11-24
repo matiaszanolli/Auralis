@@ -9,6 +9,7 @@ create_processing_router() registers them.
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
+import asyncio
 import logging
 import tempfile
 from pathlib import Path
@@ -55,6 +56,20 @@ async def get_job_status(
     return _job_status_response(job)
 
 
+def _contained_output_path(job_id: str, output_path: str) -> Path:
+    """The job's output file, confined to the temp directory (#2561). Blocking (resolve, exists):
+    run it in a thread (#6494)."""
+    resolved = Path(output_path).resolve()
+    try:
+        resolved.relative_to(Path(tempfile.gettempdir()).resolve())
+    except ValueError:
+        logger.error(f"Job {job_id} output path outside expected directory: {resolved.name}")
+        raise HTTPException(status_code=500, detail="Output path configuration error")
+    if not resolved.exists():
+        raise NotFoundError("Output file")
+    return resolved
+
+
 @with_error_handling("download job result")
 async def download_result(
     job_id: str,
@@ -80,18 +95,7 @@ async def download_result(
         logger.error(f"Job {job_id} is COMPLETED but has no output_path set")
         raise HTTPException(status_code=500, detail="Job completed but produced no output file")
 
-    output_path = Path(job.output_path).resolve()
-
-    # Validate output path is within the expected temp directory (#2561)
-    allowed_output_base = Path(tempfile.gettempdir()).resolve()
-    try:
-        output_path.relative_to(allowed_output_base)
-    except ValueError:
-        logger.error(f"Job {job_id} output path outside expected directory: {output_path.name}")
-        raise HTTPException(status_code=500, detail="Output path configuration error")
-
-    if not output_path.exists():
-        raise NotFoundError("Output file")
+    output_path = await asyncio.to_thread(_contained_output_path, job_id, job.output_path)
 
     # Determine media type based on file extension
     media_types = {

@@ -159,5 +159,5 @@ async def upload_and_process(
         )
     except Exception:
         # Clean up orphaned temp file on any failure after write
-        input_path.unlink(missing_ok=True)
+        await asyncio.to_thread(input_path.unlink, missing_ok=True)
         raise
