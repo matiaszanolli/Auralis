@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import OperationalError
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -109,3 +110,80 @@ async def test_download_album_artwork_missing_album_callable_with_bare_stubs():
 
     assert exc_info.value.status_code == 404
     connection_manager.broadcast.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# Error branches of extract / delete (#6497): only the success paths were asserted, so a regression
+# that turned the idempotent DELETE back into a 404 (#3563) or broadcast a no-op would pass.
+# ---------------------------------------------------------------------------
+
+
+def _manager() -> MagicMock:
+    manager = MagicMock()
+    manager.broadcast = AsyncMock()
+    return manager
+
+
+async def test_extract_with_no_embedded_artwork_is_404_and_changes_nothing(monkeypatch):
+    repos = _stub_repos(album=MagicMock(artwork_path=None))
+    repos.albums.extract_and_save_artwork = MagicMock(return_value=None)
+    purged: list = []
+    monkeypatch.setattr("routers.artwork_manage._purge_album_thumbnails", lambda *a: purged.append(a) or 0)
+    manager = _manager()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await extract_album_artwork(album_id=5, repos=repos, connection_manager=manager)
+
+    assert exc_info.value.status_code == 404
+    assert "No artwork found in album tracks" in str(exc_info.value.detail)
+    assert purged == []
+    manager.broadcast.assert_not_awaited()
+
+
+async def test_delete_for_an_unknown_album_is_404_and_deletes_nothing():
+    repos = _stub_repos(album=None)
+    repos.albums.delete_artwork = MagicMock(return_value=True)
+    manager = _manager()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await delete_album_artwork(album_id=404, repos=repos, connection_manager=manager)
+
+    assert exc_info.value.status_code == 404
+    repos.albums.delete_artwork.assert_not_called()
+    manager.broadcast.assert_not_awaited()
+
+
+async def test_delete_of_already_absent_artwork_succeeds_without_a_broadcast(monkeypatch):
+    """#3563: a repeat DELETE is a success, but nothing changed, so no client is told it did."""
+    repos = _stub_repos(album=MagicMock(artwork_path=None))
+    repos.albums.delete_artwork = MagicMock(return_value=False)
+    purged: list = []
+    monkeypatch.setattr("routers.artwork_manage._purge_album_thumbnails", lambda *a: purged.append(a) or 0)
+    manager = _manager()
+
+    result = await delete_album_artwork(album_id=3, repos=repos, connection_manager=manager)
+
+    assert result == {"message": "Artwork deleted successfully", "album_id": 3}
+    assert purged == [(None,)]  # the purge still runs, for a half-finished earlier delete
+    manager.broadcast.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("error", "status"),
+    [
+        (OperationalError("SELECT", {}, Exception("database is locked")), 503),
+        (RuntimeError("boom"), 500),
+    ],
+    ids=["transient-db-503", "unexpected-500"],
+)
+async def test_a_repository_failure_maps_through_with_error_handling(error, status):
+    repos = _stub_repos()
+    repos.albums.get_by_id = MagicMock(side_effect=error)
+    manager = _manager()
+
+    for handler in (extract_album_artwork, delete_album_artwork):
+        with pytest.raises(HTTPException) as exc_info:
+            await handler(album_id=1, repos=repos, connection_manager=manager)
+        assert exc_info.value.status_code == status
+
+    manager.broadcast.assert_not_awaited()
