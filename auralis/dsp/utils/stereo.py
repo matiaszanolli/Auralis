@@ -74,11 +74,14 @@ def stereo_width_analysis(stereo_audio: np.ndarray) -> float:
 
     # Calculate correlation: np.corrcoef's value, from two centred float64 channels
     # rather than its stacked 2 x N copy and centred copy (#6717); equal to ~1e-15.
+    # einsum, not np.dot: a whole-track dot runs on every OpenBLAS thread, which then
+    # spin for a while after process() has returned (3 cores busy on the CI runner).
     left_c = left.astype(np.float64)
     left_c -= left_c.mean()
     right_c = right.astype(np.float64)
     right_c -= right_c.mean()
-    correlation = np.dot(left_c, right_c) / np.sqrt(np.dot(left_c, left_c)) / np.sqrt(np.dot(right_c, right_c))
+    correlation = (np.einsum('i,i->', left_c, right_c)
+                   / np.sqrt(np.einsum('i,i->', left_c, left_c)) / np.sqrt(np.einsum('i,i->', right_c, right_c)))
     del left_c, right_c
 
     # Convert correlation to width (inverse relationship)
