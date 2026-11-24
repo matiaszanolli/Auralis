@@ -177,3 +177,21 @@ After processing all findings, print a summary table:
 **Created**: X new issues
 **Skipped**: Y duplicates, Z stale, W unverifiable
 ```
+
+## Step 7: Write the Triage Ledger into the Report
+
+Append the same mapping to the end of the audit report itself, so the report records
+its own triage state and a later audit can dedup against it without redoing the
+title search (#6705: four reports aged past 90 days with HIGH findings and no record
+of where they went):
+
+```markdown
+## Triage ledger (added YYYY-MM-DD)
+
+| Finding | Severity | Resolved by |
+|---|---|---|
+| <ID> | HIGH | #NNN (new) / DUPLICATE of #NNN / STALE: <why> |
+```
+
+Cover at least every CRITICAL/HIGH finding. If the report ends with a "No GitHub issues
+were created. To publish: ..." footer, remove it in the same edit; it is no longer true.

@@ -140,5 +140,5 @@ Keep a Changelog:
 - Describe user-visible behavior and compatibility effects.
 - Put detailed implementation history in release notes or audits, not the top-level entry.
 
-`docs/versions/CHANGELOG.md` is a legacy historical file and must not receive new release
+`docs/archive/roadmaps/LEGACY_CHANGELOG.md` is a legacy historical file and must not receive new release
 history.

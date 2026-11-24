@@ -156,5 +156,5 @@ scope (#6520).
 - #2413, #3845, #5066 — WebSocket Origin hardening (implemented).
 - #4893, #6158 — REST origin check and its Sec-Fetch-Site GET gate.
 - #6520 — the cross-OS-account actor: shared multi-user hosts declared out of scope.
-- [WEBSOCKET_SECURITY_FIX_2156.md](WEBSOCKET_SECURITY_FIX_2156.md) — related WS
+- [WEBSOCKET_SECURITY_FIX_2156.md](../archive/fixes/WEBSOCKET_SECURITY_FIX_2156.md) — related WS
   security fix.

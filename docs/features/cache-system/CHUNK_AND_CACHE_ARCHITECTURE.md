@@ -38,4 +38,4 @@ There is **no** MSE, no `MSEPlayer`, and no `/api/mse/...` route. REST audio-str
 ## See also
 
 - [`CLAUDE.md`](../../../CLAUDE.md) — the architecture-flow summary matches this doc (15s chunks / 10s interval / 5s overlap).
-- `docs/troubleshooting/PRESET_SWITCHING_LIMITATION.md` and `DEBUG_PLAYBACK.md` — historical diagnoses written against the removed REST/MSE path (already superseded-flagged).
+- `docs/archive/fixes/PRESET_SWITCHING_LIMITATION.md` and `docs/archive/fixes/DEBUG_PLAYBACK.md` — historical diagnoses written against the removed REST/MSE path (already superseded-flagged).

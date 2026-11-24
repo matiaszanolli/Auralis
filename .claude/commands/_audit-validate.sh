@@ -176,16 +176,10 @@ strict_files=(
 # superseded, so naming a removed/renamed file there is correct, not drift.
 ratchet_files=(
     docs/*.md
-    docs/deployment/*.md
     docs/features/**/*.md
     docs/frontend/**/*.md
     docs/getting-started/*.md
-    docs/optimization/*.md
     docs/security/*.md
-    docs/testing/*.md
-    docs/troubleshooting/*.md
-    docs/ui_audit/*.md
-    docs/versions/*.md
 )
 
 shopt -u nullglob globstar

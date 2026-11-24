@@ -83,7 +83,7 @@ smaller than “finished”: one truthful launcher on top of those repaired flow
 
 ---
 
-📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | ⚡ **[Performance Optimizations](docs/optimization/CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 📖 **[Developer Docs](docs/README.md)**
+📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 📖 **[Developer Docs](docs/README.md)**
 
 ---
 
@@ -368,11 +368,10 @@ desktop lifecycle behavior are available.
 ### Essential Docs
 - **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md)** - Complete project roadmap and what's actually shipped
 - **[CLAUDE.md](CLAUDE.md)** - Full technical reference (for developers)
-- **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** - Complete user guide (describes v1.0.0-beta.1; download filenames/screenshots are stale — current binary is v1.2.0-beta.2, see the release table above)
+- **[Beta User Guide (archived)](docs/archive/guides/BETA_USER_GUIDE.md)** - Complete user guide (describes v1.0.0-beta.1; download filenames/screenshots are stale — current binary is v1.2.0-beta.2, see the release table above)
 
 ### Testing Documentation
 - **[TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)** - **MANDATORY** - Test quality principles
-- **[AUTOMATED_TESTING_GUIDE.md](docs/development/AUTOMATED_TESTING_GUIDE.md)** - Automated testing workflow
 - **[TEST_EXECUTION_GUIDE.md](docs/development/TEST_EXECUTION_GUIDE.md)** - How to run the test suites
 
 ### Release Notes

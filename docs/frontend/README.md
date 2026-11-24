@@ -5,7 +5,6 @@ reference is [`docs/subsystems/frontend.md`](../subsystems/frontend.md).
 
 - [testing/TESTING_COMMANDS.md](testing/TESTING_COMMANDS.md) — pnpm/Vitest commands and CI gates
 - [PLAYER_ENHANCEMENT_ARCHITECTURE.md](PLAYER_ENHANCEMENT_ARCHITECTURE.md) — player and enhancement pane as built
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) — 2025 redesign quick-reference card
 
 Sprint-era analyses, implementation reports, component audits and memory-test
 guides live in [`docs/archive/frontend-history/`](../archive/frontend-history/).
