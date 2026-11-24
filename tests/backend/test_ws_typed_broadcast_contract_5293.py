@@ -124,9 +124,3 @@ def test_production_emitters_use_literal_discriminators() -> None:
     # 41 -> 38 when the manual and auto scan paths shared one scan_complete/library_updated
     # emitter (#6574) and the subscriber-less mastering_recommendation broadcast went (#6579).
     assert len(calls) >= 38
-
-
-def test_playlist_reorder_uses_the_frontend_contract_literal() -> None:
-    source = (_BACKEND / "routers" / "playlists_tracks.py").read_text()
-    assert '"action": "reordered"' in source
-    assert "tracks_reordered" not in source

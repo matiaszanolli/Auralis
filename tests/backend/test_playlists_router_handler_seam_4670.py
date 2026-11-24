@@ -20,12 +20,23 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from routers.playlists import (  # noqa: E402
+    add_track_to_playlist,
     add_tracks_to_playlist,
     clear_playlist,
     create_playlist,
+    delete_playlist,
     get_playlists,
+    remove_track_from_playlist,
+    reorder_playlist_track,
+    update_playlist,
 )
-from routers.playlists_models import AddTracksRequest, CreatePlaylistRequest  # noqa: E402
+from routers.playlists_models import (  # noqa: E402
+    AddTrackRequest,
+    AddTracksRequest,
+    CreatePlaylistRequest,
+    ReorderTrackRequest,
+    UpdatePlaylistRequest,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -118,3 +129,71 @@ async def test_clear_playlist_callable_with_bare_stubs():
     assert result == {"message": "Playlist cleared"}
     stub_repos.playlists.clear.assert_called_once_with(9)
     assert stub_manager.broadcast.await_args.args[0]["data"]["action"] == "cleared"
+
+
+# ---------------------------------------------------------------------------
+# #6498: the empty-update 400 and every mutating handler's broadcast, asserted by value. The frontend
+# playlist list refreshes on these frames, so a renamed type, action or key must fail a test.
+# ---------------------------------------------------------------------------
+
+
+def _manager() -> MagicMock:
+    manager = MagicMock()
+    manager.broadcast = AsyncMock()
+    return manager
+
+
+async def test_an_update_with_neither_name_nor_description_is_400():
+    from fastapi import HTTPException
+
+    stub_repos = MagicMock()
+    manager = _manager()
+
+    with pytest.raises(HTTPException) as exc:
+        await update_playlist(4, UpdatePlaylistRequest(), repos=stub_repos, connection_manager=manager)
+
+    assert exc.value.status_code == 400
+    assert "No update data provided" in str(exc.value.detail)
+    stub_repos.playlists.update.assert_not_called()
+    manager.broadcast.assert_not_awaited()
+
+
+def _stub_repos_that_succeed() -> MagicMock:
+    stub_repos = MagicMock()
+    stub_repos.playlists.get_by_id.return_value = MagicMock()
+    stub_repos.playlists.update.return_value = True
+    stub_repos.playlists.add_tracks.return_value = 2
+    stub_repos.playlists.add_track.return_value = True
+    stub_repos.playlists.reorder_track.return_value = True
+    stub_repos.playlists.remove_track.return_value = True
+    stub_repos.playlists.clear.return_value = True
+    stub_repos.playlists.delete.return_value = True
+    return stub_repos
+
+
+@pytest.mark.parametrize(
+    ("call", "expected"),
+    [
+        (lambda **kw: update_playlist(6, UpdatePlaylistRequest(name="New"), **kw),
+         {"type": "playlist_updated", "data": {"playlist_id": 6, "action": "renamed"}}),
+        (lambda **kw: add_tracks_to_playlist(6, AddTracksRequest(track_ids=[1, 2]), **kw),
+         {"type": "playlist_updated", "data": {"playlist_id": 6, "action": "track_added"}}),
+        (lambda **kw: add_track_to_playlist(6, AddTrackRequest(track_id=1, position=0), **kw),
+         {"type": "playlist_updated", "data": {"playlist_id": 6, "action": "track_added"}}),
+        (lambda **kw: reorder_playlist_track(6, ReorderTrackRequest(from_index=0, to_index=1), **kw),
+         {"type": "playlist_updated", "data": {"playlist_id": 6, "action": "reordered"}}),
+        (lambda **kw: remove_track_from_playlist(6, 1, **kw),
+         {"type": "playlist_updated", "data": {"playlist_id": 6, "action": "track_removed"}}),
+        (lambda **kw: clear_playlist(6, **kw),
+         {"type": "playlist_updated", "data": {"playlist_id": 6, "action": "cleared"}}),
+        (lambda **kw: delete_playlist(6, **kw),
+         {"type": "playlist_deleted", "data": {"playlist_id": 6}}),
+    ],
+    ids=["rename", "add-tracks", "add-track", "reorder", "remove-track", "clear", "delete"],
+)
+async def test_each_mutating_handler_broadcasts_its_frame(call, expected):
+    manager = _manager()
+
+    await call(repos=_stub_repos_that_succeed(), connection_manager=manager)
+
+    manager.broadcast.assert_awaited_once_with(expected)
