@@ -92,8 +92,10 @@ def test_the_plan_does_not_shave_peaks():
 def test_a_near_silent_file_does_not_plan_more_than_the_renderer_will_apply():
     """A 1.7 s clip peaking at -65 dBFS fingerprints at about -93 LUFS: free headroom is
     huge and the 60% pull toward -14 LUFS asked for +47 dB. The renderer clamps to
-    MAX_NORMALIZATION_GAIN_DB; the plan now says the same thing."""
-    assert _gain(-92.6, 20.7) == pytest.approx(MAX_NORMALIZATION_GAIN_DB)
+    MAX_NORMALIZATION_GAIN_DB; the plan never asks for more. Since the silence floor
+    moved into the plan (#6356) a source this quiet is not lifted at all."""
+    assert 0.0 <= _gain(-92.6, 20.7) <= MAX_NORMALIZATION_GAIN_DB
+    assert _gain(-92.6, 20.7) == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -175,3 +177,29 @@ class TestWideMastersAreNotCreditedPhantomHeadroom:
         planned = targets["target_lufs"] - targets["source_lufs"]
 
         assert planned - true_headroom <= CREST_BUDGET_DB + 0.75
+
+
+class TestSilenceFloor:
+    """A near-silent source is not lifted (#5551/#6108), on every path since #6356."""
+
+    def test_no_lift_at_or_below_the_floor(self):
+        from auralis.dsp.utils.adaptive import SILENCE_FLOOR_LUFS
+
+        for lufs in (SILENCE_FLOOR_LUFS, -60.0, -93.0):
+            assert plan_level(lufs, 15.0)[0] == pytest.approx(lufs)
+
+    def test_lift_fades_in_continuously_across_the_knee(self):
+        from auralis.dsp.utils.adaptive import SILENCE_FLOOR_LUFS, SILENCE_KNEE_DB
+
+        # The TARGET rises with the source and never steps; the lift itself may dip at
+        # the top of the knee, where the wanted 60% pull shrinks as the source rises.
+        levels = [SILENCE_FLOOR_LUFS - 1 + (SILENCE_KNEE_DB + 2) * i / 700 for i in range(701)]
+        targets = [plan_level(lufs, 15.0)[0] for lufs in levels]
+        assert all(b >= a for a, b in zip(targets, targets[1:]))
+        assert max(b - a for a, b in zip(targets, targets[1:])) < 0.25
+
+    def test_above_the_knee_the_plan_is_ungated(self):
+        assert plan_level(-40.0, 15.0)[0] == pytest.approx(-40.0 + 0.6 * (-14.0 + 40.0))
+
+    def test_an_attenuation_is_never_gated(self):
+        assert plan_level(-6.0, 9.0)[0] < -6.0

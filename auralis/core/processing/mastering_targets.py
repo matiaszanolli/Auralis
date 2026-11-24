@@ -19,13 +19,14 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
-from ...dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB
+from ...dsp.utils.adaptive import MAX_NORMALIZATION_GAIN_DB, SILENCE_FLOOR_LUFS, SILENCE_KNEE_DB
 from ...dsp.utils.loudness_targets import (
     DEFAULT_TARGET_LUFS,
     OUTPUT_PEAK_CEILING_DB,
     STREAMING_TARGET_LUFS,
 )
 from ..utils import fingerprint_default
+from .cross_dimensional_guard import smooth_gate
 from .parameter_generator_eq import eq_curve_from_fingerprint
 
 # The fingerprint's `lufs` is a K-weighted-style RMS proxy: 20*log10(rms) - 0.691.
@@ -122,9 +123,18 @@ def plan_level(
     The peak is the per-channel one the limiter sees, not the fingerprint's mono-mix peak:
     ``phase_correlation`` lifts it by ``channel_peak_offset_db`` so a wide master is not
     credited with headroom it does not have (#6337).
+
+    Near-silence is not lifted: a boost fades out across the renderer's silence
+    floor (``SILENCE_FLOOR_LUFS`` plus the ``SILENCE_KNEE_DB`` knee, #5551/#6108),
+    which raising a noise floor by up to 24 dB used to bypass once every render path
+    carried a track-level source loudness (#6356). The plan reads the fingerprint's
+    proxy, ~3-4 dB below the meter on stereo programme, so the fade sits that much
+    higher in metered terms: it errs toward not lifting. An attenuation is never gated.
     """
     wanted_gain = (current_lufs * 0.4 + STREAMING_TARGET_LUFS * 0.6) - current_lufs
     peak_dbfs = current_lufs + _PROXY_OFFSET_DB + current_crest + channel_peak_offset_db(phase_correlation)
     headroom = max(0.0, OUTPUT_PEAK_CEILING_DB - peak_dbfs)
     gain = min(wanted_gain, headroom + CREST_BUDGET_DB, MAX_NORMALIZATION_GAIN_DB)
+    if gain > 0.0:
+        gain *= smooth_gate(current_lufs, SILENCE_FLOOR_LUFS, SILENCE_FLOOR_LUFS + SILENCE_KNEE_DB)
     return current_lufs + gain, current_crest - max(0.0, gain - headroom)
