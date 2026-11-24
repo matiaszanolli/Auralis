@@ -1,11 +1,12 @@
 # Auralis Documentation
 
-**Auralis** is a music player with real-time audio enhancement, shipped as an Electron desktop
-app. Product version is the source of truth in [`auralis/version.py`](../auralis/version.py).
+**Auralis** is a local music player with real-time automatic mastering, shipped as an Electron
+desktop app. The product version's source of truth is [`auralis/version.py`](../auralis/version.py).
 
-This is the developer documentation hub. It is organized around a small, **maintained** set of
-architecture and subsystem docs — point-in-time history (phases, sessions, audits, fixes) lives
-in [`archive/`](archive/) and is **not** current reference.
+This hub indexes the **maintained** documentation: architecture, subsystem deep-dives, and
+development, release and user guides. Everything listed here describes the code as it is now.
+Point-in-time material (plans, analyses, fix write-ups, superseded guides) lives in
+[`archive/`](archive/) and is not current reference.
 
 ---
 
@@ -13,112 +14,116 @@ in [`archive/`](archive/) and is **not** current reference.
 
 | If you want to… | Read |
 |-----------------|------|
-| Find ongoing milestone requirements or draft a PRD | [Product requirements](prd/README.md) |
-| Understand current recovery status | [audits/AUDIT_RECOVERY_2026-07-24.md](audits/AUDIT_RECOVERY_2026-07-24.md) |
-| Continue the desktop UI migration | [audits/UI_THEME_UNIFICATION_2026-07-25.md](audits/UI_THEME_UNIFICATION_2026-07-25.md) |
-| Prepare or assess v1.5.1 | [releases/RELEASE_NOTES_1_5_1.md](releases/RELEASE_NOTES_1_5_1.md) · [release checklist](releases/RELEASE_CHECKLIST_1_5_1.md) |
+| Use the app | [User guide](getting-started/USER_GUIDE.md) |
+| Set up a development environment | [FIRST_TIME_SETUP.md](../FIRST_TIME_SETUP.md) |
+| Ship a change | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Understand the system at a glance | [architecture/overview.md](architecture/overview.md) |
-| See how a play request flows end to end | [architecture/data-flow.md](architecture/data-flow.md) |
-| Find where code lives on disk | [architecture/module-map.md](architecture/module-map.md) |
-| Set up your environment and ship a change | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Follow a play request end to end | [architecture/data-flow.md](architecture/data-flow.md) |
+| Find where code lives | [architecture/module-map.md](architecture/module-map.md) |
+| Know what blocks the v1.5.1 release | [release checklist](releases/RELEASE_CHECKLIST_1_5_1.md) · [release notes](releases/RELEASE_NOTES_1_5_1.md) |
+| See what is planned | [MASTER_ROADMAP.md](MASTER_ROADMAP.md) · [product requirements](prd/README.md) |
 
 ---
 
 ## Architecture
 
-The spine of the developer docs — read these first.
-
-- **[Overview](architecture/overview.md)** — the four layers, what makes Auralis distinctive,
-  project-wide invariants, and the source-of-truth registry.
-- **[Data Flow](architecture/data-flow.md)** — enhanced playback, library scan/fingerprinting,
-  and REST browse, traced end to end with file references.
-- **[Module Map](architecture/module-map.md)** — the file-level layout of every layer.
-
----
+- **[Overview](architecture/overview.md):** the four layers, the design rules (analysis is
+  whole-track, rendering is per chunk), project-wide invariants, and the source-of-truth registry.
+- **[Data flow](architecture/data-flow.md):** enhanced and normal playback, library scan and
+  fingerprinting, and REST browse, traced through the code.
+- **[Module map](architecture/module-map.md):** the file-level layout of every layer.
+- **[ARCHITECTURE.md](../ARCHITECTURE.md):** naming and service conventions (Processor, Service,
+  Manager, Repository, Factory, Worker), dependency injection, and the coordinator-plus-mixin split.
 
 ## Subsystem deep-dives
 
-Authoritative, code-verified guides to the major subsystems. Each ends with a "where to start
-reading" list.
+Each one ends with a "where to start reading" list.
 
 | Subsystem | What it covers |
 |-----------|----------------|
-| **[DSP / Audio Engine](subsystems/dsp-engine.md)** | HybridProcessor, mode processors, SimpleMastering, DSP primitives, Rust DSP, chunked streaming, the audio invariants |
-| **[Fingerprinting & Analysis](subsystems/fingerprinting.md)** | The 25 dimensions, extraction, `.25d` storage, similarity search, background scheduling, quality/genre |
-| **[Backend API & WebSocket](subsystems/backend-api.md)** | App assembly, middleware, routers, the WS protocol, chunk orchestration, schemas, concurrency |
-| **[Frontend](subsystems/frontend.md)** | App shell, Redux state, hooks, API/WS clients, design system, the Web Audio playback pipeline |
+| **[DSP engine](subsystems/dsp-engine.md)** | `HybridProcessor` and its `process()` contract, the track-level mastering plan, the mode processors, DSP stages, the offline SimpleMastering CLI, and the audio invariants |
+| **[Fingerprinting](subsystems/fingerprinting.md)** | The 25 dimensions, whole-track extraction in Rust, `.25d` sidecars, the two fingerprint queues, similarity and the K-NN graph, quality and genre analysis |
+| **[Player](subsystems/player.md)** | The Python playback engine, its state model and locking, the queue and gapless engine, and how the backend's `PlayerState` relates to it |
+| **[Library](subsystems/library.md)** | `LibraryDatabase`, the models, the 12 repositories and their eager-loading rules, migrations, and the scanner |
+| **[Backend API](subsystems/backend-api.md)** | App startup, middleware, the 20 routers, chunk orchestration, processor leases, executors, and errors |
+| **[Frontend](subsystems/frontend.md)** | Providers and app shell, Redux slices, hooks, REST and WebSocket clients, design system, and the Web Audio playback pipeline |
 
-> More subsystems (player, library/repositories, I/O, services, learning) are documented inline
-> in the code and summarized in the [module map](architecture/module-map.md). Deep-dives for
-> them are the natural next expansion of this set.
+## Protocols and features
 
----
+- [WebSocket protocol](../auralis-web/backend/WEBSOCKET_API.md): every message type in both
+  directions, plus heartbeats, rate limits and error codes.
+- [Backend configuration](../auralis-web/backend/CONFIG.md): every environment variable the
+  backend reads.
+- [Chunk and cache architecture](features/cache-system/CHUNK_AND_CACHE_ARCHITECTURE.md): chunk
+  geometry, cache keys, invalidation and the reaper.
+- [Artwork](features/ARTWORK.md): album covers and artist images.
+- [Rust DSP crate](features/RUST_DSP_STATUS.md): what `vendor/auralis-dsp` exposes and how it is
+  built.
+- [Security model](security/SECURITY_MODEL.md): the threat model and every defense of the
+  local API.
 
-## Development reference
+## Frontend
 
-Focused guides that back up [CONTRIBUTING.md](CONTRIBUTING.md):
+- [Frontend docs index](frontend/README.md)
+- [UI style guide](UI_STYLE_GUIDE.md): the visual language, matched to the design tokens.
+- [Player and enhancement pane](frontend/PLAYER_ENHANCEMENT_ARCHITECTURE.md)
+- [Frontend testing commands](frontend/testing/TESTING_COMMANDS.md)
 
-- [development/DEVELOPMENT_SETUP_BACKEND.md](development/DEVELOPMENT_SETUP_BACKEND.md) —
-  backend environment
-- [development/DEVELOPMENT_SETUP_FRONTEND.md](development/DEVELOPMENT_SETUP_FRONTEND.md) —
-  frontend environment
-- [development/DEVELOPMENT_STANDARDS.md](development/DEVELOPMENT_STANDARDS.md) — coding
-  standards (Python & TypeScript)
-- [development/TESTING_GUIDELINES.md](development/TESTING_GUIDELINES.md) — test quality
-  standards (**mandatory**)
-- [development/TEST_EXECUTION_GUIDE.md](development/TEST_EXECUTION_GUIDE.md) — running the
-  suites
-- [development/REPOSITORY_PATTERN.md](development/REPOSITORY_PATTERN.md) — the DB access
-  pattern
-- [development/API_DESIGN_GUIDELINES.md](development/API_DESIGN_GUIDELINES.md) — REST/API
-  conventions
+## Development
 
-Protocol & feature references:
+| Guide | Covers |
+|-------|--------|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Ground rules, branches and commits, testing, CI gates, pull requests |
+| [DEVELOPMENT_SETUP_BACKEND.md](development/DEVELOPMENT_SETUP_BACKEND.md) | Running the backend alone, env vars, debugging, tooling |
+| [DEVELOPMENT_SETUP_FRONTEND.md](development/DEVELOPMENT_SETUP_FRONTEND.md) | Running the renderer, debugging, type checks, Vitest |
+| [DEVELOPMENT_STANDARDS.md](development/DEVELOPMENT_STANDARDS.md) | Every enforced rule and the CI gate behind it |
+| [TESTING_GUIDELINES.md](development/TESTING_GUIDELINES.md) | How to write tests (**mandatory**) |
+| [TEST_EXECUTION_GUIDE.md](development/TEST_EXECUTION_GUIDE.md) | How to run tests, markers, what CI runs, the failure baselines |
+| [REPOSITORY_PATTERN.md](development/REPOSITORY_PATTERN.md) | How to add or change a repository |
+| [API_DESIGN_GUIDELINES.md](development/API_DESIGN_GUIDELINES.md) | REST conventions the routers follow |
+| [BUILD_QUICK_REFERENCE.md](development/BUILD_QUICK_REFERENCE.md) | Packaging and the release pipeline |
+| [STREAMLINING_PLAN.md](development/STREAMLINING_PLAN.md) | Retiring duplicate implementations, and the variation that is intentional |
 
-- [../auralis-web/backend/WEBSOCKET_API.md](../auralis-web/backend/WEBSOCKET_API.md) — WS
-  message reference
-- [archive/guides/](archive/guides/) — feature-level design notes and integration guides
-  *(historical; #4984 archived this out of the current tree — most entries predate the current
-  architecture. `UI_DESIGN_GUIDELINES.md` was archived alongside them in #6255 — its
-  component inventory predated the streamlining; the live UI rules are CLAUDE.md's Patterns/
-  Principles and [UI_STYLE_GUIDE.md](UI_STYLE_GUIDE.md). The `LibraryManager` migration guide
-  went to `archive/development-history/` once the class was gone)*
-- [features/](features/) — per-feature documentation
+## Releases and planning
 
----
+- [MASTER_ROADMAP.md](MASTER_ROADMAP.md): current state, what shipped, and the open backlog by theme.
+- [releases/CHANGELOG.md](releases/CHANGELOG.md): the project history.
+- [releases/RELEASE_GUIDE.md](releases/RELEASE_GUIDE.md) and
+  [releases/VERSIONING_STRATEGY.md](releases/VERSIONING_STRATEGY.md): how releases are cut and
+  versioned.
+- [prd/](prd/README.md): product requirements for milestones and workflow changes.
+- [audits/](audits/): dated audit reports. The `/audit-*` commands write them, and
+  [AUDIT_RECOVERY_2026-07-24.md](audits/AUDIT_RECOVERY_2026-07-24.md) defines the v1.5.1
+  recovery scope.
+
+The source tree identifies as **v1.5.1**, an unreleased recovery milestone; no v1.5.1 tag or
+binaries exist. The latest tagged source version is `v1.2.1-beta.1`, and the latest release with
+binaries is `v1.2.0-beta.2`.
 
 ## Also at the repo root
 
-- [../README.md](../README.md) — user-facing project readme and downloads
-- [../CLAUDE.md](../CLAUDE.md) — condensed technical reference and codebase map
-- [../ARCHITECTURE.md](../ARCHITECTURE.md) — service & naming conventions (repository pattern, DI, Processor/Service/Manager/Repository/Factory)
-- [../FIRST_TIME_SETUP.md](../FIRST_TIME_SETUP.md) — end-user setup
-
----
-
-## Release status
-
-The source tree identifies as **v1.5.1**, an unreleased recovery milestone. Do not infer
-release readiness from the version number: no v1.5.1 tag or binaries exist, and the
-[release checklist](releases/RELEASE_CHECKLIST_1_5_1.md) remains blocked by the four
-high-severity working-state findings. The latest tagged source version is
-`v1.2.1-beta.1`; the latest tagged version documented here with downloadable binaries is
-`v1.2.0-beta.2`.
-
----
+- [README.md](../README.md): the project overview, status and downloads.
+- [CLAUDE.md](../CLAUDE.md): the condensed technical reference for contributors and coding
+  agents (commands, codebase map, invariants, CI gates). [AGENTS.md](../AGENTS.md) points to it.
 
 ## Archive
 
-[`archive/`](archive/) holds ~300 historical documents (phases, sessions, completed audits,
-fixes, refactoring reports). **Reference only — do not treat any of it as current.** See
+[`archive/`](archive/) holds about 400 historical documents. They are reference only; see
 [archive/README.md](archive/README.md).
 
 ---
 
 ## Conventions for these docs
 
-- **Evergreen, not dated.** Living docs describe how the code works *now*. Point-in-time
+- **Evergreen.** Living docs describe the code as it is now, in the present tense, with no
+  "last updated" banners or history narration. Git carries the history. Point-in-time
   write-ups go in `archive/`.
-- **Cite the code.** Link to `path:line` so claims are checkable and drift is visible.
-- **When docs and code disagree, code wins** — see the source-of-truth registry in
+- **Cite symbols, not line numbers.** Write `<path>.py::<Symbol>`. Line anchors rot on the
+  next edit, and the path-reference gate rejects them.
+- **Name deleted code in italics.** A backticked path must exist; the gate checks it.
+- **One owner per fact.** Link to the doc that owns a fact instead of restating it.
+- **When docs and code disagree, the code wins.** See the source-of-truth registry in
   [architecture/overview.md](architecture/overview.md#source-of-truth-registry).
+
+The path-reference gate (`.claude/commands/_audit-validate.sh`, run by `path-references.yml`)
+enforces the path, anchor and link rules on every living doc.
