@@ -35,7 +35,7 @@ from core import stream_normal  # noqa: E402
 TRACK_ID = 1
 SAMPLE_RATE = 44100
 DURATION_S = 60
-CHUNK_DURATION = 15.0
+from core.chunk_boundaries import CHUNK_DURATION  # noqa: E402  (#6496)
 
 
 @pytest.fixture(scope="module")

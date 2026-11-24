@@ -20,11 +20,16 @@ import tempfile
 import numpy as np
 import pytest
 
-# Constants from chunked processor
-# NOTE: These are hardcoded to match auralis-web/backend/chunked_processor.py
-# If chunked_processor.py changes these values, update here as well
-CHUNK_DURATION = 10.0  # 10 seconds per chunk (Phase 2 reduced from 30s)
-OVERLAP_DURATION = 3.0  # 3 seconds overlap
+# The real chunk geometry, from its sole authority (#6496): local copies (10 s / 3 s) had drifted
+# from the engine's 15 s / 10 s / 5 s, so no "boundary" here sat on a real boundary. Counts come
+# from content_chunk_count(), the overlap-aware counter (#4124). conftest.py puts the backend on
+# sys.path.
+from core.chunk_boundaries import (  # noqa: E402
+    CHUNK_DURATION,
+    CHUNK_INTERVAL,
+    OVERLAP_DURATION,
+    content_chunk_count,
+)
 
 
 # ============================================================================
@@ -93,20 +98,20 @@ def create_processor(filepath, track_id=1, preset="adaptive", intensity=1.0):
 @pytest.mark.slow
 def test_audio_exactly_one_chunk_duration(temp_audio_dir):
     """
-    BOUNDARY: Audio duration = CHUNK_DURATION exactly (30.0s).
+    BOUNDARY: Audio duration = CHUNK_DURATION exactly.
 
     Should create exactly 1 chunk with no overlap needed.
     """
 
-    duration = CHUNK_DURATION  # Exactly 30.0s
+    duration = CHUNK_DURATION
     audio = create_test_audio(duration)
-    filepath = os.path.join(temp_audio_dir, "exact_30s.wav")
+    filepath = os.path.join(temp_audio_dir, "exact_one_chunk.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
     # Should have exactly 1 chunk
-    assert processor.total_chunks == 1, (
+    assert processor.total_chunks == content_chunk_count(duration), (
         f"Audio of exactly {CHUNK_DURATION}s should create 1 chunk, "
         f"got {processor.total_chunks}"
     )
@@ -121,12 +126,12 @@ def test_audio_exactly_one_chunk_duration(temp_audio_dir):
 @pytest.mark.slow
 def test_audio_exactly_two_chunks_duration(temp_audio_dir):
     """
-    BOUNDARY: Audio duration = 2 * CHUNK_DURATION exactly (60.0s).
+    BOUNDARY: Audio duration = 2 * CHUNK_DURATION exactly.
 
     Should create exactly 2 chunks with overlap.
     """
 
-    duration = 2 * CHUNK_DURATION  # Exactly 60.0s
+    duration = 2 * CHUNK_DURATION
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "exact_60s.wav")
     save_test_audio(filepath, audio)
@@ -134,7 +139,7 @@ def test_audio_exactly_two_chunks_duration(temp_audio_dir):
     processor = create_processor(filepath)
 
     # Should have exactly 2 chunks
-    assert processor.total_chunks == 2, (
+    assert processor.total_chunks == content_chunk_count(duration), (
         f"Audio of exactly {2 * CHUNK_DURATION}s should create 2 chunks, "
         f"got {processor.total_chunks}"
     )
@@ -144,19 +149,19 @@ def test_audio_exactly_two_chunks_duration(temp_audio_dir):
 @pytest.mark.slow
 def test_audio_exactly_three_chunks_duration(temp_audio_dir):
     """
-    BOUNDARY: Audio duration = 3 * CHUNK_DURATION exactly (90.0s).
+    BOUNDARY: Audio duration = 3 * CHUNK_DURATION exactly.
 
     Should create exactly 3 chunks.
     """
 
-    duration = 3 * CHUNK_DURATION  # Exactly 90.0s
+    duration = 3 * CHUNK_DURATION
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "exact_90s.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 3, (
+    assert processor.total_chunks == content_chunk_count(duration), (
         f"Audio of exactly {3 * CHUNK_DURATION}s should create 3 chunks, "
         f"got {processor.total_chunks}"
     )
@@ -165,22 +170,19 @@ def test_audio_exactly_three_chunks_duration(temp_audio_dir):
 @pytest.mark.boundary
 def test_audio_one_sample_over_chunk_boundary(temp_audio_dir):
     """
-    BOUNDARY: Audio = CHUNK_DURATION + 1 sample (30.000023s at 44.1kHz).
+    BOUNDARY: Audio = CHUNK_DURATION + 1 sample.
 
     Should create 2 chunks (crosses boundary by smallest possible amount).
     """
 
     sample_rate = 44100
-    duration = CHUNK_DURATION + (1 / sample_rate)  # 30s + 1 sample
+    duration = CHUNK_DURATION + (1 / sample_rate)
     audio = create_test_audio(duration, sample_rate)
     filepath = os.path.join(temp_audio_dir, "one_sample_over.wav")
     save_test_audio(filepath, audio, sample_rate)
 
     processor = create_processor(filepath)
-
-    # Real engine CHUNK_DURATION is 15s, so this ~10s file is a single
-    # content-carrying chunk (#4124); the local stale constant says 10s.
-    assert processor.total_chunks == 1, (
+    assert processor.total_chunks == content_chunk_count(duration), (
         f"Audio {duration}s should create 1 chunk, "
         f"got {processor.total_chunks}"
     )
@@ -189,13 +191,13 @@ def test_audio_one_sample_over_chunk_boundary(temp_audio_dir):
 @pytest.mark.boundary
 def test_audio_one_sample_under_chunk_boundary(temp_audio_dir):
     """
-    BOUNDARY: Audio = CHUNK_DURATION - 1 sample (29.999977s at 44.1kHz).
+    BOUNDARY: Audio = CHUNK_DURATION - 1 sample.
 
     Should create 1 chunk (doesn't cross boundary).
     """
 
     sample_rate = 44100
-    duration = CHUNK_DURATION - (1 / sample_rate)  # 30s - 1 sample
+    duration = CHUNK_DURATION - (1 / sample_rate)
     audio = create_test_audio(duration, sample_rate)
     filepath = os.path.join(temp_audio_dir, "one_sample_under.wav")
     save_test_audio(filepath, audio, sample_rate)
@@ -203,7 +205,7 @@ def test_audio_one_sample_under_chunk_boundary(temp_audio_dir):
     processor = create_processor(filepath)
 
     # Should have 1 chunk (doesn't cross boundary)
-    assert processor.total_chunks == 1, (
+    assert processor.total_chunks == content_chunk_count(duration), (
         f"Audio {duration}s (CHUNK_DURATION - 1 sample) should create 1 chunk, "
         f"got {processor.total_chunks}"
     )
@@ -212,21 +214,18 @@ def test_audio_one_sample_under_chunk_boundary(temp_audio_dir):
 @pytest.mark.boundary
 def test_audio_at_overlap_boundary(temp_audio_dir):
     """
-    BOUNDARY: Audio = CHUNK_DURATION + OVERLAP_DURATION (33.0s).
+    BOUNDARY: Audio = CHUNK_DURATION + OVERLAP_DURATION.
 
     Tests chunk creation at overlap boundary.
     """
 
-    duration = CHUNK_DURATION + OVERLAP_DURATION  # 33.0s
+    duration = CHUNK_DURATION + OVERLAP_DURATION
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "at_overlap.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
-
-    # Real engine CHUNK_DURATION is 15s, so this ~13s file is a single
-    # content-carrying chunk (#4124).
-    assert processor.total_chunks == 1, (
+    assert processor.total_chunks == content_chunk_count(duration), (
         f"Audio of {duration}s should create 1 chunk, got {processor.total_chunks}"
     )
 
@@ -244,44 +243,34 @@ def test_last_chunk_very_short(temp_audio_dir):
     Should handle very short last chunk gracefully.
     """
 
-    duration = CHUNK_DURATION + 0.1  # 30.1s (last chunk = 0.1s)
+    duration = CHUNK_DURATION + 0.1
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "short_last.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
-
-    # Real engine CHUNK_DURATION is 15s, so this ~10.1s file is a single
-    # content-carrying chunk (#4124).
-    assert processor.total_chunks == 1
-
+    assert processor.total_chunks == content_chunk_count(duration)
     # Process all chunks
     for i in range(processor.total_chunks):
         processor.process_chunk(i)
 
     # Should complete without error
-    assert processor.total_chunks == 1
-
-
+    assert processor.total_chunks == content_chunk_count(duration)
 @pytest.mark.boundary
 def test_last_chunk_half_of_regular(temp_audio_dir):
     """
-    BOUNDARY: Last chunk = CHUNK_DURATION / 2 (15s).
+    BOUNDARY: Last chunk = CHUNK_DURATION / 2.
 
     Common case: last chunk is about half size.
     """
 
-    duration = CHUNK_DURATION + (CHUNK_DURATION / 2)  # 45.0s
+    duration = CHUNK_DURATION + (CHUNK_DURATION / 2)
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "half_last.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
-
-    # Real engine CHUNK_DURATION is 15s, so this ~15s file is a single
-    # content-carrying chunk (#4124).
-    assert processor.total_chunks == 1
-
+    assert processor.total_chunks == content_chunk_count(duration)
     # Process and verify the chunk
     for i in range(processor.total_chunks):
         processor.process_chunk(i)
@@ -290,30 +279,28 @@ def test_last_chunk_half_of_regular(temp_audio_dir):
 @pytest.mark.boundary
 def test_last_chunk_almost_full(temp_audio_dir):
     """
-    BOUNDARY: Last chunk = CHUNK_DURATION - 1s (29s).
+    BOUNDARY: Last chunk = CHUNK_DURATION - 1s.
 
     Last chunk almost as long as regular chunk.
     """
 
-    duration = CHUNK_DURATION + (CHUNK_DURATION - 1)  # 59.0s
+    duration = CHUNK_DURATION + (CHUNK_DURATION - 1)
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "almost_full_last.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 2
-
-
+    assert processor.total_chunks == content_chunk_count(duration)
 @pytest.mark.boundary
 def test_multiple_chunks_with_tiny_remainder(temp_audio_dir):
     """
-    BOUNDARY: Many chunks + tiny last chunk (0.01s).
+    BOUNDARY: Many chunks + tiny last chunk.
 
     Tests handling of negligible final chunk.
     """
 
-    duration = 3 * CHUNK_DURATION + 0.01  # 90.01s
+    duration = 3 * CHUNK_DURATION + 0.01
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "tiny_remainder.wav")
     save_test_audio(filepath, audio)
@@ -322,47 +309,38 @@ def test_multiple_chunks_with_tiny_remainder(temp_audio_dir):
 
     # Real dur ~30.01s: chunk0 [0,15], chunk1 [15,25], chunk2 [25,30.01] —
     # 3 content-carrying chunks (#4124); the tiny remainder lives in chunk2.
-    assert processor.total_chunks == 3
-
-
+    assert processor.total_chunks == content_chunk_count(duration)
 @pytest.mark.boundary
 def test_last_chunk_exactly_overlap_duration(temp_audio_dir):
     """
-    BOUNDARY: Last chunk duration = OVERLAP_DURATION exactly (3.0s).
+    BOUNDARY: Last chunk duration = OVERLAP_DURATION exactly.
 
     Last chunk same size as overlap region.
     """
 
-    duration = CHUNK_DURATION + OVERLAP_DURATION  # 33.0s
+    duration = CHUNK_DURATION + OVERLAP_DURATION
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "last_equals_overlap.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
-
-    # Real engine CHUNK_DURATION is 15s, so this ~13s file is a single
-    # content-carrying chunk (#4124).
-    assert processor.total_chunks == 1
-
-
+    assert processor.total_chunks == content_chunk_count(duration)
 @pytest.mark.boundary
 def test_last_chunk_between_overlap_and_full(temp_audio_dir):
     """
-    BOUNDARY: Last chunk = OVERLAP_DURATION + 5s (8s).
+    BOUNDARY: Last chunk = OVERLAP_DURATION + 5s.
 
     Last chunk larger than overlap but much smaller than full chunk.
     """
 
-    duration = CHUNK_DURATION + (OVERLAP_DURATION + 5)  # 38.0s
+    duration = CHUNK_DURATION + (OVERLAP_DURATION + 5)
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "medium_last.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 2
-
-
+    assert processor.total_chunks == content_chunk_count(duration)
 # ============================================================================
 # 3. Single Chunk Edge Cases (6 tests)
 # ============================================================================
@@ -375,14 +353,14 @@ def test_single_chunk_minimum_duration(temp_audio_dir):
     Shortest possible audio that's still valid.
     """
 
-    duration = 0.1  # 100ms
+    duration = 0.1
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "min_single.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 1
+    assert processor.total_chunks == content_chunk_count(duration)
     assert processor.total_duration < CHUNK_DURATION
 
 
@@ -401,62 +379,56 @@ def test_single_chunk_one_second(temp_audio_dir):
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 1
+    assert processor.total_chunks == content_chunk_count(duration)
     assert abs(processor.total_duration - 1.0) < 0.1
 
 
 @pytest.mark.boundary
 def test_single_chunk_ten_seconds(temp_audio_dir):
     """
-    BOUNDARY: Audio = 10.0s (single chunk, 1/3 of CHUNK_DURATION).
+    BOUNDARY: Audio = one CHUNK_INTERVAL.
 
     Medium short audio.
     """
 
-    duration = 10.0
+    duration = CHUNK_INTERVAL
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "ten_seconds.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 1
-
-
+    assert processor.total_chunks == content_chunk_count(duration)
 @pytest.mark.boundary
 def test_single_chunk_twenty_seconds(temp_audio_dir):
     """
-    BOUNDARY: Audio = 20.0s (2x CHUNK_DURATION = 2 chunks).
-
-    With 10s chunks, 20s audio creates exactly 2 chunks.
+    BOUNDARY: Audio = two CHUNK_INTERVALs.
     """
 
-    duration = 20.0
+    duration = 2 * CHUNK_INTERVAL
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "twenty_seconds.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 2  # 20s / 10s = 2 chunks
+    assert processor.total_chunks == content_chunk_count(duration)
 
 
 @pytest.mark.boundary
 def test_single_chunk_just_under_boundary(temp_audio_dir):
     """
-    BOUNDARY: Audio = 9.9s (single chunk, just under CHUNK_DURATION).
-
-    Maximum single chunk size (just under 10s boundary).
+    BOUNDARY: Audio just under CHUNK_DURATION: the longest single-chunk file.
     """
 
-    duration = 9.9
+    duration = CHUNK_DURATION - 0.1
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "just_under.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 1  # 9.9s < 10s = 1 chunk
+    assert processor.total_chunks == content_chunk_count(duration) == 1
 
 
 @pytest.mark.boundary
@@ -464,12 +436,12 @@ def test_single_chunk_processing_preserves_duration(temp_audio_dir):
     """
     BOUNDARY: Single chunk processing must preserve exact duration.
 
-    With 10s chunks, use 5s audio to ensure single chunk.
+    A file shorter than one chunk is a single chunk.
     No crossfading occurs, so duration must be perfect.
     """
     from auralis.io.unified_loader import load_audio
 
-    duration = 5.0  # < 10s CHUNK_DURATION, ensures single chunk
+    duration = 5.0
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "preserve_duration.wav")
     save_test_audio(filepath, audio)
@@ -477,7 +449,7 @@ def test_single_chunk_processing_preserves_duration(temp_audio_dir):
     processor = create_processor(filepath)
 
     # Verify it's actually a single chunk
-    assert processor.total_chunks == 1, f"Expected 1 chunk, got {processor.total_chunks}"
+    assert processor.total_chunks == content_chunk_count(duration), f"Expected 1 chunk, got {processor.total_chunks}"
 
     # Process the single chunk
     processor.process_chunk(0)
@@ -503,12 +475,12 @@ def test_single_chunk_processing_preserves_duration(temp_audio_dir):
 @pytest.mark.slow
 def test_audio_one_hour_duration(temp_audio_dir):
     """
-    BOUNDARY: Audio = 1 hour (3600s, ~120 chunks).
+    BOUNDARY: Audio = 1 hour.
 
     Tests handling of long audio files.
     """
 
-    duration = 3600.0  # 1 hour
+    duration = 3600.0
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "one_hour.wav")
     save_test_audio(filepath, audio)
@@ -516,8 +488,8 @@ def test_audio_one_hour_duration(temp_audio_dir):
     processor = create_processor(filepath)
 
     # Should create ~120 chunks
-    expected_chunks = int(duration / CHUNK_DURATION) + 1
-    assert processor.total_chunks >= expected_chunks - 1, (
+    expected_chunks = content_chunk_count(duration)
+    assert processor.total_chunks == expected_chunks, (
         f"1 hour audio should create ~{expected_chunks} chunks, "
         f"got {processor.total_chunks}"
     )
@@ -527,20 +499,19 @@ def test_audio_one_hour_duration(temp_audio_dir):
 @pytest.mark.slow
 def test_audio_two_hours_duration(temp_audio_dir):
     """
-    BOUNDARY: Audio = 2 hours (7200s, ~240 chunks).
+    BOUNDARY: Audio = 2 hours.
 
     Tests handling of very long audio.
     """
 
-    duration = 7200.0  # 2 hours
+    duration = 7200.0
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "two_hours.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    expected_chunks = int(duration / CHUNK_DURATION) + 1
-    assert processor.total_chunks >= expected_chunks - 1
+    assert processor.total_chunks == content_chunk_count(duration)
 
 
 @pytest.mark.boundary
@@ -551,7 +522,7 @@ def test_many_chunks_total_duration_preserved(temp_audio_dir):
     With many chunks, cumulative rounding errors shouldn't accumulate.
     """
 
-    duration = 300.0  # 5 minutes = 10 chunks
+    duration = 300.0
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "five_minutes.wav")
     save_test_audio(filepath, audio)
@@ -571,7 +542,7 @@ def test_many_chunks_all_valid(temp_audio_dir):
     No chunk should have invalid start/end times.
     """
 
-    duration = 180.0  # 3 minutes = 6 chunks
+    duration = 180.0
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "three_minutes.wav")
     save_test_audio(filepath, audio)
@@ -596,7 +567,7 @@ def test_many_chunks_no_gaps(temp_audio_dir):
     Every second of audio must be covered by at least one chunk.
     """
 
-    duration = 150.0  # 2.5 minutes = 5 chunks
+    duration = 150.0
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "no_gaps.wav")
     save_test_audio(filepath, audio)
@@ -638,7 +609,7 @@ def test_many_chunks_consistent_size(temp_audio_dir):
     Only last chunk can be different size.
     """
 
-    duration = 120.0  # 2 minutes = 4 chunks
+    duration = 120.0
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "consistent_size.wav")
     save_test_audio(filepath, audio)
@@ -673,14 +644,14 @@ def test_extremely_short_audio_50ms(temp_audio_dir):
     Should handle gracefully without crashing.
     """
 
-    duration = 0.05  # 50ms
+    duration = 0.05
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "50ms.wav")
     save_test_audio(filepath, audio)
 
     try:
         processor = create_processor(filepath)
-        assert processor.total_chunks == 1
+        assert processor.total_chunks == content_chunk_count(duration)
         assert processor.total_duration < 0.1
     except Exception as e:
         pytest.fail(f"50ms audio should not crash: {e}")
@@ -712,12 +683,12 @@ def test_minimum_processable_duration(temp_audio_dir):
 @pytest.mark.boundary
 def test_duration_shorter_than_overlap(temp_audio_dir):
     """
-    BOUNDARY: Audio < OVERLAP_DURATION (< 3s).
+    BOUNDARY: Audio < OVERLAP_DURATION.
 
     Audio shorter than overlap region.
     """
 
-    duration = OVERLAP_DURATION - 0.5  # 2.5s
+    duration = OVERLAP_DURATION - 0.5
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "shorter_than_overlap.wav")
     save_test_audio(filepath, audio)
@@ -725,49 +696,43 @@ def test_duration_shorter_than_overlap(temp_audio_dir):
     processor = create_processor(filepath)
 
     # Should create 1 chunk
-    assert processor.total_chunks == 1
-
-
+    assert processor.total_chunks == content_chunk_count(duration)
 @pytest.mark.boundary
 def test_duration_exactly_overlap_duration(temp_audio_dir):
     """
-    BOUNDARY: Audio = OVERLAP_DURATION exactly (3.0s).
+    BOUNDARY: Audio = OVERLAP_DURATION exactly.
 
     Audio same length as overlap.
     """
 
-    duration = OVERLAP_DURATION  # Exactly 3.0s
+    duration = OVERLAP_DURATION
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "exact_overlap.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 1
-
-
+    assert processor.total_chunks == content_chunk_count(duration)
 @pytest.mark.boundary
 def test_duration_just_over_overlap(temp_audio_dir):
     """
-    BOUNDARY: Audio = OVERLAP_DURATION + 0.1s (3.1s).
+    BOUNDARY: Audio = OVERLAP_DURATION + 0.1s.
 
     Just over overlap duration.
     """
 
-    duration = OVERLAP_DURATION + 0.1  # 3.1s
+    duration = OVERLAP_DURATION + 0.1
     audio = create_test_audio(duration)
     filepath = os.path.join(temp_audio_dir, "just_over_overlap.wav")
     save_test_audio(filepath, audio)
 
     processor = create_processor(filepath)
 
-    assert processor.total_chunks == 1
-
-
+    assert processor.total_chunks == content_chunk_count(duration)
 @pytest.mark.boundary
 def test_single_sample_audio(temp_audio_dir):
     """
-    BOUNDARY: Audio = 1 sample (22.7μs at 44.1kHz).
+    BOUNDARY: Audio = 1 sample.
 
     Absolute minimum: single audio sample.
     """

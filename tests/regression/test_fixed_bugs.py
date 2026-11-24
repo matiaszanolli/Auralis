@@ -40,9 +40,8 @@ class TestChunkProcessingBugs:
         BUG: Overlap > chunk_duration caused duplicate audio (Oct 2025).
         INVARIANT: overlap_duration < chunk_duration / 2
         """
-        # This was tested in boundaries, but regression ensures it stays fixed
-        CHUNK_DURATION = 30.0
-        OVERLAP_DURATION = 3.0  # Was 15.0 in bug
+        # Against the engine's real geometry (#6496): local constants made this assert its own numbers.
+        from core.chunk_boundaries import CHUNK_DURATION, OVERLAP_DURATION
 
         # INVARIANT: Overlap must be less than half chunk duration
         assert OVERLAP_DURATION < CHUNK_DURATION / 2, \

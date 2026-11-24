@@ -14,11 +14,10 @@ Test plan:
 All tests use the real AudioStreamController imported from the backend.
 """
 
-import asyncio
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pytest
@@ -33,9 +32,7 @@ from core.audio_stream_controller import AudioStreamController
 # Helpers
 # ============================================================================
 
-CHUNK_DURATION = 30.0  # seconds per chunk (mock value; loop only uses total_chunks)
-CHUNK_INTERVAL = 10.0  # interval between chunk starts
-OVERLAP_DURATION = 5.0  # skipped from the head of every chunk >= 1 (#4557)
+from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL, OVERLAP_DURATION  # noqa: E402  (#6496)
 TOTAL_CHUNKS = 10
 FAIL_AT_CHUNK = 3      # Zero-based index of the chunk that will fail
 TRACK_ID = 42

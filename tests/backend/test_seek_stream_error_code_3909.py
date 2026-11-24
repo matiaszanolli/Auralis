@@ -24,8 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from core.audio_stream_controller import AudioStreamController
 
-CHUNK_DURATION = 30.0
-CHUNK_INTERVAL = 10.0
+from core.chunk_boundaries import CHUNK_DURATION, CHUNK_INTERVAL  # noqa: E402  (#6496)
 TOTAL_CHUNKS = 10
 TRACK_ID = 42
 PRESET = "adaptive"

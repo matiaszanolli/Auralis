@@ -45,7 +45,7 @@ TRACK_ID = 42
 PRESET = "adaptive"
 INTENSITY = 0.8
 SAMPLE_RATE = 44100
-CHUNK_DURATION = 15.0
+from core.chunk_boundaries import CHUNK_DURATION  # noqa: E402  (#6496)
 TOTAL_CHUNKS = 4
 FILEPATH = "/tmp/fake.wav"
 
