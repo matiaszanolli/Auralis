@@ -2,11 +2,7 @@
 Tests for Main FastAPI Application
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Integration tests for the main FastAPI backend.
-
-NOTE: Multiple API endpoints return 404/503 due to incomplete implementation.
-This file is marked as skipped. See test_api_endpoint_integration.py for
-documented endpoint status and commit 38be81c for details.
+Integration tests for the main FastAPI backend. The whole file runs in CI.
 """
 
 import sys
