@@ -16,7 +16,8 @@ is a thin stub that points here rather than an independent copy (#5027).
 # Set up and launch from the repository root
 # `--python-preference only-managed` or uv silently picks a stale pyenv shim
 uv venv --python-preference only-managed && source .venv/bin/activate
-uv pip install -r requirements.txt
+uv pip install -r requirements.txt                      # runtime only
+uv pip install -e '.[dev]' maturin                       # pytest, mypy, ruff; the Rust build tool
 pnpm --dir auralis-web/frontend install --frozen-lockfile
 pnpm --dir desktop install --frozen-lockfile
 pnpm run dev                                             # Electron, backend :8765, Vite :3000
@@ -28,8 +29,9 @@ python -m pytest -q -m "not slow" tests/auralis/dsp     # A domain (the normal i
 python -m pytest tests/path.py::test_name -vv -s        # Single test
 cd auralis-web/frontend && pnpm run test:memory         # Frontend (2GB heap; OOMs without it)
 
-# Whole backend suite. NOT "~2-3 min" — it is tens of minutes, and these two
-# files HANG when run as whole files, so exclude them exactly like CI does:
+# Whole backend suite. NOT "~2-3 min" — it is tens of minutes. These two files
+# used to hang as whole files; #4781/#5095 fixed both and per-push CI runs them,
+# but the nightly still excludes them, and so should a local whole-suite run:
 python -m pytest -q -m "not slow" \
   --ignore=tests/backend/test_system_api.py \
   --ignore=tests/concurrency/test_thread_safety.py
@@ -38,47 +40,43 @@ python -m pytest -q -m "not slow" \
 mypy auralis/ auralis-web/backend/ --ignore-missing-imports
 cd auralis-web/frontend && pnpm run type-check
 
-# Build Rust DSP (required before first run)
-cd vendor/auralis-dsp && maturin develop
+# Build Rust DSP (required before first run: /api/ready stays 503 without it).
+# `--uv` because a uv venv has no pip, which plain `maturin develop` needs.
+cd vendor/auralis-dsp && maturin develop --uv --release
 ```
 
 ## CI gates and the failure baselines
 
-The backend suite is not green, so both CI gates are **ratchets**: a run is judged
-against a checked-in list of known failures and fails only on failures *not* in
-that list. The list may shrink, never grow. The frontend list is empty since #6076
-(`52929bb09`), so any frontend failure is new; the backend list still has entries.
+The test gates are **ratchets**: a run is judged against a checked-in list of
+known failures and fails only on failures *not* in that list. The list may
+shrink, never grow. All three lists (backend, nightly slow, frontend) are
+**empty**, so any test failure is new. `--strict-stale` also fails a job on a
+listed test that now passes.
 
 | Workflow | Runs | Baseline | Gate script |
 |---|---|---|---|
-| `frontend-test.yml` | `pnpm run test:ci` | `auralis-web/frontend/test-baseline.json` | `auralis-web/frontend/scripts/check-test-baseline.mjs` |
-| `backend-tests.yml` | `pytest --junitxml` | `pytest-baseline.json` | `scripts/check_pytest_baseline.py` |
+| `frontend-test.yml` | `pnpm run test:ci`, then `test:weak` | `auralis-web/frontend/test-baseline.json` | `auralis-web/frontend/scripts/check-test-baseline.mjs --strict-stale` |
+| `backend-tests.yml`, job `pytest` | `pytest --junitxml` | `pytest-baseline.json` | `scripts/check_pytest_baseline.py --strict-stale` |
+| `backend-tests.yml`, job `gates` | weak/zero-assertion, LOC ratchet, breadcrumbs, ruff F401/F811/F841 | `weak-assertions-baseline.json`, `zero-assertions-baseline.json`, `loc-ceilings.json` | `scripts/check_weak_assertions.py`, `check_loc_ratchet.py`, `check_breadcrumbs.py` |
 | `slow-tests.yml` (nightly) | `pytest -m slow --junitxml` | `pytest-slow-baseline.json` | `scripts/check_pytest_baseline.py --baseline` |
-| `frontend-typecheck.yml` | `pnpm run type-check:prod` | — (must be clean) | — |
+| `frontend-typecheck.yml` | `pnpm run type-check:prod` and `type-check` | — (must be clean) | — |
+| `path-references.yml` | `.claude/commands/_audit-validate.sh` | `.claude/commands/_audit-validate-baseline.txt` (empty) | — (exit code decides) |
 
 The test step itself always exits 0; **the baseline step is what decides the
-job**. Both gates also fail on a missing report or 0 collected tests, so a
-crashed runner cannot pass as green.
+job**. Both test gates also fail on a missing report or 0 collected tests, so a
+crashed runner cannot pass as green. Read a failing run's *baseline* step, not
+the test step.
 
-**When you fix a failing test, regenerate the baseline** — otherwise the entry
-lingers and silently re-permits that exact failure:
+**When you fix a listed failure, regenerate the baseline**, or `--strict-stale`
+fails the job. Build a pytest baseline from the **CI junit artifact**
+(`python scripts/check_pytest_baseline.py <junit.xml> --update`), not a local
+run: a different interpreter or dependency set reports spurious failures. The
+frontend baseline is regenerated locally, and `check-installed-deps.mjs`
+refuses to write it unless the installed jsdom/vitest match the lockfile:
 
 ```bash
 cd auralis-web/frontend && pnpm run test:ci && pnpm run test:baseline:update
 ```
-
-Generate a baseline from a **CI artifact**, not a local run — a baseline built
-against a different interpreter or dependency set reports spurious new failures.
-
-`pytest-baseline.json` **is tracked** (count the file — the entry count moves with every fix; first regenerated
-2026-08-19 in `7c03249e`) — the "it does not exist yet" note that stood here was true when
-written and is not any more (#4974). `backend-tests.yml` still fails, but on the
-ratchet doing its job rather than on a missing file: the ratchet rejects
-failures absent from the list. Read the failing run's *baseline* step, not the
-pytest step, to see which. #5091 (69 entries whose tests now pass, silently
-re-permitted) is now CLOSED — `check_pytest_baseline.py --strict-stale` is wired
-into `backend-tests.yml` and fails the job on any stale baseline entry too, not
-just on new unlisted failures.
 
 Do not add a `version:` input to `pnpm/action-setup`: every `package.json` here
 declares `packageManager`, and supplying both makes the action hard-error before
@@ -91,11 +89,14 @@ zero tests.
 ```
 auralis/                          Core Python audio engine
 ├── core/                         Processing pipeline
-│   ├── hybrid_processor.py         HybridProcessor — main DSP pipeline
-│   ├── simple_mastering.py         SimpleMastering algorithm
-│   ├── processing/                 Mode processors (adaptive, continuous, hybrid)
+│   ├── hybrid_processor.py         HybridProcessor — the app's DSP pipeline (streams and jobs)
+│   ├── processing/                 Mode processors (adaptive, continuous, hybrid); ContinuousMode
+│   │                                 renders the track-level plan, `adaptive` is the only preset
 │   ├── config/                     Processing configuration (UnifiedConfig)
-│   └── recording_type_detector.py  OFFLINE scripts only (rate_track, analyze_feedback); not on the
+│   ├── simple_mastering.py,        OFFLINE CLI mastering (auto_master.py) with its own
+│   │   mastering_*.py, stages/,      stage pipeline — not on the app's audio path
+│   │   dsp/
+│   └── recording_type_detector.py  OFFLINE scripts only (rate_track, update_profile); not on the
 │                                     app's audio path — kept on purpose, see #4873 / #5780
 ├── dsp/                          Signal processing
 │   ├── basic.py                    DSP primitives
@@ -104,11 +105,12 @@ auralis/                          Core Python audio engine
 │   ├── fingerprint/                25D fingerprinting system (audio_fingerprint_analyzer,
 │   │   ├── metrics/                  rust_fingerprint, windowed_compute, schema, distance,
 │   │                                 similarity, knn_graph, normalizer)
-│   ├── quality_assessors/          Quality assessor utilities
+│   ├── quality_assessors/          BaseAssessor + utilities (the assessors live in quality/)
 │   ├── ml/                         RuleBasedGenreClassifier (linear, not a neural net)
 │   └── quality/                    Quality assessment (loudness, distortion, DR)
-├── player/                       Playback engine
-│   ├── enhanced_audio_player.py    Main player with adaptive DSP
+├── player/                       Python playback engine. The app's audible output is the
+│   │                               renderer's WebSocket stream, not this player's buffer
+│   ├── enhanced_audio_player.py    AudioPlayer, composed of mixins (host hooks: see Patterns)
 │   ├── gapless_playback_engine.py  Gapless playback
 │   ├── queue_controller.py         Queue management
 │   └── realtime/                   Real-time processing (RealtimeProcessor, AutoMasterProcessor)
@@ -126,8 +128,10 @@ auralis/                          Core Python audio engine
 │   ├── unified_loader.py           Unified loading (FFmpeg, SoundFile)
 │   └── results.py                  Output formats (pcm16, pcm24)
 ├── optimization/                 Performance — LIVE, not test-only (#5142)
-│   ├── performance_optimizer.py    get_performance_optimizer(); applied at import
-│   │                                 time by core/hybrid_processor.py
+│   ├── performance_optimizer.py    get_performance_optimizer(); hybrid_processor.py
+│   │                                 calls hybrid_setup.apply_module_optimizations() at
+│   │                                 import, which wraps AdaptiveMode.process for
+│   │                                 PROFILING ONLY, never memoization (#4524)
 │   └── profiling/
 │                                   (parallel/ + parallel_processor.py deleted #4565;
 │                                    NO rust_integration.py — see #5168)
@@ -146,12 +150,16 @@ auralis-web/
 │   │                                 processing, health)
 │   ├── core/                       Engine-facing layer. NOT top-level (#4627):
 │   │   ├── processing_engine.py      Audio processing orchestration
-│   │   ├── chunked_processor.py      15s chunks rendered w/ context, emitted as
-│   │   │                               10s NON-overlapping segments (no crossfade)
-│   │   ├── audio_stream_controller.py  WebSocket audio streaming
+│   │   ├── chunked_processor.py      ChunkedAudioProcessor: 15s chunks rendered w/
+│   │   │                               context from one whole-track plan; chunk 0
+│   │   │                               emits 15s, later chunks 10s NON-overlapping
+│   │   │                               segments (no crossfade)
+│   │   ├── audio_stream_controller.py  WebSocket audio streaming (raw float32 PCM frames)
 │   │   ├── stream_*.py               normal/enhanced/seek streaming paths
 │   │   ├── chunk_boundaries.py       Sole chunk-geometry authority
-│   │   └── executors.py              Streaming + I/O thread pools (#5086)
+│   │   ├── mastering_target_service.py  Per-track fingerprint/plan cache: analysis is
+│   │   │                               whole-track, chunks only render the plan
+│   │   └── executors.py              Four thread pools: stream, I/O, job, transport (#5086)
 │   ├── schemas/                    Request/response schemas (by domain)
 │   └── services/, config/          Service layer, startup/config
 └── frontend/                     React 18 + TypeScript + Vite + Redux
@@ -166,9 +174,10 @@ auralis-web/
 
 vendor/auralis-dsp/               Rust DSP via PyO3 (25D fingerprint only, #5764)
 desktop/                          Electron wrapper
-tests/                            ~8,400 test functions (996 files) across 16 subdirs (auralis, backend,
+tests/                            ~8,600 test functions (1,095 files) across 16 subdirs (auralis, backend,
                                     integration, boundaries, concurrency, security, load_stress, regression...)
-docs/                             18 topic dirs (development, features, frontend, prd...)
+docs/                             13 topic dirs; start at docs/README.md (living docs only —
+                                    point-in-time material is in docs/archive/)
 ```
 
 Structural counts above (analysis file count, router count, test file/function
@@ -183,7 +192,8 @@ before updating either file, and update both together (#4982).
 ```
 User → FastAPI (REST + WebSocket :8765) → Backend Services
          → LibraryDatabase (SQLite) → HybridProcessor (DSP pipeline)
-         → ChunkedProcessor (15s w/ context → 10s non-overlapping) → WS → React (Redux)
+         → ChunkedAudioProcessor (15s w/ context → 10s non-overlapping; chunk 0 is 15s)
+         → float32 PCM over WS → React (Redux) → Web Audio (AudioWorklet)
 ```
 
 ## Critical Invariants
@@ -276,13 +286,21 @@ staleness. Commit each logical unit as soon as its scoped tests pass.
 | Port 8765 in use | `lsof -ti:8765 \| xargs kill -9` |
 | Frontend tests OOM | `pnpm run test:memory` (2GB heap) |
 | Database locked | Kill python, delete `~/.auralis/library.db` |
-| Rust module missing | `cd vendor/auralis-dsp && maturin develop` |
-| pytest run never finishes | You included `test_system_api.py` / `test_thread_safety.py` — scope or `--ignore` them |
+| Rust module missing, or `/api/ready` stuck at 503 | `cd vendor/auralis-dsp && maturin develop --uv --release` |
+| `maturin`: "Failed to find pip" | Add `--uv`; a uv venv has no pip |
+| pytest run never finishes | Scope the run; for a whole-suite run `--ignore` `test_system_api.py` / `test_thread_safety.py` as the nightly does, or add `--timeout=60` |
 | CI red in <20s | Setup failure, not tests — check `pnpm/action-setup` / Python version before reading test output |
 
 ## Reference Docs
 
+- [Documentation hub](docs/README.md) — index of every living doc: architecture, the six
+  subsystem deep-dives (DSP, fingerprinting, player, library, backend, frontend), guides.
 - [Product requirements](docs/prd/README.md) — PRD index and template for milestone and workflow changes.
-- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)
+- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) and
+  [TEST_EXECUTION_GUIDE.md](docs/development/TEST_EXECUTION_GUIDE.md)
 - [WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md)
 - [FIRST_TIME_SETUP.md](FIRST_TIME_SETUP.md)
+
+Living docs are held to the path-reference gate: a backticked path must exist (name deleted
+code in *italics*), cite `<file>.py::<Symbol>` never `<file>.py:<line>`, and every markdown link must
+resolve. A new living doc goes in `living_docs` in `.claude/commands/_audit-validate.sh`.
