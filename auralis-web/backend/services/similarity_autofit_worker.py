@@ -19,6 +19,10 @@ after it starts running), so `stop()` sets a `threading.Event` the batch
 loop checks between reads (`FingerprintNormalizer.fit(stop_event=...)`) and
 waits for the thread to observe it and exit.
 
+Only each fit pass runs in a thread; the wait between passes is an asyncio
+task, so an idle worker holds none of the default executor's 8 I/O threads
+(#6493). It used to park one there for the process lifetime.
+
 :copyright: (C) 2024 Auralis Team
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
@@ -59,6 +63,7 @@ class SimilarityAutoFitWorker:
         self._builder_cls = builder_cls
         self._check_interval = check_interval
         self._stop_event = threading.Event()
+        self._wake = asyncio.Event()  # ends the wait between passes at stop() (#6493)
         self._task: 'asyncio.Task[None] | None' = None
 
     async def start(self) -> None:
@@ -73,12 +78,14 @@ class SimilarityAutoFitWorker:
         if self._task is not None and not self._task.done() and not self._stop_event.is_set():
             return
         self._stop_event = threading.Event()
-        self._task = asyncio.ensure_future(asyncio.to_thread(self._run, self._stop_event))
+        self._wake = asyncio.Event()
+        self._task = asyncio.ensure_future(self._run(self._stop_event, self._wake))
 
     async def stop(self) -> None:
         """Signal the fit loop to abort at its next batch boundary and wait
         (bounded) for the underlying thread to actually exit."""
         self._stop_event.set()
+        self._wake.set()
         if self._task is None:
             return
         try:
@@ -92,19 +99,22 @@ class SimilarityAutoFitWorker:
         except Exception as exc:
             logger.warning(f"Similarity auto-fit task raised during stop(): {exc}")
 
-    def _run(self, stop_event: threading.Event) -> None:
-        """Runs in a worker thread via asyncio.to_thread (started by start()).
+    async def _run(self, stop_event: threading.Event, wake: asyncio.Event) -> None:
+        """The task start() creates: each fit pass in a worker thread, the wait on the loop (#6493).
 
         Fits once, then re-checks every ``check_interval`` seconds until
         stop() is signalled. The re-check is what retries a library that was
         below ``min_samples`` at startup and refits one whose fit rests on a
         small sample (#5716); ``fit()`` is a single COUNT when nothing has
-        changed. ``stop_event`` is this run's own, so a run a later start()
-        replaced still sees its stop (#6571).
+        changed. ``stop_event`` and ``wake`` are this run's own, so a run a
+        later start() replaced still sees its stop (#6571).
         """
-        self._fit_once(stop_event, first=True)
-        while not stop_event.wait(self._check_interval):
-            self._fit_once(stop_event, first=False)
+        await asyncio.to_thread(self._fit_once, stop_event, True)
+        while not stop_event.is_set():
+            try:
+                await asyncio.wait_for(wake.wait(), self._check_interval)
+            except TimeoutError:
+                await asyncio.to_thread(self._fit_once, stop_event, False)
 
     def _fit_once(self, stop_event: threading.Event, first: bool) -> None:
         try:

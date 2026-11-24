@@ -305,3 +305,38 @@ class TestPeriodicRecheck:
             assert await asyncio.to_thread(enough.wait, 5)
         finally:
             await worker.stop()
+
+
+class TestIdleHoldsNoExecutorThread:
+    """#6493: the wait between passes ran in a default-executor thread (8 I/O workers) for the
+    process lifetime; it is on the event loop now, and only a fit pass takes a thread."""
+
+    async def test_an_idle_worker_leaves_the_default_executor_free(self):
+        from concurrent.futures import ThreadPoolExecutor
+
+        loop = asyncio.get_running_loop()
+        single = ThreadPoolExecutor(max_workers=1)
+        loop.set_default_executor(single)
+        fitted = threading.Event()
+
+        def _fit(stop_event=None, **kw):
+            fitted.set()
+            return False
+
+        worker, *_ = _make_worker(fit_side_effect=_fit)
+        worker._check_interval = 60.0
+        try:
+            await worker.start()
+            for _ in range(200):
+                if fitted.is_set():
+                    break
+                await asyncio.sleep(0.01)
+            assert fitted.is_set()
+            # The executor's only thread must be free while the worker waits out its interval.
+            assert await asyncio.wait_for(asyncio.to_thread(lambda: 42), timeout=2) == 42
+
+            await asyncio.wait_for(worker.stop(), timeout=2)  # stop() ends the 60 s wait at once
+            assert worker._task.done()
+        finally:
+            await worker.stop()
+            single.shutdown(wait=False)
