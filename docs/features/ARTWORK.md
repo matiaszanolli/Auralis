@@ -9,7 +9,7 @@ Auralis has two independent artwork systems with different storage models. Do no
 | Filled by | the library scan, or `POST /api/albums/{album_id}/artwork/extract` and `.../download` | the `python -m auralis.cli.fetch_artwork` command only |
 | Served as | same-origin `GET /api/albums/{album_id}/artwork` | the third-party URL, loaded directly by the browser |
 
-The library tables behind both are described in [subsystems/library.md](subsystems/library.md).
+The library tables behind both are described in [subsystems/library.md](../subsystems/library.md).
 
 ---
 
@@ -197,5 +197,5 @@ placeholder. Do not relax `img-src` to `https:`. The frontend's `withArtworkSize
 
 ## Related
 
-[subsystems/library.md](subsystems/library.md) ·
-[subsystems/backend-api.md](subsystems/backend-api.md)
+[subsystems/library.md](../subsystems/library.md) ·
+[subsystems/backend-api.md](../subsystems/backend-api.md)
