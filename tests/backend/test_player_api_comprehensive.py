@@ -28,8 +28,6 @@ import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
-import pytest
-
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
@@ -262,14 +260,14 @@ class TestSeekPosition:
         """Test seeking without position parameter"""
         response = client.post("/api/player/seek", json={})
 
-        assert response.status_code in [400, 422]
+        assert response.status_code == 422
 
     def test_seek_negative_position(self, client):
         """Test seeking to negative position"""
         response = client.post("/api/player/seek", json={"position": -10})
 
-        # Should reject or clamp to 0
-        assert response.status_code in [200, 400, 422]
+        # SeekRequest.validate_position rejects a negative position, never clamps it (#6499)
+        assert response.status_code == 422
 
     def test_seek_valid_position(self, client):
         """Test seeking to valid position"""
@@ -301,11 +299,9 @@ class TestGetQueue:
 
     def test_get_queue_accepts_get_only(self, client):
         """Test that queue GET only accepts GET"""
-        response = client.post("/api/player/queue", json={"tracks": []})
-        # Note: POST /api/player/queue is a different endpoint (set queue)
-        # This tests that the GET endpoint doesn't accept POST
-        # But POST is valid for setting queue, so may return 200 or 400 (empty tracks)
-        assert response.status_code in [200, 400, 404, 405]
+        # POST is the set-queue route, so a method neither route takes is what tests this (#6499)
+        response = client.patch("/api/player/queue", json={"tracks": []})
+        assert response.status_code == 405
 
 
 class TestSetQueue:
@@ -315,8 +311,9 @@ class TestSetQueue:
         """Test setting queue to empty array"""
         response = client.post("/api/player/queue", json={"tracks": []})
 
-        # Should accept empty queue
-        assert response.status_code in [200, 400]
+        # An empty list resolves to no tracks and is refused (#6499)
+        assert response.status_code == 400
+        assert response.json()["detail"] == "No valid tracks found"
 
     def test_set_queue_with_tracks(self, client):
         """Test setting queue with track IDs"""
@@ -350,8 +347,8 @@ class TestRemoveFromQueue:
         """Test removing with invalid index"""
         response = client.delete("/api/player/queue/999")
 
-        # Should return 404 or 400 (index out of range)
-        assert response.status_code in [200, 400, 404]
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid index: 999"
 
     def test_remove_from_queue_negative_index(self, client):
         """Test removing with negative index"""
@@ -362,9 +359,7 @@ class TestRemoveFromQueue:
     def test_remove_from_queue_accepts_delete_only(self, client):
         """Test that queue remove only accepts DELETE"""
         response = client.get("/api/player/queue/0")
-        # Note: GET /api/player/queue is valid, so this might return 200
-        # We're testing DELETE specifically
-        assert response.status_code in [200, 404, 405]
+        assert response.status_code == 405
 
 
 class TestReorderQueue:
@@ -647,13 +642,15 @@ class TestPlayerSecurityValidation:
 
     def test_reorder_invalid_indices(self, client):
         """Test reordering with malicious indices"""
+        # ReorderQueueRequest takes new_order; from_index/to_index belong to /queue/move, so the
+        # old body failed as a missing field and never reached the bounds (#6499).
         response = client.put(
             "/api/player/queue/reorder",
-            json={"from_index": -999, "to_index": 999999}
+            json={"new_order": [-999, 999999]}
         )
 
-        # Should reject or handle gracefully
-        assert response.status_code in [200, 400, 422]
+        assert response.status_code == 422
+        assert "new_order" in response.text
 
 
 class TestRepeatMode:

@@ -28,12 +28,8 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import asyncio
-import os
-
 # Import the modules under test
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -41,8 +37,6 @@ import pytest
 
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
-
-from main import app
 
 from auralis.io.saver import save as save_audio
 
@@ -285,18 +279,12 @@ def test_enhancement_intensity_api(client):
     response = client.post("/api/player/enhancement/intensity", json={"intensity": 0.75})
     assert response.status_code in [200, 204], "Valid intensity should be accepted"
 
-    # Invalid intensity (< 0) — validator clamps to [0, 1], so this becomes 0.0
-    # and succeeds rather than returning 422
+    # Out of [0, 1] on either side: the request model rejects it, it is not clamped (#6499)
     invalid_response1 = client.post("/api/player/enhancement/intensity", json={"intensity": -0.5})
-    assert invalid_response1.status_code in [200, 204, 400, 422], (
-        "Negative intensity should be handled"
-    )
+    assert invalid_response1.status_code == 422, "Negative intensity must be rejected"
 
-    # Invalid intensity (> 1.0) — validator clamps to [0, 1], so this becomes 1.0
     invalid_response2 = client.post("/api/player/enhancement/intensity", json={"intensity": 1.5})
-    assert invalid_response2.status_code in [200, 204, 400, 422], (
-        "Intensity > 1.0 should be handled"
-    )
+    assert invalid_response2.status_code == 422, "Intensity > 1.0 must be rejected"
 
 
 # ============================================================================
@@ -314,28 +302,27 @@ def test_metadata_update_api(client, library_track):
     - Changes persist
     - Returns updated data
     """
+    from security.path_allowlist import register_allowed_directory, unregister_allowed_directory
+
     track_id = library_track.id
+    # The fixture's file sits in tmp_path, outside every allowed directory, so the update was
+    # always refused with 400 and the persistence check below never ran (#6499). A scan folder
+    # registers its directory the same way.
+    track_dir = Path(library_track.filepath).parent
+    register_allowed_directory(track_dir)
+    try:
+        update_response = client.put(
+            f"/api/metadata/tracks/{track_id}",
+            json={"title": "Updated Title"}
+        )
+        assert update_response.status_code == 200, update_response.text
 
-    # Update metadata (PUT with JSON body)
-    update_response = client.put(
-        f"/api/metadata/tracks/{track_id}",
-        json={"title": "Updated Title"}
-    )
-    # 200/204 = success, 400 = track file doesn't exist on disk (expected in test env)
-    assert update_response.status_code in [200, 204, 400], (
-        f"Metadata update should succeed or fail gracefully, got {update_response.status_code}"
-    )
-
-    # Verify update persisted only if the write succeeded
-    if update_response.status_code in [200, 204]:
         get_response = client.get(f"/api/metadata/tracks/{track_id}")
-        if get_response.status_code == 200:
-            updated_data = get_response.json()
-            # GET endpoint returns metadata nested under "metadata" key, read from audio file
-            metadata = updated_data.get("metadata", {})
-            assert metadata.get("title") == "Updated Title", (
-                f"Metadata update should persist, got: {metadata}"
-            )
+        assert get_response.status_code == 200, get_response.text
+        # GET returns the metadata nested under "metadata", read back from the audio file
+        assert get_response.json()["metadata"]["title"] == "Updated Title"
+    finally:
+        unregister_allowed_directory(track_dir)
 
 
 # ============================================================================

@@ -5,7 +5,10 @@ Two defects, one script, one baseline each:
 
 * default mode — tests whose *only* assertions are ``X is not None`` (#5154),
   plus, since #6237, tests carrying any assertion that cannot fail:
-  ``assert True``, ``... or True``, ``len(X) >= 0``;
+  ``assert True``, ``... or True``, ``len(X) >= 0``; and, since #6499, a test
+  named for a rejection (``invalid``, ``negative``, ``accepts_post_only``...)
+  whose ``status_code in [...]`` set admits a 2xx, so the regression it guards
+  against passes too;
 * ``--zero`` mode — ``test_*`` functions with no assertion of any kind (#5807):
   no ``assert``, no ``pytest.raises``/``warns``, no ``assert*``/``check*``/
   ``verify*``/``expect*`` call. A body that ends in a comment ("this test
@@ -43,6 +46,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -102,6 +106,26 @@ def _is_tautological_assert(node: ast.Assert) -> bool:
     return False
 
 
+# A test named for a rejection must not accept success (#6499).
+_REJECTION_TEST_NAME = re.compile(r"invalid|negative|malicious|overflow|reject|accepts_\w+_only")
+
+
+def _status_set_admits_success(node: ast.Assert) -> bool:
+    """True for ``assert X.status_code in [...]`` whose literal set holds a 2xx and an error code."""
+    test = node.test
+    if not (
+        isinstance(test, ast.Compare)
+        and len(test.ops) == 1
+        and isinstance(test.ops[0], ast.In)
+        and isinstance(test.left, ast.Attribute)
+        and test.left.attr == "status_code"
+        and isinstance(test.comparators[0], (ast.List, ast.Tuple, ast.Set))
+    ):
+        return False
+    codes = [e.value for e in test.comparators[0].elts if isinstance(e, ast.Constant) and isinstance(e.value, int)]
+    return any(200 <= c < 300 for c in codes) and any(c >= 400 for c in codes)
+
+
 def scan_file(path: Path) -> dict[str, int]:
     """Map ``path::test_name`` -> assertion count for one test module.
 
@@ -134,6 +158,7 @@ def scan_file(path: Path) -> dict[str, int]:
             # A single tautological assert taints the test even when its
             # siblings are real (#6237).
             or any(_is_tautological_assert(a) for a in asserts)
+            or (_REJECTION_TEST_NAME.search(node.name) and any(_status_set_admits_success(a) for a in asserts))
         ):
             offenders[f"{rel}::{node.name}"] = len(asserts)
     return offenders

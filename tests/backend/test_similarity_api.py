@@ -40,7 +40,6 @@ mocked-router style needs). Before deleting it:
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-import asyncio
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
@@ -274,24 +273,26 @@ class TestDeleteGraph:
         """Test deleting the similarity graph"""
         response = client.delete("/api/similarity/graph")
 
-        # Should succeed even if graph doesn't exist
-        assert response.status_code in [200, 404]
+        # Succeeds even with no graph: nothing to delete is still a delete
+        assert response.status_code == 200
+        assert "edges_deleted" in response.json()
 
     def test_delete_graph_accepts_delete_only(self, client):
         """Test that delete endpoint only accepts DELETE"""
         response = client.get("/api/similarity/graph")
-        assert response.status_code in [404, 405]
+        assert response.status_code == 405
 
     def test_delete_graph_multiple_times(self, client):
         """Test deleting graph multiple times"""
         # First delete
         response1 = client.delete("/api/similarity/graph")
 
-        # Second delete (should also succeed or return 404)
+        # Second delete: idempotent, so also a success
         response2 = client.delete("/api/similarity/graph")
 
-        assert response1.status_code in [200, 404]
-        assert response2.status_code in [200, 404]
+        assert response1.status_code == 200
+        assert response2.status_code == 200
+        assert response2.json()["edges_deleted"] == 0
 
 
 class TestFingerprintQueueStatus:

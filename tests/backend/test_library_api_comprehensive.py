@@ -135,7 +135,7 @@ class TestGetTracks:
 
         for field in sort_fields:
             response = client.get(f"/api/library/tracks?sort={field}")
-            assert response.status_code in [200, 400]
+            assert response.status_code == 200, field
 
     def test_get_tracks_accepts_get_only(self, client):
         """Test that tracks endpoint only accepts GET"""
@@ -534,8 +534,9 @@ class TestLibrarySecurityValidation:
         """Test pagination with extremely large values"""
         response = client.get("/api/library/tracks?limit=999999&offset=999999")
 
-        # Should either cap values or reject
-        assert response.status_code in [200, 400, 422]
+        # The limit's upper bound rejects it rather than capping it (#6499)
+        assert response.status_code == 422
+        assert "query.limit" in response.text
 
     def test_favorite_track_id_validation(self, client):
         """Test favorite endpoints with invalid track IDs"""

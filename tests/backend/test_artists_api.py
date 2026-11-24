@@ -142,15 +142,16 @@ class TestGetArtists:
         """Test getting artists with invalid limit (too high)"""
         response = client.get("/api/artists?limit=500")
 
-        # Should reject or clamp to max (200)
-        assert response.status_code in [200, 422]
+        # Above the limit's bound: rejected, not clamped (#6499)
+        assert response.status_code == 422
+        assert "query.limit" in response.text
 
     def test_get_artists_negative_offset(self, client):
         """Test getting artists with negative offset"""
         response = client.get("/api/artists?offset=-1")
 
-        # Should reject negative offset
-        assert response.status_code in [200, 422]
+        assert response.status_code == 422
+        assert "query.offset" in response.text
 
     def test_get_artists_with_mocked_data(self, client, artist_row):
         """Test artists endpoint with mocked library manager"""
