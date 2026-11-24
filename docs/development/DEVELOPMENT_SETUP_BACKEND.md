@@ -21,7 +21,7 @@ python main.py --dev
 ```
 
 `--dev` turns on dev mode: DEBUG logging, Swagger UI at `http://127.0.0.1:8765/api/docs` (also
-`/api/redoc` and `/api/openapi.json`), and the wider CORS and WebSocket origin allowlists that the
+`/api/redoc` and the OpenAPI schema at `http://127.0.0.1:8765/api/openapi.json`), and the wider CORS and WebSocket origin allowlists that the
 Vite page needs. Without it none of those routes exist. The server binds `127.0.0.1` only.
 
 `python main.py` does not reload on code changes. For a server that restarts on save, run uvicorn
@@ -36,8 +36,8 @@ AURALIS_DEV_MODE=1 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8
 Probe a running backend:
 
 ```bash
-curl http://127.0.0.1:8765/api/health   # liveness, library and fingerprint-engine status
-curl http://127.0.0.1:8765/api/ready    # 200 once the database and engine are initialized
+curl http://127.0.0.1:8765/api/health   # liveness, plus auralis_available and fingerprint_engine_available
+curl http://127.0.0.1:8765/api/ready    # 200 once the database, player state and fingerprint engine are up; 503 otherwise
 ```
 
 ---
@@ -69,7 +69,7 @@ value falls back to its default with a logged warning.
 - **HTTP.** In dev mode use `/api/docs` to call any router by hand. Handlers are `async def` and
   report errors as `HTTPException`.
 - **WebSocket.** The protocol is in [WEBSOCKET_API.md](../../auralis-web/backend/WEBSOCKET_API.md).
-  Chunk geometry comes only from `core/chunk_boundaries.py`.
+  Chunk geometry comes only from `auralis-web/backend/core/chunk_boundaries.py`.
 - **Library database.** Inspect it read-only; the backend holds it open in WAL mode.
   ```bash
   sqlite3 -readonly ~/.auralis/library.db '.tables'
@@ -77,8 +77,8 @@ value falls back to its default with a logged warning.
   ```
   Application code reaches the database only through
   [`auralis/library/repositories/`](../../auralis/library/repositories/); do not write SQL elsewhere.
-- **Fingerprint engine.** `/api/health` reports whether `auralis_dsp` imported. If it did not,
-  rebuild it as described in [FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md#4-build-the-rust-dsp-module).
+- **Fingerprint engine.** `/api/health` reports whether `auralis_dsp` imported, and `/api/ready` stays 503 while it did not. Rebuild it as described in
+  [FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md#4-build-the-rust-dsp-module).
 - **VS Code.** `.vscode/settings.json` points the interpreter at `.venv`. A debug configuration
   that mirrors the reload command:
   ```json
@@ -141,10 +141,10 @@ Fixtures live in `tests/conftest.py` and the per-directory `conftest.py` files:
 | Symptom | Cause and fix |
 |---------|---------------|
 | Collection errors or `NameError` at import on an older Python | The codebase relies on Python 3.14 deferred annotations. Recreate the venv with `uv venv --python-preference only-managed` |
-| `No module named 'auralis'` | The venv is not active, or a script runs outside the repository. `main.py` adds the repository root to `sys.path`; for other scripts set `PYTHONPATH` to the repository root |
+| `No module named 'auralis'` | The venv is not active, or a script runs outside the repository. `auralis-web/backend/main.py` adds the repository root to `sys.path`; for other scripts set `PYTHONPATH` to the repository root |
 | `Cannot use port 8765` or an address-in-use error | Another backend is running. Stop it (`lsof -ti:8765`) or set `AURALIS_PORT` / pass `--port` |
 | `database is locked` | A second process has the library open. Stop other Auralis and Python processes. Reset only for a damaged file ([FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md#where-data-lives)) |
-| `FingerprintUnavailable`, or a fingerprint-engine error in `/api/health` | `auralis_dsp` is not built into this venv |
+| `FingerprintUnavailable`, or `fingerprint_engine_available: false` in `/api/health` | `auralis_dsp` is not built into this venv |
 | `LibsndfileError` | libsndfile cannot open the file. MP3, M4A/AAC, OGG, Opus and WMA are decoded by FFmpeg (`auralis/io/formats.py`), so check `ffmpeg` is on `PATH`. For a broken libsndfile install: `uv pip install --force-reinstall soundfile` |
 | `/api/docs` returns 404 | The backend is not in dev mode |
 | A pytest run never finishes | It included `tests/backend/test_system_api.py` or `tests/concurrency/test_thread_safety.py`. Scope the run or use `--ignore` |

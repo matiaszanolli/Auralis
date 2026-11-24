@@ -1,118 +1,125 @@
 # Build Quick Reference
 
-## 🚀 Quick Commands
+How the desktop installers are built. Day-to-day development does not need any of this: use
+[FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md) to run from source. The release process (version
+bump, tag, checklist) is in [releases/RELEASE_GUIDE.md](../releases/RELEASE_GUIDE.md).
+
+CI is the only release publisher. `.github/workflows/build-release.yml` builds every installer and
+creates the GitHub release; the steps below are what it runs, in order, so a local build matches it.
+
+## Targets
+
+| Platform | Runner | Artifacts in `dist/` |
+|----------|--------|----------------------|
+| Linux x64 | `ubuntu-24.04` | `Auralis-<version>.AppImage`, `auralis-desktop_<version>_amd64.deb`, `*.flatpak` |
+| Windows x64 | `windows-2025` | `Auralis Setup <version>.exe` (NSIS) |
+| macOS arm64 | `macos-15` | `Auralis-<version>-arm64.dmg` |
+
+There is no Intel macOS or Linux arm64 build. The backend binary must match the host architecture,
+so each target is built on its own platform.
+
+## Pipeline
+
+Run from the repository root with the Python environment active. Python 3.14, Node 24, pnpm and the
+Rust toolchain from [FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md#prerequisites) are required.
 
 ```bash
-# Development
-pnpm run dev                    # Run app in dev mode (hot reload)
+# 1. Build tools and the runtime set, both hash-locked
+uv pip install --require-hashes -r requirements-build.txt   # pip, setuptools, wheel, maturin, PyInstaller
+uv pip install --require-hashes -r requirements-lock.txt    # everything the backend imports
 
-# Building
-pnpm run build                  # Build frontend + backend
-pnpm run package                # Create standalone app for current platform
-pnpm run package:win            # Windows installer (.exe)
-pnpm run package:mac            # macOS disk image (.dmg)
-pnpm run package:linux          # Linux AppImage + deb
+# 2. Rust DSP wheel: a full-API cp314 build, not abi3
+(cd vendor/auralis-dsp && maturin build --release --locked)
+uv pip install --no-deps vendor/auralis-dsp/target/wheels/*.whl
 
-# Testing (scope Python runs — the whole tree takes tens of minutes; see CONTRIBUTING.md)
-python -m pytest -q -m "not slow" tests/<subdir>   # e.g. tests/auralis/dsp
-cd auralis-web/frontend && pnpm run test:memory -- <test-file-or-dir>
+# 3. Frontend bundle -> auralis-web/frontend/dist/
+pnpm --dir auralis-web/frontend install --frozen-lockfile
+pnpm --dir auralis-web/frontend run build
 
-# Cleaning
-pnpm run clean                  # Remove all build artifacts
+# 4. Stage the renderer and the engine for Electron
+mkdir -p desktop/resources/frontend desktop/resources/auralis
+rsync -a --delete auralis-web/frontend/dist/ desktop/resources/frontend/
+rsync -a --delete auralis/ desktop/resources/auralis/ --exclude='__pycache__' --exclude='*.pyc'
+
+# 5. Freeze the backend -> auralis-web/backend/dist/auralis-backend (auralis-backend.exe on Windows)
+(cd auralis-web/backend && pyinstaller --clean --noconfirm auralis-backend.spec)
+mkdir -p desktop/resources/backend
+cp auralis-web/backend/dist/auralis-backend desktop/resources/backend/
+
+# 6. Package with electron-builder -> dist/
+pnpm --dir desktop install --frozen-lockfile
+pnpm --dir desktop run build:linux          # or build:win, build:mac:arm64
 ```
 
-## 📁 Key Files
+`desktop/resources/` is git-ignored build output. CI uses `maturin build` plus `pip install`; a uv
+venv has no `pip`, so the commands above use `uv pip`.
 
-| File | Purpose |
-|------|---------|
-| `build.js` (repo root) | Builds React frontend + bundles Python backend |
-| `package.js` (repo root) | Creates Electron distributable |
-| `desktop/main.js` | Electron main process (window management) |
-| `desktop/package.json` | Electron Builder configuration |
-| `auralis-web/backend/auralis-backend.spec` | PyInstaller configuration |
+## Scripts
 
-## 🛠️ Build Requirements
+Root `package.json`:
 
-- **Node.js 24+** (for Electron and React)
-- **Python 3.14+** (for audio processing)
-- **PyInstaller** (`pip install pyinstaller`)
-- **~500MB free disk space** (for builds)
+| Script | Runs |
+|--------|------|
+| `pnpm run dev` | `dev.js`: the source launcher with Electron (not a build) |
+| `pnpm run install:all` | `pnpm install` in `desktop/` and in `auralis-web/frontend/` |
+| `pnpm run clean` | Removes `dist/`, both `node_modules/` trees and `auralis-web/frontend/dist/` |
+| `pnpm run test`, `test:coverage` | Whole-tree pytest; do not use it as an inner loop (see [CONTRIBUTING.md](../CONTRIBUTING.md#4-testing)) |
+| `pnpm run build`, `package`, `package:win\|mac\|linux` | `build.js` and `package.js`; see the note below |
 
-## 📦 Build Output
+`desktop/package.json`; each build script first runs `desktop/scripts/record-backend-digest.js`, which fails
+unless `desktop/resources/backend/` holds the frozen backend:
 
-```
-dist/
-├── Auralis-1.0.0.dmg              # macOS installer
-├── Auralis Setup 1.0.0.exe        # Windows installer
-├── Auralis-1.0.0.AppImage         # Linux portable
-└── auralis_1.0.0_amd64.deb        # Linux Debian package
-```
+| Script | electron-builder target |
+|--------|------------------------|
+| `build` / `dist` | Current platform, default targets |
+| `build:linux` | AppImage and deb, x64 |
+| `build:linux:flatpak` | Flatpak, x64 (needs `flatpak` and `flatpak-builder`, plus the freedesktop 25.08 runtime) |
+| `build:win` | NSIS installer, x64 |
+| `build:mac`, `build:mac:arm64` | DMG, arm64 |
+| `pack` | Unpacked app directory, no installer |
 
-## 🐛 Quick Troubleshooting
+`build.js` and `package.js` are local conveniences that CI does not run, and they do not follow the
+pipeline above: `build.js` expects PyInstaller to emit a directory while the spec emits a single
+file, and `package.js` derives its root one level above the checkout. Use the steps above.
 
-| Issue | Solution |
-|-------|----------|
-| "PyInstaller not found" | `pip install pyinstaller` |
-| "Backend startup timeout" | Increase timeout in `desktop/main.js` line 77 |
-| "White screen" | Check backend is running: visit http://localhost:8765 |
-| "Module not found" | Add to hiddenimports in `auralis-backend.spec` |
-| Large file size | Enable UPX compression in `.spec` file |
+## Key files
 
-## 🔄 Build Workflow
+| File | Role |
+|------|------|
+| `auralis-web/backend/auralis-backend.spec` | PyInstaller spec: one-file `auralis-backend`, bundles `auralis/`, the backend packages, `auralis_dsp`, `numba` and `llvmlite`; excludes CUDA and unused scientific packages |
+| `desktop/package.json` | electron-builder configuration (`build` key): app id, targets, `extraResources` for backend, frontend and `auralis/` |
+| `desktop/main.js` | Electron main process: starts the packaged backend from `resources/backend`, waits up to 45 s for it, owns shutdown |
+| `desktop/backend-integrity.js` | Verifies the backend binary against the SHA-256 recorded at build time (*backend-digest.json*, packed into the app) |
+| `requirements-build.in`, `requirements-build.txt` | Build tools and their hash lock |
+| `requirements-lock.txt` | Hash lock of the runtime set; regenerated from `requirements.txt` |
+| `vendor/auralis-dsp/rust-toolchain.toml` | Rust release the CI jobs install |
 
-```
-1. pnpm run build
-   ├─> Builds React (auralis-web/frontend/build/)
-   └─> Bundles Python (auralis-web/backend/dist/)
+## Release workflow
 
-2. pnpm run package
-   ├─> Copies builds to desktop/resources/
-   ├─> Runs electron-builder
-   └─> Creates installer in dist/
-```
+`build-release.yml` triggers on:
 
-## ⚡ Performance Notes
+- **Push to `master` or a pull request** touching version files or the workflow: the `prepare` job
+  only runs `scripts/validate_release_metadata.py`, so a version that disagrees across
+  `auralis/version.py`, `pyproject.toml` and the three `package.json` files fails early.
+- **`workflow_dispatch`** with a `version` input: builds all three platforms and uploads artifacts
+  (kept 30 days) without a release.
+- **A `v*` tag**: builds all three platforms, then `create-release` writes `SHA256SUMS.txt`, signs it
+  with a GPG key when the `RELEASE_GPG_PRIVATE_KEY` secret exists, and opens a **draft** GitHub
+  release (a pre-release when the version has a suffix such as `-rc.1`).
 
-| Platform | Build Time | Installer Size |
-|----------|------------|----------------|
-| Windows  | ~5 mins    | ~200 MB        |
-| macOS    | ~6 mins    | ~180 MB        |
-| Linux    | ~4 mins    | ~190 MB        |
+`auralis/version.py` is the version source of truth; `python sync_version.py <version>` writes it to
+every `package.json` and `pyproject.toml`. The installers are not code-signed, so Windows and macOS
+show an unidentified-publisher or Gatekeeper warning; see the Release Verification section of
+[README.md](../../README.md) for checksum and signature checks.
 
-## 🎯 Platform-Specific Notes
+## Build failures
 
-### Windows
-- Creates NSIS installer with wizard
-- Portable .exe also generated
-- Requires code signing to avoid SmartScreen warnings
-
-### macOS
-- Creates .dmg with drag-to-Applications
-- Requires code signing and notarization for Gatekeeper
-- Use `codesign --force --deep --sign - Auralis.app` for local testing
-
-### Linux
-- AppImage works on all distros (no installation)
-- DEB for Debian/Ubuntu systems
-- No code signing required
-
-## 📝 Before Releasing
-
-- [ ] Test on target platform
-- [ ] Update version in `desktop/package.json`
-- [ ] Create release notes
-- [ ] Sign app (Windows/macOS)
-- [ ] Test installation
-- [ ] Test uninstallation
-- [ ] Test auto-updater (if configured)
-
-## 🆘 Need Help?
-
-- **Full guide**: STANDALONE_APP_BUILD_GUIDE.md — removed in a docs cleanup (`408b632a`); no longer in the repo
-- **Architecture**: [CLAUDE.md](../../CLAUDE.md)
-- **Processing UI**: AUDIO_PROCESSING_UI_IMPLEMENTATION.md — removed in a docs cleanup (`ccb6d87b`); no longer in the repo
-- **Issues**: GitHub Issues
-
----
-
-**TL;DR:** Run `pnpm run package` and you get a distributable app!
+| Symptom | Fix |
+|---------|-----|
+| `record-backend-digest: no backend binary in .../desktop/resources/backend` | Run steps 5 and the copy before `pnpm --dir desktop run build:*` |
+| `pyinstaller: command not found` | Install `requirements-build.txt` into the active venv (step 1) |
+| Frozen backend fails with `No module named ...` | Add the module to `hiddenimports` in `auralis-backend.spec` and rebuild |
+| Frozen backend reports no fingerprint engine | The `auralis_dsp` wheel was not installed into the venv before PyInstaller ran (step 2) |
+| `maturin` produces a wheel that is not `cp314-cp314` | The venv is not Python 3.14, or a build flag requested `abi3`; CI asserts the full-API build |
+| White window or `Backend startup timeout` in the packaged app | The backend did not answer `/api/ready` within 45 s. Run `resources/backend/auralis-backend` from a terminal and read its log |
+| `--require-hashes` rejects a package | The lock files drifted from `requirements.txt` or `requirements-build.in`. Regenerate with the `uv pip compile` commands in each file's header |

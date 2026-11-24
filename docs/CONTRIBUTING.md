@@ -1,121 +1,73 @@
 # Contributing to Auralis
 
-This is the developer on-ramp: get the project running, understand the ground rules, and know
-how to test and ship a change. For architecture, start at
+The contributor on-ramp: what to install, which rules are enforced, how to test, and how a
+change reaches `master`. For architecture, start at
 [architecture/overview.md](architecture/overview.md).
 
 ---
 
 ## 1. Prerequisites
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| **Python** | 3.14+ (GIL build, not `3.14t`) | `.python-version` pins 3.14; `uv venv` fetches it if needed |
-| **[uv](https://docs.astral.sh/uv/)** | latest | Manages the Python interpreter + venv (replaces pyenv/venv/pip) |
-| **Node** | 24+ | Frontend + Electron |
-| **Rust** | stable + `maturin` | Required — the DSP module has no Python fallback |
+Python 3.14 (GIL build; `3.14t` is not supported), [uv](https://docs.astral.sh/uv/), Node 24+,
+pnpm 10.20.0 (via `corepack enable`), a stable Rust toolchain with `maturin`, and the system
+libraries libsndfile and FFmpeg. The versions are pinned by `.python-version`,
+`packageManager` in each `package.json` and `vendor/auralis-dsp/rust-toolchain.toml`.
 
-> The free-threaded CPython 3.14 build (`python3.14t`) is **not supported**. Since the pyo3 0.29
-> bump (#5485) the Rust DSP module compiles against it, but no CI job builds or tests that
-> interpreter, and the rest of the Python stack has not been checked on it (see
-> [`vendor/auralis-dsp/UPGRADE_PLAN.md`](../vendor/auralis-dsp/UPGRADE_PLAN.md)).
-> `requires-python = ">=3.14"` technically admits `3.14t`; use the standard GIL-enabled build.
+The Rust module (`auralis_dsp`) is required: fingerprinting and adaptive mastering fail without
+it (see [subsystems/dsp-engine.md](subsystems/dsp-engine.md#5-rust-dsp-module-vendorauralis-dsp)).
 
 ---
 
 ## 2. First-time setup
 
-```bash
-# 1. Python env + deps (.python-version pins the interpreter uv provisions).
-#    --python-preference only-managed: without it uv can silently pick a
-#    stale pyenv shim instead of that pinned interpreter.
-uv venv --python-preference only-managed && source .venv/bin/activate
-uv pip install -r requirements.txt
+Follow [FIRST_TIME_SETUP.md](../FIRST_TIME_SETUP.md). It covers the uv environment, the Python
+and JavaScript installs, the Rust build, launching, and resetting `~/.auralis`.
 
-# 2. Build the Rust DSP module (REQUIRED before first run)
-cd vendor/auralis-dsp && maturin develop && cd ../..
+Per-side tooling, debugging and failure fixes:
+[development/DEVELOPMENT_SETUP_BACKEND.md](development/DEVELOPMENT_SETUP_BACKEND.md) and
+[development/DEVELOPMENT_SETUP_FRONTEND.md](development/DEVELOPMENT_SETUP_FRONTEND.md).
 
-# 3. Frontend deps (pnpm is the only supported JS package manager)
-cd auralis-web/frontend && pnpm install && cd ../..
-```
-
-From the repository root with the Python environment active:
-
-```bash
-pnpm --dir desktop install --frozen-lockfile
-pnpm run dev
-```
-
-For a browser preview, run `python launch-auralis-web.py --dev`. The
-[setup guide](../FIRST_TIME_SETUP.md#-run-your-first-development-session)
-lists the source entry points and ports.
-
-> If startup raises `RuntimeError: ... auralis_dsp`, you skipped step 2. The Rust module is not
-> optional — see [subsystems/dsp-engine.md §5](subsystems/dsp-engine.md#5-rust-dsp-module-vendorauralis-dsp).
-
-More detail: [development/DEVELOPMENT_SETUP_BACKEND.md](development/DEVELOPMENT_SETUP_BACKEND.md)
-· [development/DEVELOPMENT_SETUP_FRONTEND.md](development/DEVELOPMENT_SETUP_FRONTEND.md).
+Optional: `pre-commit install` runs the hooks in `.pre-commit-config.yaml` (ruff, black, isort,
+mypy, pylint, and a path-reference check when a commit deletes or renames files).
 
 ---
 
-## 3. Ground rules (the ones that cause bugs when ignored)
+## 3. Ground rules
 
-These are distilled from [`CLAUDE.md`](../CLAUDE.md) and
-[development/DEVELOPMENT_STANDARDS.md](development/DEVELOPMENT_STANDARDS.md). Read those for the
-full list.
+[CLAUDE.md](../CLAUDE.md) is the source of truth; read its **Critical Invariants**, **Patterns**
+and **Principles** sections before a first change. [development/DEVELOPMENT_STANDARDS.md](development/DEVELOPMENT_STANDARDS.md)
+and [development/REPOSITORY_PATTERN.md](development/REPOSITORY_PATTERN.md) carry the detail. In
+short: preserve sample counts in DSP, route all database access through
+[`auralis/library/repositories/`](../auralis/library/repositories/), import frontend modules
+through `@/` with tokens from `@/design-system`, keep modules under 300 lines, and improve
+existing code rather than adding a parallel version.
 
-### Audio DSP
+Conventions the CI gates enforce, so they are worth knowing before the first push:
 
-```python
-assert len(output) == len(input)      # never change sample count — gapless playback depends on it
-assert isinstance(output, np.ndarray) # always NumPy, never lists
-output = audio.copy()                 # never modify in place
-```
-
-- Load metadata (sample rate, channels) **before** processing.
-- Vectorize with NumPy over chunks, not per-sample loops.
-- No NaN/Inf may escape — guard with `validate_audio_finite` / `sanitize_audio`.
-
-### Python backend
-
-- Routers are auto-included via `include_router()`; all handlers are `async def`.
-- Errors go through `HTTPException`, never bare exceptions.
-- Shared state is protected with the right primitive — `asyncio.Lock` (event-loop state),
-  `threading.RLock` (CPU/thread-pool state), `contextvars` (per-stream isolation).
-- **All DB access via repositories** ([`auralis/library/repositories/`](../auralis/library/repositories/))
-  — never raw SQL. Avoid N+1 with `selectinload()`.
-
-### React frontend
-
-- **`@/` absolute imports only** — no `../../../`.
-- Colors and spacing come from `import { tokens } from '@/design-system'` — no hardcoded
-  hex/rgb.
-- Components target **< 300 lines** (split into subcomponents + `.styles.ts`).
-- **Redux is the single source of truth** for playback/queue — don't add WS-shadow state.
-- Frontend WS/API types must match the backend `schemas/` package.
-
-### Project principles
-
-1. **DRY** — improve existing code, never duplicate. Reach for shared utilities.
-2. **Modular** — < 300 lines per module, single responsibility.
-3. **No variants** — no `Enhanced`/`V2`/`Advanced` copies. Refactor in place.
-4. **Repository pattern** for all DB access.
+- **Deferrals are greppable.** Write `# TODO(#NNNN):` with a real, open issue number. Prose such
+  as "for now" does not count.
+- **No history in comments or docs.** `scripts/check_breadcrumbs.py` rejects "was removed in
+  #N" phrasing and line-number anchors (a path followed by `:` and a number) in source. Docs cite
+  a symbol instead, and a path that no longer exists is written in italics, not backticks.
+- **Split files stay split.** `loc-ceilings.json` lists files that may not grow past their
+  recorded line count.
+- **New tests assert something.** `scripts/check_weak_assertions.py` rejects new tests whose only
+  assertion is `is not None`, and tests with no assertion.
 
 ---
 
 ## 4. Testing
 
-Full guidance: [development/TESTING_GUIDELINES.md](development/TESTING_GUIDELINES.md) (mandatory
-reading) and [development/TEST_EXECUTION_GUIDE.md](development/TEST_EXECUTION_GUIDE.md).
+[development/TESTING_GUIDELINES.md](development/TESTING_GUIDELINES.md) is mandatory reading.
+[development/TEST_EXECUTION_GUIDE.md](development/TEST_EXECUTION_GUIDE.md) covers markers and
+selection.
 
 ```bash
-# Python — scope every run: the whole tree takes tens of minutes and two
-# files hang whole (see the known-suites note below); the full backend
-# suite is a CI job, not an inner loop.
+# Python: scope every run. The whole backend suite takes tens of minutes.
 python -m pytest -q -m "not slow" tests/<subdir>   # e.g. tests/auralis/dsp
-python -m pytest tests/path.py::test_name -vv -s   # single test
+python -m pytest tests/path.py::test_name -vv -s   # one test
 
-# Frontend (needs 2 GB heap — the full suite OOMs otherwise)
+# Frontend: the suite needs a 2 GB heap, so use the memory script
 cd auralis-web/frontend && pnpm run test:memory -- <test-file-or-dir>
 
 # Type checks
@@ -123,51 +75,69 @@ mypy auralis/ auralis-web/backend/ --ignore-missing-imports
 cd auralis-web/frontend && pnpm run type-check
 ```
 
-**Known-flaky / non-green suites** (don't be alarmed, and don't gate on them):
+Two backend files hang when run whole, so a tree-wide run excludes them exactly as CI does:
 
-- The full `tests/backend` suite never goes fully green (a set of known failures is baselined in
-  `pytest-baseline.json`) — gate on **targeted domain tests**, not the whole suite.
-- `tests/backend/test_system_api.py` and `tests/concurrency/test_thread_safety.py` **hang** when
-  run as whole files — run scoped classes/tests.
-- The frontend suite has a set of pre-existing failures; compare against a clean baseline using
-  a `git worktree` (see the git note below) rather than assuming your change caused them.
+```bash
+python -m pytest -q -m "not slow" \
+  --ignore=tests/backend/test_system_api.py \
+  --ignore=tests/concurrency/test_thread_safety.py
+```
 
-Generate tests with the `gen-test` skill; verify a change actually works end to end with the
-`verify` skill.
+`-m "not slow"` skips the tests the nightly job runs. Tests that boot the backend app use the
+`_isolated_library_db` fixture (`tests/app_isolation.py`), so they do not touch `~/.auralis`.
 
 ---
 
-## 5. Git & PR workflow
+## 5. CI gates
+
+Neither test suite is fully green, so the two test gates are **ratchets**: a run is compared
+with a checked-in list of known failures and fails only on failures that are not on the list.
+The list may shrink and never grows. Fixing a failing test means regenerating the baseline in the
+same change, or the stale entry keeps permitting that failure. The commands, baseline files and
+gate scripts are tabulated in
+[CLAUDE.md, CI gates and the failure baselines](../CLAUDE.md#ci-gates-and-the-failure-baselines);
+that section is the one place they are maintained, including how to regenerate a baseline.
+
+Other workflows under `.github/workflows/` that can fail a pull request:
+
+| Workflow | What it enforces |
+|----------|------------------|
+| `backend-tests.yml` | pytest ratchet, plus a `gates` job: weak-assertion, LOC-ceiling and breadcrumb checks, and `ruff` for unused imports and locals (`F401`, `F811`, `F841`) |
+| `frontend-test.yml` | Vitest ratchet and the weak-spec check (`pnpm run test:weak`) |
+| `frontend-typecheck.yml` | `pnpm run type-check:prod`, which must be clean |
+| `path-references.yml` | `.claude/commands/_audit-validate.sh`: every backticked path and Markdown link in the checked docs resolves |
+| `lockfile-guard.yml`, `requirements-pin-guard.yml`, `action-pin-guard.yml` | One pnpm lockfile per package; pinned Python requirements; Actions pinned by SHA |
+| `dependency-audit.yml`, `rust-audit.yml` | Advisories against the locked Python, npm and Rust dependency trees |
+| `slow-tests.yml` | Nightly run of the `slow` tests against `pytest-slow-baseline.json` |
+
+---
+
+## 6. Git and pull requests
 
 - Branch from `master`. Prefixes: `feature/`, `fix/`, `refactor/`, `docs/`.
-- Commit format: `type: description` (e.g. `fix: clamp currentTime to duration`).
-- **Before opening a PR:** `pytest -m "not slow" -v` + both type checks pass.
-- `Closes #NNNN` in a pushed commit auto-closes the issue.
-- Commits to `master` do **not** auto-push — push manually.
-
-> ⚠️ **Never use `git stash` in this repo** — there is a pre-existing `baseline-check` stash
-> hazard. To run against a clean or prior state, use `git worktree add <path> HEAD` instead, or
-> `git show HEAD:path > path`.
-
----
-
-## 6. Where to look for structure
-
-- **Codebase graph queries** ("who calls this", "what's the architecture") — the
-  `codebase-memory` skill.
-- **Trace a user action across layers** — the `trace-flow` skill.
-- **Audit a subsystem** — the `audit-*` skills (backend, frontend, engine, security,
-  concurrency, …).
+- Commit messages are `type: description`, for example `fix: clamp currentTime to duration`.
+- Commit each logical unit once its scoped tests pass.
+- Before opening a pull request, run the scoped tests for what you touched, `mypy`, and the
+  frontend `type-check`. The full suite is a CI job, not an inner loop.
+- If you touched docs, run `.claude/commands/_audit-validate.sh`; it must report no stale
+  references.
+- `Closes #NNNN` in a commit message that reaches `master` closes the issue.
+- Release binaries are built and published only by `.github/workflows/build-release.yml`. See
+  [development/BUILD_QUICK_REFERENCE.md](development/BUILD_QUICK_REFERENCE.md).
 
 ---
 
 ## 7. Documentation
 
-When your change alters behavior a developer relies on, update the matching doc:
+When a change alters behavior a developer relies on, update the doc that owns the fact and link to
+it from anywhere else:
 
-- Architecture/flow change → [architecture/](architecture/)
-- Subsystem behavior → [subsystems/](subsystems/)
-- New convention or gotcha → this file or the relevant subsystem doc
+- Architecture or data flow: [architecture/](architecture/)
+- Subsystem behavior: [subsystems/](subsystems/)
+- Setup steps: [FIRST_TIME_SETUP.md](../FIRST_TIME_SETUP.md)
+- Environment variables: [auralis-web/backend/CONFIG.md](../auralis-web/backend/CONFIG.md)
+- Conventions and CI commands: [CLAUDE.md](../CLAUDE.md)
 
-Keep the [docs hub](README.md) links working. Historical write-ups belong in
-[archive/](archive/), not alongside the living docs.
+Keep the [docs hub](README.md) links working. Docs are written in the present tense and carry no
+dates, version banners or change notes; git holds the history. Point-in-time write-ups belong in
+[archive/](archive/).

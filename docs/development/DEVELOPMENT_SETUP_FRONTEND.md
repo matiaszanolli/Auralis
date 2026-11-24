@@ -1,869 +1,169 @@
-# Frontend Development Environment Setup
+# Frontend Development
 
-**Version**: 1.0.0 (setup steps below corrected against the real codebase on 2026-07-08 — see inline notes)
-**Last Updated**: 2026-07-08
-**Status**: Ready for Use
-**Target Audience**: Frontend developers (React/TypeScript)
+Per-side depth for working on the React renderer in `auralis-web/frontend/` (React 18, TypeScript,
+Redux Toolkit, MUI, Vite 8, Vitest 4): running it, configuration, debugging, tooling and common
+failures. Installing and launching the project is in [FIRST_TIME_SETUP.md](../../FIRST_TIME_SETUP.md);
+ground rules, CI gates and the PR flow are in [CONTRIBUTING.md](../CONTRIBUTING.md). The renderer's
+structure (state, hooks, REST and WebSocket layers, design system, components) is in
+[subsystems/frontend.md](../subsystems/frontend.md).
 
----
-
-## Quick Start (5 Minutes)
-
-For experienced Node.js developers, here's the fastest path:
-
-```bash
-# 1. Install dependencies
-cd auralis-web/frontend
-pnpm install
-
-# 2. Start development server
-pnpm run dev
-
-# 3. Open in browser
-# Visit: http://localhost:3000
-```
+The renderer ships inside Electron. The Vite page in a browser is a developer preview, not a
+supported web edition.
 
 ---
 
-## Prerequisites
+## Running the renderer
 
-### System Requirements
-- **OS**: Linux, macOS, or Windows (WSL2 recommended)
-- **Node.js**: 24+ LTS (check with `node --version`)
-- **pnpm**: 10+ (check with `pnpm --version`)
-- **Git**: Latest version (check with `git --version`)
-- **RAM**: 2GB minimum, 4GB recommended for comfortable development
-- **Disk**: 2GB free space for node_modules
-
-### Required Software
-
-#### macOS
-```bash
-# Install Homebrew if not present
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install Node.js 24 LTS
-brew install node@24
-
-# Link node to PATH
-brew link node@24 --force
-
-# Verify installation
-node --version  # v24.x.x
-pnpm --version   # 10.x.x
-```
-
-#### Ubuntu/Debian
-```bash
-# Update package manager
-sudo apt update
-
-# Install Node.js 24 LTS
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Verify installation
-node --version  # v24.x.x
-pnpm --version   # 10.x.x
-```
-
-#### Windows (WSL2)
-```bash
-# In WSL2 Ubuntu terminal
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Verify
-node --version
-pnpm --version
-```
-
----
-
-## Step 1: Navigate to Frontend Directory
+The normal paths start the backend for you:
 
 ```bash
-# From project root
-cd auralis-web/frontend
-
-# Verify correct directory
-pwd
-# Should end with: .../auralis-web/frontend
-
-# Check files present
-ls -la
-# Should see: package.json, vite.config.ts, src/, etc.
+pnpm run dev                                       # repository root: backend + Vite + Electron
+python launch-auralis-web.py --dev --no-browser    # backend + Vite, no Electron
 ```
 
----
+To run Vite alone against a backend you started yourself (see
+[DEVELOPMENT_SETUP_BACKEND.md](DEVELOPMENT_SETUP_BACKEND.md#running-the-backend-alone)):
 
-## Step 2: Install Dependencies
-
-**What does this do?**
-Installs all packages the project needs (React, TypeScript, Vite, etc.).
-
-```bash
-# Install dependencies (creates node_modules/ folder)
-pnpm install
-
-# This will take 2-5 minutes depending on internet speed
-# You'll see output like:
-# added 1,234 packages in 2m 45s
-```
-
-**Verify installation:**
-```bash
-# Check that node_modules exists
-ls -la node_modules | head -10
-
-# List installed packages
-pnpm list --depth=0
-# Should show: react, vite, typescript, @mui/material, etc.
-
-# Verify key packages
-pnpm list react vite typescript
-# Should show versions for each
-```
-
-**Troubleshooting pnpm install:**
-```bash
-# If pnpm install fails, try:
-# 1. Clear cache
-pnpm store prune
-
-# 2. Delete node_modules and package-lock.json
-rm -rf node_modules package-lock.json
-
-# 3. Reinstall
-pnpm install
-
-# 4. Check Node.js version (must be 24+)
-node --version
-```
-
----
-
-## Step 3: Create Environment Configuration
-
-**What are environment variables?**
-Settings that tell the frontend where the backend is, logging level, feature flags, etc.
-
-### Create .env.local File
-
-```bash
-# Create .env.local in auralis-web/frontend/
-cat > .env.local << 'EOF'
-# Frontend Configuration
-
-# API Configuration
-VITE_API_URL=http://localhost:8765/api
-VITE_WS_URL=ws://localhost:8765/ws
-
-# Logging
-VITE_LOG_LEVEL=info
-
-# Feature Flags
-VITE_ENABLE_OFFLINE_MODE=true
-VITE_ENABLE_CACHE_STATS=true
-
-# Performance
-VITE_ENABLE_PROFILING=false
-VITE_CHUNK_SIZE_WARNING=500
-
-# Development
-VITE_SHOW_PERFORMANCE_METRICS=true
-EOF
-
-# Verify .env.local created
-cat .env.local
-```
-
-### Copy .env.local.example (Alternative)
-
-> **Note (2026-07-08)**: `.env.local.example` does not currently exist in the repo — use the "Create .env.local File" method above instead.
-
-**Reference Environment Variables:**
-
-```ini
-# [Backend Connection]
-VITE_API_URL=http://localhost:8765/api     # REST API endpoint
-VITE_WS_URL=ws://localhost:8765/ws        # WebSocket endpoint
-
-# [Logging]
-VITE_LOG_LEVEL=info                        # debug, info, warn, error
-
-# [Feature Flags]
-VITE_ENABLE_OFFLINE_MODE=true              # Enable offline capabilities
-VITE_ENABLE_CACHE_STATS=true               # Show cache statistics
-VITE_ENABLE_KEYBOARD_SHORTCUTS=true        # Enable keyboard shortcuts
-
-# [Performance]
-VITE_ENABLE_PROFILING=false                # Enable React profiling
-VITE_CHUNK_SIZE_WARNING=500                # Warn if chunk > 500KB
-VITE_LAZY_LOAD_COMPONENTS=true             # Code splitting enabled
-
-# [Development]
-VITE_SHOW_PERFORMANCE_METRICS=true         # Show FCP/LCP/CLS metrics
-VITE_MOCK_API=false                        # Use MSW mock handlers
-```
-
----
-
-## Step 4: Start Development Server
-
-**What does this do?**
-Starts Vite development server with hot module replacement (HMR). Changes to code automatically update in browser.
-
-### Run Development Server
-
-```bash
-# Start development server
-pnpm run dev
-
-# You should see output like:
-# ➜  Local:   http://localhost:3000/
-# ➜  press h to show help
-
-# Your default browser should open automatically
-# If not, visit: http://localhost:3000
-```
-
-### Hot Module Replacement (HMR)
-
-Once the server is running:
-
-1. Edit a file in `src/` (e.g., `src/App.tsx`)
-2. Save the file
-3. Browser updates **instantly** without page refresh
-4. Component state is **preserved**
-
-This is the core development experience—make changes, see results immediately.
-
-### Stop Development Server
-
-```bash
-# Press Ctrl+C in the terminal running `pnpm run dev`
-# You should see:
-# SIGINT received, shutting down gracefully...
-```
-
----
-
-## Step 5: Verify Frontend Works
-
-Run this verification checklist:
-
-```bash
-# 1. Check Node.js version
-node --version
-# ✅ Should be v24+
-
-# 2. Check pnpm version
-pnpm --version
-# ✅ Should be 10+
-
-# 3. Check dependencies installed
-pnpm list react vite typescript
-# ✅ Should show versions
-
-# 4. Check environment file exists
-ls -la .env.local
-# ✅ Should exist and be readable
-
-# 5. Build the frontend (verify no errors)
-pnpm run build
-# ✅ Should complete with 0 errors
-# Output will show: "built in 3.45s"
-
-# 6. Start dev server and test
-pnpm run dev &
-sleep 3
-
-# Test API connection
-curl http://localhost:3000
-# ✅ Should get HTML (app loaded)
-
-# Stop dev server
-fg  # Bring to foreground
-# Ctrl+C to stop
-```
-
----
-
-## Development Workflow
-
-### Daily Development
-
-```bash
-# 1. Navigate to frontend directory
-cd auralis-web/frontend
-
-# 2. Start development server (in one terminal)
-pnpm run dev
-
-# 3. In another terminal, make code changes
-# - Edit files in src/
-# - Server auto-updates in browser
-# - Component state preserved
-
-# 4. When done, stop server
-# Ctrl+C in server terminal
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-pnpm run test
-
-# Watch mode (re-run on file changes)
-pnpm run test -- --watch
-
-# With coverage report
-pnpm run test -- --coverage
-
-# Run specific test file
-pnpm run test src/components/Player.test.tsx
-
-# Run tests matching pattern
-pnpm run test -- -t "Player"
-
-# IMPORTANT: Run with memory management for CI
-pnpm run test:memory
-# This sets 2GB heap to prevent OOM
-
-# Run tests from backend (Phase 5 fixtures)
-# Frontend tests can use backend fixtures for integration testing
-python -m pytest -q -m "not slow" tests/<subdir>  # scoped backend run (whole tree takes tens of minutes)
-```
-
-### Phase 5: Frontend & Backend Test Integration
-
-**Phase 5 Complete - Test Suite Migration**
-
-The entire test infrastructure now uses a comprehensive **pytest fixture hierarchy** with **RepositoryFactory pattern** for dependency injection. This benefits both backend and frontend testing:
-
-**Fixture Organization:**
-- **Main fixtures** (`tests/conftest.py`) - Available to all tests
-- **Backend fixtures** (`tests/backend/conftest.py`) - API endpoint testing
-- **Player fixtures** (`tests/auralis/player/conftest.py`) - Player component testing
-- **Performance fixtures** (`tests/performance/conftest.py`) - Load and performance testing
-
-**Key Patterns:**
-- ✅ **Dependency Injection** - Components receive callables for factory access
-- ✅ **Parametrized Testing** - Single test runs with both LibraryManager and RepositoryFactory
-- ✅ **Fixture Composition** - Fixtures build on each other in clean hierarchy
-- ✅ **Automatic Cleanup** - No manual setUp/tearDown needed
-
-See [DEVELOPMENT_SETUP_BACKEND.md](DEVELOPMENT_SETUP_BACKEND.md#testing-with-phase-5-fixtures-pytest) for complete fixture documentation and examples.
-
-### Building for Production
-
-```bash
-# Build optimized bundle
-pnpm run build
-
-# Output in: auralis-web/frontend/dist/ (vite.config.mts sets build.outDir to 'dist', not 'build')
-
-# Preview production build locally
-pnpm run preview
-
-# Visit: http://localhost:4173
-```
-
-### Type Checking
-
-```bash
-# Check TypeScript types
-pnpm run type-check
-
-# Or use tsc directly
-npx tsc --noEmit
-
-# Fix common issues
-pnpm run type-check 2>&1 | head -20
-```
-
-### Linting & Formatting
-
-> **Note (2026-07-08)**: There are currently no `lint` or `format` scripts in `package.json`, and neither ESLint nor Prettier are in `devDependencies` — this tooling has been removed from the project. Rely on `pnpm run type-check` (below) and the test suite instead.
-
----
-
-## Project Structure
-
-Understanding the frontend organization:
-
-> **Correction (2026-07-08)**: The diagram below was largely aspirational — no `features/`, `pages/`, or `services/websocket.ts`/`services/cache.ts` exist. Replaced with the actual current top-level layout of `auralis-web/frontend/src/`:
-
-```
-src/
-├── components/           # Reusable React components (player/, library/, enhancement-pane/, etc.)
-├── hooks/                # Custom React hooks (including hooks/player/, hooks/websocket/)
-├── services/             # API and external services — libraryService.ts, playlistService.ts,
-│                         #   processingService.ts, queueService.ts, similarityService.ts, api/, audio/, fingerprint/
-├── store/                # Redux state
-│   ├── slices/           # playerSlice.ts, queueSlice.ts, cacheSlice.ts, connectionSlice.ts
-│   ├── middleware/       # errorTrackingMiddleware.ts, loggerMiddleware.ts
-│   └── selectors/
-├── contexts/             # ThemeContext.tsx, WebSocketContext.tsx
-├── design-system/        # Design tokens (single source of truth)
-│   └── tokens/           # colors.ts, spacing/layout.ts, typography.ts, effects.ts, surfaces.ts, semantics.ts
-├── test/, tests/         # Test utilities, mocks, and integration test suites
-├── api/, config/, theme/, types/, utils/, a11y/, performance/
-├── App.tsx               # Root component
-└── main.tsx              # Entry point
-```
-
-There is no `pages/` directory — routing/top-level views live under `components/`.
-
----
-
-## Component Development
-
-### Creating a New Component
-
-```tsx
-// src/components/MyComponent.tsx
-import { ReactNode } from 'react';
-import { tokens } from '@/design-system';
-
-interface MyComponentProps {
-  title: string;
-  children: ReactNode;
-  onAction?: () => void;
-}
-
-export function MyComponent({
-  title,
-  children,
-  onAction
-}: MyComponentProps): JSX.Element {
-  return (
-    <div style={{ padding: tokens.spacing.md }}>
-      <h2 style={{ color: tokens.colors.text.primary }}>
-        {title}
-      </h2>
-      {children}
-      {onAction && (
-        <button onClick={onAction}>Action</button>
-      )}
-    </div>
-  );
-}
-```
-
-### Adding Tests
-
-```tsx
-// src/components/MyComponent.test.tsx
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@/test/test-utils';
-import { MyComponent } from './MyComponent';
-
-describe('MyComponent', () => {
-  it('should render title', () => {
-    render(<MyComponent title="Test Title">Content</MyComponent>);
-    expect(screen.getByRole('heading', { name: /test title/i })).toBeInTheDocument();
-  });
-
-  it('should call onAction when button clicked', () => {
-    const onAction = vi.fn();
-    render(
-      <MyComponent title="Test" onAction={onAction}>
-        Content
-      </MyComponent>
-    );
-    screen.getByRole('button', { name: /action/i }).click();
-    expect(onAction).toHaveBeenCalledOnce();
-  });
-});
-```
-
-### Using Redux State
-
-```tsx
-// src/components/PlayerDisplay.tsx
-import { useAppDispatch, useAppSelector } from '@/store';
-import { playerSlice } from '@/store/slices/playerSlice';
-// there is no @/features/player — Redux slices live under @/store/slices/
-
-export function PlayerDisplay(): JSX.Element {
-  const dispatch = useAppDispatch();
-  const { isPlaying, currentTrack } = useAppSelector(playerSelectors.selectPlayerState);
-
-  return (
-    <div>
-      <h2>{currentTrack?.title ?? 'No track'}</h2>
-      <button onClick={() => dispatch(playerSlice.actions.togglePlayback())}>
-        {isPlaying ? 'Pause' : 'Play'}
-      </button>
-    </div>
-  );
-}
-```
-
----
-
-## Troubleshooting
-
-### Problem: "pnpm: command not found"
-
-**Solution**: Install Node.js or check PATH
-
-```bash
-# Check if Node.js is installed
-which node
-# If not found, install Node.js 24+
-
-# Check pnpm
-which pnpm
-
-# If installed but not found, add to PATH
-# See Node.js installation guide above
-```
-
-### Problem: "Port 3000 already in use"
-
-**Solution**: Stop other processes or use different port
-
-```bash
-# Find what's using port 3000
-lsof -i :3000  # macOS/Linux
-netstat -ano | findstr :3000  # Windows
-
-# Kill the process
-kill -9 <PID>  # macOS/Linux
-taskkill /PID <PID> /F  # Windows
-
-# Or start on different port
-pnpm run dev -- --port 3001
-```
-
-### Problem: "Cannot find module '@/...'"
-
-**Solution**: Check vite.config.ts alias configuration
-
-```bash
-# vite.config.ts should have:
-# resolve: {
-#   alias: {
-#     '@': path.resolve(__dirname, './src')
-#   }
-# }
-
-# If not present, add it and restart dev server
-pnpm run dev
-```
-
-### Problem: "WebSocket connection failed"
-
-**Solution**: Check backend is running on correct port
-
-```bash
-# Backend should be running on 8765
-curl http://localhost:8765/api/health
-# Should return: {"status":"healthy"}
-
-# If not running, start backend in another terminal (from the repo root):
-# source .venv/bin/activate
-# cd auralis-web/backend && python main.py --dev
-
-# Check .env.local settings
-grep VITE_WS_URL .env.local
-# Should show: ws://localhost:8765/ws
-```
-
-### Problem: "Tests failing with OOM (Out of Memory)"
-
-**Solution**: Use memory-managed test runner
-
-```bash
-# Use built-in memory management
-pnpm run test:memory
-
-# This sets NODE_OPTIONS="--max-old-space-size=2048"
-# Prevents OOM on CI systems with limited memory
-```
-
-### Problem: "Dependency version conflicts"
-
-**Solution**: Update package-lock.json
-
-```bash
-# Delete lock file and reinstall
-rm package-lock.json
-pnpm install
-
-# Or update specific package
-pnpm install --save react@latest
-
-# Check for outdated packages
-pnpm outdated
-```
-
----
-
-## IDE Setup
-
-### VS Code
-
-**Recommended Extensions:**
-1. ES7+ React/Redux/React-Native snippets
-2. Prettier - Code formatter
-3. TypeScript Vue Plugin (Volar)
-4. Thunder Client (or similar REST client)
-
-**Setup:**
-
-```json
-// .vscode/settings.json
-{
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.formatOnSave": true,
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
-}
-```
-
-### WebStorm / JetBrains IDEs
-
-1. Open Project → auralis-web/frontend
-2. Mark src/ as Sources Root (right-click → Mark Directory as)
-3. Configure → Project → Node.js and pnpm
-4. Set Node interpreter to 24 LTS
-5. Run → Edit Configurations → Add pnpm:
-   - Command: run
-   - Scripts: dev
-
-Then click Run to start dev server.
-
----
-
-## Performance Monitoring
-
-### Check Frontend Performance
-
-```bash
-# Lighthouse report (requires backend running)
-pnpm run build
-pnpm run preview
-
-# Visit http://localhost:4173 in Chrome
-# Open DevTools → Lighthouse
-# Run audit on "Mobile" (stricter targets)
-
-# Target metrics from ADR-001:
-# ✅ FCP (First Contentful Paint): < 1.5s
-# ✅ LCP (Largest Contentful Paint): < 2.5s
-# ✅ CLS (Cumulative Layout Shift): < 0.1
-# ✅ Bundle size: < 500KB (gzipped)
-```
-
-### Memory Leak Detection
-
-```bash
-# Run tests with memory tracking
-pnpm run test -- --reporter=verbose
-
-# Monitor test process
-top -o MEM -p $(pgrep -f "vitest")
-
-# Check for memory growth in multiple runs
-pnpm run test -- --runs 3
-```
-
-### Bundle Analysis
-
-```bash
-# Install bundle analyzer
-pnpm install --save-dev rollup-plugin-visualizer
-
-# Add to vite.config.ts:
-# import { visualizer } from 'rollup-plugin-visualizer';
-# plugins: [visualizer()]
-
-# Build and analyze
-pnpm run build
-# Opens visualization in browser
-```
-
----
-
-## Advanced Configuration
-
-### Using Mock API (MSW)
-
-```bash
-# Mock Service Worker is pre-configured for testing
-# Edit src/test/mocks/handlers.ts to add mock endpoints
-
-# Example mock:
-export const handlers = [
-  http.get('http://localhost:8765/api/tracks', () => {
-    return HttpResponse.json([
-      { id: '1', title: 'Track 1', artist: 'Artist 1' },
-    ]);
-  }),
-];
-
-# Run tests with mocked API:
-pnpm run test
-```
-
-### Connecting to Production Backend
-
-```bash
-# Edit .env.local
-VITE_API_URL=https://api.example.com/api
-VITE_WS_URL=wss://api.example.com/ws
-
-# Rebuild
-pnpm run build
-
-# Test with preview
-pnpm run preview
-```
-
-### Enabling Offline Mode
-
-```bash
-# Edit .env.local
-VITE_ENABLE_OFFLINE_MODE=true
-
-# Service Worker will cache API responses
-# App continues working without internet
-```
-
----
-
-## Clean Up / Reset
-
-### Full Reset (removes all dependencies)
-
-```bash
-# Stop dev server first
-# Ctrl+C
-
-# Remove node_modules
-rm -rf node_modules
-
-# Remove lock file (forces fresh install)
-rm package-lock.json
-
-# Clear pnpm cache
-pnpm store prune
-
-# Reinstall
-pnpm install
-
-# Restart dev server
-pnpm run dev
-```
-
-### Reset Build Artifacts
-
-```bash
-# Remove build directory (vite outputs to dist/, not build/)
-rm -rf dist/
-
-# Remove test results
-rm -rf test-results/
-
-# Rebuild
-pnpm run build
-```
-
----
-
-## Integration with Backend
-
-### Make Both Run Together
-
-From the repository root, start the backend and Vite together:
-
-```bash
-source .venv/bin/activate
-python launch-auralis-web.py --dev --no-browser
-```
-
-**Terminal 3 - Tests:**
 ```bash
 cd auralis-web/frontend
-pnpm run test:memory -- --watch
+pnpm run dev            # Vite on http://localhost:3000 with hot module replacement
 ```
 
-### Testing Full Stack
+Vite proxies `/api` and `/ws` to `127.0.0.1:${AURALIS_PORT:-8765}`. The dev WebSocket connects to
+the backend port directly (`auralis-web/frontend/src/config/api.ts`), so the backend must run in
+dev mode: its origin allowlist accepts Vite only on ports 3000 to 3006 and only with `--dev`.
+
+A production bundle is built into `dist/` (not `build/`) and is what the backend serves when it
+is launched without `--dev`:
 
 ```bash
-# 1. Start backend (Terminal 1)
-# 2. Start frontend (Terminal 2)
-# 3. Open http://localhost:3000
-# 4. Login and test features
-# 5. Open DevTools (F12) to check:
-#    - Network tab (API calls)
-#    - Console (errors/warnings)
-#    - Performance tab (metrics)
+pnpm run build          # vite build -> auralis-web/frontend/dist/
+pnpm run preview        # serve dist/ locally
 ```
 
 ---
 
-## Next Steps
+## Configuration
 
-### Ready to develop?
+Nothing needs configuring for development, and no `.env` file is required.
 
-1. ✅ Frontend running locally with hot reload
-2. ✅ Dev server accessible at http://localhost:3000
-3. ✅ Tests passing (run `pnpm test` to verify)
-4. ✅ Backend accessible at http://localhost:8765
+| Variable | Read by | Effect |
+|----------|---------|--------|
+| `AURALIS_PORT` | `auralis-web/frontend/vite.config.mts` | Backend port for the proxy and the dev WebSocket (default 8765). The launcher sets it from `--port` |
+| `VITE_API_URL` | `auralis-web/frontend/src/config/api.ts` | Absolute API base URL. An absolute value also moves the WebSocket |
+| `VITE_WS_URL` | `auralis-web/frontend/src/config/api.ts` | WebSocket base URL; wins over `VITE_API_URL` |
 
-### Start Phase B (Backend Foundation)
-
-See [PHASE_A_IMPLEMENTATION_PLAN.md](../phases/phase-1-10/PHASE_A_IMPLEMENTATION_PLAN.md) for Phase B tasks:
-- B.1: Backend endpoint standardization
-- B.2: Phase 7.5 cache integration
-- B.3: WebSocket enhancement
-
-Then Phase C (Frontend Foundation):
-- C.1: Project setup & architecture
-- C.2: Core components
-- C.3: State management & hooks
-- C.4: Integration & polish
+Production pages talk to their own origin. `VITE_BACKEND_PORT` is derived from `AURALIS_PORT` at
+build time and is not meant to be set. Local overrides go in `auralis-web/frontend/.env.local`,
+which git ignores. Backend variables are listed in
+[auralis-web/backend/CONFIG.md](../../auralis-web/backend/CONFIG.md).
 
 ---
 
-## Getting Help
+## Scripts
 
-**Cannot start dev server?**
-- Check Node version: `node --version` (must be 20+)
-- Check port is free: `lsof -i :3000` should be empty
-- Check dependencies: `pnpm list` should show 1000+ packages
-- Check env file: `cat .env.local | head -5`
+All are in `auralis-web/frontend/package.json` and run from that directory.
 
-**Backend not connecting?**
-- Check backend running: `curl http://localhost:8765/api/health`
-- Check API URL: `grep VITE_API_URL .env.local`
-- Check console errors: Press F12 in browser, check Console tab
-- Check network: DevTools → Network tab, click API calls
+| Script | Purpose |
+|--------|---------|
+| `pnpm run dev` | Vite dev server |
+| `pnpm run build` | Production bundle into `dist/` |
+| `pnpm run type-check` | `tsc --noEmit` over every source and test file |
+| `pnpm run type-check:prod` | `tsc --noEmit -p tsconfig.build.json`, production code only; the CI gate |
+| `pnpm run test:memory` | One full Vitest pass with a 2 GB heap; the plain run can run out of memory |
+| `pnpm test` | Vitest in watch mode |
+| `pnpm run test:run` | One pass with the default heap, for a file or directory |
+| `pnpm run test:ui` | Vitest UI |
+| `pnpm run test:coverage` | V8 coverage report |
+| `pnpm run test:ci`, `test:baseline`, `test:baseline:update` | The CI ratchet; see below |
+| `pnpm run test:weak`, `test:weak:update` | The weak-spec gate and its baseline |
 
-**Tests failing?**
-- Run with verbose output: `pnpm run test -- --reporter=verbose`
-- Run single test: `pnpm run test -- PlayerControls.test.tsx`
-- Check for timeout: Default is 30s, some tests might need more
-- Use memory management: `pnpm run test:memory`
+Scope the inner loop to what you changed:
 
-**Performance issues?**
-- Check bundle size: `pnpm run build` shows sizes
-- Check for console errors: `pnpm run dev` shows errors as they happen
-- Run Lighthouse: Build and preview, check performance metrics
-- Profile with DevTools: Open DevTools → Performance tab
+```bash
+pnpm run test:memory -- src/components/player          # a directory
+pnpm test Sidebar.test.tsx                             # watch mode, filtered by path substring
+pnpm test -t "queue"                                   # filtered by test name
+```
+
+[frontend/testing/TESTING_COMMANDS.md](../frontend/testing/TESTING_COMMANDS.md) is the full command
+sheet.
 
 ---
 
-**Last Updated**: 2026-07-08
-**Status**: Ready for Use
-**Maintained By**: Auralis Team
+## Debugging
+
+- **Electron.** Dev mode opens DevTools with the window (`desktop/main.js`).
+- **Browser.** The Network tab shows REST calls (relative URLs through the proxy) and the single
+  WebSocket; the Console shows renderer errors. Production bundles strip `console.*`, so debug with
+  a dev server.
+- **Redux.** The store enables Redux DevTools in dev (`auralis-web/frontend/src/store/index.ts`).
+  Redux is the source of truth for playback and the queue; do not add state that shadows it from the WebSocket.
+- **Backend side.** For a failing request or stream, read the backend's DEBUG log and call the
+  endpoint from `/api/docs` ([DEVELOPMENT_SETUP_BACKEND.md](DEVELOPMENT_SETUP_BACKEND.md#debugging)).
+  Frontend WebSocket and REST types must match the backend `schemas/` package.
+- **Mocks.** Tests use MSW. Handlers and fixtures live in `auralis-web/frontend/src/test/mocks/`
+  (`handlers.ts`, `mockData.ts`, `server.ts`). A request to `/api/` with no handler fails the test.
+
+---
+
+## Tooling
+
+TypeScript is the only static check: the project configures no ESLint or Prettier. `auralis-web/frontend/tsconfig.json`
+is strict with `noUnusedLocals` and `noUnusedParameters`, and `@/*` maps to `src/*`. The same alias
+is declared in `auralis-web/frontend/vite.config.mts` and `auralis-web/frontend/vitest.config.ts`.
+
+CI gates the frontend runs (`.github/workflows/frontend-test.yml`, `frontend-typecheck.yml`):
+
+- `pnpm run type-check:prod` must be clean.
+- `pnpm run test:ci` followed by `pnpm run test:baseline` ratchets Vitest failures against
+  `auralis-web/frontend/test-baseline.json`, which is empty, so any failing test is new.
+- `pnpm run test:weak` rejects new weak specs against `auralis-web/frontend/weak-tests-baseline.json`.
+
+When a change fixes a failing test, regenerate the baseline with
+`pnpm run test:ci && pnpm run test:baseline:update`. The update refuses to run when the installed
+`jsdom` or `vitest` differs from `pnpm-lock.yaml`, so run `pnpm install --frozen-lockfile` first.
+
+After deleting components or styles, also run `pnpm run test:memory -- src/design-system`: the
+`unreadTokens` test fails when a design token is no longer read anywhere.
+
+Test conventions:
+
+- Use `render` from `@/test/test-utils`. It wraps Redux (a fresh store per test), TanStack Query,
+  the theme and the toast and playback-session providers, with no router.
+- `auralis-web/frontend/src/test/setup.ts` replaces `WebSocketContext` with a fake connected
+  context for every test; a test of the real context calls `vi.unmock('../contexts/WebSocketContext')`.
+- Tests use `vi.*`, never `jest.*`. Colocate `*.test.ts(x)` beside the source or in a `__tests__/`
+  folder.
+- A `useVirtualizer` option such as `getItemKey` must be a `useCallback`-stable function. An inline
+  closure re-renders from inside render and loops.
+
+More: [subsystems/frontend.md](../subsystems/frontend.md#9-testing), `auralis-web/frontend/src/test/README.md` and
+[TESTING_GUIDELINES.md](TESTING_GUIDELINES.md).
+
+---
+
+## IDE
+
+- **VS Code.** Use the workspace TypeScript version so the `@/` alias resolves from
+  `auralis-web/frontend/tsconfig.json`.
+- **WebStorm / JetBrains.** Open the repository root, mark `auralis-web/frontend/src` as a Sources
+  Root, use Node 24 and pnpm, and add a Vitest run configuration with working directory
+  `auralis-web/frontend`.
+
+---
+
+## Common failures
+
+| Symptom | Cause and fix |
+|---------|---------------|
+| `pnpm: command not found` | Install Node 24+, then `corepack enable` |
+| `Install Node.js and run pnpm --dir auralis-web/frontend install first` | The launcher cannot find `node_modules/vite`. Run `pnpm --dir auralis-web/frontend install --frozen-lockfile` |
+| Port 3000 in use | The launcher passes `--strictPort` and exits. Stop the other process. A bare `pnpm run dev` moves to the next free port, which the backend accepts only up to 3006 |
+| WebSocket connection fails or the page cannot reach the backend | The backend is not running, runs on another port than `AURALIS_PORT`, or is not in dev mode. Check `curl http://127.0.0.1:8765/api/health` |
+| `/api` requests return 404 or 502 in Vite | The proxy target is down or on a different port. Set `AURALIS_PORT` when starting Vite |
+| `launch-auralis-web.py` says `Built frontend missing` | Run `pnpm run build`, or launch with `--dev` |
+| `Cannot find module '@/...'` in the editor | The editor is not using the workspace `auralis-web/frontend/tsconfig.json`. Restart the TypeScript server |
+| Vitest runs out of memory | Run `pnpm run test:memory`, or scope the run to a directory |
+| `test:baseline:update` refuses to run | Installed `jsdom` or `vitest` differs from the lockfile. Run `pnpm install --frozen-lockfile` |
+| Dependency state looks wrong | Delete `node_modules` and run `pnpm install --frozen-lockfile`. Never create an npm or yarn lockfile; CI rejects anything but one pnpm lockfile per package |

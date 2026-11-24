@@ -1,287 +1,185 @@
-# First-Time Setup Guide for Auralis Development
+# First-Time Setup
 
-This guide walks you through everything you need to get Auralis running on your machine for the first time.
+This guide takes a fresh checkout to a running development session. It is the
+canonical setup procedure; other docs link here instead of repeating it.
 
-**⏱️ Estimated Time**: 20-30 minutes
+## Prerequisites
 
----
+| Tool | Version | Notes |
+|------|---------|-------|
+| [uv](https://docs.astral.sh/uv/) | current | Provisions the Python interpreter and the virtual environment |
+| Python | 3.14 (GIL build) | `.python-version` pins it; uv downloads it when missing. `3.14t` is not supported |
+| Node.js | 24 or newer | `engines` in every `package.json` |
+| pnpm | 10.20.0 | The only supported JS package manager. `corepack enable` installs the version each `package.json` pins in `packageManager` |
+| Rust | stable via [rustup](https://rustup.rs/) | `vendor/auralis-dsp/rust-toolchain.toml` pins the exact release; rustup installs it on first use |
+| Git | any | |
+| libsndfile and FFmpeg | system packages | See below |
 
-## 📋 Prerequisites Checklist
+Audio is decoded by libsndfile (through `soundfile`) for WAV, FLAC, AIFF and AU,
+and by FFmpeg for MP3, M4A/AAC, OGG, WMA and Opus (`auralis/io/formats.py`).
+Compressed files do not load without `ffmpeg` on `PATH`.
 
-Before you begin, ensure your system has:
-
-- [ ] **[uv](https://docs.astral.sh/uv/)** - Manages the Python interpreter + virtual environment (replaces pyenv/venv/pip). Check with `uv --version`
-- [ ] **Node.js 24+ LTS** - Check with `node --version`
-- [ ] **Git** - Check with `git --version`
-- [ ] **pnpm** - Check with `pnpm --version` (the ONLY supported package manager, #4357; install with `corepack enable`)
-- [ ] **Rust toolchain** (stable `cargo`) - Check with `cargo --version`; builds the required `auralis_dsp` module (step 4)
-- [ ] **Audio libraries** (platform-dependent, see section below)
-- [ ] **~5GB free disk space** for dependencies, database, and build artifacts
-
-### 🔧 System-Specific Audio Dependencies
-
-Auralis requires audio processing libraries. Install based on your OS:
-
-#### **Linux (Ubuntu/Debian)**
 ```bash
-sudo apt-get update
-sudo apt-get install -y libsndfile1 libsndfile1-dev ffmpeg libavformat-dev libavcodec-dev
-# Optional: for better audio backend support
-sudo apt-get install -y libflac-dev libogg-dev libvorbis-dev libopus-dev
-```
-
-#### **Linux (Fedora/RHEL)**
-```bash
-sudo dnf install -y libsndfile libsndfile-devel ffmpeg
-```
-
-#### **macOS**
-```bash
-# Using Homebrew
+# Debian/Ubuntu
+sudo apt-get install -y libsndfile1 ffmpeg
+# Fedora
+sudo dnf install -y libsndfile ffmpeg
+# macOS (Homebrew)
 brew install libsndfile ffmpeg
+# Windows: install FFmpeg from https://ffmpeg.org/download.html and add it to PATH
 ```
 
-#### **Windows**
-Download from:
-- FFmpeg: https://ffmpeg.org/download.html (add to PATH)
-- libsndfile: Usually handled automatically by Python packages
+## Setup
 
----
+Run every command from the repository root.
 
-## 🚀 Step-by-Step Setup
+### 1. Clone
 
-### 1️⃣ Clone the Repository
 ```bash
 git clone https://github.com/matiaszanolli/Auralis.git
 cd Auralis
 ```
 
-### 2️⃣ Set Up Python Environment
+### 2. Create the Python environment
 
 ```bash
-# uv creates the venv using the interpreter pinned in .python-version (3.14),
-# downloading a uv-managed CPython if you do not already have one.
-# --python-preference only-managed is what forces that: without it, uv can
-# silently pick a stale pyenv shim that happens to be on PATH instead.
 uv venv --python-preference only-managed
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 ```
 
-**Verify activation:**
+`--python-preference only-managed` makes uv use its own CPython 3.14. Without it,
+uv can pick an older interpreter or a pyenv shim that happens to be on `PATH`.
+`which python` should print a path inside `.venv`.
+
+### 3. Install the Python dependencies
+
 ```bash
-which python  # Should show a path inside .venv
-python --version
+uv pip install -r requirements.txt     # runtime
+uv pip install -e '.[dev]'             # pytest, mypy, black, isort, pre-commit
+uv pip install maturin                 # builds the Rust module in step 4
 ```
 
-### 3️⃣ Install Python Dependencies
+`requirements.txt` carries runtime pins only. The `dev` extra in `pyproject.toml`
+provides the test and type-check tools.
+
+### 4. Build the Rust DSP module
+
+The 25D fingerprint runs in Rust (`vendor/auralis-dsp`, imported as `auralis_dsp`).
+There is no Python fallback: without the module every fingerprint and every adaptive
+master fails with `FingerprintUnavailable`, `/api/health` reports
+`fingerprint_engine_available: false`, and `/api/ready` stays at 503, so the launcher
+aborts with `Backend initialization failed`.
+
 ```bash
-uv pip install -r requirements.txt
-```
-
-**Expected output**: 40-60 packages installed, no errors
-
-### 4️⃣ Build the Rust DSP Module (required)
-
-The 25D fingerprinting runs in Rust (`vendor/auralis-dsp`, imported as `auralis_dsp`); there is
-no Python fallback. Build it into the venv before the first run:
-
-```bash
-cd vendor/auralis-dsp && maturin develop && cd ../..
+cd vendor/auralis-dsp && maturin develop --uv --release && cd ../..
 python -c "import auralis_dsp; print('auralis_dsp OK')"
 ```
 
-### Database Initialization
+`--uv` is required because a uv-created venv has no `pip`; maturin installs the
+wheel through `uv` instead. `--release` matches what CI and the installers build.
 
-The database initializes automatically on first launch — no manual step required.
-It creates `~/.auralis/library.db` and `~/.auralis/` on startup.
-To reset, delete the file: `rm ~/.auralis/library.db`
-
-### 5️⃣ Set Up Node.js & Frontend Dependencies
+### 5. Install the JavaScript dependencies
 
 ```bash
-# Check Node version
-node --version  # Should be 24+ LTS
-
-# Install frontend dependencies
-cd auralis-web/frontend
-pnpm install
-cd ../..
-```
-
-**Expected output**: ~1000+ packages installed
-
-### 6️⃣ Configuration
-
-Nothing needs configuring for local development; nothing reads a `.env` file. The defaults:
-- Backend runs on `http://localhost:8765` (`AURALIS_PORT` moves it; the launcher, the Vite proxy
-  and the dev WebSocket follow it)
-- Frontend dev server runs on `http://localhost:3000`
-- Database uses SQLite at `~/.auralis/library.db`
-
-The tunable budgets are plain environment variables, documented in
-[auralis-web/backend/CONFIG.md](auralis-web/backend/CONFIG.md).
-
----
-
-## ✅ Verify Your Setup
-
-### Quick Verification Script
-```bash
-echo "=== Python ==="
-python --version
-python -c "import numpy, scipy, fastapi, pytest; print('✅ Core Python packages OK')"
-
-echo "=== Node ==="
-node --version
-pnpm --version
-
-echo "=== Database ==="
-ls -lh ~/.auralis/library.db
-
-echo "=== Audio Libraries ==="
-python -c "import soundfile; print('✅ Audio I/O OK')"
-
-echo "=== Frontend ==="
-cd auralis-web/frontend && pnpm list react react-dom 2>/dev/null | head -5
-```
-
----
-
-## 🎯 Run Your First Development Session
-
-From the repository root, prepare the desktop dependencies once and launch
-Electron with the project Python environment active.
-
-```bash
-source .venv/bin/activate
+pnpm --dir auralis-web/frontend install --frozen-lockfile
 pnpm --dir desktop install --frozen-lockfile
+```
+
+The frontend directory holds the React renderer and Vite; `desktop` holds Electron.
+The root `package.json` has no install step of its own.
+
+## Run your first development session
+
+With the environment from step 2 active:
+
+```bash
 pnpm run dev
 ```
 
-The launcher supervises one backend and one Vite server. It opens the desktop
-window after the backend is ready. Press Ctrl+C to stop the processes it started.
-The default ports are 8765 for the backend and 3000 for Vite. Pass `--port` to
-override the backend port.
+`pnpm run dev` runs `dev.js`, which starts `python launch-auralis-web.py --electron`.
+The launcher supervises one backend (port 8765) and one Vite server (port 3000),
+then opens the Electron window once `/api/ready` answers. Ctrl+C stops everything
+it started. `AURALIS_PYTHON` selects a different interpreter for `dev.js`.
 
-For a source-run browser preview, run either command from the repository root.
+For a browser preview of the renderer instead of Electron:
 
 ```bash
-python launch-auralis-web.py --dev              # Vite preview
-pnpm --dir auralis-web/frontend run build
-python launch-auralis-web.py                    # Built frontend
+python launch-auralis-web.py --dev                    # backend + Vite
+pnpm --dir auralis-web/frontend run build             # once, for the next line
+python launch-auralis-web.py                          # backend serving the built frontend
 ```
 
-Add `--no-browser` for a headless launch. `/api/health` reports backend liveness.
-`/api/ready` checks the initialized database and engine. Installed Electron
-launches from the OS application menu and owns its bundled backend.
+The browser page is a developer preview. Electron is the supported client.
 
----
+| Flag | Effect |
+|------|--------|
+| `--dev` | Serve the frontend with Vite and run the backend in dev mode |
+| `--electron` | Open the Electron app (implies dev mode; needs Vite on port 3000) |
+| `--port N` | Backend port (default 8765) |
+| `--frontend-port N` | Vite port (default 3000) |
+| `--no-browser` | Do not open a browser tab |
 
-## 🧪 Run Tests to Verify Everything Works
+`GET /api/health` reports liveness. `GET /api/ready` returns 200 once the database,
+player state and fingerprint engine are initialized. Dev mode also serves Swagger UI at
+`http://127.0.0.1:8765/api/docs`; production mode serves no API docs.
 
-### Backend Tests (skips slow tests)
-```bash
-# Quick check — one domain (the normal inner loop)
-python -m pytest -q -m "not slow" tests/auralis/dsp
+Environment variables the backend reads are listed in
+[auralis-web/backend/CONFIG.md](auralis-web/backend/CONFIG.md).
 
-# Whole backend suite: thousands of tests, tens of minutes. These two files
-# HANG when run as whole files, so always exclude them:
-python -m pytest -q -m "not slow" \
-  --ignore=tests/backend/test_system_api.py \
-  --ignore=tests/concurrency/test_thread_safety.py
-```
-
-The full suite is not green yet — CI compares failures against
-`pytest-baseline.json` rather than expecting zero (see
-[CLAUDE.md](CLAUDE.md#ci-gates-and-the-failure-baselines)).
-
-### Frontend Tests (Watch mode)
-```bash
-cd auralis-web/frontend
-pnpm test
-# Press 'q' to quit, 'a' to run all tests
-```
-
----
-
-## 📚 Next Steps
-
-1. **Read the main architecture guide**: [CLAUDE.md](CLAUDE.md) - Overall architecture and patterns
-2. **Understand the audio pipeline**: [docs/subsystems/dsp-engine.md](docs/subsystems/dsp-engine.md)
-3. **Learn the testing approach**: [docs/development/TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)
-4. **Explore the codebase**: Start with `auralis/core/hybrid_processor.py` (main audio pipeline)
-
----
-
-## 🛠️ IDE Setup (Optional but Recommended)
-
-### VS Code
-1. **Install extensions**:
-   - Python (Microsoft)
-   - Pylance (Microsoft)
-   - Ruff (Astral)
-   - ESLint (Microsoft)
-   - Prettier (Code Formatter)
-
-2. **Settings** (`.vscode/settings.json` - already partially configured):
-   ```json
-   {
-     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-     "editor.formatOnSave": true
-   }
-   ```
-
-3. **Debug Python**:
-   - Press `Ctrl+Shift+D` (or Cmd+Shift+D on macOS)
-   - Click "Run and Debug"
-   - Select "Python" from dropdown
-
----
-
-## ⚠️ Common First-Time Issues & Fixes
-
-| Issue | Solution |
-|-------|----------|
-| `python: command not found` | Run `uv venv --python-preference only-managed && source .venv/bin/activate`, or use `python3` instead |
-| `ModuleNotFoundError: numpy` | Did you activate the venv? `source .venv/bin/activate`, then `uv pip install -r requirements.txt` |
-| `libsndfile not found` | Install audio libraries (see section above) |
-| `Port 8765 already in use` | Kill existing process: `lsof -ti:8765 \| xargs kill -9` |
-| `SQLite database locked` | Delete database: `rm ~/.auralis/library.db` (will rescan) |
-| `pnpm: command not found` | Install Node 24+ LTS from https://nodejs.org/, then `corepack enable` |
-| `Module not found (TypeScript)` | Run `cd auralis-web/frontend && pnpm install` |
-| `Audio file won't play` | Install ffmpeg: `brew install ffmpeg` (macOS) or apt-get (Linux) |
-
----
-
-## 🔍 Verify Audio Backend
-
-Audio is decoded by **libsndfile** (through `soundfile`: WAV, FLAC, AIFF, AU) and by **FFmpeg**
-for the compressed formats (MP3, M4A/AAC, OGG, WMA, Opus; `auralis/io/formats.py`). Check both:
+## Verify the setup
 
 ```bash
-python -c "import soundfile; print('libsndfile', soundfile.__libsndfile_version__)"
+python -c "import fastapi, numpy, soundfile, auralis_dsp; print('python OK')"
 ffmpeg -version | head -1
+node --version && pnpm --version
+python -m pytest -q -m "not slow" tests/auralis/dsp
 ```
 
-Without FFmpeg on `PATH`, compressed files will not load.
+The last command is one domain of the backend suite. See
+[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md#4-testing) for scoping tests and for the
+suites that never run whole.
 
----
+## Where data lives
 
-## 📞 Need Help?
+Everything user-specific is under `~/.auralis/`:
 
-- **Setup issues**: Check "Common First-Time Issues" section above
-- **Audio problems**: See "Verify Audio Backend" above
-- **Architecture questions**: Read [CLAUDE.md](CLAUDE.md)
-- **Bug reports**: Create a GitHub issue with setup details
+| Path | Contents |
+|------|----------|
+| `library.db` | SQLite library: tracks, playlists, settings |
+| `library.backup_*.db` | Backups written before a schema migration |
+| `artwork/`, `fingerprints/`, `cache/` | Regenerable caches |
+| `uploads/` | Files accepted through the upload endpoint |
 
----
+The database is created and migrated on first start; no manual step exists.
+`AURALIS_DATA_DIR` moves the cache and upload directories. The default database
+path is fixed at `~/.auralis/library.db`.
 
-## 🎉 You're Ready!
+To reset, stop the backend first, then:
 
-Once setup completes successfully, you should:
-- ✅ Have a running backend at http://localhost:8765
-- ✅ Have a running frontend at http://localhost:3000
-- ✅ Be able to see API documentation at http://localhost:8765/api/docs
-- ✅ Have tests passing (`pytest tests/ -m "not slow" -v`)
+```bash
+rm -f ~/.auralis/library.db ~/.auralis/library.db-wal ~/.auralis/library.db-shm   # empty library; rescan your folders
+rm -rf ~/.auralis                                                                   # everything, caches and backups included
+```
 
-**Happy developing!** 🎵
+## Common first-run failures
+
+| Symptom | Fix |
+|---------|-----|
+| `ModuleNotFoundError` for numpy, fastapi or others | The venv is not active: `source .venv/bin/activate`, then redo step 3 |
+| `Backend initialization failed; see backend logs`, `FingerprintUnavailable`, or an import error naming `auralis_dsp` | Step 4 was skipped or ran outside the active venv |
+| `Failed to find pip (if working with a uv venv try maturin develop --uv)` | Add `--uv` to the `maturin develop` command |
+| `Cannot use port 8765` | Another process holds the port. Stop it (`lsof -ti:8765`) or pass `--port` |
+| `Built frontend missing` | Run the frontend build from the section above, or launch with `--dev` |
+| `Install Node.js and run pnpm --dir auralis-web/frontend install first` | Step 5 was skipped for the frontend |
+| `Run pnpm --dir desktop install first` | Step 5 was skipped for `desktop` |
+| `pnpm: command not found` | Install Node 24+, then `corepack enable` |
+| `database is locked` | Another Auralis or Python process has the library open. Stop it; reset only if the file is damaged |
+| Compressed audio will not play or scan | `ffmpeg` is missing from `PATH` |
+
+## Next steps
+
+- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md): ground rules, testing, CI gates, PR flow
+- [CLAUDE.md](CLAUDE.md): architecture, invariants and project principles
+- [docs/subsystems/dsp-engine.md](docs/subsystems/dsp-engine.md): the audio pipeline
+- [docs/development/DEVELOPMENT_SETUP_BACKEND.md](docs/development/DEVELOPMENT_SETUP_BACKEND.md) and [docs/development/DEVELOPMENT_SETUP_FRONTEND.md](docs/development/DEVELOPMENT_SETUP_FRONTEND.md): debugging and tooling per side
+- [docs/development/BUILD_QUICK_REFERENCE.md](docs/development/BUILD_QUICK_REFERENCE.md): packaging installers
