@@ -8,9 +8,11 @@ name: Path References
 #
 # The script now has two scopes, and this job enforces both:
 #
-#   exit 1 — a stale ref in .claude/** or the authoritative docs (CLAUDE.md,
-#            README.md, WEBSOCKET_API.md, docs/architecture, docs/subsystems,
-#            docs/README). That set is clean and must stay clean.
+#   exit 1 — a stale ref, a file:LINE anchor or a dead markdown link in
+#            .claude/** or any living doc (the script's living_docs list:
+#            README, CLAUDE.md, the setup and backend docs, and docs/ outside
+#            archive/, audits/ and the historical release notes). That set is
+#            clean and must stay clean.
 #   exit 2 — a docs/ ref beyond .claude/commands/_audit-validate-baseline.txt.
 #            That baseline is a shrink-only ratchet, the same shape as
 #            pytest-baseline.json and frontend/test-baseline.json.

@@ -103,8 +103,19 @@ def count_tests_subdirs() -> int:
 
 
 def count_docs_topic_dirs() -> int:
-    docs_dir = PROJECT_ROOT / "docs"
-    return len([p for p in docs_dir.iterdir() if p.is_dir()])
+    """docs/ subdirectories that hold tracked files.
+
+    Counted from git, not the disk, so a directory left behind with only
+    gitignored files in it (e.g. a local *_SUMMARY.md) does not count.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(PROJECT_ROOT), "ls-files", "docs"],
+        capture_output=True, text=True, check=True,
+    )
+    return len({
+        parts[1] for parts in (line.split("/") for line in result.stdout.splitlines())
+        if len(parts) > 2
+    })
 
 
 def count_repositories() -> int:

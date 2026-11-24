@@ -17,7 +17,7 @@ reads.
 
 The audio that reaches the speakers does **not** come out of `AudioPlayer`. In the shipped app
 the renderer plays PCM that the backend streams over the `/ws` WebSocket (chunked, mastered by
-`ChunkedAudioProcessor`; see [backend-api.md §4–5](backend-api.md#4-websocket-protocol-ws)),
+`ChunkedAudioProcessor`; see [backend-api.md §4–5](backend-api.md#4-websocket-and-streaming)),
 and volume is a client-side Web Audio gain (the backend only broadcasts the value). Nothing
 outside `auralis/player/` calls `AudioPlayer.get_audio_chunk()`, so the engine's pull loop,
 its `RealtimeProcessor` and its auto-advance thread never run in the app.

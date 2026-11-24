@@ -17,19 +17,22 @@
 # `|| true` at the call site and it caught nothing for a week. The fix is the
 # same ratchet the project already runs for both test suites:
 #
-#   STRICT scope  — .claude/** plus the authoritative docs (CLAUDE.md, README,
-#                   WEBSOCKET_API, docs/architecture, docs/subsystems,
-#                   docs/README). Clean today. ANY stale ref fails, exit 1.
+#   STRICT scope  — .claude/** plus every living doc (the living_docs list
+#                   below: README, CLAUDE.md, ARCHITECTURE.md, FIRST_TIME_SETUP,
+#                   the backend READMEs, and docs/ outside archive/, audits/ and
+#                   the historical release notes). ANY stale ref fails, exit 1.
 #                   This half is wired into CI (.github/workflows/path-references.yml).
 #
-#   RATCHET scope — the rest of the current docs tree. Compared against
+#   RATCHET scope — docs that cannot be cleaned in one go. Compared against
 #                   _audit-validate-baseline.txt, which may SHRINK but never
 #                   GROW. A new stale ref fails, exit 2. Entries in the
 #                   baseline that are now clean are reported so the file can be
-#                   regenerated (--update-baseline).
+#                   regenerated (--update-baseline). Empty today: every living
+#                   doc is strict.
 #
 # A file moves from RATCHET to STRICT by being cleaned up and relisted below;
-# that is the intended direction of travel and the baseline should trend to 0.
+# that is the intended direction of travel and the baseline should stay at 0.
+# A new living doc goes straight into living_docs.
 #
 # What it checks:
 #   - Every backticked path token ending in a known source/doc extension
@@ -145,6 +148,37 @@ expand_braces() {
 
 shopt -s nullglob globstar
 
+# --- Living docs: strict path refs AND markdown links -----------------------
+# Everything that describes the code as it is now. docs/archive/, docs/audits/,
+# the CHANGELOG and the per-release notes before 1.5.1 are historical: naming a
+# deleted file there is correct, not drift. docs/features/ is listed by file,
+# not by a recursive glob, so a gitignored local file under it cannot fail a
+# local run that CI would pass.
+living_docs=(
+    README.md
+    CLAUDE.md
+    ARCHITECTURE.md
+    FIRST_TIME_SETUP.md
+    auralis-web/README.md
+    auralis-web/backend/WEBSOCKET_API.md
+    auralis-web/backend/CONFIG.md
+    docs/*.md
+    docs/architecture/*.md
+    docs/subsystems/*.md
+    docs/development/*.md
+    docs/features/*.md
+    docs/features/cache-system/*.md
+    docs/frontend/*.md
+    docs/frontend/testing/*.md
+    docs/getting-started/*.md
+    docs/security/*.md
+    docs/prd/*.md
+    docs/releases/RELEASE_GUIDE.md
+    docs/releases/VERSIONING_STRATEGY.md
+    docs/releases/RELEASE_CHECKLIST_1_5_1.md
+    docs/releases/RELEASE_NOTES_1_5_1.md
+)
+
 # --- STRICT scope: must be clean, enforced in CI ----------------------------
 strict_files=(
     .claude/commands/audit-*.md
@@ -155,43 +189,16 @@ strict_files=(
     .claude/commands/verify-*.md
     .claude/commands/gen-test.md
     .claude/agents/*.md
-    # #4547: the authoritative docs tree, which rotted unchecked while the
-    # gate reported PASS over the skill files alone.
-    docs/architecture/*.md
-    docs/subsystems/*.md
-    docs/README.md
-    ARCHITECTURE.md
-    CLAUDE.md
-    README.md
-    auralis-web/backend/WEBSOCKET_API.md
+    "${living_docs[@]}"
 )
 
 # --- RATCHET scope: compared against the checked-in baseline ---------------
-# #4984: #4547 only covered 11 of 507 docs/**/*.md files (2.2%) — the gate
-# reported false-clean over the other 496. This extends coverage to the
-# full "current" (non-historical) subset. Deliberately NOT including
-# docs/development/, docs/archive/ (which now also holds the former
-# docs/guides/), docs/audits/, or docs/releases/: those are historical
-# plan/audit/guide snapshots whose purpose is to record what was deleted or
-# superseded, so naming a removed/renamed file there is correct, not drift.
-ratchet_files=(
-    docs/*.md
-    docs/features/**/*.md
-    docs/frontend/**/*.md
-    docs/getting-started/*.md
-    docs/security/*.md
-)
+# Empty: every living doc is in living_docs above. Kept so a doc tree that
+# cannot be cleaned in one commit can land here with a baseline, and shrink.
+ratchet_files=()
 
 shopt -u nullglob globstar
 
-# docs/README.md is in the strict set; drop it from the ratchet glob expansion
-# so it is not scanned twice.
-filtered_ratchet=()
-for f in "${ratchet_files[@]}"; do
-    [[ "$f" == "docs/README.md" ]] && continue
-    filtered_ratchet+=("$f")
-done
-ratchet_files=("${filtered_ratchet[@]}")
 
 # Enumerate every tracked repo path once so partial refs like
 # `repositories/track_repository.py` (shorthand for
@@ -320,14 +327,7 @@ scan_dir_refs "$strict_hits" "${strict_files[@]}"
 # root, so these cannot go through path_exists(). Every link file is in the
 # strict set, so dead links are always a hard failure.
 shopt -s nullglob
-link_files=(
-    docs/README.md
-    docs/architecture/*.md
-    docs/subsystems/*.md
-    README.md
-    CLAUDE.md
-    auralis-web/backend/WEBSOCKET_API.md
-)
+link_files=("${living_docs[@]}")
 shopt -u nullglob
 
 link_count=0

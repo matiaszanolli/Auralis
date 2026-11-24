@@ -274,7 +274,7 @@ Python caller.
 `audio`, `auralis`, `backend`, `boundaries`, `concurrency`, `edge_cases`, `input_media`,
 `integration`, `load_stress`, `performance`, `regression`, `results`, `security`, `stress`,
 `utils`, `vendor`. How to run them, and which files must be excluded from a whole-suite run:
-[../CONTRIBUTING.md](../CONTRIBUTING.md#testing) and the commands section of
+[../CONTRIBUTING.md](../CONTRIBUTING.md#4-testing) and the commands section of
 [../../CLAUDE.md](../../CLAUDE.md).
 
 ---
