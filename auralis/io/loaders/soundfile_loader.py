@@ -20,6 +20,14 @@ from ..processing import downmix_to_stereo, requires_layout_aware_downmix
 from .container_size import get_aiff_au_declared_size
 
 
+# Streaming writers that cannot seek back to patch the header leave a size near INT32_MAX
+# (0x7FFFFFFF; ALSA arecord to a pipe writes 0x7FFFFFDC). libsndfile reads such a file to its
+# real end, so a size in this window is "unknown", not a declaration to measure truncation by
+# (#6359). The window is 4 KiB wide: a real WAV whose RIFF size falls inside it only loses the
+# truncation heuristic.
+_STREAMING_PLACEHOLDER_SIZES = range(0x7FFFF000, 0x80000000)
+
+
 def _get_wav_declared_size(file_path: Path) -> int | None:
     """Read WAV RIFF header to get declared file size.
 
@@ -37,7 +45,7 @@ def _get_wav_declared_size(file_path: Path) -> int | None:
         # (the real size lives in a ds64 chunk). Treat it as "unknown size" so
         # the truncation heuristic is skipped rather than rejecting a valid
         # multi-gigabyte file as ~4 GB declared (#4112).
-        if chunk_size == 0xFFFFFFFF:
+        if chunk_size == 0xFFFFFFFF or chunk_size in _STREAMING_PLACEHOLDER_SIZES:
             return None
         return chunk_size + 8  # 8 bytes for RIFF tag + size field itself
     except Exception:

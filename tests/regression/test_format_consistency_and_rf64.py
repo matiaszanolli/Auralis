@@ -20,6 +20,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 from auralis.io.formats import AUDIO_EXTENSIONS, FFMPEG_FORMATS, SUPPORTED_FORMATS
@@ -115,6 +116,30 @@ class TestRF64ChunkSizeSentinel:
             p = Path(d) / "normal.wav"
             self._write_header(p, 1000)
             assert _get_wav_declared_size(p) == 1008  # chunk_size + 8
+
+    @pytest.mark.parametrize("placeholder", [0x7FFFFFFF, 0x7FFFFFDC, 0x7FFFF000])
+    def test_a_streaming_writers_placeholder_size_loads_in_full(self, tmp_path, placeholder):
+        """#6359: arecord to a pipe (0x7FFFFFDC) and other streaming writers leave a size near
+        INT32_MAX that libsndfile reads past; it read as a 0.0%-complete, rejected file."""
+        from auralis.io.loaders.soundfile_loader import load_with_soundfile
+
+        p = tmp_path / "streamed.wav"
+        tone = (0.25 * np.sin(np.arange(44100) / 10)).astype(np.float32)
+        sf.write(str(p), np.column_stack([tone, tone]), 44100, subtype="PCM_16")
+        data = bytearray(p.read_bytes())
+        data[4:8] = struct.pack("<I", placeholder)
+        p.write_bytes(bytes(data))
+
+        audio, sr = load_with_soundfile(p)
+
+        assert sr == 44100 and audio.shape == (44100, 2)
+
+    def test_a_size_just_outside_the_placeholder_window_is_still_measured(self, tmp_path):
+        from auralis.io.loaders.soundfile_loader import _get_wav_declared_size
+
+        p = tmp_path / "large.wav"
+        self._write_header(p, 0x7FFFF000 - 1)
+        assert _get_wav_declared_size(p) == 0x7FFFF000 - 1 + 8
 
     def test_genuinely_truncated_wav_still_rejected(self):
         from auralis.utils.logging import Code, ModuleError
