@@ -1,48 +1,64 @@
-# Rust DSP Library (`vendor/auralis-dsp/`) — Current Status
-
-**Last verified**: 2026-10-22 (after #5764)
-**Supersedes**: the 2025-11 planning docs (`RUST_DSP_PROJECT_STATUS.md`, `RUST_DSP_EXTRACTION_PLAN.md`, `README_RUST_DSP_INTEGRATION.md`), now under `docs/archive/development-history/`.
+# Rust DSP Crate (`vendor/auralis-dsp/`)
 
 ## What the crate is for
 
-One thing: the native 25D fingerprint (`auralis_dsp.compute_fingerprint`), called from
-`auralis-web/backend/analysis/fingerprint_generator.py` and
-`auralis/analysis/fingerprint/rust_fingerprint.py`. The crate used to also expose HPSS, YIN,
-tempo, envelope follower, compressor, limiter, multiband EQ and onset detection as Python
-bindings. None had a production caller (the Python implementations are what run), so #5764
-deleted the nine bindings and the modules only they used.
+One thing: the native 25D fingerprint, exposed to Python as `auralis_dsp.compute_fingerprint`. Its one
+production call site is
+[`auralis/analysis/fingerprint/rust_fingerprint.py`](../../auralis/analysis/fingerprint/rust_fingerprint.py)
+(`compute_fingerprint_schema`); the backend's
+[`fingerprint_generator.py`](../../auralis-web/backend/analysis/fingerprint_generator.py) only imports it
+to learn whether the module is available. What each dimension means, how the glue maps the raw Rust
+keys and units onto the schema, and which audio is analysed are in
+[fingerprinting.md](../subsystems/fingerprinting.md).
 
-## Module inventory (9 modules, 3,488 lines)
+Do not add a binding or a module without a production Python caller. HPSS, YIN, tempo, envelope,
+compressor, limiter, multiband EQ, onset and chunk-processor bindings were deleted because nothing
+called them: the Python implementations are what run.
 
-| Module | Lines | Unit tests | Purpose |
-|---|---|---|---|
-| `fingerprint_compute.rs` | 909 | 11 | Orchestrates the full 25D fingerprint from the modules below |
-| `frequency_analysis.rs` | 273 | 5 | 7-band perceptual frequency distribution |
-| `spectral_features.rs` | 303 | 6 | Spectral centroid/rolloff/flatness |
-| `variation_analysis.rs` | 354 | 10 | Temporal variation (dynamic range, loudness, peak consistency) |
-| `stereo_analysis.rs` | 184 | 8 | Stereo width / phase correlation |
-| `chroma.rs` | 502 | 15 | Constant-Q chromagram (harmonic dimensions of the fingerprint) |
-| `rhythm.rs` | 705 | 6 | Beat tracking + silence ratio; feeds `rhythm_stability` / `silence_ratio` (ported from the deleted `fingerprint-server` crate, #4533) |
-| `dsp_math.rs` | 78 | 0 | Shared primitives: RMS, LUFS proxy, `hz_to_bin`, the f32 Hann weight, population std-dev (#6622) |
-| `py_bindings.rs` | 151 | 0 | `#[pymodule]` registering `compute_fingerprint` (the dead `process_chunks` binding and its chunk-processor module were deleted, #5738) |
+## Module inventory
 
-## Test status (`cargo test --lib`, verified 2026-10-27)
+| Module | Purpose |
+|---|---|
+| `fingerprint_compute.rs` | `compute_complete_fingerprint`: assembles all 25 dimensions from the modules below; also the tempo estimate (spectral-flux onset autocorrelation) |
+| `frequency_analysis.rs` | 7-band energy distribution and the bass/mid ratio, accumulated over the whole input frame by frame |
+| `spectral_features.rs` | Spectral centroid, rolloff, flatness |
+| `variation_analysis.rs` | Dynamic-range variation, loudness variation, peak consistency (whole 1 s frames only) |
+| `stereo_analysis.rs` | Stereo width and phase correlation |
+| `chroma.rs` | Constant-Q chromagram (the `chroma_energy` dimension) |
+| `rhythm.rs` | Beat tracking for `rhythm_stability`, and `silence_ratio` |
+| `dsp_math.rs` | Shared primitives: RMS, the RMS-proxy LUFS estimate, `hz_to_bin`, the f32 Hann weight, population standard deviation |
+| `py_bindings.rs` | The `#[pymodule]` registering `compute_fingerprint` |
 
-**72 / 72 unit tests passing** (re-run 2026-11-20 after #6615 and #6622). The five failures listed here until #5859 were
-stale tests, not fingerprint bugs: `test_compute_energy` (now `test_compute_rms`) expected
-sqrt(sum)/N instead of RMS; the phase-correlation "opposite" and stereo
-fingerprint tests fed constant (zero-variance) channels, whose correlation is
-undefined and falls back to 1.0; `test_spectral_flatness_tone` used an
-all-zero background, which the flatness excludes rather than floors (a
-windowed FFT of real audio never produces one). The mono fingerprint test
-exposed one real edge: f32 rounding gave a constant signal a tiny negative
-crest factor, now clamped at 0 dB.
+`lufs` is deliberately an RMS proxy, not BS.1770, so every fingerprint path agrees; use
+`LoudnessMeter` where standards-compliant loudness matters.
 
-## Build
+## The PyO3 boundary
+
+- `compute_fingerprint(audio, sample_rate, channels)`: `audio` is a 1-D C-contiguous **float32**
+  array: mono `(n,)`, or for `channels == 2` interleaved L/R `(2n,)`. An empty array, a zero sample
+  rate or a channel count other than 1 or 2 raises `ValueError`.
+- The call releases the GIL (`py.detach`) and runs under `catch_unwind`, so a Rust panic surfaces as a
+  `RuntimeError` instead of aborting the interpreter.
+- It returns the raw 25 values under Rust's key names and units, not the schema's. Use
+  `compute_fingerprint_schema`, never the raw call.
+- There is no Python fallback: without the built module, fingerprinting and adaptive mastering fail
+  loudly (see fingerprinting.md §2).
+
+## Toolchain and dependencies
+
+PyO3 and `numpy` (rust-numpy) 0.29, `ndarray` 0.16, `rustfft`, `rayon`; edition 2024, `rust-version` 1.85,
+toolchain pinned in `rust-toolchain.toml`. `pyo3` and `numpy` are bumped together, and the module is
+built against the full CPython 3.14 API (no `abi3`); the release build checks for that. Major-version
+status for each dependency is in `vendor/auralis-dsp/UPGRADE_PLAN.md`.
+
+## Build and test
 
 ```bash
 cd vendor/auralis-dsp
+maturin develop             # build and install the extension into the active venv (required before first run)
 cargo check --tests         # fast compile check, no Python needed
-cargo test --lib            # unit tests
-maturin develop             # build + install as Python extension (see root CLAUDE.md)
+cargo test --lib            # the crate's unit tests
 ```
+
+Release wheels are built in CI with `maturin build --release --locked`. Python-side tests that call
+`auralis_dsp` live under `tests/vendor/`.
