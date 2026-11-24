@@ -1,5 +1,5 @@
 """
-Regression: the FFmpeg pre-transcode repairs non-finite / out-of-range samples (#5532, #5739)
+Regression: the FFmpeg pre-transcode repairs non-finite samples and keeps overshoot (#5532, #5739, #6360)
 
 ``SimpleMasteringPipeline._master_file_impl`` decoded FFmpeg-only formats
 (mp3/m4a/aac/…) and re-encoded to a temp WAV with a bare ``sf.write`` —
@@ -110,16 +110,29 @@ def test_non_finite_decode_is_repaired_to_silence():
     assert np.isfinite(output[30_000, 0]) and output[30_000, 0] == 0.0
 
 
-def test_out_of_range_decode_is_clipped():
-    """Out-of-range samples from the decoder are clamped to [-1, 1] at the
-    pre-transcode boundary (saver.save's deterministic clip)."""
-    raw = (0.1 * np.sin(2 * np.pi * 220 * np.arange(SR) / SR)).astype(np.float32)
-    raw[1000] = 7.5
-    raw[2000] = -7.5
+def test_decoder_overshoot_is_kept_and_only_non_finite_samples_are_repaired(tmp_path):
+    """#6360: codec overshoot past full scale reaches the engine, as it does from load_audio() and
+    as saver.save() keeps it for a float subtype (#6316). Clipping it here hard-clipped AAC/MP3
+    peaks on the FFmpeg-decode route only. A file with only overshoot is not rewritten."""
+    from auralis.io.wav_sanitize import sanitize_wav_in_place
 
-    output = _master_ffmpeg_input(raw)
+    overshoot = (0.1 * np.sin(2 * np.pi * 220 * np.arange(SR) / SR)).astype(np.float32)
+    overshoot[1000], overshoot[2000] = 1.48, -1.16
+    clean = tmp_path / 'overshoot.wav'
+    sf.write(str(clean), overshoot, SR, format='WAV', subtype='FLOAT')
 
-    assert np.all(np.abs(output) <= 1.0)
+    assert sanitize_wav_in_place(clean, block_frames=4096) is False
+    np.testing.assert_array_equal(sf.read(str(clean), dtype='float32')[0], overshoot)
+
+    corrupt = overshoot.copy()
+    corrupt[3000] = np.nan
+    bad = tmp_path / 'corrupt.wav'
+    sf.write(str(bad), corrupt, SR, format='WAV', subtype='FLOAT')
+
+    assert sanitize_wav_in_place(bad, block_frames=4096) is True
+    repaired = sf.read(str(bad), dtype='float32')[0]
+    assert repaired[3000] == 0.0
+    assert repaired[1000] == np.float32(1.48) and repaired[2000] == np.float32(-1.16)
 
 
 def test_a_real_mp3_is_mastered_from_the_streamed_decode(tmp_path):

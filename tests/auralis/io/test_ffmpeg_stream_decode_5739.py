@@ -80,7 +80,7 @@ def test_a_failed_decode_leaves_no_file_behind(tmp_path):
     assert list(out.iterdir()) == []
 
 
-def test_sanitize_repairs_non_finite_and_out_of_range_samples_across_blocks(tmp_path):
+def test_sanitize_repairs_non_finite_samples_across_blocks_and_keeps_overshoot(tmp_path):
     audio = np.full((5000, 2), 0.25, dtype=np.float32)
     audio[10, 0] = np.nan
     audio[3000, 1] = np.inf
@@ -94,7 +94,7 @@ def test_sanitize_repairs_non_finite_and_out_of_range_samples_across_blocks(tmp_
     fixed, _ = sf.read(str(wav), dtype="float32")
     assert fixed.shape == audio.shape
     assert fixed[10, 0] == 0.0 and fixed[3000, 1] == 0.0
-    assert fixed[4500, 0] == 1.0 and fixed[4600, 1] == -1.0
+    assert fixed[4500, 0] == 7.5 and fixed[4600, 1] == -7.5  # overshoot is the engine's to handle (#6360)
     assert np.all(fixed[:10] == 0.25)  # untouched samples are bit-identical
     assert list(tmp_path.iterdir()) == [wav], "the .repaired sibling must not linger"
 
