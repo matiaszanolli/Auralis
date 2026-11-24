@@ -100,6 +100,26 @@ def _saturate(gains: dict[str, float]) -> dict[str, float]:
     }
 
 
+#: The 2-4 kHz (high-mid) correction is asymmetric, from gain-matched listening
+#: (2026-11): a CUT is twice the symmetric law and a BOOST half of it. On a crowded
+#: track (Overkill "Where It Hurts", share 6 dB over the center) the cut alone at
+#: twice the law (-4.1 dB) sounded as good as the whole plan at twice; on a milder
+#: one (Iron Maiden "Holy Smoke", 1.7 dB over) twice was no worse than the law.
+#: Boosts amplify what a thin or overdriven vintage source already has (Velvet
+#: Underground "Femme Fatale", 7 dB under): half strength at most. It also halves
+#: the boost on excellent masters that sit a little under the center. Scaling the
+#: saturated gain keeps both sides bounded (cuts by 2 x the 4 dB authority) and
+#: continuous through zero. Other bands keep the symmetric law: no evidence there.
+_HIGH_MID_CUT_SCALE = 2.0
+_HIGH_MID_BOOST_SCALE = 0.5
+
+
+def _asymmetric_high_mid(curve: dict[str, float]) -> dict[str, float]:
+    gain = curve['high_mid_gain']
+    scale = _HIGH_MID_CUT_SCALE if gain < 0.0 else _HIGH_MID_BOOST_SCALE
+    return {**curve, 'high_mid_gain': gain * scale}
+
+
 def eq_curve_from_fingerprint(
     fp: Mapping[str, float],
     centers: Mapping[str, float] | None = None,
@@ -111,4 +131,6 @@ def eq_curve_from_fingerprint(
         centers: Band shares to pull toward, keyed like ``CORPUS_BAND_CENTERS``;
             None means the corpus centers.
     """
-    return _saturate(_band_gains(fp, centers if centers is not None else CORPUS_BAND_CENTERS))
+    return _asymmetric_high_mid(
+        _saturate(_band_gains(fp, centers if centers is not None else CORPUS_BAND_CENTERS))
+    )
