@@ -6,11 +6,25 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { scan } from './check-weak-tests.mjs';
 
-function scanSpec(body) {
+function scanSpec(body, name = 'a.test.ts') {
   const dir = mkdtempSync(join(tmpdir(), 'weak-tests-'));
-  writeFileSync(join(dir, 'a.test.ts'), body);
+  writeFileSync(join(dir, name), body);
   return scan(dir, dir);
 }
+
+test('scans spec files and counts assertions in each test body', () => {
+  const found = scanSpec(
+    "it.each([1])('empty %s', () => {});\n" +
+      "test.concurrent.each([1])('specific %s', (value) => expect(value).toBe(1));\n" +
+      "test.each`value\n${1}`('weak $value', ({ value }) => expect(value).toBeDefined());",
+    'a.spec.tsx',
+  );
+  assert.deepEqual(found, {
+    zero: ['a.spec.tsx::empty %s'],
+    weak: ['a.spec.tsx::weak $value'],
+    conditional: [],
+  });
+});
 
 test('flags a test with no assertion', () => {
   const found = scanSpec(`it('does nothing', () => { render(); });`);

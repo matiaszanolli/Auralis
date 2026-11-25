@@ -86,7 +86,7 @@ export default defineConfig({
         '**/*.config.*', // Config files
         '**/mockData', // Mock data
         'src/**/*.stories.tsx', // Storybook files
-        'src/**/*.test.{ts,tsx}', // Test files themselves
+        'src/**/*.{test,spec}.{ts,tsx}', // Test files themselves
         'build/',
         'dist/',
       ],

@@ -44,19 +44,26 @@ function* testFiles(dir) {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) {
       if (name !== 'node_modules') yield* testFiles(path);
-    } else if (/\.test\.(ts|tsx)$/.test(name)) {
+    } else if (/\.(test|spec)\.tsx?$/.test(name)) {
       yield path;
     }
   }
 }
 
-/** `it`, `test`, `it.skip`, `it.only` ... with a string title and a function body. */
+/** Vitest test calls, including table-driven and tagged-template .each forms. */
 function asTestCall(node) {
   if (!ts.isCallExpression(node)) return null;
-  const callee = node.expression;
-  const root = ts.isPropertyAccessExpression(callee) ? callee.expression : callee;
-  if (!ts.isIdentifier(root) || !TEST_CALLEES.has(root.text)) return null;
-  if (ts.isPropertyAccessExpression(callee) && !['skip', 'only', 'concurrent'].includes(callee.name.text)) return null;
+  let callee = node.expression;
+  if (ts.isCallExpression(callee) || ts.isTaggedTemplateExpression(callee)) {
+    const each = ts.isCallExpression(callee) ? callee.expression : callee.tag;
+    if (!ts.isPropertyAccessExpression(each) || each.name.text !== 'each') return null;
+    callee = each.expression;
+  }
+  while (ts.isPropertyAccessExpression(callee)) {
+    if (!['skip', 'only', 'concurrent'].includes(callee.name.text)) return null;
+    callee = callee.expression;
+  }
+  if (!ts.isIdentifier(callee) || !TEST_CALLEES.has(callee.text)) return null;
   const [title, body] = node.arguments;
   if (!title || !(ts.isStringLiteralLike(title) || ts.isTemplateExpression(title))) return null;
   if (!body || !(ts.isArrowFunction(body) || ts.isFunctionExpression(body))) return null;

@@ -47,7 +47,7 @@ function collectSpecs(dir: string): string[] {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       out.push(...collectSpecs(full));
-    } else if (/\.test\.tsx?$/.test(entry)) {
+    } else if (/\.(test|spec)\.tsx?$/.test(entry)) {
       out.push(full);
     }
   }

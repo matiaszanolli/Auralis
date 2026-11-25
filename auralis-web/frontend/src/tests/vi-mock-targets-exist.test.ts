@@ -12,7 +12,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 
 const SRC = join(process.cwd(), 'src');
@@ -24,7 +25,7 @@ function collectSpecs(dir: string): string[] {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       if (entry !== 'node_modules') out.push(...collectSpecs(full));
-    } else if (/\.test\.tsx?$/.test(entry)) {
+    } else if (/\.(test|spec)\.tsx?$/.test(entry)) {
       out.push(full);
     }
   }
@@ -48,18 +49,33 @@ function resolveTarget(spec: string, target: string): string {
   return target.startsWith('@/') ? join(SRC, target.slice(2)) : resolve(dirname(spec), target);
 }
 
-describe('vi.mock targets exist (#5678)', () => {
-  it('has no mock for a module that does not exist', () => {
-    const missing: string[] = [];
-    for (const spec of collectSpecs(SRC)) {
-      for (const target of localMockTargets(readFileSync(spec, 'utf8'))) {
-        if (!resolvesToAFile(resolveTarget(spec, target))) {
-          missing.push(`${relative(SRC, spec)}: vi.mock('${target}')`);
-        }
+function findMissingMocks(root: string): string[] {
+  const missing: string[] = [];
+  for (const spec of collectSpecs(root)) {
+    for (const target of localMockTargets(readFileSync(spec, 'utf8'))) {
+      if (!resolvesToAFile(resolveTarget(spec, target))) {
+        missing.push(`${relative(root, spec)}: vi.mock('${target}')`);
       }
     }
+  }
+  return missing;
+}
+
+describe('vi.mock targets exist (#5678)', () => {
+  it('has no mock for a module that does not exist', () => {
+    const missing = findMissingMocks(SRC);
 
     expect(missing, `mocks of modules that do not exist (a no-op mock):\n${missing.join('\n')}`).toEqual([]);
+  });
+
+  it('reports a missing mock target in a .spec.tsx file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mock-target-'));
+    try {
+      writeFileSync(join(dir, 'fixture.spec.tsx'), "vi.mock('./missing', () => ({}));");
+      expect(findMissingMocks(dir)).toEqual(["fixture.spec.tsx: vi.mock('./missing')"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('would catch a missing target (the resolver is not vacuous)', () => {
