@@ -8,7 +8,7 @@ Shared bounded types for request bodies (#4681). Split out of schemas.py
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeGuard
 
 from pydantic import Field
 
@@ -35,9 +35,16 @@ MAX_TRACK_ID_LIST = 50_000
 #: Largest integer SQLite can bind. A bigger Python int makes the binding raise
 #: OverflowError, which would surface as a 500 with a logged traceback (#6162).
 MAX_SQLITE_INT = 2**63 - 1
+TRACK_ID_ERROR = f"track_id must be an integer from 1 to {MAX_SQLITE_INT}"
 
 #: A track's database id. 1-based, so 0 and negatives are contract violations.
 TrackId = Annotated[int, Field(ge=1, le=MAX_SQLITE_INT)]
+
+
+def is_valid_track_id(value: object) -> TypeGuard[int]:
+    """Apply the TrackId bounds to a JSON integer without coercion."""
+    return isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= MAX_SQLITE_INT
+
 
 #: A zero-based position within the queue or a playlist.
 QueueIndex = Annotated[int, Field(ge=0, le=MAX_SQLITE_INT)]

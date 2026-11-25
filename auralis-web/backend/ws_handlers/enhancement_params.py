@@ -19,6 +19,7 @@ from schemas import (  # single source of truth (#4424, #4600)
     VALID_PRESETS,
     is_valid_intensity,
 )
+from schemas.request_bounds import TRACK_ID_ERROR, is_valid_track_id
 from websocket.message_validation import send_error_response
 
 
@@ -160,9 +161,9 @@ async def parse_play_request(
     as a generic ``internal_error``; a non-finite one still degrades to 0.0.
     """
     track_id = data.get("track_id")
-    if not isinstance(track_id, int) or track_id <= 0:
+    if not is_valid_track_id(track_id):
         logger.warning(f"Invalid track_id in {command}: {track_id!r}")
-        await send_error_response(websocket, "invalid_track_id", "track_id must be a positive integer", command=command)
+        await send_error_response(websocket, "invalid_track_id", TRACK_ID_ERROR, command=command)
         return None
     try:
         start_position = float(data.get("start_position", 0.0) or 0.0)

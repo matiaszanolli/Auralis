@@ -137,14 +137,16 @@ describe('useEnhancedSeek – rejected seek (#5885)', () => {
     expect(seekFrames()).toHaveLength(2);
   });
 
-  it('clears isSeeking without a retry when the seek handler itself failed', () => {
-    const { result, setIsSeeking, reject, seekFrames } = setup();
-    act(() => result.current.seekTo(10));
-    reject('internal_error');
-    act(() => vi.advanceTimersByTime(SEEK_RETRY_DELAY_MS * 2));
-    expect(setIsSeeking).toHaveBeenLastCalledWith(false);
-    expect(seekFrames()).toHaveLength(1);
-  });
+  it.each(['internal_error', 'invalid_track_id', 'invalid_seek_position'])(
+    'clears isSeeking without a retry when the seek handler replies with %s', (error) => {
+      const { result, setIsSeeking, reject, seekFrames } = setup();
+      act(() => result.current.seekTo(10));
+      reject(error);
+      act(() => vi.advanceTimersByTime(SEEK_RETRY_DELAY_MS * 2));
+      expect(setIsSeeking).toHaveBeenLastCalledWith(false);
+      expect(seekFrames()).toHaveLength(1);
+    },
+  );
 
   it('ignores errors for other commands and errors after the seek was acknowledged', () => {
     const { result, handlers, setIsSeeking, reject } = setup();

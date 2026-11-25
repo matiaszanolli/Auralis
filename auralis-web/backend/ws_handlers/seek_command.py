@@ -16,6 +16,7 @@ from core.audio_stream_controller import ws_id as _ws_id
 from core.stream_protocol import safe_send_text
 from fastapi import WebSocket
 from schemas import DEFAULT_INTENSITY, DEFAULT_PRESET  # single source of truth (#4424, #4600)
+from schemas.request_bounds import TRACK_ID_ERROR, is_valid_track_id
 from websocket.message_validation import send_error_response
 
 from .context import StreamState, WSDeps
@@ -33,23 +34,19 @@ async def handle_seek(
     position = data.get("position", 0)
 
     # Validate before launching any background task (#2393)
-    if not isinstance(track_id, int) or track_id <= 0:
+    if not is_valid_track_id(track_id):
         logger.warning(f"Invalid track_id in seek: {track_id!r}")
-        await send_error_response(websocket, "invalid_track_id", "track_id must be a positive integer")
+        await send_error_response(websocket, "invalid_track_id", TRACK_ID_ERROR, command="seek")
         return
 
     if not is_finite_position(position):  # a huge JSON int overflowed isfinite() (#6505)
         logger.warning(f"Invalid seek position: {position!r}")
-        await send_error_response(websocket, "invalid_seek_position", "position must be a non-negative number")
+        await send_error_response(
+            websocket, "invalid_seek_position", "position must be a non-negative number", command="seek",
+        )
         return
 
-    # Same precedence as handle_play_enhanced, via the same helper (#4677).
-    # These two handlers used to resolve the same quantity with opposite
-    # rules: a valid preset on the seek frame was discarded unconditionally
-    # (the fallback dict always carries a "preset" key), so scrubbing could
-    # re-master the track with a preset the listener never chose, and the
-    # no-fallback branch forwarded the client string with no VALID_PRESETS
-    # check at all. The client payload is authoritative when valid.
+    # A valid client preset is authoritative, as for play_enhanced (#4677).
     #
     # Fallback order, for whatever the payload does not supply: THIS
     # connection's own active stream settings — recorded by

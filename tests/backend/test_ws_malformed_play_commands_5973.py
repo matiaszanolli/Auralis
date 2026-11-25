@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 
 from ws_handlers import playback_commands, seek_command  # noqa: E402
 from ws_handlers.context import StreamState, WSDeps  # noqa: E402
+from schemas.request_bounds import MAX_SQLITE_INT  # noqa: E402
 
 
 def _state() -> StreamState:
@@ -34,6 +35,7 @@ def _deps() -> WSDeps:
     deps.get_repository_factory = lambda: None
     deps.stream_audio = AsyncMock()
     deps.stream_normal = AsyncMock()
+    deps.stream_from_position = AsyncMock()
     return deps
 
 
@@ -104,3 +106,32 @@ async def test_force_must_be_a_real_boolean(force):
     )
 
     assert [f["error"] for f in _sent(ws)] == ["invalid_force"]
+
+
+@pytest.mark.parametrize("handler, command, stream", [
+    (playback_commands.handle_play_normal, "play_normal", "stream_normal"),
+    (playback_commands.handle_play_enhanced, "play_enhanced", "stream_audio"),
+    (seek_command.handle_seek, "seek", "stream_from_position"),
+])
+@pytest.mark.parametrize("track_id", [MAX_SQLITE_INT + 1, True, False, 0, -1, 1.5, "1", 1, MAX_SQLITE_INT])
+@pytest.mark.asyncio
+async def test_track_ids_are_positive_sqlite_integers(handler, command, stream, track_id):
+    ws, state, deps = _ws(), _state(), _deps()
+    await handler(ws, {"type": command, "data": {"track_id": track_id}}, state, deps)
+    if type(track_id) is int and track_id in (1, MAX_SQLITE_INT):
+        for task in list(state.active_tasks.values()):
+            await task
+        assert getattr(deps, stream).await_args.kwargs["track_id"] == track_id
+    else:
+        assert [(f["error"], f["command"]) for f in _sent(ws)] == [("invalid_track_id", command)]
+        assert not state.active_tasks
+
+
+@pytest.mark.asyncio
+async def test_invalid_enhanced_preset_error_names_its_command():
+    ws, deps = _ws(), _deps()
+    deps.get_enhancement_settings = None
+    await playback_commands.handle_play_enhanced(
+        ws, {"type": "play_enhanced", "data": {"track_id": 1, "preset": "invalid"}}, _state(), deps
+    )
+    assert [(f["error"], f["command"]) for f in _sent(ws)] == [("invalid_preset", "play_enhanced")]

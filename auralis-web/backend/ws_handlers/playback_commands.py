@@ -106,11 +106,11 @@ async def handle_play_enhanced(
         settings["intensity"] = intensity
         logger.info(f"Using enhancement settings (frontend+stored): enabled={enhancement_enabled}, preset={preset}, intensity={intensity}")
     else:
-        # No stored dict to fall back on: an unresolvable preset is a client
-        # bug with nothing to degrade to, so surface it. handle_seek makes the
-        # opposite call deliberately — see its own comment.
+        # Without stored settings to fall back on, reject an unresolvable preset.
         if preset is None:
-            await send_error_response(websocket, "invalid_preset", f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}")
+            await send_error_response(
+                websocket, "invalid_preset", f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}", command="play_enhanced",
+            )
             return
         if intensity is None:
             intensity = DEFAULT_INTENSITY

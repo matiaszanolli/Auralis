@@ -26,7 +26,7 @@ async def test_a_huge_seek_position_is_invalid_seek_position():
 
     await seek_command.handle_seek(ws, {"type": "seek", "data": {"track_id": 5, "position": HUGE}}, state, _deps())
 
-    assert [f["error"] for f in _sent(ws)] == ["invalid_seek_position"]
+    assert [(f["error"], f["command"]) for f in _sent(ws)] == [("invalid_seek_position", "seek")]
     assert not state.active_tasks
 
 
