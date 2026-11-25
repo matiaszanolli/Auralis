@@ -65,7 +65,7 @@ export const AlbumTrackTable = ({
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={4} align="center" sx={{
+              <TableCell colSpan={5} align="center" sx={{
                 py: tokens.spacing.xl,
                 borderTop: `1px solid ${tokens.colors.border.light}`,
               }}>

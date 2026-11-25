@@ -58,6 +58,7 @@ export const TrackTableHeader = () => {
         }}>
           Duration
         </TableCell>
+        <TableCell aria-label="Actions" />
       </TableRow>
     </TableHead>
   );

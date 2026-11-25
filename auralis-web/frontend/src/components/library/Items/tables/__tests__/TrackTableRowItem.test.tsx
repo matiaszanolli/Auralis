@@ -8,8 +8,9 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@/test/test-utils';
+import { render, screen, within } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
+import { AlbumTrackTable } from '@/components/library/Items/tables/AlbumTrackTable';
 import { TrackTableRowItem } from '../TrackTableRowItem';
 import type { DetailTrack } from '@/types/domain';
 
@@ -122,3 +123,17 @@ describe('TrackTableRowItem current-track marker (#6068)', () => {
   });
 });
 
+
+it('labels the album actions column and spans it in the empty state', () => {
+  const props = { onTrackClick: vi.fn(), formatDuration };
+  const { rerender } = render(<AlbumTrackTable tracks={[track]} {...props} />);
+  const headers = screen.getAllByRole('columnheader');
+  expect(headers).toHaveLength(5);
+  expect(headers[headers.length - 1]).toHaveAccessibleName('Actions');
+  const row = screen.getByRole('row', { name: 'Play Test Track' });
+  expect(within(row).getAllByRole('cell')).toHaveLength(headers.length);
+
+  rerender(<AlbumTrackTable tracks={[]} {...props} />);
+  expect(screen.getByRole('cell', { name: 'No tracks found for this album' }))
+    .toHaveAttribute('colspan', String(headers.length));
+});
