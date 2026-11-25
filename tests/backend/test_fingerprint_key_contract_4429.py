@@ -19,28 +19,27 @@ backend emits must exist on the frontend interface.
 """
 
 import re
+import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+
+from auralis.analysis.fingerprint.schema import DIMENSION_NAMES
+from auralis.library.models import Track
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_TRACK_ROUTER = _REPO_ROOT / "auralis-web" / "backend" / "routers" / "fingerprint_status.py"
-_ALBUM_ROUTER = _REPO_ROOT / "auralis-web" / "backend" / "routers" / "albums_fingerprint.py"
+_BACKEND = _REPO_ROOT / "auralis-web" / "backend"
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
+
+from routers.albums_fingerprint import get_album_fingerprint  # noqa: E402
+from routers.fingerprint_status import get_track_fingerprint  # noqa: E402
+
 _FE_TYPE = (
     _REPO_ROOT / "auralis-web" / "frontend" / "src" / "utils" / "fingerprintToGradient.ts"
 )
-
-# Envelope/identity keys that live alongside the 25 fingerprint dimensions in
-# the response but are not part of the AudioFingerprint shape.
-_NON_DIMENSION_KEYS = {
-    "track_id",
-    "has_fingerprint",
-    "status",
-    "message",
-    "fingerprint",
-    "computed_at",
-    "version",
-    "album_id",
-    "track_count",
-}
 
 
 def _frontend_fields() -> set[str]:
@@ -57,16 +56,6 @@ def _frontend_fields() -> set[str]:
     return set(re.findall(r"^\s*([a-z_][a-z0-9_]*)\??\s*:", body, re.MULTILINE))
 
 
-def _emitted_keys(path: Path) -> set[str]:
-    """Fingerprint dict keys the given router emits."""
-    source = path.read_text()
-    source = re.sub(r"#[^\n]*", "", source)  # drop comments
-    keys = set(re.findall(r"""["']([a-z_][a-z0-9_]*)["']\s*:\s*""", source))
-    # albums.py emits via ('db_col', 'api_key') tuples rather than dict literals.
-    keys |= {api for _db, api in re.findall(r"""\(\s*['"]([a-z_]+)['"]\s*,\s*['"]([a-z_]+)['"]\s*\)""", source)}
-    return keys - _NON_DIMENSION_KEYS
-
-
 def test_loudness_variation_key_matches():
     """The specific #4429 mismatch, pinned by name."""
     fe = _frontend_fields()
@@ -81,29 +70,19 @@ def test_loudness_variation_key_matches():
     )
 
 
-def test_track_endpoint_dimension_keys_exist_on_frontend_type():
-    """Every fingerprint key the track endpoint emits is modelled on the FE."""
-    fe = _frontend_fields()
-    emitted = _emitted_keys(_TRACK_ROUTER)
-    # Only compare keys that look like fingerprint dimensions: the FE type is
-    # the authority on the dimension set, so anything it already knows about,
-    # plus the one under test, must reconcile.
-    dimensions = {k for k in emitted if k in fe or k.startswith("loudness_variation")}
-    missing = dimensions - fe
-    assert not missing, (
-        f"{_TRACK_ROUTER.name} emits fingerprint keys with no AudioFingerprint "
-        f"field: {sorted(missing)}"
-    )
+@pytest.mark.asyncio
+async def test_both_routers_agree_on_the_loudness_key():
+    stored = SimpleNamespace(**dict.fromkeys(DIMENSION_NAMES, 0.25))
+    stored.loudness_variation_std = 3.25
+    repos = Mock()
+    repos.tracks.get_by_id.return_value = Track(title="Song", filepath="/music/song.wav")
+    repos.albums.get_summary.return_value = SimpleNamespace(title="Album", track_count_expr=1)
+    repos.fingerprints.get_by_track_id.return_value = stored
+    repos.fingerprints.get_by_album_ids.return_value = {1: [stored]}
 
+    track = (await get_track_fingerprint(1, repos=repos))["fingerprint"]
+    album = (await get_album_fingerprint(1, repos=repos))["fingerprint"]
 
-def test_both_routers_agree_on_the_loudness_key():
-    """SIBLING: albums.py emits the same fingerprint shape as the track route."""
-    for path in (_TRACK_ROUTER, _ALBUM_ROUTER):
-        keys = _emitted_keys(path)
-        assert "loudness_variation_std" in keys, (
-            f"{path.name} no longer emits loudness_variation_std"
-        )
-        assert "loudness_variation" not in keys, (
-            f"{path.name} emits the bare `loudness_variation`, which the "
-            f"frontend does not model (#4429)"
-        )
+    frontend = _frontend_fields()
+    assert set(track) == set(album) == frontend
+    assert track["loudness_variation_std"] == album["loudness_variation_std"] == 3.25

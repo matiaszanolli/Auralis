@@ -94,25 +94,19 @@ def test_libsndfile_message_never_leaks_the_path(tmp_path):
 
 def test_queue_status_counts_interrupted_jobs_in_their_own_bucket_5496():
     """#5496: a restored/interrupted job inflated `total` without appearing in any bucket."""
-    from collections import namedtuple
-
-    from core.job_models import ProcessingStatus
+    from core.job_models import ProcessingJob, ProcessingStatus
     from core.processing_engine import ProcessingEngine
 
-    engine = ProcessingEngine.__new__(ProcessingEngine)
-    Job = namedtuple("Job", "status")
-    engine.jobs = {
-        1: Job(ProcessingStatus.INTERRUPTED),
-        2: Job(ProcessingStatus.COMPLETED),
-        3: Job(ProcessingStatus.QUEUED),
-    }
-    engine._worker = type("W", (), {"active_job_count": 0})()
-    engine.max_concurrent_jobs = 2
-    engine.max_queue_size = 10
-    engine.job_queue = type("Q", (), {"full": lambda self: False})()
+    engine = ProcessingEngine(max_queue_size=10)
+    for status in (ProcessingStatus.INTERRUPTED, ProcessingStatus.COMPLETED, ProcessingStatus.QUEUED):
+        job = ProcessingJob(status.value, "/fake/in.wav", "/fake/out.wav", {})
+        job.status = status
+        engine.jobs[job.job_id] = job
+    engine.job_queue.put_nowait(engine.jobs["queued"])
 
     status = engine.get_queue_status()
 
-    assert status["interrupted"] == 1
+    assert (status["interrupted"], status["completed"], status["queued"]) == (1, 1, 1)
+    assert status["queue_full"] is False
     buckets = ["queued", "processing", "completed", "failed", "cancelled", "interrupted"]
     assert sum(status[b] for b in buckets) == status["total"] == 3
