@@ -35,7 +35,7 @@ def listener_pids():
     return set(map(int, result.stdout.split()))
 
 
-def http(path):
+def request(path):
     connection = http.client.HTTPConnection("127.0.0.1", PORT, timeout=2)
     try:
         connection.request("GET", path)
@@ -93,9 +93,9 @@ def run_smoke(bundle, helper, run_dir, expected_version, mode):
         else:
             raise AssertionError(f"Auralis did not open a ready window. Launch Services: {opener.poll()}")
 
-        status, launch_id, body = http("/api/ready")
+        status, launch_id, body = request("/api/ready")
         assert status == 200 and launch_id and json.loads(body)["ready"] is True
-        version_status, _, version = http("/api/version")
+        version_status, _, version = request("/api/version")
         assert version_status == 200 and json.loads(version)["version"] == expected_version
         assert (home / ".auralis/library.db").is_file(), "Fresh profile has no library database"
 
