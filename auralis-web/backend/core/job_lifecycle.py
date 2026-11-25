@@ -219,7 +219,7 @@ async def process_job(engine: "ProcessingEngine", job: ProcessingJob) -> None:
 async def cancel_job(engine: "ProcessingEngine", job_id: str) -> bool:
     """Cancel a job.
 
-    For QUEUED jobs: marks the status so process_job() skips it.
+    For QUEUED jobs: frees the queue slot or cancels the newly dispatched task.
     For PROCESSING jobs: cancels the asyncio Task, which injects
     CancelledError at the next await point (fixes #2217).
     """
@@ -234,6 +234,8 @@ async def cancel_job(engine: "ProcessingEngine", job_id: str) -> bool:
         was_queued = job.status == ProcessingStatus.QUEUED
         job.status = ProcessingStatus.CANCELLED
         job.completed_at = datetime.now()
+        if was_queued:
+            engine._worker.job_queue.discard(job)
 
     # Signal the loader to terminate any in-flight FFmpeg child (#4496).
     # task.cancel() alone injects CancelledError only at the next await, but

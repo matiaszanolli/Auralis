@@ -208,8 +208,8 @@ async def test_process_job_cancelled_error_sets_status():
     When task.cancel() fires during processing, process_job() must set
     job.status = CANCELLED and re-raise CancelledError.
 
-    We patch asyncio.to_thread to hang so we have a controlled window to
-    call task.cancel() and verify the correct exception + status outcome.
+    Pause input preparation until cancellation while letting the real
+    cancellation and upload cleanup paths run.
     """
     engine = _make_engine()
     job = _make_job()
@@ -217,13 +217,14 @@ async def test_process_job_cancelled_error_sets_status():
 
     load_started = asyncio.Event()
 
-    async def hanging_to_thread(func, *args, **kwargs):
+    async def hanging_prepare(preparing_job):
+        preparing_job.status = ProcessingStatus.PROCESSING
         load_started.set()
         await asyncio.sleep(100)  # hang until cancelled
 
-    with patch("core.processing_engine.asyncio.to_thread", side_effect=hanging_to_thread):
+    with patch.object(engine, "_prepare_job", side_effect=hanging_prepare):
         task = asyncio.create_task(engine.process_job(job))
-        await load_started.wait()  # ensure we're inside the first to_thread call
+        await asyncio.wait_for(load_started.wait(), timeout=3)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task

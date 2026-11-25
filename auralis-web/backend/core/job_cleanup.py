@@ -63,8 +63,8 @@ async def cleanup_expired_jobs(
 ) -> int:
     """Clean up old completed jobs and their files.
 
-    Protected by `jobs_lock` so that concurrent invocations (worker finally-
-    block vs. explicit DELETE /jobs/cleanup request) do not iterate and
+    Protected by `jobs_lock` so that concurrent invocations (periodic sweep
+    vs. explicit cleanup request) do not iterate and
     delete `jobs` simultaneously, which would raise RuntimeError in CPython
     when another coroutine modifies the dict mid-iteration (#2435).
 
@@ -99,6 +99,9 @@ async def cleanup_expired_jobs(
 
         for job_id in jobs_to_remove:
             del jobs[job_id]
+
+    if not jobs_to_remove:
+        return 0
 
     # Phase 2: filesystem checks and deletions outside the lock (#3327).
     # Offloaded via asyncio.to_thread (#4754) — an unbounded per-job

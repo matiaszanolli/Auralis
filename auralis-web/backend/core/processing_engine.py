@@ -146,10 +146,10 @@ class ProcessingEngine:
     async def submit_job(self, job: ProcessingJob) -> str:
         """Submit a job to the processing queue.
 
-        Raises:
-            asyncio.QueueFull: when the queue is at capacity (callers should
-                translate this to an HTTP 503 response).
+        Raises asyncio.QueueFull at capacity (HTTP 503 to API callers).
         """
+        if job.status == ProcessingStatus.CANCELLED:
+            return job.job_id
         try:
             self.job_queue.put_nowait(job)
         except asyncio.QueueFull:
@@ -247,7 +247,7 @@ class ProcessingEngine:
     async def cancel_job(self, job_id: str) -> bool:
         """Cancel a job. Thin delegate; see job_lifecycle.py.
 
-        For QUEUED jobs: marks the status so process_job() skips it.
+        For QUEUED jobs: frees the queue slot or cancels the newly dispatched task.
         For PROCESSING jobs: cancels the asyncio Task, which injects
         CancelledError at the next await point (fixes #2217).
         """
@@ -276,7 +276,7 @@ class ProcessingEngine:
         return {
             "total_jobs": len(jobs),
             "total": len(jobs),
-            "queued": by_status[ProcessingStatus.QUEUED],
+            "queued": self.job_queue.qsize(),
             "processing": self._active_job_count,  # replaces ._value private attr (#2459)
             "completed": by_status[ProcessingStatus.COMPLETED],
             "failed": by_status[ProcessingStatus.FAILED],

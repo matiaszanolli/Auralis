@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 
 from core.job_models import ProcessingJob, ProcessingStatus
 from core.job_store import INTERRUPTED_MESSAGE, persist
+from core.queued_jobs import QueuedJobs
 from core.task_cancellation import await_cancelled_task
 
 if TYPE_CHECKING:
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _ERROR_BACKOFF_S = 1.0  # after an unexpected worker error, so it cannot spin (#6642)
+_CLEANUP_INTERVAL_S = 60.0
 
 
 class JobWorker:
@@ -50,7 +52,7 @@ class JobWorker:
         max_queue_size: int,
     ) -> None:
         self._engine = engine
-        self.job_queue: asyncio.Queue[ProcessingJob] = asyncio.Queue(maxsize=max_queue_size)
+        self.job_queue = QueuedJobs(maxsize=max_queue_size)
 
         # Semaphore is the single source of truth for concurrency limiting.
         # Replaces the busy-wait loop (fixes #2332) and the unsynchronised
@@ -72,20 +74,10 @@ class JobWorker:
         self._worker_task: asyncio.Task[None] | None = None
 
     async def _run_job(self, job: ProcessingJob, *, slot_held: bool = False) -> None:
-        """Run a single job inside a concurrency slot, then clean up.
+        """Run a job, releasing its slot even if cancelled during execution.
 
-        ``slot_held`` is set by the dispatcher in :meth:`start`, which takes the
-        slot *before* it dequeues the job (#5949); this coroutine then owns that
-        slot and releases it in its ``finally``. Called without it, the job
-        waits for a slot itself.
-
-        Slot lifecycle is tracked via the local `acquired` flag so a
-        CancelledError raised inside `acquire()` (queue full, then task
-        cancelled while waiting) does NOT enter the finally with the
-        semaphore unbalanced. Prior code unconditionally released, which
-        would silently raise the effective concurrency cap above
-        max_concurrent_jobs on every cancel-during-acquire (#3531 /
-        BE-NEW-73).
+        The dispatcher acquires the slot before dequeueing. Direct callers
+        acquire their own slot and release it only if acquire succeeded.
         """
         self._unstarted.discard(job.job_id)
         acquired = slot_held
@@ -110,22 +102,15 @@ class JobWorker:
                 self.active_job_count = max(0, self.active_job_count - 1)
                 self._concurrency_semaphore.release()
 
-            # #4543: an `await` in a finally on an already-cancelled task
-            # re-raises CancelledError at the await point, so this TTL sweep
-            # never ran for any cancelled job. asyncio.shield keeps the inner
-            # coroutine running when that happens; the CancelledError raised
-            # *here* is swallowed so it does not mask the original cancellation,
-            # which resumes propagating once this finally completes.
-            #
-            # stop() additionally runs one final sweep after gathering, so the
-            # shutdown path is covered even if the shielded task is still in
-            # flight when the loop tears down.
+    async def _sweep_expired_jobs(self, stop: asyncio.Event) -> None:
+        while not stop.is_set():
             try:
-                await asyncio.shield(
-                    self._engine.cleanup_old_jobs(self._engine.completed_job_ttl_hours)
-                )
-            except asyncio.CancelledError:
-                pass
+                await asyncio.wait_for(stop.wait(), timeout=_CLEANUP_INTERVAL_S)
+            except TimeoutError:
+                try:
+                    await self._engine.cleanup_old_jobs(self._engine.completed_job_ttl_hours)
+                except Exception:
+                    logger.exception("Periodic processing job cleanup failed")
 
     @staticmethod
     def _interrupt(job: ProcessingJob) -> None:
@@ -190,8 +175,10 @@ class JobWorker:
                 job = self.job_queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
-            self._interrupt(job)
-            interrupted.append(job)
+            self.job_queue.task_done()
+            if job.status == ProcessingStatus.QUEUED:
+                self._interrupt(job)
+                interrupted.append(job)
 
         # Persist each interrupted job once, now that everything has unwound. A
         # running job's own finally also saves it, but a task cancelled before
@@ -205,9 +192,7 @@ class JobWorker:
         # can't read a stopped worker as running (#4577).
         self._worker_task = None
 
-        # #4543: one awaited sweep after everything has unwound, so the TTL
-        # cleanup is guaranteed to have run for jobs cancelled during shutdown
-        # rather than depending on a shielded task that may still be in flight.
+        # Sweep once more after jobs cancelled during shutdown have unwound.
         try:
             await self._engine.cleanup_old_jobs(self._engine.completed_job_ttl_hours)
         except Exception:
@@ -224,6 +209,17 @@ class JobWorker:
         """
         self._stopping = False
         self._worker_task = asyncio.current_task()
+        stop_sweep = asyncio.Event()
+        sweep = asyncio.create_task(self._sweep_expired_jobs(stop_sweep), name="processing-job-cleanup")
+        try:
+            await self._dispatch()
+        finally:
+            # Wake a sleeping sweep and let any in-flight sweep finish its disk
+            # and DB cleanup before stop() proceeds.
+            stop_sweep.set()
+            await sweep
+
+    async def _dispatch(self) -> None:
         from helpers import spawn_background_task
 
         while not self._stopping:
@@ -236,6 +232,10 @@ class JobWorker:
                 await self._concurrency_semaphore.acquire()
                 try:
                     job = await self.job_queue.get()
+                    self.job_queue.task_done()
+                    if job.status == ProcessingStatus.CANCELLED:
+                        self._concurrency_semaphore.release()
+                        continue
                     # Fire-and-forget: the task owns the slot from here and
                     # cleans up after itself. spawn_background_task attaches a
                     # done-callback so an unhandled exception inside _run_job is

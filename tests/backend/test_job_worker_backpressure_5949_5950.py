@@ -12,6 +12,7 @@ These tests drive the real ProcessingEngine/JobWorker with a slow process_job.
 
 import asyncio
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -118,6 +119,59 @@ class TestQueueBackpressure5949:
         accepted = await harness.submit(100)  # must not raise
 
         assert accepted.job_id in harness.engine.jobs
+
+    async def test_cancelling_a_queued_job_frees_capacity_without_a_worker_slot(self, harness):
+        jobs = [await harness.submit(n) for n in range(MAX_CONCURRENT + MAX_QUEUE)]
+        cancelled = jobs[MAX_CONCURRENT + 1]
+
+        assert await harness.engine.cancel_job(cancelled.job_id)
+        status = harness.engine.get_queue_status()
+        assert (status["queued"], status["queue_full"]) == (MAX_QUEUE - 1, False)
+        replacement = await harness.submit(99)
+        assert harness.engine.get_queue_status()["queue_full"] is True
+
+        harness.gate.set()
+        async with asyncio.timeout(3):
+            while replacement.status != ProcessingStatus.COMPLETED:
+                await asyncio.sleep(0.01)
+        assert cancelled.status == ProcessingStatus.CANCELLED
+        assert harness.started == [job.job_id for job in jobs if job is not cancelled] + [replacement.job_id]
+
+    async def test_a_cancelled_job_cannot_claim_capacity_on_submit(self, harness):
+        job = harness.make_job(1)
+        assert await harness.engine.cancel_job(job.job_id)
+        assert await harness.engine.submit_job(job) == job.job_id
+        assert harness.engine.get_queue_status()["queued"] == 0
+        assert harness.started == []
+
+
+@pytest.mark.asyncio
+async def test_idle_worker_reclaims_expired_files_and_stops_the_sweep(monkeypatch, tmp_path):
+    upload = tmp_path / "source.wav"
+    output = tmp_path / "output.wav"
+    upload.touch()
+    output.touch()
+    monkeypatch.setattr("core.processing_engine.upload_temp_dir", lambda: tmp_path)
+    monkeypatch.setattr("core.job_worker._CLEANUP_INTERVAL_S", 0.01)
+    harness = _Harness()
+    job = harness.make_job(1)
+    job.input_path = str(upload)
+    job.output_path = str(output)
+    job.status = ProcessingStatus.COMPLETED
+    job.completed_at = datetime.now() - timedelta(hours=harness.engine.completed_job_ttl_hours, seconds=1)
+
+    await harness.start()
+    try:
+        async with asyncio.timeout(3):
+            while not harness.engine.job_store.forget.await_count:
+                await asyncio.sleep(0.01)
+        assert harness.started == []
+        assert job.job_id not in harness.engine.jobs
+        assert not upload.exists() and not output.exists()
+        harness.engine.job_store.forget.assert_awaited_once_with([job.job_id])
+    finally:
+        await harness.engine.stop_worker()
+    assert not [task for task in asyncio.all_tasks() if task.get_name() == "processing-job-cleanup"]
 
 
 @pytest.mark.regression
