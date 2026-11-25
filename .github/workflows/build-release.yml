@@ -288,6 +288,7 @@ jobs:
 
       - name: Read pinned Rust toolchain
         id: rust-toolchain
+        shell: bash
         # #4531: dtolnay/rust-toolchain@stable ignores rust-toolchain.toml and
         # floats on whatever "stable" resolves to that day. Read the pin here
         # so the action installs the exact version the lockfile was built
