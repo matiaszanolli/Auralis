@@ -309,6 +309,7 @@ jobs:
           }
 
       - name: Install Python dependencies
+        shell: pwsh
         run: |
           # #6151: the tools that BUILD the artifacts (pip, setuptools, wheel,
           # maturin, PyInstaller and its transitives) come from a hash-locked
@@ -316,7 +317,8 @@ jobs:
           # and `pip install pyinstaller`ed unpinned, so a hijacked PyPI release
           # of any of them was baked into every installer and SHA256SUMS,
           # generated from that output, could not notice.
-          pip install --require-hashes -r requirements-build.txt
+          python -m pip install --require-hashes -r requirements-build.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # #4871: install the hash-locked file, not requirements.txt. The
           # manifest pins direct dependencies only, so `pip install -r
           # requirements.txt` still resolved every TRANSITIVE afresh at build
@@ -324,7 +326,7 @@ jobs:
           # unverified by any CI run. --require-hashes makes the shipped RUNTIME
           # set the one backend-tests.yml installed; the build layer is
           # requirements-build.txt above (#6151).
-          pip install --require-hashes -r requirements-lock.txt
+          python -m pip install --require-hashes -r requirements-lock.txt
 
       - name: Build Rust DSP module
         shell: pwsh
