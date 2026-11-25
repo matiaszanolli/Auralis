@@ -20,7 +20,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, Field
 
-from auralis.analysis.fingerprint.schema import centroid_to_hz, rolloff_to_hz
+from auralis.analysis.fingerprint.schema import DIMENSION_NAMES
 from auralis.utils.logging import sanitize_log_value
 
 from player_state import track_album_title, track_artist_names
@@ -28,6 +28,7 @@ from schemas import FingerprintVectorResponse
 
 from .dependencies import with_error_handling
 from .errors import NotFoundError
+from .fingerprint_projection import project_fingerprint
 from .repo_deps import RepositoryFactoryDeps
 
 logger = logging.getLogger(__name__)
@@ -146,42 +147,7 @@ async def get_track_fingerprint(
         "artists": (artist_names := track_artist_names(track)),
         "artist": ", ".join(artist_names),
         "album": track_album_title(track),
-        # Attribute names corrected to match TrackFingerprint model (fixes #2260).
-        "fingerprint": {
-            # 7D Frequency distribution
-            "sub_bass": fp.sub_bass_pct,
-            "bass": fp.bass_pct,
-            "low_mid": fp.low_mid_pct,
-            "mid": fp.mid_pct,
-            "upper_mid": fp.upper_mid_pct,
-            "presence": fp.presence_pct,
-            "air": fp.air_pct,
-            # 3D Loudness/dynamics
-            "lufs": fp.lufs,
-            "crest_db": fp.crest_db,
-            "bass_mid_ratio": fp.bass_mid_ratio,
-            # 4D Temporal
-            "tempo_bpm": fp.tempo_bpm,
-            "rhythm_stability": fp.rhythm_stability,
-            "transient_density": fp.transient_density,
-            "silence_ratio": fp.silence_ratio,
-            # 3D Spectral shape -- stored normalized 0-1, converted to Hz
-            # to match this response's documented contract (#5470).
-            "spectral_centroid": centroid_to_hz(fp.spectral_centroid),
-            "spectral_rolloff": rolloff_to_hz(fp.spectral_rolloff),
-            "spectral_flatness": fp.spectral_flatness,
-            # Harmonic content
-            "harmonic_ratio": fp.harmonic_ratio,
-            "pitch_confidence": fp.pitch_stability,       # model: pitch_stability
-            "chroma_energy_mean": fp.chroma_energy,       # model: chroma_energy
-            # 3D Dynamics variation
-            "dynamic_range_variation": fp.dynamic_range_variation,
-            "loudness_variation_std": fp.loudness_variation_std,
-            "peak_consistency": fp.peak_consistency,
-            # 2D Stereo characteristics
-            "stereo_width": fp.stereo_width,
-            "stereo_correlation": fp.phase_correlation,   # model: phase_correlation
-        },
+        "fingerprint": project_fingerprint({name: getattr(fp, name) for name in DIMENSION_NAMES}),
     }
 
 

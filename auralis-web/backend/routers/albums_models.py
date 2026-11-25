@@ -40,7 +40,7 @@ class AlbumFingerprintResponse(BaseModel):
     """Median 25D fingerprint aggregated across an album's fingerprinted tracks.
 
     `fingerprint` keys are the API-side dimension names, which differ from the
-    DB column names for five dimensions (#2477) — see `_DB_TO_API` in albums_fingerprint.py.
+    DB column names for five dimensions (#2477) — see fingerprint_projection.py.
     """
     album_id: int = Field(description="Album database ID")
     album_title: str | None = Field(default=None, description="Album title")

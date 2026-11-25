@@ -23,6 +23,8 @@ exactly the drift this is meant to catch.
 import re
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from pydantic import BaseModel
@@ -221,38 +223,28 @@ class TestDomainModelFieldCoverage:
 
 
 class TestFingerprintVectorCoverage:
-    """Both fingerprint emitters agree with the one shared model (#2477)."""
+    """Track and album responses share the same fingerprint vocabulary and units."""
 
-    def _album_router_api_keys(self) -> set[str]:
-        """The api-side names from albums_fingerprint.py's `_DB_TO_API` rename table."""
-        source = (_BACKEND / "routers" / "albums_fingerprint.py").read_text()
-        block = source[source.index("_DB_TO_API"):source.index("def median_fingerprint")]
-        keys = set(re.findall(r"\(\s*'[a-z_0-9]+'\s*,\s*'([a-z_0-9]+)'\s*\)", block))
-        assert len(keys) == 25, f"expected 25 fingerprint dimensions, parsed {len(keys)}"
-        return keys
+    @pytest.mark.asyncio
+    async def test_track_and_album_emit_the_same_25_api_values(self):
+        from auralis.analysis.fingerprint.schema import (
+            DIMENSION_NAMES, CENTROID_NORMALIZATION_HZ, ROLLOFF_NORMALIZATION_HZ,
+        )
+        from routers.albums_fingerprint import median_fingerprint
+        from routers.fingerprint_status import get_track_fingerprint
 
-    def _track_router_api_keys(self) -> set[str]:
-        """The literal keys the per-track fingerprint endpoint emits."""
-        source = (_BACKEND / "routers" / "fingerprint_status.py").read_text()
-        block = source[source.index('"fingerprint": {'):]
-        block = block[: block.index("},")]
-        # A value may be wrapped in a unit conversion, e.g.
-        # `centroid_to_hz(fp.spectral_centroid)` since #5470.
-        keys = set(re.findall(r'"([a-z_0-9]+)":\s*(?:[a-z_]+\()?fp\.', block))
-        assert len(keys) == 25, f"expected 25 fingerprint dimensions, parsed {len(keys)}"
-        return keys
+        stored = SimpleNamespace(**dict.fromkeys(DIMENSION_NAMES, 0.25))
+        repos = Mock()
+        repos.tracks.get_by_id.return_value = Track(title="Song", filepath="/music/song.wav")
+        repos.fingerprints.get_by_track_id.return_value = stored
 
-    def test_album_median_fingerprint_keys_are_all_declared(self):
-        dropped = self._album_router_api_keys() - _fields(FingerprintVectorResponse)
-        assert not dropped, f"album fingerprint keys not declared: {sorted(dropped)}"
+        track = (await get_track_fingerprint(1, repos=repos))["fingerprint"]
+        album = median_fingerprint([stored])
 
-    def test_track_fingerprint_keys_are_all_declared(self):
-        dropped = self._track_router_api_keys() - _fields(FingerprintVectorResponse)
-        assert not dropped, f"track fingerprint keys not declared: {sorted(dropped)}"
-
-    def test_both_emitters_agree(self):
-        """The two endpoints must not drift apart again — that WAS #2477."""
-        assert self._album_router_api_keys() == self._track_router_api_keys()
+        assert track == album
+        assert set(track) == _fields(FingerprintVectorResponse)
+        assert track["spectral_centroid"] == pytest.approx(0.25 * CENTROID_NORMALIZATION_HZ)
+        assert track["spectral_rolloff"] == pytest.approx(0.25 * ROLLOFF_NORMALIZATION_HZ)
 
 
 class TestLibraryStatsCoverage:

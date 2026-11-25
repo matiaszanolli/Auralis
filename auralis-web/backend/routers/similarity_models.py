@@ -53,8 +53,8 @@ class ComparisonResult(BaseModel):
 class DimensionContribution(BaseModel):
     """A single fingerprint dimension's contribution to the distance.
 
-    value1/value2/difference are the raw (denormalized) per-track values and
-    are optional so a partial engine payload never fails validation (#4415).
+    Dimension names and units match FingerprintVectorResponse, including Hz
+    for centroid and rolloff. value1/value2/difference are optional so a partial engine payload never fails validation (#4415).
     """
     dimension: str
     contribution: float

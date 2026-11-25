@@ -172,6 +172,19 @@ class TestExplainSimilarity:
         """A fitted system's explanation is returned with the documented fields (#5999)"""
         from routers.similarity_deps import _get_repository_factory_getter, _get_similarity_system_getter
 
+        from auralis.analysis.fingerprint.schema import (
+            DIMENSION_NAMES, CENTROID_NORMALIZATION_HZ, ROLLOFF_NORMALIZATION_HZ,
+        )
+        from schemas import FingerprintVectorResponse
+
+        contributions = [
+            {"dimension": name, "contribution": 0.3, "value1": 0.4, "value2": 0.1, "difference": 0.3}
+            for name in DIMENSION_NAMES
+        ]
+        top = [
+            {"dimension": "spectral_centroid", "contribution": 0.3, "value1": 0.4},
+            {"dimension": "pitch_stability", "contribution": 0.3},
+        ]
         repos = Mock()
         repos.tracks.get_by_id.return_value = Mock()
         repos.fingerprints.exists.return_value = True
@@ -179,8 +192,8 @@ class TestExplainSimilarity:
         system.is_fitted.return_value = True
         system.get_similarity_explanation.return_value = {
             "track_id1": 1, "track_id2": 2, "distance": 0.4, "similarity_score": 0.8,
-            "top_differences": [{"dimension": "lufs", "contribution": 0.3}],
-            "all_contributions": [{"dimension": "lufs", "contribution": 0.3}],
+            "top_differences": top,
+            "all_contributions": contributions,
         }
         client.app.dependency_overrides[_get_repository_factory_getter] = lambda: (lambda: repos)
         client.app.dependency_overrides[_get_similarity_system_getter] = lambda: (lambda: system)
@@ -193,7 +206,21 @@ class TestExplainSimilarity:
         data = response.json()
         assert (data["track_id1"], data["track_id2"]) == (1, 2)
         assert data["similarity_score"] == 0.8
-        assert data["top_differences"][0]["dimension"] == "lufs"
+        assert [entry["dimension"] for entry in data["top_differences"]] == [
+            "spectral_centroid", "pitch_confidence",
+        ]
+        assert data["top_differences"][0]["value1"] == pytest.approx(0.4 * CENTROID_NORMALIZATION_HZ)
+        assert data["top_differences"][0]["value2"] is None
+        entries = {entry["dimension"]: entry for entry in data["all_contributions"]}
+        assert set(entries) == set(FingerprintVectorResponse.model_fields)
+        for dimension, scale in (
+            ("spectral_centroid", CENTROID_NORMALIZATION_HZ),
+            ("spectral_rolloff", ROLLOFF_NORMALIZATION_HZ),
+        ):
+            assert entries[dimension]["value1"] == pytest.approx(0.4 * scale)
+            assert entries[dimension]["value2"] == pytest.approx(0.1 * scale)
+            assert entries[dimension]["difference"] == pytest.approx(0.3 * scale)
+            assert entries[dimension]["contribution"] == 0.3
         system.get_similarity_explanation.assert_called_once_with(1, 2, top_n=5)
 
 

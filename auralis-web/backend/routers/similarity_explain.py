@@ -13,9 +13,22 @@ import asyncio
 
 from . import dependencies
 from .errors import BadRequestError, NotFoundError, ServiceUnavailableError
+from .fingerprint_projection import api_dimension_name, api_dimension_value
 from .similarity_common import _with_similarity_error_handling, require_fingerprinted_tracks, require_fitted, require_similarity_system
 from .similarity_deps import _get_repository_factory_getter, _get_similarity_system_getter, _repository_factory_getter, _similarity_system_getter
-from .similarity_models import EXPLAINABLE_DIMENSIONS, SimilarityExplanation
+from .similarity_models import EXPLAINABLE_DIMENSIONS, DimensionContribution, SimilarityExplanation
+
+
+def _project_contribution(entry: DimensionContribution) -> DimensionContribution:
+    name = entry.dimension
+    return entry.model_copy(update={
+        "dimension": api_dimension_name(name),
+        **{
+            field: api_dimension_value(name, value)
+            for field in ("value1", "value2", "difference")
+            if (value := getattr(entry, field)) is not None
+        },
+    })
 
 
 @_with_similarity_error_handling("Error explaining similarity")
@@ -74,7 +87,10 @@ async def explain_similarity(
             ),
         )
 
-    return SimilarityExplanation(**explanation)
+    response = SimilarityExplanation(**explanation)
+    response.top_differences = [_project_contribution(entry) for entry in response.top_differences]
+    response.all_contributions = [_project_contribution(entry) for entry in response.all_contributions]
+    return response
 
 
 @_with_similarity_error_handling("Error fitting similarity system")

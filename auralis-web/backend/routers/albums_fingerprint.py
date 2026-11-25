@@ -6,7 +6,7 @@ fingerprint, and the batch the album grid uses (#5873).
 :license: AGPL-3.0-or-later (dual-licensed, see LICENSE / COMMERCIAL_LICENSE.md)
 """
 
-from auralis.analysis.fingerprint.schema import centroid_to_hz, rolloff_to_hz
+from auralis.analysis.fingerprint.schema import DIMENSION_NAMES
 from fastapi import Depends, Path, Query
 from typing import Annotated, Any
 import asyncio
@@ -16,61 +16,16 @@ import numpy as np
 from .albums_deps import _repo_deps
 from .dependencies import with_error_handling
 from .errors import NotFoundError
+from .fingerprint_projection import project_fingerprint
 from .pagination import PaginationParams
-
-
-# DB column names -> API field names, matching the AudioFingerprint interface
-# the frontend consumes (fixes #2477: _pct suffix mismatch).
-_DB_TO_API: list[tuple[str, str]] = [
-    # frequency bands: DB uses _pct suffix, API/track endpoint uses bare names
-    ('sub_bass_pct', 'sub_bass'),
-    ('bass_pct', 'bass'),
-    ('low_mid_pct', 'low_mid'),
-    ('mid_pct', 'mid'),
-    ('upper_mid_pct', 'upper_mid'),
-    ('presence_pct', 'presence'),
-    ('air_pct', 'air'),
-    # dynamics / loudness (no rename needed)
-    ('lufs', 'lufs'),
-    ('crest_db', 'crest_db'),
-    ('bass_mid_ratio', 'bass_mid_ratio'),
-    # temporal / rhythm (no rename needed)
-    ('tempo_bpm', 'tempo_bpm'),
-    ('rhythm_stability', 'rhythm_stability'),
-    ('transient_density', 'transient_density'),
-    ('silence_ratio', 'silence_ratio'),
-    # spectral (no rename needed)
-    ('spectral_centroid', 'spectral_centroid'),
-    ('spectral_rolloff', 'spectral_rolloff'),
-    ('spectral_flatness', 'spectral_flatness'),
-    # harmonic / pitch — align with track endpoint field names
-    ('harmonic_ratio', 'harmonic_ratio'),
-    ('pitch_stability', 'pitch_confidence'),   # track uses pitch_confidence
-    ('chroma_energy', 'chroma_energy_mean'),   # track uses chroma_energy_mean
-    # dynamics (no rename needed)
-    ('dynamic_range_variation', 'dynamic_range_variation'),
-    ('loudness_variation_std', 'loudness_variation_std'),
-    ('peak_consistency', 'peak_consistency'),
-    # stereo — align with track endpoint field names
-    ('stereo_width', 'stereo_width'),
-    ('phase_correlation', 'stereo_correlation'),  # track uses stereo_correlation
-]
 
 
 def median_fingerprint(fingerprints: list[Any]) -> dict[str, float]:
     """Median of each of the 25 dimensions across *fingerprints* (non-empty)."""
-    median = {
-        api_key: float(np.median([getattr(fp, db_col, 0.0) for fp in fingerprints]))
-        for db_col, api_key in _DB_TO_API
-    }
-    # spectral_centroid/spectral_rolloff are stored normalized [0, 1]; convert
-    # to Hz to match FingerprintVectorResponse's documented contract (#5470).
-    # Converting after the median (rather than converting each fp's raw value
-    # first) is equivalent -- both helpers are a fixed positive linear scale,
-    # which commutes with median.
-    median['spectral_centroid'] = centroid_to_hz(median['spectral_centroid'])
-    median['spectral_rolloff'] = rolloff_to_hz(median['spectral_rolloff'])
-    return median
+    return project_fingerprint({
+        name: float(np.median([getattr(fp, name, 0.0) for fp in fingerprints]))
+        for name in DIMENSION_NAMES
+    })
 
 
 @with_error_handling("get album fingerprint")
