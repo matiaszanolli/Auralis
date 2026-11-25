@@ -10,6 +10,7 @@
 import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { settingsService } from '@/services/settingsService';
 import SettingsDialog from '../SettingsDialog';
 import SettingsDialogContent from '../SettingsDialogContent';
 
@@ -121,6 +122,40 @@ describe('SettingsDialog', () => {
       const reopened = await screen.findByRole('switch', { name: /auto-scan library/i });
       expect(reopened).toBeChecked();
     });
+  });
+
+  it('removes an existing folder only once the remove dialog is confirmed', async () => {
+    const user = userEvent.setup();
+    const settings = await settingsService.getSettings();
+    vi.mocked(settingsService.removeScanFolder).mockResolvedValueOnce({
+      message: 'removed', settings: { ...settings, scan_folders: [] },
+    });
+    render(<SettingsDialog open onClose={vi.fn()} />);
+
+    await user.click(await screen.findByRole('button', { name: 'Remove this folder' }));
+    expect(await screen.findByText('Remove folder?')).toBeInTheDocument();
+    expect(settingsService.removeScanFolder).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+
+    expect(settingsService.removeScanFolder).toHaveBeenCalledExactlyOnceWith('/music/library');
+    expect(screen.queryByText('/music/library')).not.toBeInTheDocument();
+  });
+
+  it('saves a pending default-volume edit from the Playback panel', async () => {
+    const user = userEvent.setup();
+    const settings = await settingsService.getSettings();
+    vi.mocked(settingsService.updateSettings).mockResolvedValueOnce({ ...settings, volume: 0.81 });
+    render(<SettingsDialog open onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Playback' }));
+    const volume = await screen.findByRole('slider', { name: 'Default volume' });
+    volume.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(volume).toHaveAttribute('aria-valuenow', '0.81');
+    expect(settingsService.updateSettings).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(settingsService.updateSettings).toHaveBeenCalledWith({ volume: 0.81 });
   });
 
   describe('Tab Navigation', () => {

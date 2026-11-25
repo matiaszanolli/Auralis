@@ -15,6 +15,9 @@ import { settingsService } from '@/services/settingsService';
 import type { UserSettings } from '@/services/settingsService';
 import { APIRequestError } from '@/utils/apiRequestTypes';
 
+const { selectFolder } = vi.hoisted(() => ({ selectFolder: vi.fn() }));
+vi.mock('@/utils/electron', () => ({ getElectronAPI: () => ({ selectFolder }) }));
+
 vi.mock('@/services/settingsService', () => ({
   settingsService: {
     getSettings: vi.fn(),
@@ -219,5 +222,89 @@ describe('useSettingsDialog Scan Now errors (#5914)', () => {
       await result.current.handleScanNow(['/music']);
     });
     expect(result.current.error).toBeNull();
+  });
+});
+
+describe('scan folders', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
+  });
+
+  async function openSettings() {
+    const onSettingsChange = vi.fn();
+    const hook = renderHook(() => useSettingsDialog({ open: true, onSettingsChange }));
+    await act(async () => {});
+    return { ...hook, onSettingsChange };
+  }
+
+  it('adds the selected folder and publishes the updated settings', async () => {
+    const settings = { ...mockSettings, scan_folders: ['/music', '/albums'] };
+    selectFolder.mockResolvedValue(['/albums']);
+    vi.mocked(settingsService.addScanFolder).mockResolvedValue({ message: 'added', settings });
+    const { result, onSettingsChange } = await openSettings();
+
+    await act(() => result.current.handleAddScanFolder());
+
+    expect(settingsService.addScanFolder).toHaveBeenCalledWith('/albums');
+    expect(result.current.getValue('scan_folders')).toEqual(settings.scan_folders);
+    expect(onSettingsChange).toHaveBeenCalledWith(settings);
+  });
+
+  it.each(['cancel', 'throw'])('leaves folders alone when the picker returns %s', async (outcome) => {
+    const pickerError = new Error('picker failed');
+    selectFolder.mockImplementation(async () => {
+      if (outcome === 'throw') throw pickerError;
+      return [];
+    });
+    const { result, onSettingsChange } = await openSettings();
+
+    await act(() => result.current.handleAddScanFolder());
+
+    expect(selectFolder).toHaveBeenCalledTimes(1);
+    expect(settingsService.addScanFolder).not.toHaveBeenCalled();
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    expect(result.current.error).toBeNull();
+  });
+
+  it('shows a failed add without publishing a folder change', async () => {
+    selectFolder.mockResolvedValue(['/albums']);
+    vi.mocked(settingsService.addScanFolder).mockRejectedValue(new Error('permission denied'));
+    const { result, onSettingsChange } = await openSettings();
+
+    await act(() => result.current.handleAddScanFolder());
+
+    expect(result.current.error).toMatch(/permission denied/);
+    expect(result.current.getValue('scan_folders')).toEqual(['/music']);
+    expect(onSettingsChange).not.toHaveBeenCalled();
+  });
+
+  it('discards a cancelled removal', async () => {
+    const { result } = await openSettings();
+    act(() => result.current.handleRemoveScanFolder('/music'));
+    expect(result.current.removeConfirmFolder).toBe('/music');
+    act(() => result.current.handleCancelRemove());
+    await act(() => result.current.handleConfirmRemove());
+
+    expect(result.current.removeConfirmFolder).toBeNull();
+    expect(settingsService.removeScanFolder).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])('closes confirmation and reports the removal outcome (success: %s)', async (ok) => {
+    const settings = { ...mockSettings, scan_folders: [] };
+    const remove = vi.mocked(settingsService.removeScanFolder);
+    if (ok) remove.mockResolvedValue({ message: 'removed', settings });
+    else remove.mockRejectedValue(new Error('removal failed'));
+    const { result, onSettingsChange } = await openSettings();
+
+    act(() => result.current.handleRemoveScanFolder('/music'));
+    expect(remove).not.toHaveBeenCalled();
+    await act(() => result.current.handleConfirmRemove());
+
+    expect(remove).toHaveBeenCalledWith('/music');
+    expect(result.current.removeConfirmFolder).toBeNull();
+    expect(result.current.getValue('scan_folders')).toEqual(ok ? [] : ['/music']);
+    expect(result.current.error).toBe(ok ? null : 'Failed to remove scan folder: removal failed');
+    expect(onSettingsChange.mock.calls).toEqual(ok ? [[settings]] : []);
   });
 });
