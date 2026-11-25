@@ -46,6 +46,8 @@ def launch(tmp_path):
             "XDG_CONFIG_HOME": str(home / "config"),
             "XDG_DATA_HOME": str(home / "data"),
             "MPLCONFIGDIR": str(home / "matplotlib"),
+            # Reproduce the legacy stdout encoding used by piped Windows startup.
+            "PYTHONIOENCODING": "cp1252",
         }
         with log.open("w") as stream:
             launcher = subprocess.Popen(

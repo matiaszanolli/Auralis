@@ -115,7 +115,7 @@ mount_frontend(app, _BACKEND_DIR)
 if __name__ == "__main__":
     # AURALIS_PORT (#4805): launch-auralis-web.py threads --port through this env var.
     _port = BACKEND_PORT
-    print(f"🚀 Starting Auralis Web Backend on port {_port}...", flush=True)
+    logger.info("Starting Auralis Web Backend on port %d", _port)
 
     uvicorn.run(
         app,  # Pass app directly instead of "main:app" to avoid module duplication
