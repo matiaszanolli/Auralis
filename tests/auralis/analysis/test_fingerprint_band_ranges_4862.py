@@ -49,7 +49,9 @@ def _rust_band_edges() -> list[float]:
         "If it was renamed or restructured, update this test — do not delete it: "
         "it is the only thing keeping BAND_RANGES_HZ honest (#4862)."
     )
-    return [float(part.strip()) for part in match.group(1).split(",") if part.strip()]
+    # Rust can attach a float type suffix to a literal, such as 20.0f32.
+    literals = (part.strip() for part in match.group(1).split(","))
+    return [float(re.sub(r"_?f(?:32|64)$", "", literal)) for literal in literals if literal]
 
 
 def test_rust_declares_one_more_edge_than_bands() -> None:
